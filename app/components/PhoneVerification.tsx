@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { auth } from "@/lib/firebase";
+
 import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
   ConfirmationResult,
 } from "firebase/auth";
+import { getAuthSafe } from "@/lib/firebase";
 
 declare global {
   interface Window {
@@ -25,24 +26,36 @@ export default function PhoneVerification({
   const [confirmResult, setConfirmResult] = useState<ConfirmationResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
+  const [authInstance, setAuthInstance] = useState<any>(null);
+  // ✅ Setup RecaptchaVerifier only after auth is loaded
   useEffect(() => {
-    if (typeof window !== "undefined" && !window.recaptchaVerifier) {
-      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "invisible",
-        callback: () => { },
-        "expired-callback": () => {
-          console.warn("reCAPTCHA expired");
-        },
-      });
+    (async () => {
+      const authData = await getAuthSafe();
+      if (!authData) return;
 
-      verifier.render().then(() => {
-        window.recaptchaVerifier = verifier;
-      });
-    }
+      const { auth } = authData;
+      setAuthInstance(auth);
+
+      if (typeof window !== "undefined" && !window.recaptchaVerifier) {
+        const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+          size: "invisible",
+          callback: () => { },
+          "expired-callback": () => {
+            console.warn("reCAPTCHA expired");
+          },
+        });
+
+        verifier.render().then(() => {
+          window.recaptchaVerifier = verifier;
+        });
+      }
+    })();
   }, []);
-
   const sendOtp = async () => {
+    if (!authInstance) {
+      setError("Auth not ready. Try again.");
+      return;
+    }
     setError("");
     const fullPhone = `${countryCode}${phone.trim()}`;
 
@@ -59,7 +72,7 @@ export default function PhoneVerification({
     setLoading(true);
     try {
       const result = await signInWithPhoneNumber(
-        auth,
+        authInstance,
         fullPhone,
         window.recaptchaVerifier
       );
