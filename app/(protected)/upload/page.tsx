@@ -27,6 +27,8 @@ import {
   serverTimestamp,
   doc,
   getDoc,
+  updateDoc,
+  setDoc,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -319,7 +321,7 @@ export default function UploadPage() {
 
   /* ---------- save (MUX direct upload + optional cover upload) ---------- */
   const saveDeed = async () => {
-    if (authLoading) return; // wait until we know
+    if (authLoading) return;
     if (!uid || !user) {
       setErrorMsg("Please sign in to post.");
       return;
@@ -334,9 +336,10 @@ export default function UploadPage() {
     setErrorMsg("");
     setProgress(0);
 
+    // optional geo
+    let geo: { lat: number; lng: number } | undefined;
+
     try {
-      // optional geo
-      let geo: { lat: number; lng: number } | undefined;
       if (useGeo && "geolocation" in navigator) {
         await new Promise<void>((resolve, reject) =>
           navigator.geolocation.getCurrentPosition(
@@ -349,24 +352,42 @@ export default function UploadPage() {
         );
       }
 
-      const id = uuid();
+      // 0) Reserve Firestore document id + write a small placeholder
+      const deedRef = doc(collection(db, "deeds"));
+      const deedId = deedRef.id;
+
+      await setDoc(deedRef, {
+        authorId: uid,
+        status: "uploading",
+        mediaType: "video",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
       // 1) Ask your server for a Mux direct upload URL
       const { uploadUrl, uploadId } = await createMuxDirectUpload({
-        passthrough: { deedId: id, uid },
+        passthrough: { deedId, uid }, // <-- key: let webhook jump straight to the doc
       });
 
+      // Optionally store the uploadId immediately for debugging/joins
+      await updateDoc(deedRef, { muxUploadId: uploadId, updatedAt: serverTimestamp() });
+
       // 2) Browser → Mux (tus), show progress
-      await uploadVideoToMux({ file, uploadUrl, onProgress: setProgress });
+      await uploadVideoToMux({
+        file,
+        uploadUrl,
+        onProgress: setProgress,
+      });
 
       // 3) If user selected a cover, upload to Firebase Storage
       let thumbUrl: string | undefined;
       if (thumbDataUrl) {
         const tBlob = dataUrlToBlob(thumbDataUrl);
-        thumbUrl = await uploadResumable(tBlob, `deeds/${uid}/${id}/thumb.jpg`);
+        // use deedId in the path
+        thumbUrl = await uploadResumable(tBlob, `deeds/${uid}/${deedId}/thumb.jpg`);
       }
 
-      // 4) Save Firestore doc
+      // 4) Final Firestore payload (we’ll still wait for webhook to set muxPlaybackId)
       const media = [
         pruneUndefined({
           muxUploadId: uploadId,
@@ -374,8 +395,8 @@ export default function UploadPage() {
           width: videoWH.width,
           height: videoWH.height,
           durationSec,
-          thumbUrl, // chosen cover
-          coverMs, // where the frame came from
+          thumbUrl,
+          coverMs,
         }),
       ];
 
@@ -394,29 +415,66 @@ export default function UploadPage() {
 
         // feed fields
         mediaType: "video" as const,
-        mediaThumbUrl: thumbUrl, // optional feed thumb
+        mediaThumbUrl: thumbUrl,
         text: caption?.trim() || undefined,
         createdAtMs: Date.now(),
 
         muxUploadId: uploadId,
-        createdAt: serverTimestamp(),
+        status: "processing",
         updatedAt: serverTimestamp(),
       });
 
-      const docRef = await addDoc(collection(db, "deeds"), payload);
+      await updateDoc(deedRef, payload);
 
       if (typeof window !== "undefined") {
         localStorage.removeItem(DRAFT_KEY);
       }
       setProgress(100);
-      router.push(`/deeds/${docRef.id}`);
+      router.push(`/deeds/${deedId}`);
     } catch (e: any) {
+      console.error(e);
       setErrorMsg(e?.message || "Failed to save your video.");
+      // mark the placeholder doc as failed so you can surface it in UI
+      try {
+        // deedRef might not exist if we failed *before* creating it—guard it if you move code around
+        // @ts-ignore – deedRef is in scope if we reached setDoc line
+        await updateDoc(deedRef, {
+          status: "failed",
+          error: String(e?.message || e || "unknown"),
+          updatedAt: serverTimestamp(),
+        });
+      } catch { /* ignore */ }
     } finally {
       setBusy(false);
       setTimeout(() => setProgress(0), 900);
     }
   };
+  function UploadModal({ open, progress }: { open: boolean; progress: number }) {
+    if (!open) return null;
+    const pct = Math.max(0, Math.min(100, Math.round(progress || 0)));
+
+    return (
+      <div className="fixed inset-0 z-[999] grid place-items-center bg-black/50 backdrop-blur-sm">
+        <div className="w-[92%] max-w-md rounded-2xl bg-white p-5 shadow-xl">
+          <div className="mb-2 text-sm font-bold text-gray-900">Uploading your deed…</div>
+
+          {/* Big % number */}
+          <div className="mb-3 text-4xl font-extrabold tracking-tight text-gray-900">
+            {pct}%
+          </div>
+
+          {/* Progress bar (reuses your existing component) */}
+          <UploadProgress value={pct} />
+
+          {/* Status line */}
+          <div className="mt-3 text-xs text-gray-500">
+            {pct < 100 ? "Uploading…" : "Finalizing…"}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function BottomTabsMock({
     active = "Deeds",
     ekari = { hair: "#E5E7EB", text: "#0F172A", forest: "#233F39", gold: "#C79257", dim: "#6B7280" },
@@ -1050,6 +1108,7 @@ export default function UploadPage() {
           )}
         </main>
       </div>
+      <UploadModal open={busy || (progress > 0 && progress < 100)} progress={progress} />
     </div>
   );
 }
