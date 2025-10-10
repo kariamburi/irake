@@ -566,13 +566,12 @@ function PostRow({
 /* Uniform, fixed-size thumbnail for consistency across the list */
 function UniformThumb({ src, dateStr }: { src: string; dateStr: string }) {
     return (
-        <div className="relative w-20 h-32 overflow-hidden rounded-lg bg-slate-900 ring-1 ring-black/5 shadow-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            <span className="absolute left-0 top-0 rounded-br bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-                <IoTimeOutline className="-mt-0.5 inline" /> {dateStr.split(",")[0] ?? ""}
-            </span>
-        </div>
+        <div className="relative flex-none basis-[100px] w-[100px] h-32 overflow-hidden rounded-lg bg-slate-900 ring-1 ring-black/5 shadow-sm">
+  <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
+  <span className="absolute left-0 top-0 rounded-br bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+    <IoTimeOutline className="-mt-0.5 inline" /> {dateStr.split(",")[0] ?? ""}
+  </span>
+</div>
     );
 }
 

@@ -423,6 +423,7 @@ export default function UploadPage() {
         await updateDoc(deedRef, { muxUploadId: uploadId, updatedAt: serverTimestamp() });
 
         // Upload file to Mux
+        alert(uploadUrl);
         await uploadVideoToMux({ file, uploadUrl, onProgress: setProgress });
 
         // Upload cover if generated
