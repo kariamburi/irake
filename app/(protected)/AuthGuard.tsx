@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import TikBallsLoader from "@/components/ui/TikBallsLoader";
 
 type AuthGuardProps = {
     children: React.ReactNode;
@@ -86,8 +87,9 @@ export default function AuthGuard({
     if (waiting) {
         return (
             fallback ?? (
-                <div className="grid min-h-[50vh] place-items-center text-sm text-gray-500">
-                    Checking your session…
+                <div className="grid min-h-screen place-items-center text-sm text-gray-500">
+
+                    <TikBallsLoader />
                 </div>
             )
         );

@@ -79,11 +79,11 @@ export default function OnboardingPage() {
 
                         {/* Explore feed */}
                         <button
-                            onClick={() => router.replace("/deeds")}
+                            onClick={() => router.replace("/")}
                             className="block mx-auto mt-2 underline text-sm"
                             style={{ color: COLORS.subtext }}
                         >
-                            Explore feed first
+                            Explore deeds first
                         </button>
                     </motion.div>
                 </div>

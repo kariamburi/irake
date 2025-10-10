@@ -96,7 +96,7 @@ export default function PhoneLoginPage() {
             try {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (!alive) return;
-                router.replace(snap.exists() ? "/deeds" : "/onboarding");
+                router.replace(snap.exists() ? "/" : "/onboarding");
             } catch {
                 if (alive) router.replace("/onboarding");
             }

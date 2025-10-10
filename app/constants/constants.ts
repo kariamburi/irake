@@ -1,3 +1,15 @@
+export const EKARI = {
+    forest: "#233F39",
+    leaf: "#1F3A34",
+    gold: "#C79257",
+    sand: "#FFFFFF",
+    card: "#FFFFFF",
+    text: "#0F172A",
+    dim: "#6B7280",
+    hair: "#E5E7EB",
+    subtext: "#5C6B66",
+    danger: "#B42318",
+};
 export const INTERESTS = [
     // Crops / products
     "Maize", "Tomato", "Potato", "Coffee", "Vegetables", "Fruits",

@@ -7,6 +7,10 @@ const withPWA = require('next-pwa')({
 module.exports = withPWA({
   reactStrictMode: true,
   images: {
-    domains: ['firebasestorage.googleapis.com'],
+    domains: [
+      'lh3.googleusercontent.com',       // Google OAuth avatars
+      'firebasestorage.googleapis.com',  // Firebase Storage public URLs
+      'image.mux.com'                    // Mux thumbnails (if you use them)
+    ],
   },
 });

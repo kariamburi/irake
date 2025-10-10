@@ -1,69 +1,55 @@
 // app/api/mux/webhook/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import Mux from "@mux/mux-node";
-import { db } from "@/lib/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const mux = new Mux({
+    webhookSecret: process.env.MUX_WEBHOOK_SECRET!, // you already set this
+});
+
 export async function POST(req: NextRequest) {
-    const rawBody = await req.text();
-    const signature = req.headers.get("mux-signature") ?? "";
-    const secret = process.env.MUX_WEBHOOK_SECRET;
+    const raw = await req.text();
 
-    if (!secret) return new NextResponse("Missing MUX_WEBHOOK_SECRET", { status: 500 });
-    if (!signature) return new NextResponse("Missing mux-signature", { status: 400 });
-
-    // ---- Verification (typed) ----
-    // const isValid = Mux.Webhooks.verifyHeader(rawBody, signature, secret);
-
-    // ---- Verification (compatible cast) ----
-    const isValid = (Mux as unknown as {
-        Webhooks: { verifyHeader: (b: string, s: string, sec: string) => boolean };
-    }).Webhooks.verifyHeader(rawBody, signature, secret);
-
-    if (!isValid) return new NextResponse("Invalid signature", { status: 400 });
-
-    // Only parse after verifying the raw body
-    let event: any;
     try {
-        event = JSON.parse(rawBody);
-    } catch {
-        return new NextResponse("Invalid JSON", { status: 400 });
-    }
+        // Verifies signature and parses JSON
+        const event = mux.webhooks.unwrap(raw, req.headers);
 
-    const { type, data } = event || {};
-    if (type === "video.asset.ready" && data) {
-        const asset = data as {
-            id: string;
-            upload_id?: string | null;
-            playback_ids?: Array<{ id: string; policy: "public" | "signed" }>;
-            passthrough?: string | null;
-        };
+        if (event.type === "video.asset.ready") {
+            const asset = event.data as any;
+            const playbackId = asset?.playback_ids?.[0]?.id;
 
-        const playbackId = asset.playback_ids?.[0]?.id ?? null;
+            // deedId came from your Direct Upload passthrough
+            let deedId: string | undefined;
+            if (typeof asset?.passthrough === "string" && asset.passthrough) {
+                try {
+                    deedId = JSON.parse(asset.passthrough)?.deedId;
+                } catch {
+                    deedId = asset.passthrough;
+                }
+            }
 
-        // recover your Firestore doc id from passthrough
-        let deedId: string | undefined;
-        if (typeof asset.passthrough === "string" && asset.passthrough) {
-            try {
-                const pt = JSON.parse(asset.passthrough);
-                deedId = pt?.deedId || pt?.docId;
-            } catch {
-                deedId = asset.passthrough; // plain string convention
+            if (deedId && playbackId) {
+                // Use Admin SDK so rules don’t apply
+                await adminDb.doc(`deeds/${deedId}`).set(
+                    {
+                        muxPlaybackId: playbackId,
+                        status: "ready",
+                        muxUploadId: asset?.upload_id ?? null,
+                        updatedAt: FieldValue.serverTimestamp(),
+                    },
+                    { merge: true } // create if missing
+                );
             }
         }
 
-        if (deedId && playbackId) {
-            await updateDoc(doc(db, "deeds", deedId), {
-                muxPlaybackId: playbackId,
-                muxUploadId: asset.upload_id ?? null,
-                mediaType: "video",
-                updatedAtMs: Date.now(),
-            });
-        }
+        return NextResponse.json({ ok: true });
+    } catch (err) {
+        console.error("Mux webhook error:", err);
+        // You can still 200 to avoid retries, or 400 to retry; choose what you prefer.
+        return new NextResponse("Invalid signature or write failure", { status: 400 });
     }
-
-    return NextResponse.json({ ok: true });
 }
