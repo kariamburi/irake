@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import {
   doc, getDoc, collection, getDocs, orderBy, limit, query, Timestamp,
 } from "firebase/firestore";
@@ -18,7 +19,6 @@ import StudioShell from "../../components/StudioShell";
 import { DeedDoc } from "@/lib/fire-queries";
 
 /* ----------------------------- Types ------------------------------ */
-type DeedStats = { views?: number; likes?: number; comments?: number; shares?: number; saves?: number };
 type AnalyticsSummary = {
   updatedAt?: number;
   totalViews?: number;
@@ -73,12 +73,9 @@ const pct = (x?: number) => {
 };
 
 /* ----------------------------- Page ------------------------------- */
-export default function AnalyticsPage({
-  params,
-}: {
-  params: { id: string }; // ✅ Fix: folder is [id], not { deedId: ... }
-}) {
-  const deedId = params.id;
+export default function AnalyticsPage() {
+  const params = useParams<{ id: string }>();
+  const deedId = params?.id;
 
   const [loading, setLoading] = useState(true);
   const [deed, setDeed] = useState<DeedDoc | null>(null);
@@ -87,6 +84,7 @@ export default function AnalyticsPage({
 
   // load once
   useEffect(() => {
+    if (!deedId) return;
     let alive = true;
     (async () => {
       try {
