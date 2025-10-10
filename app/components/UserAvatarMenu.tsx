@@ -48,7 +48,7 @@ export default function UserAvatarMenu({
 
     const gotoProfile = () => {
         setOpen(false);
-        router.push(profileHref || `/u/${uid}`);
+        router.push(`/${handle}`);
     };
 
     const doLogout = async () => {
