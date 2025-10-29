@@ -187,7 +187,7 @@ function useLikes(itemId: string, uid?: string) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    let unsubSelf = () => {};
+    let unsubSelf = () => { };
     if (likeId) unsubSelf = onSnapshot(doc(db, "likes", likeId), (s) => setLiked(s.exists()));
     const unsubCount = onSnapshot(
       query(collection(db, "likes"), where("deedId", "==", itemId)),
@@ -286,7 +286,7 @@ function useFollowAuthor(authorId?: string, uid?: string) {
   const followDocId = uid && authorId ? `${uid}_${authorId}` : undefined;
 
   useEffect(() => {
-    let unsubSelf = () => {};
+    let unsubSelf = () => { };
     if (followDocId) {
       unsubSelf = onSnapshot(doc(db, "follows", followDocId), (s) => setFollowing(s.exists()));
     }
@@ -318,7 +318,7 @@ let CURRENT_PLAYING: HTMLVideoElement | null = null;
 function playExclusive(el: HTMLVideoElement) {
   if (CURRENT_PLAYING && CURRENT_PLAYING !== el) CURRENT_PLAYING.pause();
   CURRENT_PLAYING = el;
-  el.play().catch(() => {});
+  el.play().catch(() => { });
 }
 function pauseIfCurrent(el: HTMLVideoElement) {
   if (CURRENT_PLAYING === el) CURRENT_PLAYING = null;
@@ -443,7 +443,7 @@ function MuteProvider({ children }: { children: React.ReactNode }) {
     videos.current.forEach((v) => {
       (v as any).muted = m;
     });
-    CURRENT_PLAYING?.play().catch(() => {});
+    CURRENT_PLAYING?.play().catch(() => { });
   }, []);
 
   const setMutedAndApply = React.useCallback(
@@ -529,7 +529,7 @@ function useVideoEngagement({
 
     try {
       await setDoc(doc(db, "views", id), payload, { merge: true });
-    } catch {}
+    } catch { }
   };
 
   const flushWatch = async () => {
@@ -555,7 +555,7 @@ function useVideoEngagement({
 
     try {
       await setDoc(doc(db, "watch", id), payload);
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -695,7 +695,7 @@ function VideoCard({
       if (uid) payload.userId = uid;
       else payload.deviceId = baseId;
       await setDoc(doc(db, "shares", sid), payload);
-    } catch {}
+    } catch { }
   };
 
   const onLikeClick = () => {
@@ -1308,7 +1308,15 @@ function useStepScroll(
   const targetTopRef = useRef<number | null>(null);
 
   const step = () => itemHeight(rootRef.current);
-
+  const isEditable = (t: EventTarget | null) => {
+    const el = t as HTMLElement | null;
+    if (!el) return false;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) return true;
+    // also respect editors that use role="textbox"
+    if (el.closest('[role="textbox"]')) return true;
+    return false;
+  };
   const goToIndex = useCallback(
     (i: number) => {
       const root = rootRef.current;
@@ -1337,16 +1345,37 @@ function useStepScroll(
     };
     const onKey = (e: KeyboardEvent) => {
       if (lockRef.current) return;
+      if (isEditable(e.target)) return; // 🚫 don’t hijack typing
       const k = e.key;
-      if (["ArrowDown", "PageDown", " "].includes(k)) {
+      if (k === ' ' || k === 'Spacebar' || e.code === 'Space') {
+        e.preventDefault();
+        lockRef.current = true;
+        goToIndex(indexRef.current + (e.shiftKey ? -1 : 1));
+        return;
+      }
+      if (k === 'ArrowDown' || k === 'PageDown') {
         e.preventDefault();
         lockRef.current = true;
         goToIndex(indexRef.current + 1);
-      } else if (["ArrowUp", "PageUp"].includes(k)) {
+        return;
+      }
+      if (k === 'ArrowUp' || k === 'PageUp') {
         e.preventDefault();
         lockRef.current = true;
         goToIndex(indexRef.current - 1);
+        return;
       }
+
+
+      // if (["ArrowDown", "PageDown", " "].includes(k)) {
+      //   e.preventDefault();
+      //  lockRef.current = true;
+      //   goToIndex(indexRef.current + 1);
+      //  } else if (["ArrowUp", "PageUp"].includes(k)) {
+      //    e.preventDefault();
+      //    lockRef.current = true;
+      //    goToIndex(indexRef.current - 1);
+      //  }
     };
 
     let raf = 0;
