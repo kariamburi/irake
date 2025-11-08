@@ -1,22 +1,34 @@
-// app/[handle]/page.tsx
 "use client";
 
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   collection, doc, getDoc, limit, onSnapshot, orderBy, query, where, deleteDoc, setDoc,
+  getDocs, startAfter, updateDoc, serverTimestamp, DocumentData, QueryDocumentSnapshot,
+  addDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
-import { IoPlayCircleOutline } from "react-icons/io5";
+import {
+  IoPlayCircleOutline, IoPricetagOutline, IoCubeOutline, IoTrashOutline, IoTimeOutline,
+  IoEyeOffOutline, IoCashOutline, IoCheckmarkDone, IoCalendarClearOutline, IoCalendarOutline,
+  IoLocationOutline, IoPeopleOutline, IoHeartOutline, IoChatbubblesOutline,
+  IoChatbubbleEllipsesOutline, IoListOutline,
+  IoFilmOutline
+} from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import DotsLoader from "../components/DotsLoader";
+import { SmartImage } from "../components/SmartImage";
+import SmartAvatar from "../components/SmartAvatar";
+import { deleteObject, getStorage, listAll, ref as sRef } from "firebase/storage";
 
 /* ---------- theme + utils ---------- */
-const EKARI = { bg: "#ffffff", text: "#111827", subtext: "#6B7280", hair: "#E5E7EB", primary: "#C79257" };
+const EKARI = { forest: "#233F39", bg: "#ffffff", text: "#111827", subtext: "#6B7280", hair: "#E5E7EB", primary: "#C79257" };
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
 type Profile = {
@@ -28,7 +40,28 @@ type Profile = {
   photoURL?: string;
   followersCount?: number;
   followingCount?: number;
-  likesTotal?: number; // optional, if you persist this on user doc
+  likesTotal?: number;
+};
+
+type MarketType = "product" | "lease" | "service" | "animal" | "crop" | "equipment" | "tree" | string;
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+  imageUrl?: string;
+  imageUrls?: string[];
+  sellerId: string;
+  createdAt?: any;
+  type?: MarketType;
+  unit?: string;
+  typicalPackSize?: number | string;
+  rate?: string;
+  billingUnit?: string;
+  nameLower?: string;
+  categoryLower?: string;
+  status?: "active" | "sold" | "reserved" | "hidden";
+  sold?: boolean;
 };
 
 function nfmt(n: number) {
@@ -36,6 +69,8 @@ function nfmt(n: number) {
   if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
   return String(n);
 }
+const KES = (n: number) =>
+  "KSh " + (Number.isFinite(n) ? n : 0).toLocaleString("en-KE", { maximumFractionDigits: 0 });
 
 /* ---------- hooks ---------- */
 function useProfileByUid(uid?: string) {
@@ -66,19 +101,40 @@ function useProfileByUid(uid?: string) {
 function useDeedsByAuthor(uid?: string, isOwner?: boolean) {
   const [items, setItems] = React.useState<DeedDoc[]>([]);
   const [loading, setLoading] = React.useState(true);
+
   React.useEffect(() => {
     if (!uid) { setItems([]); setLoading(false); return; }
-    const qBase = query(
-      collection(db, "deeds"),
-      where("authorId", "==", uid),
-      orderBy("createdAt", "desc"),
-      limit(60)
+
+    // Owner sees everything; others only see public
+    const qRef = isOwner
+      ? query(
+        collection(db, "deeds"),
+        where("authorId", "==", uid),
+        orderBy("createdAt", "desc"),
+        limit(60)
+      )
+      : query(
+        collection(db, "deeds"),
+        where("authorId", "==", uid),
+        where("visibility", "==", "public"),
+        orderBy("createdAt", "desc"),
+        limit(60)
+      );
+
+    const unsub = onSnapshot(
+      qRef,
+      (snap) => {
+        const raw = snap.docs.map((d) => toDeed(d.data(), d.id));
+        setItems(raw);
+        setLoading(false);
+      },
+      (err) => {
+        console.warn("deeds listener error:", err?.message || err);
+        setItems([]); // be graceful on permission errors
+        setLoading(false);
+      }
     );
-    const unsub = onSnapshot(qBase, (snap) => {
-      const raw = snap.docs.map((d) => toDeed(d.data(), d.id));
-      setItems(isOwner ? raw : raw.filter((x) => (x.visibility ?? "public") === "public"));
-      setLoading(false);
-    });
+
     return () => unsub();
   }, [uid, isOwner]);
 
@@ -89,6 +145,7 @@ function useDeedsByAuthor(uid?: string, isOwner?: boolean) {
 
   return { items, likesFallback, loading };
 }
+
 
 function useFollowingState(viewerUid?: string, targetUid?: string) {
   const [isFollowing, setIsFollowing] = React.useState<boolean | null>(null);
@@ -110,31 +167,64 @@ function useFollowingState(viewerUid?: string, targetUid?: string) {
   return { isFollowing, toggle };
 }
 
-/* ---------- header ---------- */
+/* ---------- header (now receives tab controls) ---------- */
+type TabKey = "deeds" | "listings" | "events" | "discussions";
+
 function Header({
   profile,
   isOwner,
   followState,
   likesValue,
+  tab,
+  onTabChange,
+  hasUser,               // NEW
+  onRequireAuth,         // NEW
 }: {
   profile: Profile;
   isOwner: boolean;
   followState: ReturnType<typeof useFollowingState>;
   likesValue: number;
+  tab: TabKey;
+  onTabChange: (k: TabKey) => void;
+  hasUser: boolean;                  // NEW
+  onRequireAuth: () => boolean;      // NEW
 }) {
   const followers = profile?.followersCount ?? 0;
   const following = profile?.followingCount ?? 0;
 
+  function TabBtn({
+    k,
+    label,
+    icon,
+  }: {
+    k: TabKey;
+    label: string;
+    icon?: React.ReactNode;
+  }) {
+    const active = tab === k;
+    return (
+      <button
+        onClick={() => onTabChange(k)}
+        className={`flex items-center gap-1.5 px-1 pb-2 border-b-2 transition ${active
+          ? "border-black text-black"
+          : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+      >
+        <span className={active ? "text-black" : "text-gray-500"}>{icon}</span>
+        <span>{label}</span>
+      </button>
+    );
+  }
+
   return (
     <header className="px-4 md:px-8 pt-6 pb-4">
       <div className="flex items-start gap-4 md:gap-6">
-        <div className="h-24 w-24 md:h-28 md:w-28 rounded-full overflow-hidden bg-gray-200 shrink-0">
-          <Image
+        <div className="h-24 w-24 md:h-28 md:w-28 rounded-full overflow-hidden bg-gray-200 shrink-0 relative">
+          <SmartAvatar
             src={profile.photoURL || "/avatar-blank.png"}
             alt={profile.handle || "avatar"}
-            width={112}
-            height={112}
-            className="h-full w-full object-cover"
+            size={112}               // matches md size; it’ll scale fine
+            rounded="full"
           />
         </div>
 
@@ -144,31 +234,46 @@ function Header({
               {profile.handle ? `${profile.handle}` : "Profile"}
             </h1>
 
+            {/* follow / edit */}
             {isOwner ? (
               <Link
-                href="/profile/edit"
+                href={`/${profile.handle}/edit`}
                 className="rounded-md border px-3 py-1.5 text-sm font-bold hover:bg-black/5"
                 style={{ borderColor: EKARI.hair }}
               >
                 Edit profile
               </Link>
-            ) : followState.isFollowing === null ? null : (
-              <button
-                onClick={followState.toggle}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-bold",
-                  followState.isFollowing ? "border hover:bg-black/5" : "text-white",
+            ) : (
+              <>
+                {!hasUser ? (
+                  // Guest: show Follow -> go to login
+                  <button
+                    onClick={() => onRequireAuth?.()}
+                    className="rounded-md px-3 py-1.5 text-sm font-bold text-white"
+                    style={{ backgroundColor: EKARI.primary }}
+                  >
+                    Partner
+                  </button>
+                ) : followState.isFollowing === null ? null : (
+                  // Logged-in: normal toggle
+                  <button
+                    onClick={followState.toggle}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-sm font-bold",
+                      followState.isFollowing ? "border hover:bg-black/5" : "text-white",
+                    )}
+                    style={followState.isFollowing ? { borderColor: EKARI.hair } : { backgroundColor: EKARI.primary }}
+                  >
+                    {followState.isFollowing ? "Following" : "Follow"}
+                  </button>
                 )}
-                style={followState.isFollowing ? { borderColor: EKARI.hair } : { backgroundColor: EKARI.primary }}
-              >
-                {followState.isFollowing ? "Following" : "Follow"}
-              </button>
+              </>
             )}
           </div>
 
           <div className="mt-2 flex items-center gap-5 text-sm">
-            <Stat label="Following" value={nfmt(following)} />
-            <Stat label="Followers" value={nfmt(followers)} />
+            <Stat label="Partnered" value={nfmt(following)} />
+            <Stat label="Partners" value={nfmt(followers)} />
             <Stat label="Likes" value={nfmt(likesValue)} />
           </div>
 
@@ -182,11 +287,19 @@ function Header({
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="mt-6 border-t" style={{ borderColor: EKARI.hair }}>
-        <nav className="flex gap-6 text-sm font-bold px-1">
-          <span className="py-3 border-b-2" style={{ borderColor: EKARI.text, color: EKARI.text }}>Videos</span>
-          <span className="py-3 text-gray-400">Favorites</span>
-          <span className="py-3 text-gray-400">Liked</span>
+        <nav className="flex flex-wrap gap-6 text-sm font-bold px-1 pt-3">
+          <TabBtn k="deeds" label="Deeds" icon={<IoFilmOutline size={16} />} />
+          {isOwner && (
+            <TabBtn k="listings" label="My Listings" icon={<IoListOutline size={16} />} />
+          )}
+          {isOwner && (
+            <TabBtn k="events" label="My Events" icon={<IoCalendarOutline size={16} />} />
+          )}
+          {isOwner && (
+            <TabBtn k="discussions" label="My Discussions" icon={<IoChatbubblesOutline size={16} />} />
+          )}
         </nav>
       </div>
     </header>
@@ -202,7 +315,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* ---------- grid ---------- */
+/* ---------- grids ---------- */
 function VideosGrid({ items, handle }: { items: DeedDoc[]; handle: string }) {
   return (
     <div className="px-3 md:px-6 pb-12">
@@ -213,7 +326,7 @@ function VideosGrid({ items, handle }: { items: DeedDoc[]; handle: string }) {
       </div>
       {items.length === 0 && (
         <div className="py-16 text-center text-sm" style={{ color: EKARI.subtext }}>
-          No posts yet.
+          No deeds yet.
         </div>
       )}
     </div>
@@ -221,8 +334,15 @@ function VideosGrid({ items, handle }: { items: DeedDoc[]; handle: string }) {
 }
 
 function VideoTile({ deed, handle }: { deed: DeedDoc; handle: string }) {
-  const poster = deed.mediaThumbUrl || "/video-placeholder.jpg";
+  const poster =
+    deed.media?.find((m) => m.thumbUrl)?.thumbUrl ||
+    deed.mediaThumbUrl ||
+    deed.media?.[0]?.thumbUrl ||
+    "/video-placeholder.jpg";
+
   const views = nfmt(deed.stats?.views ?? 0);
+  const [imgLoading, setImgLoading] = React.useState(true);
+
   return (
     <Link
       href={`/${encodeURIComponent(handle)}/video/${deed.id}`}
@@ -230,26 +350,779 @@ function VideoTile({ deed, handle }: { deed: DeedDoc; handle: string }) {
       style={{ aspectRatio: "9/12" }}
       prefetch
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      {/* Loader overlay */}
+      {imgLoading && (
+        <div className="absolute inset-0 grid place-items-center bg-gray-100">
+          <div
+            className="h-8 w-8 rounded-full border-2 animate-spin"
+            style={{
+              borderColor: "#D1D5DB",
+              borderTopColor: EKARI.forest,
+            }}
+            aria-hidden
+          />
+
+        </div>
+      )}
+
+      <Image
         src={poster}
         alt={deed.caption || "video"}
-        className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
-        loading="lazy"
+        fill
+        className={`h-full w-full object-cover transition-transform group-hover:scale-[1.02] ${imgLoading ? "opacity-0" : "opacity-100"}`}
+        sizes="100vw"
+        priority={false}
+        onLoadingComplete={() => setImgLoading(false)}
       />
+
       <div className="absolute left-0 right-0 bottom-0 p-2 text-white text-xs bg-gradient-to-t from-black/70 to-black/0">
         <span className="inline-flex items-center gap-1 font-semibold">
-          <IoPlayCircleOutline className="opacity-80" />
-          {views}
+          <IoPlayCircleOutline className="opacity-80" /> {views}
         </span>
       </div>
     </Link>
   );
 }
 
+
+/* ---------- owner tabs: Listings (with lightweight grid) ---------- */
+function OwnerListingsGrid({ uid }: { uid: string }) {
+  const router = useRouter();
+  const [items, setItems] = React.useState<Product[]>([]);
+  const [paging, setPaging] = React.useState(false);
+  const [total, setTotal] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+  const lastDocRef = React.useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+
+  /* ---------- live initial load ---------- */
+  React.useEffect(() => {
+    if (!uid) return;
+    const qRef = query(
+      collection(db, "marketListings"),
+      where("sellerId", "==", uid),
+      orderBy("createdAt", "desc"),
+      limit(24)
+    );
+    const unsub = onSnapshot(
+      qRef,
+      (snap) => {
+        setItems(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+        lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
+        setTotal(snap.size);
+        setLoading(false);
+      },
+      (err) => console.warn("Listings listener error:", err)
+    );
+    return () => unsub();
+  }, [uid]);
+
+  /* ---------- load more ---------- */
+  const loadMore = async () => {
+    if (paging || !lastDocRef.current) return;
+    setPaging(true);
+    try {
+      const qRef = query(
+        collection(db, "marketListings"),
+        where("sellerId", "==", uid),
+        orderBy("createdAt", "desc"),
+        startAfter(lastDocRef.current),
+        limit(24)
+      );
+      const snap = await getDocs(qRef);
+      if (!snap.empty) {
+        setItems((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))]);
+        lastDocRef.current = snap.docs[snap.docs.length - 1];
+      } else {
+        lastDocRef.current = null;
+      }
+    } catch (e) {
+      console.error("Pagination error:", e);
+    } finally {
+      setPaging(false);
+    }
+  };
+
+  /* ---------- actions (owner-only UI, so no guest gate needed) ---------- */
+  const updateStatus = async (p: Product, status: Product["status"]) => {
+    try {
+      await updateDoc(doc(db, "marketListings", p.id), {
+        status,
+        sold: status === "sold",
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e: any) {
+      alert(`Failed to update: ${e?.message || "Unknown error"}`);
+    }
+  };
+  /** Recursively delete all files/folders under a Storage ref */
+  async function deleteFolderRecursively(folderRef: ReturnType<typeof sRef>) {
+    const { items, prefixes } = await listAll(folderRef);
+
+    // delete files in parallel
+    await Promise.all(items.map(async (it) => {
+      try {
+        await deleteObject(it);
+      } catch (e) {
+        console.warn("Could not delete file:", it.fullPath, e);
+      }
+    }));
+
+    // recurse into subfolders
+    await Promise.all(prefixes.map((pfx) => deleteFolderRecursively(pfx)));
+  }
+
+  /** Delete a whole subcollection in batches (safe under 500 ops/commit) */
+  async function deleteSubcollection(
+    parentPath: string,
+    subcol: string
+  ) {
+    const snap = await getDocs(collection(db, `${parentPath}/${subcol}`));
+    if (snap.empty) return;
+
+    const docs = snap.docs;
+    const chunkSize = 450;
+    for (let i = 0; i < docs.length; i += chunkSize) {
+      const batch = writeBatch(db);
+      for (const d of docs.slice(i, i + chunkSize)) {
+        batch.delete(d.ref);
+      }
+      await batch.commit();
+    }
+  }
+
+  const removeListing = async (p: Product) => {
+    const ok = window.confirm("Delete this listing? This will also remove its images.");
+    if (!ok) return;
+
+    const storage = getStorage();
+    const parentPath = `marketListings/${p.id}`;
+    const imagesFolder = sRef(storage, `products/${p.sellerId}/${p.id}/images`);
+
+    try {
+      // 1) Try to delete Storage images first (don’t abort on errors)
+      try {
+        await deleteFolderRecursively(imagesFolder);
+      } catch (e) {
+        console.warn("Images cleanup issue (continuing):", e);
+      }
+
+      // 2) (Optional) Remove subcollections like reviews
+      //    Comment this out if you want to keep historical reviews.
+      await deleteSubcollection(parentPath, "reviews");
+
+      // 3) Delete the listing document itself
+      await deleteDoc(doc(db, parentPath));
+
+      alert("Listing deleted.");
+    } catch (e: any) {
+      alert(`Failed to delete: ${e?.message || "Unknown error"}`);
+    }
+  };
+
+
+
+  const statusColor = (p: Product) =>
+    p.status === "sold"
+      ? "bg-red-600"
+      : p.status === "reserved"
+        ? "bg-yellow-500"
+        : p.status === "hidden"
+          ? "bg-gray-500"
+          : "bg-emerald-600";
+
+  /* ---------- grid ---------- */
+  if (loading)
+    return (
+      <div className="px-3 md:px-6 pb-12 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="h-48 md:h-56 rounded-xl bg-gray-100 animate-pulse" />
+        ))}
+      </div>
+    );
+
+  if (items.length === 0)
+    return (
+      <div className="py-16 text-center text-sm text-gray-400">
+        No listings yet.
+      </div>
+    );
+
+  return (
+    <div className="px-3 md:px-6 pb-12">
+      {/* Count bar */}
+      <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-700">
+        <IoCubeOutline className="text-emerald-700" />
+        <span>{total} listing{total === 1 ? "" : "s"}</span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {items.map((p) => {
+          const cover = p.imageUrl || p.imageUrls?.[0];
+          const numericRate = Number(String(p.rate ?? "").replace(/[^\d.]/g, ""));
+          const priceText =
+            p.type === "lease" || p.type === "service"
+              ? `${Number.isFinite(numericRate) && numericRate > 0 ? KES(numericRate) : "—"}${p.billingUnit ? ` / ${p.billingUnit}` : ""}`
+              : KES(Number(p.price || 0));
+          const statusLabel = (p.status || (p.sold ? "sold" : "active")).replace(
+            /^\w/,
+            (c) => c.toUpperCase()
+          );
+
+          return (
+            <div
+              key={p.id}
+              className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition"
+            >
+              <div
+                onClick={() => router.push(`/market/${p.id}`)}
+                className="relative block aspect-[4/3] bg-gray-100 cursor-pointer"
+              >
+                <SmartImage
+                  src={cover || ""}
+                  alt={p.name || "Listing"}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width:768px) 100vw, 33vw"
+                  fallbackSrc=""
+                  emptyFallback={
+                    <div className="absolute inset-0 grid place-items-center text-gray-400 text-sm bg-gray-50">
+                      No image
+                    </div>
+                  }
+                />
+
+                <div
+                  className={`absolute left-2 top-2 ${statusColor(p)} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center gap-1`}
+                >
+                  <IoCheckmarkDone size={12} />
+                  {statusLabel}
+                </div>
+              </div>
+
+              <div className="p-3">
+                <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">
+                  {p.name || "Untitled"}
+                </div>
+                <div className="text-emerald-700 font-black">{priceText}</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {!!p.category && (
+                    <span className="inline-flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-[12px] font-bold">
+                      <IoPricetagOutline className="text-emerald-700" size={14} />
+                      {p.category}
+                    </span>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {p.status !== "active" && (
+                    <button
+                      onClick={() => updateStatus(p, "active")}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 text-white text-xs font-bold hover:opacity-90"
+                    >
+                      <IoCheckmarkDone /> Activate
+                    </button>
+                  )}
+                  {p.status !== "sold" && (
+                    <button
+                      onClick={() => updateStatus(p, "sold")}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 text-white text-xs font-bold hover:opacity-90"
+                    >
+                      <IoCashOutline /> Sold
+                    </button>
+                  )}
+                  {p.status !== "reserved" && (
+                    <button
+                      onClick={() => updateStatus(p, "reserved")}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500 text-white text-xs font-bold hover:opacity-90"
+                    >
+                      <IoTimeOutline /> Reserve
+                    </button>
+                  )}
+                  {p.status !== "hidden" && (
+                    <button
+                      onClick={() => updateStatus(p, "hidden")}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-600 text-white text-xs font-bold hover:opacity-90"
+                    >
+                      <IoEyeOffOutline /> Hide
+                    </button>
+                  )}
+                  <button
+                    onClick={() => removeListing(p)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-600 text-white text-xs font-bold hover:opacity-90"
+                  >
+                    <IoTrashOutline /> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="mt-6 grid place-items-center">
+        {lastDocRef.current ? (
+          <button
+            onClick={loadMore}
+            disabled={paging}
+            className="px-4 py-2 rounded-lg bg-emerald-700 text-white font-black hover:opacity-90 disabled:opacity-60"
+          >
+            {paging ? <BouncingBallLoader /> : "Load more"}
+          </button>
+        ) : (
+          <div className="text-gray-400 text-sm mt-4">End of results</div>
+        )}
+      </div>
+    </div>
+  );
+}
+type EventDoc = {
+  id: string;
+  title?: string;
+  dateISO?: string;
+  organizerId?: string;
+  location?: string;
+  stats?: { likes?: number; rsvps?: number };
+} & DocumentData;
+
+function fmtDate(iso?: string) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/* ---------- owner tabs: Events & Discussions (placeholders or wire up later) ---------- */
+/* ---------- owner tabs: Events (with delete) ---------- */
+function OwnerEvents({ uid }: { uid: string }) {
+  const router = useRouter();
+  const [events, setEvents] = React.useState<EventDoc[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!uid) return;
+    const qRef = query(
+      collection(db, "events"),
+      where("organizerId", "==", uid),
+      orderBy("dateISO", "desc")
+    );
+    const unsub = onSnapshot(
+      qRef,
+      (snap) => {
+        setEvents(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) })) as EventDoc[]
+        );
+        setLoading(false);
+      },
+      (err) => {
+        console.warn("OwnerEvents listener error:", err?.message || err);
+        setLoading(false);
+      }
+    );
+    return () => unsub();
+  }, [uid]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 800);
+  };
+
+  // --- helpers (scoped here for clarity) ---
+  async function deleteFolderRecursively(folderRef: ReturnType<typeof sRef>) {
+    const { items, prefixes } = await listAll(folderRef);
+    await Promise.all(items.map(async (it) => {
+      try { await deleteObject(it); } catch (e) {
+        console.warn("Could not delete file:", it.fullPath, e);
+      }
+    }));
+    await Promise.all(prefixes.map((p) => deleteFolderRecursively(p)));
+  }
+
+  async function deleteSubcollection(parentPath: string, subcol: string) {
+    const snap = await getDocs(collection(db, `${parentPath}/${subcol}`));
+    if (snap.empty) return;
+    const chunkSize = 450;
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += chunkSize) {
+      const batch = writeBatch(db);
+      for (const d of docs.slice(i, i + chunkSize)) batch.delete(d.ref);
+      await batch.commit();
+    }
+  }
+
+  const removeEvent = async (e: EventDoc) => {
+    const ok = window.confirm("Delete this event? This will also remove its images.");
+    if (!ok) return;
+
+    const storage = getStorage();
+    const organizer = e.organizerId || uid; // fallback to current owner
+    const folderRef = sRef(storage, `events/${organizer}/${e.id}`);
+    const parentPath = `events/${e.id}`;
+
+    try {
+      // 1) Try to delete Storage assets (best-effort)
+      try { await deleteFolderRecursively(folderRef); }
+      catch (err) { console.warn("Event images cleanup issue (continuing):", err); }
+
+      // 2) Optional: delete subcollections (e.g., RSVPs)
+      // await deleteSubcollection(parentPath, "rsvps");
+
+      // 3) Delete the event document
+      await deleteDoc(doc(db, parentPath));
+
+      // 4) Local UI tidy (snapshot will also update)
+      setEvents((prev) => prev.filter((x) => x.id !== e.id));
+      alert("Event deleted.");
+    } catch (err: any) {
+      alert(`Failed to delete: ${err?.message || "Unknown error"}`);
+    }
+  };
+
+  if (loading)
+    return (
+      <div className="flex justify-center py-12">
+        <BouncingBallLoader />
+      </div>
+    );
+
+  if (events.length === 0)
+    return (
+      <div className="px-3 md:px-6 pb-12 text-center text-sm text-gray-500">
+        <div className="flex flex-col items-center gap-2 py-16">
+          <IoCalendarClearOutline size={30} className="text-gray-400" />
+          <p>No events yet.</p>
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="px-3 md:px-6 pb-12">
+      {/* Header Bar */}
+      <div className="flex items-center gap-2 mb-5 text-sm font-semibold text-gray-700">
+        <IoCalendarOutline className="text-emerald-700" />
+        <span>
+          {events.length} event{events.length === 1 ? "" : "s"}
+        </span>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-50"
+        >
+          {refreshing ? "Refreshing..." : "Reload"}
+        </button>
+      </div>
+
+      {/* Event Cards */}
+      <div className="flex flex-col gap-4">
+        {events.map((e) => {
+          const likes = e?.stats?.likes ?? 0;
+          const rsvps = e?.stats?.rsvps ?? 0;
+
+          return (
+            <div
+              key={e.id}
+              className="border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition p-4 flex flex-col gap-2"
+            >
+              {/* Top row: open details + delete button */}
+              <div className="flex items-start gap-3">
+                <button
+                  onClick={() => router.push(`/events/${e.id}`)}
+                  className="flex-1 min-w-0 text-left"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-700 shrink-0">
+                      <IoTimeOutline size={18} color="#fff" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[15px] font-extrabold text-gray-900 truncate">
+                        {e.title || "Untitled event"}
+                      </div>
+                      <div className="text-[13px] text-gray-500 flex flex-wrap items-center gap-1">
+                        <span>{fmtDate(e.dateISO)}</span>
+                        {e.location && (
+                          <>
+                            <span>•</span>
+                            <span className="inline-flex items-center gap-1">
+                              <IoLocationOutline size={12} />
+                              {e.location}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Delete button (stops navigation) */}
+                <button
+                  onClick={(ev) => { ev.stopPropagation(); removeEvent(e); }}
+                  className="h-9 w-9 grid place-items-center rounded-lg bg-rose-50 border border-rose-200"
+                  aria-label="Delete event"
+                  title="Delete"
+                >
+                  <IoTrashOutline className="text-rose-600" size={18} />
+                </button>
+              </div>
+
+              <div className="flex gap-3 mt-2">
+                <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-xs font-bold">
+                  <IoHeartOutline className="text-emerald-700" size={14} />
+                  {likes}
+                </div>
+                <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-xs font-bold">
+                  <IoPeopleOutline className="text-emerald-700" size={14} />
+                  {rsvps}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+type DiscussionRow = {
+  id: string;
+  title?: string;
+  createdAt?: any;                 // Firestore Timestamp | string
+  repliesCount?: number;
+  published?: boolean;
+  _pending?: boolean;              // local writes marker (from metadata)
+} & DocumentData;
+function dateText(ts: any) {
+  if (!ts) return "";
+  if (typeof ts === "string") return ts;
+  if (ts?.toDate) {
+    const d = ts.toDate();
+    return d instanceof Date && !isNaN(d.getTime())
+      ? d.toLocaleDateString()
+      : "";
+  }
+  return "";
+}
+
+function OwnerDiscussions({ uid }: { uid: string }) {
+  const router = useRouter();
+  const [items, setItems] = React.useState<DiscussionRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+
+  // Live query of my discussions
+  const attachListener = React.useCallback(() => {
+    if (!uid) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const qRef = query(
+      collection(db, "discussions"),
+      where("authorId", "==", uid),
+      orderBy("createdAt", "desc")
+    );
+    const unsub = onSnapshot(
+      qRef,
+      { includeMetadataChanges: true },
+      (snap) => {
+        const rows = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as DocumentData),
+          _pending: d.metadata.hasPendingWrites,
+        })) as DiscussionRow[];
+        setItems(rows);
+        setLoading(false);
+      },
+      (err) => {
+        console.warn("OwnerDiscussions listener error:", err?.message || err);
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [uid]);
+
+  React.useEffect(() => {
+    const unsub = attachListener();
+    return () => {
+      try { (unsub as unknown as () => void)?.(); } catch { }
+    };
+  }, [attachListener]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    // re-attach to force refresh (snapshot will sync immediately)
+    const unsub = attachListener();
+    setTimeout(() => {
+      setRefreshing(false);
+      try { (unsub as unknown as () => void)?.(); } catch { }
+    }, 500);
+  };
+
+  // Optimistic publish toggle
+  const togglePublish = async (row: DiscussionRow) => {
+    const current = row.published ?? true;
+    const next = !current;
+
+    // optimistic UI
+    setItems((prev) =>
+      prev.map((i) => (i.id === row.id ? { ...i, published: next, _pending: true } : i))
+    );
+
+    try {
+      setBusyId(row.id);
+      await updateDoc(doc(db, "discussions", row.id), { published: next });
+      // snapshot will clear _pending when commit finishes
+    } catch (e: any) {
+      // rollback
+      setItems((prev) =>
+        prev.map((i) => (i.id === row.id ? { ...i, published: current, _pending: false } : i))
+      );
+      alert(e?.message || "Failed to update discussion.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const confirmDelete = async (row: DiscussionRow) => {
+    const ok = window.confirm("Delete this discussion? This cannot be undone.");
+    if (!ok) return;
+    try {
+      setBusyId(row.id);
+      await deleteDoc(doc(db, "discussions", row.id));
+    } catch (e: any) {
+      alert(e?.message || "Delete failed. Try again.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <BouncingBallLoader />
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="px-3 md:px-6 pb-12">
+        <div className="py-16 text-center text-sm" style={{ color: EKARI.text }}>
+          <IoChatbubblesOutline size={28} className="mx-auto mb-2 text-gray-400" />
+          No discussions yet.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 md:px-6 pb-12">
+      {/* Header row */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="text-sm font-semibold text-gray-700">
+          {items.length} discussion{items.length === 1 ? "" : "s"}
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-60"
+        >
+          {refreshing ? "Refreshing..." : "Reload"}
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {items.map((item) => {
+          const isPublished = item.published ?? true;
+          const statusTxt = isPublished ? "Published" : "Unpublished";
+          const statusCls = isPublished ? "bg-emerald-50 text-emerald-800" : "bg-gray-100 text-gray-700";
+
+          return (
+            <div
+              key={item.id}
+              className="border border-gray-200 rounded-xl bg-white shadow-sm p-4"
+            >
+              <button
+                onClick={() => router.push(`/discussions/${item.id}`)}
+                className="block w-full text-left"
+              >
+                <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">
+                  {item.title || "Untitled discussion"}
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-[13px]">
+                  {!!item.createdAt && (
+                    <span className="inline-flex items-center gap-1 text-gray-500">
+                      <IoTimeOutline size={14} />
+                      {dateText(item.createdAt)}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 text-gray-500">
+                    <IoChatbubbleEllipsesOutline size={14} />
+                    {(item.repliesCount ?? 0).toString()} answers
+                  </span>
+
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${statusCls}`}>
+                    {statusTxt}
+                  </span>
+
+                  {item._pending && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">
+                      Syncing…
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              {/* Actions */}
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={() => togglePublish(item)}
+                  disabled={busyId === item.id}
+                  className={`h-9 px-3 rounded-full text-white text-xs font-extrabold transition
+                    ${isPublished ? "bg-amber-600 hover:opacity-90" : "bg-emerald-700 hover:opacity-90"}
+                    disabled:opacity-60`}
+                  aria-label={isPublished ? "Unpublish discussion" : "Publish discussion"}
+                >
+                  {busyId === item.id ? "Working…" : isPublished ? "Unpublish" : "Publish"}
+                </button>
+
+                <button
+                  onClick={() => confirmDelete(item)}
+                  disabled={busyId === item.id}
+                  className="h-9 w-10 grid place-items-center rounded-lg bg-rose-50 border border-rose-200 disabled:opacity-60"
+                  aria-label="Delete discussion"
+                >
+                  {busyId === item.id ? (
+                    <span className="text-rose-600 text-xs font-bold">…</span>
+                  ) : (
+                    <IoTrashOutline className="text-rose-600" size={18} />
+                  )}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+
 /* ---------- page ---------- */
 export default function HandleProfilePage() {
   const { user } = useAuth();
+  const router = useRouter();
   const params = useParams<{ handle: string }>();
 
   const raw = params?.handle ?? "";
@@ -257,6 +1130,7 @@ export default function HandleProfilePage() {
   const handleWithAt = decoded.startsWith("@") ? decoded : `@${decoded}`;
 
   const [uid, setUid] = React.useState<string | null | undefined>(undefined);
+  const [tab, setTab] = React.useState<TabKey>("deeds");
 
   React.useEffect(() => {
     let active = true;
@@ -276,33 +1150,111 @@ export default function HandleProfilePage() {
 
   const likesValue = profile?.likesTotal ?? likesFallback;
 
+  // 🔐 Small helper to force login for guest actions (follow, like, comment, etc.)
+  const requireAuth = React.useCallback(() => {
+    if (user) return true;
+    try {
+      const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+      router.push(`/login?next=${encodeURIComponent(next)}`);
+    } catch {
+      router.push("/login");
+    }
+    return false;
+  }, [user, router]);
+
+  // 🔔 Drop a profile view doc when someone else opens the page (once per day)
+  function getDeviceId() {
+    if (typeof window === "undefined") return "anon";
+    try {
+      let id = localStorage.getItem("pv:deviceId");
+      if (!id) {
+        id = crypto?.randomUUID?.() || (Math.random().toString(36).slice(2) + Date.now());
+        localStorage.setItem("pv:deviceId", id);
+      }
+      return id;
+    } catch { return "anon"; }
+  }
+
+  React.useEffect(() => {
+    if (!uid) return;
+    if (isOwner) return; // don't count your own views
+
+    const viewerKey = user?.uid || getDeviceId();     // uid when authed; deviceId for guests
+    const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
+    const docId = `${uid}_${viewerKey}_${ymd}`;
+
+    // throttle per (profile, viewerKey, day)
+    const throttleKey = `pv:${uid}:${ymd}:viewer:${viewerKey}`;
+    if (typeof window !== "undefined") {
+      try { if (localStorage.getItem(throttleKey)) return; } catch { }
+    }
+
+    (async () => {
+      try {
+        await setDoc(
+          doc(db, "profileViews", docId),
+          {
+            profileId: uid,
+            viewerId: user?.uid || null,   // null for guests
+            deviceId: user ? null : viewerKey, // guests supply deviceId for rules
+            ymd,
+            createdAt: serverTimestamp(),
+            ua: typeof navigator !== "undefined" ? navigator.userAgent : null,
+          },
+          { merge: false }
+        );
+        if (typeof window !== "undefined") {
+          try { localStorage.setItem(throttleKey, "1"); } catch { }
+        }
+      } catch (e) {
+        // Non-fatal; log for diagnostics
+        console.warn("profile view write failed:", e);
+      }
+    })();
+  }, [uid, isOwner, user?.uid]);
+
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-[1160px] px-4 md:px-8">
-        {/* header */}
+        {/* header with tabs */}
         {loadingProfile ? (
           <div className="p-6 animate-pulse">
             <div className="h-8 w-40 bg-gray-200 rounded mb-3" />
             <div className="h-24 w-24 bg-gray-200 rounded-full" />
           </div>
         ) : profile ? (
-          <Header profile={profile} isOwner={isOwner} followState={followState} likesValue={likesValue} />
+          <Header
+            profile={profile}
+            isOwner={isOwner}
+            followState={followState}
+            likesValue={likesValue}
+            tab={tab}
+            onTabChange={setTab}
+            hasUser={!!user}
+            onRequireAuth={requireAuth}
+          />
         ) : (
-          <div className="p-6 text-sm" style={{ color: EKARI.subtext }}>
+          <div className="flex p-6 items-center justify-center h-screen w-full text-sm" style={{ color: EKARI.subtext }}>
             {uid === undefined ? (<><BouncingBallLoader /></>) : "Profile not found."}
           </div>
         )}
 
-        {/* grid */}
-        {loadingDeeds ? (
-          <div className="px-3 md:px-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-48 md:h-56 rounded-xl bg-gray-100 animate-pulse" />
-            ))}
-          </div>
-        ) : (
-          <VideosGrid items={items} handle={handleWithAt} />
+        {/* tab content */}
+        {tab === "deeds" && (
+          loadingDeeds ? (
+            <div className="px-3 md:px-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-48 md:h-56 rounded-xl bg-gray-100 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <VideosGrid items={items} handle={handleWithAt} />
+          )
         )}
+
+        {isOwner && tab === "listings" && uid && <OwnerListingsGrid uid={uid} />}
+        {isOwner && tab === "events" && uid && <OwnerEvents uid={uid} />}
+        {isOwner && tab === "discussions" && uid && <OwnerDiscussions uid={uid} />}
       </div>
     </AppShell>
   );

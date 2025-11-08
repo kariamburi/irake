@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import {
     IoChevronBack,
     IoCalendarOutline,
+    IoAtOutline,
     IoLocationOutline,
     IoImagesOutline,
     IoCameraOutline,
@@ -22,7 +23,22 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "@/app/hooks/useAuth";
 import { INTEREST_GROUPS, INTERESTS, ROLE_GROUPS, ROLES } from "@/app/constants/constants";
 
-// ---------- Brand ----------
+// If you already export normalizeTag from utils/ekariTags, import it.
+// import { normalizeTag } from "@/utils/ekariTags";
+
+// Fallback normalizer (keeps lowercase, safe hashtag-ish slug)
+const normalizeTag = (s: string) =>
+    (s ?? "")
+        .toString()
+        .replace(/^#/, "")
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/\+/g, "plus")
+        .replace(/[^a-z0-9_]/g, "")
+        .slice(0, 30);
+
+type Gender = "male" | "female" | "other";
+
 const EKARI = {
     forest: "#233F39",
     leaf: "#1F3A34",
@@ -35,23 +51,22 @@ const EKARI = {
     danger: "#B42318",
 };
 
-type Gender = "male" | "female" | "other";
+// Interests aligned to taxonomy (crops, inputs, value-add, services, finance,
+// tech, compliance, logistics, climate, plus key pests/diseases/toxins)
 
-// If you export normalizeTag elsewhere, import that instead.
-const normalizeTag = (s: string) =>
-    (s ?? "")
-        .toString()
-        .replace(/^#/, "")
-        .toLowerCase()
-        .replace(/&/g, "and")
-        .replace(/\+/g, "plus")
-        .replace(/[^a-z0-9_]/g, "")
-        .slice(0, 30);
+type SmartPickerProps = {
+    label: string;
+    value: string[];
+    onChange: (next: string[]) => void;
+    options: string[];              // full catalog
+    popular?: string[];             // show as quick chips
+    placeholder?: string;
+    max?: number;                   // selection cap
+    ekari?: { hair: string; text: string; forest: string; gold: string; dim: string };
+    groups?: { title: string; items: string[] }[]; // for modal
+};
 
-// Keep in sync with mobile RESERVED set
-const RESERVED = new Set(["admin", "administrator", "root", "support", "ekarihub", "help", "moderator", "system"]);
-
-// ---------------- Small UI helpers ----------------
+/* ---------- Small UI helpers ---------- */
 function Field({
     label,
     helper,
@@ -117,260 +132,7 @@ function GenderPills({
     );
 }
 
-// ---------------- SmartPicker (web) ----------------
-type SmartPickerProps = {
-    label: string;
-    value: string[];
-    onChange: (next: string[]) => void;
-    options: string[];
-    popular?: string[];
-    placeholder?: string;
-    max?: number;
-    ekari?: { hair: string; text: string; forest: string; gold: string; dim: string };
-    groups?: { title: string; items: string[] }[];
-    inlineBrowse?: boolean; // parity with mobile; when true, render groups inline
-};
-
-function SmartPicker({
-    label,
-    value,
-    onChange,
-    options,
-    popular = [],
-    placeholder = "Search…",
-    max = 10,
-    ekari = { hair: "#E5E7EB", text: "#0F172A", forest: "#233F39", gold: "#C79257", dim: "#6B7280" },
-    groups,
-    inlineBrowse = true,
-}: SmartPickerProps) {
-    const [query, setQuery] = useState("");
-    const [openModal, setOpenModal] = useState(false);
-
-    const selectedSet = useMemo(() => new Set(value), [value]);
-    const canAddMore = value.length < max;
-
-    const filtered = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        if (!q) return [];
-        return options
-            .filter((o) => !selectedSet.has(o))
-            .filter((o) => o.toLowerCase().includes(q))
-            .slice(0, 10);
-    }, [query, options, selectedSet]);
-
-    const packs = useMemo(() => {
-        const base = groups?.length ? groups : [{ title: "All", items: options }];
-        const q = query.trim().toLowerCase();
-        return base.map((g) => ({
-            ...g,
-            items: q ? g.items.filter((i) => i.toLowerCase().includes(q)) : g.items,
-        }));
-    }, [groups, options, query]);
-
-    function add(tag: string) {
-        if (!canAddMore) return;
-        if (selectedSet.has(tag)) return;
-        onChange([...value, tag]);
-    }
-    function remove(tag: string) {
-        onChange(value.filter((t) => t !== tag));
-    }
-    function toggle(tag: string) {
-        selectedSet.has(tag) ? remove(tag) : add(tag);
-    }
-
-    const GroupedList = () => (
-        <div className="mt-3 max-h-[60vh] overflow-auto space-y-5">
-            {packs.map((g) => {
-                if (!g.items.length) return null;
-                return (
-                    <div key={g.title}>
-                        <div className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: ekari.dim }}>
-                            {g.title}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {g.items.map((i) => {
-                                const active = selectedSet.has(i);
-                                return (
-                                    <button
-                                        key={i}
-                                        onClick={() => toggle(i)}
-                                        className="rounded-full border px-3 py-1.5 text-xs font-bold"
-                                        style={{
-                                            borderColor: active ? ekari.forest : ekari.hair,
-                                            background: active ? ekari.forest : "#fff",
-                                            color: active ? "#fff" : ekari.text,
-                                        }}
-                                        disabled={!active && !canAddMore}
-                                    >
-                                        {i}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
-
-    return (
-        <div>
-            <div className="flex items-center justify-between">
-                <div className="font-extrabold" style={{ color: ekari.text }}>
-                    {label}
-                </div>
-                <div className="text-xs" style={{ color: ekari.dim }}>
-                    {value.length}/{max}
-                </div>
-            </div>
-
-            {!!value.length && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                    {value.map((t) => (
-                        <button
-                            key={t}
-                            onClick={() => remove(t)}
-                            className="rounded-full border px-2 py-1 text-xs font-bold"
-                            style={{ borderColor: ekari.hair, color: ekari.text }}
-                            title="Remove"
-                        >
-                            {t} ×
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            {!!popular.length && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                    {popular.map((p) => {
-                        const active = selectedSet.has(p);
-                        return (
-                            <button
-                                key={p}
-                                onClick={() => toggle(p)}
-                                className="rounded-full border px-3 py-1.5 text-xs font-bold"
-                                style={{
-                                    borderColor: active ? ekari.forest : ekari.hair,
-                                    background: active ? ekari.forest : "#fff",
-                                    color: active ? "#fff" : ekari.text,
-                                }}
-                            >
-                                {p}
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
-
-            <div className="mt-3 rounded-xl border px-3 py-2" style={{ borderColor: ekari.hair, background: "#F6F7FB" }}>
-                <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="w-full bg-transparent outline-none text-sm"
-                    placeholder={placeholder}
-                />
-                {!!filtered.length && !inlineBrowse && (
-                    <div className="mt-2 max-h-52 overflow-auto rounded-lg border bg-white text-sm" style={{ borderColor: ekari.hair }}>
-                        {filtered.map((opt) => (
-                            <button
-                                key={opt}
-                                onClick={() => add(opt)}
-                                className="block w-full text-left px-3 py-2 hover:bg-gray-50"
-                                disabled={!canAddMore}
-                            >
-                                {opt}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {inlineBrowse ? (
-                <GroupedList />
-            ) : (
-                <div className="mt-2">
-                    <button
-                        type="button"
-                        onClick={() => setOpenModal(true)}
-                        className="text-xs font-bold underline"
-                        style={{ color: ekari.forest }}
-                    >
-                        Browse all
-                    </button>
-                </div>
-            )}
-
-            {openModal && (
-                <div className="fixed inset-0 z-50">
-                    <div className="absolute inset-0 bg-black/40" onClick={() => setOpenModal(false)} />
-                    <div
-                        className="absolute left-1/2 top-1/2 w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-white p-4"
-                        style={{ borderColor: ekari.hair }}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="font-extrabold" style={{ color: ekari.text }}>
-                                {label}
-                            </div>
-                            <button onClick={() => setOpenModal(false)} className="text-sm font-bold">
-                                Close
-                            </button>
-                        </div>
-
-                        <div className="mt-3">
-                            <input
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                className="w-full rounded-lg border px-3 py-2 text-sm"
-                                style={{ borderColor: ekari.hair, background: "#F6F7FB", color: ekari.text }}
-                                placeholder={placeholder}
-                            />
-                        </div>
-
-                        <GroupedList />
-
-                        <div className="mt-4 text-right text-xs" style={{ color: ekari.dim }}>
-                            {value.length}/{max} selected
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ---------------- Popular options (optional Firestore ranking) ----------------
-function usePopularOptionsWeb(
-    kind: "interests" | "roles",
-    fallback: string[],
-    limit = 12
-) {
-    const [popular, setPopular] = useState<string[]>(fallback.slice(0, limit));
-    useEffect(() => {
-        let mounted = true;
-        (async () => {
-            try {
-                const snap = await getDoc(doc(db, "meta", "popularity"));
-                const data = snap.exists() ? (snap.data() as any) : null;
-                const map: Record<string, number> | undefined = data?.[kind];
-                if (map && typeof map === "object") {
-                    const sorted = Object.entries(map)
-                        .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
-                        .map(([k]) => k);
-                    if (mounted && sorted.length) setPopular(sorted.slice(0, limit));
-                }
-            } catch {
-                /* fallback already set */
-            }
-        })();
-        return () => {
-            mounted = false;
-        };
-    }, [kind, limit]);
-    return popular;
-}
-
-// ===================== Onboarding Wizard (Web) =====================
+/* ===================== Onboarding Wizard ===================== */
 export default function OnboardingWizardPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -382,7 +144,6 @@ export default function OnboardingWizardPage() {
         }
     }, [authLoading, user, router]);
 
-    // Align steps with mobile: 1..5
     const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
     // Step 1
@@ -394,10 +155,7 @@ export default function OnboardingWizardPage() {
 
     const [checkingHandle, setCheckingHandle] = useState(false);
     const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
-    const [handleMsg, setHandleMsg] = useState<string | null>(null);
-    const [handleReason, setHandleReason] = useState<string | null>(null);
     const handleCheckTimer = useRef<NodeJS.Timeout | null>(null);
-    const abortRef = useRef<AbortController | null>(null);
 
     const today = new Date();
     const maxDOB = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate()); // 18+
@@ -409,37 +167,271 @@ export default function OnboardingWizardPage() {
         return new Date(dobDate) <= maxDOB;
     }, [dobDate]);
 
-    // Step 2 & 3
+    // Step 2
     const [areaOfInterest, setAreaOfInterest] = useState<string[]>([]);
     const [roles, setRoles] = useState<string[]>([]);
 
-    // Step 4
+    // Step 3
     const [locStatus, setLocStatus] = useState<"idle" | "denied" | "loading" | "ready">("idle");
     const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [place, setPlace] = useState<string>("");
 
-    // Step 5 (photo)
+    // Step 4 (photo)
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
+    function usePopularOptions(
+        db: any,
+        kind: "interests" | "roles",
+        fallback: string[],
+        limit = 12
+    ) {
+        const [popular, setPopular] = React.useState<string[]>(fallback.slice(0, limit));
 
+        React.useEffect(() => {
+            let mounted = true;
+            (async () => {
+                try {
+                    const snap = await getDoc(doc(db, "meta", "popularity"));
+                    const data = snap.exists() ? (snap.data() as any) : null;
+                    const map: Record<string, number> | undefined = data?.[kind];
+                    if (map && typeof map === "object") {
+                        const sorted = Object.entries(map)
+                            .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+                            .map(([k]) => k)
+                            .filter((v) => typeof v === "string" && v.trim().length > 0);
+                        if (mounted && sorted.length) {
+                            setPopular(sorted.slice(0, limit));
+                        }
+                    }
+                } catch {
+                    // ignore; fallback already set
+                }
+            })();
+            return () => {
+                mounted = false;
+            };
+        }, [db, kind, limit]);
+
+        return popular;
+    }
+    const popularInterests = usePopularOptions(db, "interests", INTERESTS, 12);
+    const popularRoles = usePopularOptions(db, "roles", ROLES, 12);
+
+    function SmartPicker({
+        label,
+        value,
+        onChange,
+        options,
+        popular = [],
+        placeholder = "Search…",
+        max = 10,
+        ekari = { hair: "#E5E7EB", text: "#0F172A", forest: "#233F39", gold: "#C79257", dim: "#6B7280" },
+        groups,
+    }: SmartPickerProps) {
+        const [query, setQuery] = React.useState("");
+        const [openModal, setOpenModal] = React.useState(false);
+
+        const selectedSet = React.useMemo(() => new Set(value), [value]);
+
+        const filtered = React.useMemo(() => {
+            const q = query.trim().toLowerCase();
+            if (!q) return [];
+            return options
+                .filter((o) => !selectedSet.has(o))
+                .filter((o) => o.toLowerCase().includes(q))
+                .slice(0, 10);
+        }, [query, options, selectedSet]);
+
+        const canAddMore = value.length < max;
+
+        function add(tag: string) {
+            if (!canAddMore) return;
+            if (selectedSet.has(tag)) return;
+            onChange([...value, tag]);
+            setQuery("");
+        }
+        function remove(tag: string) {
+            onChange(value.filter((t) => t !== tag));
+        }
+        function toggle(tag: string) {
+            selectedSet.has(tag) ? remove(tag) : add(tag);
+        }
+
+        return (
+            <div>
+                <div className="flex items-center justify-between">
+                    <div className="font-extrabold" style={{ color: ekari.text }}>
+                        {label}
+                    </div>
+                    <div className="text-xs" style={{ color: ekari.dim }}>
+                        {value.length}/{max}
+                    </div>
+                </div>
+
+                {/* Selected tokens */}
+                {!!value.length && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {value.map((t) => (
+                            <button
+                                key={t}
+                                onClick={() => remove(t)}
+                                className="rounded-full border px-2 py-1 text-xs font-bold"
+                                style={{ borderColor: ekari.hair, color: ekari.text }}
+                                title="Remove"
+                            >
+                                {t} ×
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* Quick popular chips */}
+                {!!popular.length && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {popular.map((p) => {
+                            const active = selectedSet.has(p);
+                            return (
+                                <button
+                                    key={p}
+                                    onClick={() => toggle(p)}
+                                    className="rounded-full border px-3 py-1.5 text-xs font-bold"
+                                    style={{
+                                        borderColor: active ? ekari.forest : ekari.hair,
+                                        background: active ? ekari.forest : "#fff",
+                                        color: active ? "#fff" : ekari.text,
+                                    }}
+                                >
+                                    {p}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Search + autosuggest */}
+                <div
+                    className="mt-3 rounded-xl border px-3 py-2"
+                    style={{ borderColor: ekari.hair, background: "#F6F7FB" }}
+                >
+                    <input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="w-full bg-transparent outline-none text-sm"
+                        placeholder={placeholder}
+                    />
+                    {!!filtered.length && (
+                        <div className="mt-2 max-h-52 overflow-auto rounded-lg border bg-white text-sm"
+                            style={{ borderColor: ekari.hair }}>
+                            {filtered.map((opt) => (
+                                <button
+                                    key={opt}
+                                    onClick={() => add(opt)}
+                                    className="block w-full text-left px-3 py-2 hover:bg-gray-50"
+                                    disabled={!canAddMore}
+                                >
+                                    {opt}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Browse all */}
+                <div className="mt-2">
+                    <button
+                        type="button"
+                        onClick={() => setOpenModal(true)}
+                        className="text-xs font-bold underline"
+                        style={{ color: ekari.forest }}
+                    >
+                        Browse all
+                    </button>
+                </div>
+
+                {/* Modal */}
+                {openModal && (
+                    <div className="fixed inset-0 z-50">
+                        <div className="absolute inset-0 bg-black/40" onClick={() => setOpenModal(false)} />
+                        <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-white p-4"
+                            style={{ borderColor: ekari.hair }}>
+                            <div className="flex items-center justify-between">
+                                <div className="font-extrabold" style={{ color: ekari.text }}>
+                                    {label}
+                                </div>
+                                <button onClick={() => setOpenModal(false)} className="text-sm font-bold">Close</button>
+                            </div>
+
+                            <div className="mt-3">
+                                {/* Quick filter inside modal */}
+                                <input
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                                    style={{ borderColor: ekari.hair, background: "#F6F7FB", color: ekari.text }}
+                                    placeholder={placeholder}
+                                />
+                            </div>
+
+                            <div className="mt-4 max-h-[60vh] overflow-auto space-y-5">
+                                {(groups && groups.length ? groups : [{ title: "All", items: options }]).map((g) => {
+                                    const items = g.items.filter((i) =>
+                                        query ? i.toLowerCase().includes(query.toLowerCase()) : true
+                                    );
+                                    if (!items.length) return null;
+                                    return (
+                                        <div key={g.title}>
+                                            <div className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: ekari.dim }}>
+                                                {g.title}
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {items.map((i) => {
+                                                    const active = selectedSet.has(i);
+                                                    return (
+                                                        <button
+                                                            key={i}
+                                                            onClick={() => toggle(i)}
+                                                            className="rounded-full border px-3 py-1.5 text-xs font-bold"
+                                                            style={{
+                                                                borderColor: active ? ekari.forest : ekari.hair,
+                                                                background: active ? ekari.forest : "#fff",
+                                                                color: active ? "#fff" : ekari.text,
+                                                            }}
+                                                            disabled={!active && !canAddMore}
+                                                        >
+                                                            {i}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-4 text-right text-xs" style={{ color: ekari.dim }}>
+                                {value.length}/{max} selected
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // Save state
     const [saving, setSaving] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // Popular strips
-    const popularInterests = usePopularOptionsWeb("interests", INTERESTS, 12);
-    const popularRoles = usePopularOptionsWeb("roles", ROLES, 12);
+    /* ---------- Handle normalization & availability ---------- */
 
-    // ---------- Handle normalization & availability (match mobile rules) ----------
     const stripAt = (s: string) => s.replace(/^@+/, "");
     const normalizeHandleForInput = (txt: string) =>
-        "@" +
-        stripAt(txt)
-            .toLowerCase()
-            .replace(/[^a-z0-9._]/g, "")
-            .slice(0, 29); // 29 core + '@' => ≤30 total
-
-    const HANDLE_REGEX = /^[a-z0-9._]{3,29}$/; // ≤29 core
+        "@" + stripAt(txt).toLowerCase().replace(/[^a-z0-9._]/g, "").slice(0, 24);
+    const HANDLE_REGEX = /^[a-z0-9._]{3,24}$/;
+    const [handleMsg, setHandleMsg] = useState<string | null>(null);
+    const [handleReason, setHandleReason] = useState<string | null>(null);
+    const abortRef = useRef<AbortController | null>(null);
 
     function onChangeHandle(txt: string) {
         const norm = normalizeHandleForInput(txt);
@@ -450,25 +442,18 @@ export default function OnboardingWizardPage() {
 
         if (handleCheckTimer.current) clearTimeout(handleCheckTimer.current);
         handleCheckTimer.current = setTimeout(() => {
-            void checkHandleAvailability(norm); // pass current
+            checkHandleAvailability(norm); // pass the current value
         }, 450);
     }
-
     async function checkHandleAvailability(currentWithAt?: string) {
         const raw = (currentWithAt ?? handle).trim();
-        const core = stripAt(raw);
-
-        // Client validations first
-        if (!HANDLE_REGEX.test(core)) {
+        const candidate = stripAt(raw); // for validation + server
+        if (candidate.length < 3) return;
+        // Optional: short-circuit if format is invalid
+        if (!HANDLE_REGEX.test(candidate)) {
             setHandleAvailable(false);
-            setHandleMsg("Use 3–29 chars: a-z, 0-9, dot or underscore.");
+            setHandleMsg("Use 3-24 chars: a-z, 0-9, dot or underscore.");
             setHandleReason("invalid_format");
-            return;
-        }
-        if (RESERVED.has(core)) {
-            setHandleAvailable(false);
-            setHandleMsg("This handle is reserved.");
-            setHandleReason("reserved");
             return;
         }
 
@@ -477,16 +462,17 @@ export default function OnboardingWizardPage() {
         setHandleReason(null);
 
         try {
+            // cancel in-flight request if any
             if (abortRef.current) abortRef.current.abort();
             const ctl = new AbortController();
             abortRef.current = ctl;
-
-            const q = new URLSearchParams({ handle: core });
+            const q = new URLSearchParams({ handle: candidate });
             const res = await fetch(`/api/handle/check?${q.toString()}`, {
                 method: "GET",
                 cache: "no-store",
                 signal: ctl.signal,
             });
+            console.log(res)
             const data = await res.json();
             if (!data?.ok) {
                 setHandleAvailable(null);
@@ -495,18 +481,19 @@ export default function OnboardingWizardPage() {
                 return;
             }
 
-            const available = Boolean(data.available);
-            setHandleAvailable(available);
+            setHandleAvailable(Boolean(data.available));
             setHandleReason(data.reason ?? null);
-            setHandleMsg(
-                available
-                    ? "Handle available."
-                    : data.reason === "invalid_format"
-                        ? "Use 3–29 chars: a-z, 0-9, dot or underscore."
+            if (data.available) {
+                setHandleMsg("Handle available.");
+            } else {
+                setHandleMsg(
+                    data.reason === "invalid_format"
+                        ? "Use 3-24 chars: a-z, 0-9, dot or underscore."
                         : data.reason === "reserved"
                             ? "This handle is reserved."
                             : "This handle is taken."
-            );
+                );
+            }
         } catch (e: any) {
             if (e?.name !== "AbortError") {
                 setHandleAvailable(null);
@@ -518,24 +505,25 @@ export default function OnboardingWizardPage() {
         }
     }
 
+
     const canNext1 = useMemo(() => {
-        const core = stripAt(handle.trim());
+        const hn = stripAt(handle.trim());
         return (
             firstName.trim().length >= 2 &&
             surname.trim().length >= 2 &&
             gender !== null &&
             !!dobDate &&
             isAdult &&
-            core.length >= 3 &&
-            HANDLE_REGEX.test(core) &&
+            hn.length >= 3 &&
             handleAvailable === true
         );
     }, [firstName, surname, gender, dobDate, isAdult, handle, handleAvailable]);
+    function toggleArray(arr: string[], val: string, setter: (v: string[]) => void) {
+        setter(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
+    }
+    const canNext2 = areaOfInterest.length > 0 && roles.length > 0;
 
-    const canNext2 = areaOfInterest.length > 0;
-    const canNext3 = roles.length > 0;
-
-    // ---------- Geolocation (web) ----------
+    /* ---------- Geolocation (web) ---------- */
     async function requestLocation() {
         try {
             if (!("geolocation" in navigator)) {
@@ -558,8 +546,9 @@ export default function OnboardingWizardPage() {
             setLocStatus("denied");
         }
     }
+    const canNext3 = true; // optional step
 
-    // ---------- Photo ----------
+    /* ---------- Photo (file input) ---------- */
     function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
         const f = e.target.files?.[0] || null;
         setFile(f);
@@ -567,11 +556,11 @@ export default function OnboardingWizardPage() {
         setPreviewUrl(f ? URL.createObjectURL(f) : null);
     }
 
-    // ---------- Flow ----------
+    /* ---------- Flow ---------- */
     const onBack = () => setStep((s) => (s === 1 ? 1 : ((s - 1) as any)));
     const onNext = () => setStep((s) => (s === 5 ? 5 : ((s + 1) as any)));
 
-    // ---------- Storage helper ----------
+    /* ---------- Storage helper ---------- */
     async function uploadProfilePhoto(f: File): Promise<string> {
         if (!user) throw new Error("Not signed in.");
         setUploading(true);
@@ -587,9 +576,10 @@ export default function OnboardingWizardPage() {
         }
     }
 
-    // ---------- Reverse geocode helper ----------
+    /* ---------- Reverse geocode helper ---------- */
     type RevGeo = { country: string | null; countryCode: string | null; county: string | null; displayName?: string | null };
     async function reverseGeocode(lat: number, lng: number): Promise<RevGeo> {
+        // 1) Try your API route (recommended)
         try {
             const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
             const resp = await fetch(`/api/revgeo?${q.toString()}`, { method: "GET", cache: "no-store" });
@@ -603,14 +593,44 @@ export default function OnboardingWizardPage() {
                 };
             }
         } catch {
-            /* fall through */
+            // fall through to client-side nominatim
         }
 
-        // Optional: add an external fallback if you want (be mindful of usage policies).
-        return { country: null, countryCode: null, county: null };
+        // 2) Fallback to Nominatim (no key). Respect usage policy in production.
+        try {
+            const url = new URL("https://nominatim.openstreetmap.org/reverse");
+            url.searchParams.set("format", "jsonv2");
+            url.searchParams.set("lat", String(lat));
+            url.searchParams.set("lon", String(lng));
+            url.searchParams.set("zoom", "10");
+            url.searchParams.set("addressdetails", "1");
+
+            const r = await fetch(url.toString(), { cache: "no-store" });
+            if (!r.ok) throw new Error("revgeo failed");
+            const data = await r.json();
+            const a = (data?.address ?? {}) as Record<string, string | undefined>;
+            const country = a.country ?? null;
+            const countryCode = (a.country_code ?? "").toUpperCase() || null;
+            const county =
+                a.county ??
+                a.state_district ??
+                a.region ??
+                a.state ??
+                a.municipality ??
+                null;
+
+            return {
+                country,
+                countryCode,
+                county,
+                displayName: data?.display_name ?? null,
+            };
+        } catch {
+            return { country: null, countryCode: null, county: null };
+        }
     }
 
-    // ---------- Persist ----------
+    /* ---------- Persist ---------- */
     async function saveProfile() {
         if (!user) {
             setErrorMsg("You must be logged in.");
@@ -633,13 +653,16 @@ export default function OnboardingWizardPage() {
                 geoCountry = g.country;
                 geoCountryCode = g.countryCode;
                 geoCounty = g.county;
-                if (!place && g.displayName) setPlace(g.displayName);
+                // If user didn't type a place, use displayName-lite
+                if (!place && g.displayName) {
+                    setPlace(g.displayName);
+                }
             }
         } catch {
-            /* ignore geocode failure */
+            // ignore geocode failure
         }
 
-        // Prefer geo if available; default to Kenya like mobile did in examples
+        // You can also have manual pickers; prefer user-input over geo when present
         const countryName = geoCountry || "Kenya";
         const countryCode = geoCountryCode || "KE";
         const countyName = geoCounty || null;
@@ -654,48 +677,33 @@ export default function OnboardingWizardPage() {
                 photoURL = await uploadProfilePhoto(file);
             }
 
-            const normalizedHandle =
-                "@" +
-                stripAt(handle)
-                    .toLowerCase()
-                    .replace(/[^a-z0-9._]/g, "")
-                    .slice(0, 29); // ≤30 total with '@'
-
             const userDoc = {
-                handle: normalizedHandle,
-                handleLower: stripAt(normalizedHandle).toLowerCase(),
-
+                handle: handle.trim(),
+                handleLower: stripAt(handle).toLowerCase(),
                 firstName: firstName.trim(),
                 surname: surname.trim(),
-                dob: dobDate || null,
+                dob: dobDate || null, // store ISO string (yyyy-mm-dd)
                 gender: gender as Gender,
-
                 phone: user.phoneNumber || null,
                 email: user.email || null,
 
-                // Location
+                // 🌍 Location fields (human-friendly + normalized tags)
                 country: countryName,
                 countryCode,
                 county: countyName,
                 countryTag: countryName ? normalizeTag(countryName) : null,
                 countyTag: countyName ? normalizeTag(countyName) : null,
-                location: coords ? { lat: coords.lat, lng: coords.lng, place: place || null } : null,
 
-                // Interests / Roles + lowercase for indexing (parity with mobile)
                 areaOfInterest: interestsArr,
-                areaOfInterestLower: interestsArr.map((s) => s.toLowerCase()),
-                roles: rolesArr,
-                rolesLower: rolesArr.map((s) => s.toLowerCase()),
-
                 accountType: "standard",
+                roles: rolesArr,
                 photoURL,
                 bio: "",
-
-                profileViews: 0,
+                location: coords ? { lat: coords.lat, lng: coords.lng, place: place || null } : null,
+                profileViews: 0, // ← add this
                 followersCount: 0,
                 followingCount: 0,
                 likes: 0,
-
                 createdAt: now,
                 updatedAt: now,
                 premiumUntil: null,
@@ -705,7 +713,7 @@ export default function OnboardingWizardPage() {
             };
 
             await setDoc(doc(db, "users", uid), userDoc, { merge: true });
-            router.replace("/deeds"); // Post-onboarding destination
+            router.replace("/deeds"); // Home after onboarding
         } catch (err: any) {
             setErrorMsg(err?.message || "Could not save your profile.");
         } finally {
@@ -713,7 +721,7 @@ export default function OnboardingWizardPage() {
         }
     }
 
-    // ---------- Step header ----------
+    /* ---------- Step header ---------- */
     function StepHeader({ title }: { title: string }) {
         return (
             <div className="mt-1 mb-2 flex items-center justify-between">
@@ -754,7 +762,7 @@ export default function OnboardingWizardPage() {
 
                 {/* Steps container */}
                 <div className="mt-2">
-                    {/* STEP 1 — Create profile */}
+                    {/* STEP 1 */}
                     {step === 1 && (
                         <>
                             <StepHeader title="Create your profile" />
@@ -785,24 +793,25 @@ export default function OnboardingWizardPage() {
 
                                 <Field
                                     label="Username"
-                                    helper={checkingHandle ? "Checking availability…" : handleMsg || undefined}
+                                    helper={
+                                        checkingHandle
+                                            ? "Checking availability…"
+                                            : handleMsg || undefined
+                                    }
                                 >
                                     <div className="flex items-center h-12 rounded-xl border px-3 bg-[#F6F7FB]" style={{ borderColor: EKARI.hair }}>
+
                                         <input
                                             placeholder="@handle"
                                             className="w-full bg-transparent outline-none text-base"
                                             style={{ color: EKARI.text }}
                                             value={handle}
                                             onChange={(e) => onChangeHandle(e.target.value)}
-                                            autoCapitalize="none"
                                         />
                                         {checkingHandle ? (
                                             <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
                                         ) : handle.length > 0 && handleAvailable !== null ? (
-                                            <span
-                                                className="ml-2 text-sm font-bold"
-                                                style={{ color: handleAvailable ? "#10B981" : "#EF4444" }}
-                                            >
+                                            <span className="ml-2 text-sm font-bold" style={{ color: handleAvailable ? "#10B981" : "#EF4444" }}>
                                                 {handleAvailable ? "OK" : "X"}
                                             </span>
                                         ) : null}
@@ -844,108 +853,58 @@ export default function OnboardingWizardPage() {
                         </>
                     )}
 
-                    {/* STEP 2 — Interests */}
+                    {/* STEP 2 */}
                     {step === 2 && (
                         <>
-                            <StepHeader title="Choose your interests" />
+                            <StepHeader title="Interests & roles" />
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 className="rounded-2xl border p-4"
                                 style={{ borderColor: EKARI.hair, background: EKARI.sand }}
                             >
-                                <div className="text-sm" style={{ color: EKARI.subtext }}>
-                                    Pick what you care about in agriculture.
-                                </div>
-
-                                <Field label="Interests">
+                                <Field label="Choose your interests">
                                     <SmartPicker
                                         label="Interests"
                                         value={areaOfInterest}
                                         onChange={setAreaOfInterest}
                                         options={INTERESTS}
-                                        popular={[]} // show ALL, not just popular (parity with mobile current)
+                                        popular={popularInterests}
                                         groups={INTEREST_GROUPS}
                                         max={10}
                                         ekari={EKARI}
-                                        inlineBrowse
                                         placeholder="Search interests (e.g., Maize, Irrigation)"
                                     />
                                 </Field>
 
-                                <div className="flex gap-3 mt-3">
-                                    <button
-                                        onClick={onNext}
-                                        disabled={!canNext2}
-                                        className="w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
-                                        style={{ background: EKARI.gold, opacity: canNext2 ? 1 : 0.6 }}
-                                    >
-                                        Next
-                                    </button>
-                                    <button
-                                        onClick={onNext}
-                                        className="w-full rounded-xl py-3 font-extrabold border"
-                                        style={{ background: "#fff", borderColor: EKARI.hair, color: EKARI.text }}
-                                    >
-                                        Skip
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </>
-                    )}
-
-                    {/* STEP 3 — Roles */}
-                    {step === 3 && (
-                        <>
-                            <StepHeader title="What do you do?" />
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border p-4"
-                                style={{ borderColor: EKARI.hair, background: EKARI.sand }}
-                            >
-                                <div className="text-sm" style={{ color: EKARI.subtext }}>
-                                    Tell us your role(s) in the value chain.
-                                </div>
-
-                                <Field label="Roles">
+                                <Field label="What do you do?">
                                     <SmartPicker
                                         label="Roles"
                                         value={roles}
                                         onChange={setRoles}
                                         options={ROLES}
-                                        popular={[]} // parity with mobile
+                                        popular={popularRoles}
                                         groups={ROLE_GROUPS}
                                         max={10}
                                         ekari={EKARI}
-                                        inlineBrowse
                                         placeholder="Search roles (e.g., Farmer, Aggregator)"
                                     />
                                 </Field>
 
-                                <div className="flex gap-3 mt-3">
-                                    <button
-                                        onClick={onNext}
-                                        disabled={!canNext3}
-                                        className="w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
-                                        style={{ background: EKARI.gold, opacity: canNext3 ? 1 : 0.6 }}
-                                    >
-                                        Next
-                                    </button>
-                                    <button
-                                        onClick={onNext}
-                                        className="w-full rounded-xl py-3 font-extrabold border"
-                                        style={{ background: "#fff", borderColor: EKARI.hair, color: EKARI.text }}
-                                    >
-                                        Skip
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={onNext}
+                                    disabled={!canNext2}
+                                    className="mt-4 w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
+                                    style={{ background: EKARI.gold, opacity: canNext2 ? 1 : 0.6 }}
+                                >
+                                    Next
+                                </button>
                             </motion.div>
                         </>
                     )}
 
-                    {/* STEP 4 — Location */}
-                    {step === 4 && (
+                    {/* STEP 3 */}
+                    {step === 3 && (
                         <>
                             <StepHeader title="Location" />
                             <motion.div
@@ -990,6 +949,7 @@ export default function OnboardingWizardPage() {
                                     </button>
                                 </div>
 
+                                {/* Manual place name (optional) */}
                                 <Field label="Place (optional)" helper="e.g., Nakuru, Kenya">
                                     <input
                                         placeholder="Type your place/city"
@@ -1006,28 +966,19 @@ export default function OnboardingWizardPage() {
                                     </div>
                                 )}
 
-                                <div className="flex gap-3 mt-3">
-                                    <button
-                                        onClick={onNext}
-                                        className="w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
-                                        style={{ background: EKARI.gold }}
-                                    >
-                                        Next
-                                    </button>
-                                    <button
-                                        onClick={onNext}
-                                        className="w-full rounded-xl py-3 font-extrabold border"
-                                        style={{ background: "#fff", borderColor: EKARI.hair, color: EKARI.text }}
-                                    >
-                                        Skip
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={onNext}
+                                    className="mt-4 w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
+                                    style={{ background: EKARI.gold }}
+                                >
+                                    Next
+                                </button>
                             </motion.div>
                         </>
                     )}
 
-                    {/* STEP 5 — Photo */}
-                    {step === 5 && (
+                    {/* STEP 4 */}
+                    {step === 4 && (
                         <>
                             <StepHeader title="Profile photo" />
                             <motion.div
@@ -1069,7 +1020,7 @@ export default function OnboardingWizardPage() {
                                             <input type="file" accept="image/*" className="hidden" onChange={onPickFile} />
                                         </label>
 
-                                        {/* “Take photo” on mobile browsers opens camera */}
+                                        {/* “Take photo” on web = also file input (mobile lets you use camera) */}
                                         <label
                                             className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2"
                                             style={{ background: "#fff", borderColor: EKARI.hair, color: EKARI.text }}
@@ -1081,26 +1032,14 @@ export default function OnboardingWizardPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex gap-3 mt-3">
-                                    <button
-                                        onClick={saveProfile}
-                                        disabled={uploading || saving || authLoading || !user}
-                                        className="w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
-                                        style={{ background: EKARI.gold, opacity: uploading || saving || authLoading || !user ? 0.6 : 1 }}
-                                    >
-                                        {uploading || saving ? "Saving..." : previewUrl ? "Finish" : "Skip for now"}
-                                    </button>
-                                    {!previewUrl && (
-                                        <button
-                                            onClick={saveProfile}
-                                            disabled={uploading || saving || authLoading || !user}
-                                            className="w-full rounded-xl py-3 font-extrabold border"
-                                            style={{ background: "#fff", borderColor: EKARI.hair, color: EKARI.text, opacity: uploading || saving || authLoading || !user ? 0.6 : 1 }}
-                                        >
-                                            Finish without photo
-                                        </button>
-                                    )}
-                                </div>
+                                <button
+                                    onClick={saveProfile}
+                                    disabled={uploading || saving || authLoading || !user}
+                                    className="mt-4 w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
+                                    style={{ background: EKARI.gold, opacity: uploading || saving || authLoading || !user ? 0.6 : 1 }}
+                                >
+                                    {uploading || saving ? "Saving..." : previewUrl ? "Finish" : "Skip for now"}
+                                </button>
 
                                 {errorMsg && (
                                     <div className="mt-3 text-center font-semibold" style={{ color: EKARI.danger }}>

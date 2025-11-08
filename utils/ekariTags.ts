@@ -211,17 +211,17 @@ const TAXONOMY: Record<
 const GLOBAL_BASE = ["agribusiness", "agriculture", "supplychain", "market", "marketlinkage", "valuechain", "price", "pests", "diseases"];
 
 /* optional short county list – add the rest as needed */
-const KENYA_COUNTIES = [
-  "nairobi", "mombasa", "kisumu", "nakuru", "machakos", "kiambu", "kajiado", "meru", "nyeri", "transnzoia",
-  "uasin-gishu", "narok", "laikipia", "embu", "kericho", "kakamega", "bungoma", "kilifi", "kwale"
-].map(canonical);
+//const KENYA_COUNTIES = [
+//  "nairobi", "mombasa", "kisumu", "nakuru", "machakos", "kiambu", "kajiado", "meru", "nyeri", "transnzoia",
+//  "uasin-gishu", "narok", "laikipia", "embu", "kericho", "kakamega", "bungoma", "kilifi", "kwale"
+//].map(canonical);
 
-function regionTags(country?: string, county?: string): string[] {
-  const out: string[] = [];
-  if (country && canonical(country) === "kenya") out.push(...KENYA_COUNTIES);
-  if (county) out.push(canonical(county));
-  return out;
-}
+//function regionTags(country?: string, county?: string): string[] {
+// const out: string[] = [];
+// if (country && canonical(country) === "kenya") out.push(...KENYA_COUNTIES);
+// if (county) out.push(canonical(county));
+// return out;
+//}
 
 function cropLinked(crops?: string[]) {
   if (!crops?.length) return [] as string[];
@@ -248,8 +248,8 @@ export function buildEkariTrending(input: BuildTrendingInput = {}): string[] {
 
   let out: string[] = [
     ...GLOBAL_BASE,
-    ...regionTags(country, county),
-    ...(profile?.country || profile?.county ? regionTags(profile?.country, profile?.county) : []),
+    //...regionTags(country, county),
+    //...(profile?.country || profile?.county ? regionTags(profile?.country, profile?.county) : []),
     ...extra,
     ...cropLinked(crops),
     ...cropLinked(profile?.areaOfInterest),

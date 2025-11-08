@@ -25,6 +25,7 @@ import {
     IoSwapVertical,
     IoTrashOutline,
 } from "react-icons/io5";
+import SmartAvatar from "./SmartAvatar";
 
 /* ------------------------------------------------------------------ */
 /* Tiny activity indicator                                             */
@@ -644,7 +645,8 @@ function CommentRow({
         <li className="flex items-start gap-3">
             <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={comment.userPhotoURL || "/avatar-placeholder.png"} alt="avatar" className="h-8 w-8 object-cover" />
+                <SmartAvatar src={comment.userPhotoURL} alt={comment.userHandle} size={34} />
+
             </div>
 
             <div className="min-w-0 flex-1">

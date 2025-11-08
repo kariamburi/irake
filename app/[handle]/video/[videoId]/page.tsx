@@ -8,17 +8,13 @@ import { db } from "@/lib/firebase";
 import {
     IoClose, IoChevronUp, IoChevronDown, IoVolumeMute, IoVolumeHigh,
     IoBarChartOutline, IoHeartOutline, IoChatbubbleOutline, IoShareOutline,
-    IoHeart,
-    IoBookmark,
-    IoBookmarkOutline,
-    IoArrowBack,
-    IoArrowForward,
-    IoArrowUp
+    IoHeart, IoBookmark, IoBookmarkOutline, IoArrowBack, IoArrowUp
 } from "react-icons/io5";
 import { fetchUserSiblings, resolveUidByHandle, toPlayerItem } from "@/lib/fire-queries";
 import RightRail from "@/app/components/RightRail";
 import { useAuth } from "@/app/hooks/useAuth";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { cn } from "@/lib/utils";
 
 type Item = ReturnType<typeof toPlayerItem>;
 
@@ -37,19 +33,22 @@ export default function PlayerByHandlePage() {
     const handleWithAt = decoded.startsWith("@") ? decoded : `@${decoded}`;
     const deedId = params.videoId;
 
-    const [item, setItem] = useState<Item | null>(null);
+    const [item, setItem] = useState<any | null>(null);
     const [siblings, setSiblings] = useState<Item[]>([]);
     const [idx, setIdx] = useState<number>(-1);
     const [muted, setMuted] = useState(true);
     const [ready, setReady] = useState(false);
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const { user } = useAuth();
+
     const isOwner = !!user?.uid && !!item && item.authorId === user.uid;
     const uid = user?.uid;
     const { liked, toggle: toggleLike } = useLiked(item?.id, uid);
     const { saved, toggle: toggleSave } = useSaved(item?.id, uid);
     const { following, toggle: toggleFollow } = useFollowAuthor(item?.authorId, uid);
+    const profile = useUserProfile(user?.uid); // moved to top level
     const EKARI = { primary: "#C79257" };
+
     const requireAuth = (fn: () => void) => {
         if (!uid) { router.push(`/getstarted?next=${encodeURIComponent(location.pathname)}`); return; }
         fn();
@@ -57,7 +56,7 @@ export default function PlayerByHandlePage() {
 
     const onShare = async () => {
         if (!item) return;
-        const url = `${location.origin}/${encodeURIComponent(item.authorUsername || "")}/video/${item.id}`;
+        const url = `${location.origin}/${encodeURIComponent(item.authorUsername ?? "")}/video/${item.id}`;
         try {
             if (navigator.share) {
                 await navigator.share({ title: item.text || "EkariHub", text: item.text || "", url });
@@ -72,7 +71,6 @@ export default function PlayerByHandlePage() {
             await setDoc(doc(db, "shares", sid), payload);
         } catch { /* no-op */ }
     };
-
 
     // Load current deed + siblings for THIS handle only
     useEffect(() => {
@@ -89,6 +87,7 @@ export default function PlayerByHandlePage() {
             // verify deed belongs to route handle; else redirect to author’s canonical handle
             const routeRes = await resolveUidByHandle(handleWithAt);
             const routeUid = routeRes?.uid;
+
             if (routeUid && current.authorId !== routeUid) {
                 let authorHandle = handleWithAt;
                 try {
@@ -134,15 +133,18 @@ export default function PlayerByHandlePage() {
                         el.addEventListener("canplay", onReady, { once: true });
                     } else {
                         el.src = src;
+                        el.load?.();
                         el.addEventListener("canplay", onReady, { once: true });
                     }
                 } catch {
                     el.src = src;
+                    el.load?.();
                     el.addEventListener("canplay", onReady, { once: true });
                 }
             })();
         } else {
             el.src = src;
+            el.load?.();
             el.addEventListener("canplay", onReady, { once: true });
         }
 
@@ -167,7 +169,7 @@ export default function PlayerByHandlePage() {
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [prevId, nextId]); // depend on computed ids
+    }, [prevId, nextId, router]); // include router
 
     if (!item) {
         return (
@@ -177,53 +179,61 @@ export default function PlayerByHandlePage() {
         );
     }
 
+    // normalize timestamp display
+    const posted =
+        item.createdAt instanceof Date
+            ? item.createdAt
+            : (typeof (item as any).createdAt?.toMillis === "function"
+                ? new Date((item as any).createdAt.toMillis())
+                : (typeof item.createdAt === "number"
+                    ? new Date(item.createdAt)
+                    : undefined));
+    const handleToPath = (h?: string) => (h ? `/${encodeURIComponent(h.startsWith("@") ? h : `@${h}`)}` : null);
+    const onViewProfileClick = (handle?: string) => {
+        const path = handleToPath(handle);
+        if (!path) return;
+        router.push(path);
+    };
     return (
         <div className="fixed inset-0 bg-black text-white">
-            {/* Close (kept fixed) */}
-            {/* Top-left controls: Close + Back to EkariHub */}
-            <div className="absolute mb-2 left-3 top-3 z-40 flex items-center gap-2">
-                <Link
-                    href="/"
-                    className="rounded-full flex justify-center items-center px-3 py-1.5 text-sm text-gray-400 shadow hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-                    //  style={{ backgroundColor: EKARI.primary }} // uses your EkariHub gold
-                    title="Back to EkariHub"
-                >
-                    <IoArrowBack /> Back to EkariHub
-                </Link>
+            {/* Top-left controls: Back to EkariHub + Close */}
+            <div className="absolute left-3 top-3 z-40 mb-2 flex items-center gap-2">
+
                 <button
                     onClick={() => router.back()}
                     aria-label="Close"
-                    className="rounded-full bg-white/10 p-2 hover:bg-white/20"
+                    className="rounded-full p-2 hover:bg-white/20"
                     title="Close"
                 >
-                    <IoArrowUp size={22} />
+                    <IoArrowBack size={22} />
                 </button>
-
-
             </div>
 
-            <div className="h-full w-full grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <div className="grid h-full w-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px]">
                 {/* MEDIA COLUMN */}
                 <div className="relative flex items-center justify-center">
-                    <div className="relative max-h-[100svh] max-w-[min(92vw,800px)] w-[min(92vw,800px)] h-[min(100svh,92vh)] flex items-center justify-center">
+                    <div className="relative flex h-[min(100svh,92vh)] w-[min(92vw,800px)] max-h-[100svh] max-w-[min(92vw,800px)] items-center justify-center">
                         {/* Video / Photo */}
                         {item.mediaType === "video" && item.mediaUrl ? (
                             <video
                                 ref={videoRef}
                                 poster={item.posterUrl}
+                                preload="metadata"
                                 playsInline
                                 autoPlay
-                                loop
                                 muted={muted}
+                                loop
+                                controls={false}
+                                disablePictureInPicture
                                 controlsList="nodownload noremoteplayback"
-                                className="block h-full w-full object-contain bg-black"
+                                className="block h-full w-full bg-black object-contain"
                             />
                         ) : item.mediaType === "photo" && item.mediaUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={item.mediaUrl}
                                 alt={item.text || "photo"}
-                                className="block h-full w-full object-contain bg-black"
+                                className="block h-full w-full bg-black object-contain"
                                 onLoad={() => setReady(true)}
                             />
                         ) : (
@@ -233,59 +243,33 @@ export default function PlayerByHandlePage() {
                         {/* Mute toggle */}
                         <button
                             onClick={() => setMuted((m) => !m)}
-                            className="absolute left-3 top-3 rounded-full bg-black/60 p-2 hover:bg-black/80"
+                            className="absolute left-3 top-3 rounded-full bg-white/10 p-2 hover:bg-black/80"
                             aria-label={muted ? "Unmute" : "Mute"}
                         >
                             {muted ? <IoVolumeMute /> : <IoVolumeHigh />}
                         </button>
 
-
+                        {/* Side actions */}
                         {ready && item && !isOwner && (
-                            <div
-                                className="
-      absolute right-3 top-1/2 -translate-y-1/2
-      flex flex-col items-center gap-3
-      pb-[env(safe-area-inset-bottom)]
-      z-20
-    "
-                            >
+                            <div className="absolute right-3 top-1/2 z-20 -translate-y-1/2 pb-[env(safe-area-inset-bottom)] flex flex-col items-center gap-3">
                                 {/* Follow */}
 
-                                <button
-                                    onClick={() => requireAuth(toggleFollow)}
-                                    title={following ? "Following" : "Follow"}
-                                    className={[
-                                        "rounded-full px-3 py-1 text-xs font-bold transition",
-                                        following
-                                            ? "bg-white border hover:bg-[rgba(199,146,87,0.08)]"
-                                            : "text-white hover:opacity-90"
-                                    ].join(" ")}
-                                    style={
-                                        following
-                                            ? { borderColor: EKARI.primary, color: EKARI.primary }
-                                            : { backgroundColor: EKARI.primary }
-                                    }
-                                >
-                                    {following ? "Following" : "Follow"}
-                                </button>
 
                                 {/* Like */}
                                 <button
                                     onClick={() => requireAuth(toggleLike)}
                                     className="grid place-items-center rounded-full bg-white/10 p-3 hover:bg-white/20"
-                                    title={liked ? 'Unlike' : 'Like'}
+                                    title={liked ? "Unlike" : "Like"}
                                     aria-pressed={liked}
                                 >
                                     {liked ? <IoHeart className="text-red-500" /> : <IoHeartOutline />}
                                 </button>
 
-
-
                                 {/* Save */}
                                 <button
                                     onClick={() => requireAuth(toggleSave)}
                                     className="grid place-items-center rounded-full bg-white/10 p-3 hover:bg-white/20"
-                                    title={saved ? 'Unsave' : 'Save'}
+                                    title={saved ? "Unsave" : "Save"}
                                     aria-pressed={saved}
                                 >
                                     {saved ? <IoBookmark /> : <IoBookmarkOutline />}
@@ -322,12 +306,11 @@ export default function PlayerByHandlePage() {
                             </button>
                         </div>
 
-                        {/* Analytics button inside media column */}
-                        {/* Analytics button – owner only */}
+                        {/* Analytics – owner only */}
                         {isOwner && (
                             <Link
                                 href={`/studio/analytics/${item.id}`}
-                                className="absolute right-3 bottom-2 inline-flex items-center gap-2 rounded-full bg-white text-black px-4 py-2 font-bold shadow-lg hover:bg-white/90"
+                                className="absolute right-3 bottom-2 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 font-bold text-black shadow-lg hover:bg-white/90"
                                 title="View analytics"
                             >
                                 <IoBarChartOutline size={18} />
@@ -336,11 +319,47 @@ export default function PlayerByHandlePage() {
                         )}
 
                         {/* Caption overlay */}
+
                         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
                             <div className="max-w-[90%]">
-                                {item.authorUsername && (
-                                    <div className="mb-1 font-extrabold">{item.authorUsername}</div>
-                                )}
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div
+                                        onClick={() => onViewProfileClick(item.authorUsername)}
+                                        className={cn(
+                                            "h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0",
+                                            item.authorUsername ? "cursor-pointer" : "cursor-default"
+                                        )}
+                                        aria-label={item.authorUsername ? `Open ${item.authorUsername} profile` : undefined}
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={item.authorPhotoURL} alt={item.authorUsername || item.authorId || "author"} className="h-full w-full object-cover" />
+                                    </div>
+                                    <div onClick={() => onViewProfileClick(item.authorUsername)} className="cursor-pointer min-w-0">
+                                        <div className="text-white/95 font-bold text-sm truncate">
+                                            {item.authorUsername ? `${item.authorUsername}` : (item.authorId ?? "").slice(0, 6)}
+                                        </div>
+                                        <div className="text-white/70 text-[11px]">{/* follower count handled by hook */}</div>
+                                    </div>
+
+                                    {ready && item && !isOwner && (<button
+                                        onClick={() => requireAuth(toggleFollow)}
+                                        title={following ? "Partnered" : "Partner"}
+                                        className={[
+                                            "rounded-full px-3 py-1 text-xs font-bold transition",
+                                            following
+                                                ? "bg-white border hover:bg-[rgba(199,146,87,0.08)]"
+                                                : "text-white hover:opacity-90"
+                                        ].join(" ")}
+                                        style={
+                                            following
+                                                ? { borderColor: EKARI.primary, color: EKARI.primary }
+                                                : { backgroundColor: EKARI.primary }
+                                        }
+                                    >
+                                        {following ? "Partnered" : "Partner"}
+                                    </button>)}
+                                </div>
+
                                 {!!item.text && (
                                     <p className="text-sm leading-5 text-white/95 line-clamp-3">{item.text}</p>
                                 )}
@@ -349,12 +368,12 @@ export default function PlayerByHandlePage() {
                     </div>
                 </div>
 
-                {/* COMMENTS / META ASIDE (white) */}
-                <aside className="hidden lg:flex flex-col bg-white text-gray-900 border-l border-gray-200 overflow-y-hidden">
-                    {/* Meta header (light) */}
-                    <div className="p-4 border-b border-gray-200">
+                {/* COMMENTS / META ASIDE */}
+                <aside className="hidden lg:flex flex-col overflow-y-hidden border-l border-gray-200 bg-white text-gray-900">
+                    {/* Meta header */}
+                    <div className="border-b border-gray-200 p-4">
                         <div className="mb-2 text-xs text-gray-500">
-                            Posted {item.createdAt ? new Date(item.createdAt).toLocaleString() : "—"}
+                            Posted {posted ? posted.toLocaleString() : "—"}
                         </div>
                         <div className="flex items-center gap-4 text-sm">
                             <span>Views: <b>{nfmt(item.stats?.views)}</b></span>
@@ -364,24 +383,21 @@ export default function PlayerByHandlePage() {
                         </div>
                     </div>
 
-                    {/* Real comments rail — fills the rest */}
+                    {/* Comments rail */}
                     <RightRail
                         open={true}
                         mode="sidebar"
                         deedId={item.id}
-                        onClose={() => { /* keep open on desktop; no-op */ }}
-                        currentUser={{
-                            uid: user?.uid,
-                            photoURL: user?.photoURL,
-                            handle: (user as any)?.handle,
-                        }}
-                        className="!border-0 bg-white text-gray-900 !h-[calc(100vh-72px)]"
+                        onClose={() => { /* keep open on desktop */ }}
+                        currentUser={profile}
+                        className="!h-[calc(100vh-72px)] !border-0 bg-white text-gray-900"
                     />
                 </aside>
             </div>
-        </div>
+        </div >
     );
 }
+
 function getOrMakeDeviceId(): string {
     const k = "__ekari_device_id__";
     try {
@@ -396,6 +412,25 @@ function getOrMakeDeviceId(): string {
         return "anon_device_" + Math.random().toString(36).slice(2).padEnd(16, "x");
     }
 }
+
+function useUserProfile(uid?: string) {
+    const [profile, setProfile] = useState<any | null>(null);
+    useEffect(() => {
+        if (!uid) { setProfile(null); return; }
+        const ref = doc(db, "users", uid);
+        const unsub = onSnapshot(ref, (snap) => {
+            const data = snap.data() as any | undefined;
+            setProfile({
+                uid: uid,
+                handle: data?.handle,
+                photoURL: data?.photoURL,
+            });
+        });
+        return () => unsub();
+    }, [uid]);
+    return profile;
+}
+
 function useLiked(deedId?: string, uid?: string) {
     const likeId = uid && deedId ? `${deedId}_${uid}` : undefined;
     const [liked, setLiked] = React.useState(false);

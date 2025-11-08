@@ -17,8 +17,8 @@ import {
     serverTimestamp,
     deleteDoc,
 } from "firebase/firestore";
-import { getStorage, ref as storageRef, deleteObject } from "firebase/storage";
-import { db } from "@/lib/firebase";
+import { getStorage, ref as storageRef, deleteObject, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import StudioShell from "../components/StudioShell";
 import {
@@ -30,12 +30,18 @@ import {
     IoTrashOutline,
     IoChevronDown,
     IoCheckmark,
+    IoGitBranchSharp,
+    IoTrendingDownOutline,
+    IoTrendingUpOutline,
 } from "react-icons/io5";
 import TikBallsLoader from "@/components/ui/TikBallsLoader";
+import AppShell from "@/app/components/AppShell";
+import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
 /* ---------- Types ---------- */
 export type Deed = {
     id: string;
+    authorUsername: string;
     caption?: string;
     createdAt?: any; // Firestore Timestamp
     createdAtMs?: number;
@@ -175,6 +181,10 @@ export default function PostsPage() {
     const [busyDelete, setBusyDelete] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
 
+    // thumb regen busy states
+    const [regenBusy, setRegenBusy] = useState<Record<string, boolean>>({});
+    const [regenBulkBusy, setRegenBulkBusy] = useState(false);
+
     // initial load
     useEffect(() => {
         let cancelled = false;
@@ -309,142 +319,149 @@ export default function PostsPage() {
         }
     }
 
+    /* ---------------- THUMBNAIL REGEN ---------------- */
+
+
     return (
-        <StudioShell title="Posts" ctaHref="/studio/upload" ctaLabel="+ Upload">
-            {/* Toolbar */}
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-xl font-extrabold text-slate-900">Deeds</div>
+        <AppShell>
+            <StudioShell title="Posts" ctaHref="/studio/upload" ctaLabel="+ Upload">
+                {/* Toolbar */}
+                <div className="w-full mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-xl font-extrabold text-slate-900">Deeds</div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    {/* Privacy filter */}
-                    <div className="flex flex-wrap items-center gap-1">
-                        {(["all", "public", "followers", "private"] as const).map((p) => (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        {/* Privacy filter */}
+                        <div className="flex flex-wrap items-center gap-1">
+                            {(["all", "public", "followers", "private"] as const).map((p) => (
+                                <button
+                                    key={p}
+                                    onClick={() => setPrivacyFilter(p)}
+                                    className={[
+                                        "rounded-full border px-3 py-1 text-sm font-semibold",
+                                        privacyFilter === p ? "bg-black/5" : "hover:bg-black/5",
+                                    ].join(" ")}
+                                    style={{ borderColor: "#E5E7EB", color: "#0F172A" }}
+                                >
+                                    {p === "all" ? "All" : p === "followers" ? "Partners" : cap(p)}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Search */}
+                        <div className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5">
+                            <IoSearchOutline className="opacity-70" />
+                            <input
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                                placeholder="Search for post description"
+                                className="w-full sm:w-64 bg-transparent text-sm outline-none"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bulk actions bar */}
+                {selectedIds.length > 0 && (
+                    <div className="mb-2 flex items-center justify-between rounded-lg border bg-amber-50 px-3 py-2 text-sm">
+                        <div className="text-amber-900">
+                            <strong>{selectedIds.length}</strong> selected
+                        </div>
+                        <div className="flex items-center gap-2">
+
                             <button
-                                key={p}
-                                onClick={() => setPrivacyFilter(p)}
-                                className={[
-                                    "rounded-full border px-3 py-1 text-sm font-semibold",
-                                    privacyFilter === p ? "bg-black/5" : "hover:bg-black/5",
-                                ].join(" ")}
-                                style={{ borderColor: "#E5E7EB", color: "#0F172A" }}
+                                className="rounded-lg border px-3 py-1.5 font-semibold hover:bg-black/5"
+                                onClick={() => setConfirmBulk(true)}
                             >
-                                {p === "all" ? "All" : cap(p)}
+                                Delete Selected
                             </button>
-                        ))}
-                    </div>
-
-                    {/* Search */}
-                    <div className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5">
-                        <IoSearchOutline className="opacity-70" />
-                        <input
-                            value={q}
-                            onChange={(e) => setQ(e.target.value)}
-                            placeholder="Search for post description"
-                            className="w-full sm:w-64 bg-transparent text-sm outline-none"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Bulk actions bar */}
-            {selectedIds.length > 0 && (
-                <div className="mb-2 flex items-center justify-between rounded-lg border bg-amber-50 px-3 py-2 text-sm">
-                    <div className="text-amber-900">
-                        <strong>{selectedIds.length}</strong> selected
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            className="rounded-lg border px-3 py-1.5 font-semibold hover:bg-black/5"
-                            onClick={() => setConfirmBulk(true)}
-                        >
-                            Delete Selected
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Table */}
-            <div className="rounded-xl border bg-white">
-                {/* Header hidden on small screens */}
-                <div className="hidden md:grid grid-cols-[24px,1fr,110px,90px,90px,90px,120px,110px] items-center gap-3 border-b px-3 py-2 text-xs font-semibold text-slate-600">
-                    <div className="flex items-center justify-center">
-                        <input
-                            type="checkbox"
-                            aria-label="Select all"
-                            checked={allOnPageSelected}
-                            onChange={toggleSelectAll}
-                        />
-                    </div>
-                    <div>Deeds (Created on)</div>
-                    <div className="text-center">Privacy</div>
-                    <div className="text-center">Views</div>
-                    <div className="text-center">Likes</div>
-                    <div className="text-center">Comments</div>
-                    <div className="text-center">Status</div>
-                    <div className="text-center">Actions</div>
-                </div>
-
-                {/* Rows */}
-                {loading ? (
-                    <div className="flex items-center justify-center p-8">
-                        <TikBallsLoader />
-                    </div>
-                ) : filtered.length === 0 ? (
-                    <div className="p-6 text-center text-sm text-slate-500">No posts yet.</div>
-                ) : (
-                    filtered.map((r) => (
-                        <PostRow
-                            key={r.id}
-                            row={r}
-                            selected={!!selected[r.id]}
-                            onToggleSelect={() => setSelected((prev) => ({ ...prev, [r.id]: !prev[r.id] }))}
-                            onChangePrivacy={updateVisibility}
-                            onDelete={() => requestDelete(r.id)}
-                        />
-                    ))
-                )}
-
-                {/* Load more */}
-                {cursor && (
-                    <div className="border-t p-3 text-center">
-                        <button
-                            className="rounded-lg border px-3 py-1.5 text-sm font-bold hover:bg-black/5"
-                            onClick={loadMore}
-                            disabled={moreLoading}
-                        >
-                            {moreLoading ? "Loading…" : "Load more"}
-                        </button>
+                        </div>
                     </div>
                 )}
-            </div>
 
-            {/* Delete confirm modal (single) */}
-            {confirmId && (
-                <ConfirmModal
-                    title="Delete deed?"
-                    message="This will remove the deed. This can't be undone."
-                    confirmLabel="Delete"
-                    onCancel={() => setConfirmId(null)}
-                    onConfirm={() => hardDelete(confirmId)}
-                    busy={busyDelete}
-                />
-            )}
+                {/* Table */}
+                <div className="rounded-xl border bg-white">
+                    {/* Header hidden on small screens */}
+                    <div className="hidden md:grid grid-cols-[24px,1fr,110px,90px,90px,90px,120px,220px] items-center gap-3 border-b px-3 py-2 text-xs font-semibold text-slate-600">
+                        <div className="flex items-center justify-center">
+                            <input
+                                type="checkbox"
+                                aria-label="Select all"
+                                checked={allOnPageSelected}
+                                onChange={toggleSelectAll}
+                            />
+                        </div>
+                        <div>Deeds (Created on)</div>
+                        <div className="text-center">Privacy</div>
+                        <div className="text-center">Views</div>
+                        <div className="text-center">Likes</div>
+                        <div className="text-center">Comments</div>
+                        <div className="text-center">Status</div>
+                        <div className="text-center">Actions</div>
+                    </div>
 
-            {/* Bulk delete modal */}
-            {confirmBulk && (
-                <ConfirmModal
-                    title="Delete selected posts?"
-                    message={`You are about to delete ${selectedIds.length} deed(s) including their media and any linked assets.`}
-                    confirmLabel="Delete all"
-                    onCancel={() => setConfirmBulk(false)}
-                    onConfirm={hardDeleteBulk}
-                    busy={busyDelete}
-                />
-            )}
+                    {/* Rows */}
+                    {loading ? (
+                        <div className="flex items-center justify-center p-8">
+                            <TikBallsLoader />
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-slate-500">No deeds yet.</div>
+                    ) : (
+                        filtered.map((r) => (
+                            <PostRow
+                                key={r.id}
+                                row={r}
+                                selected={!!selected[r.id]}
+                                onToggleSelect={() => setSelected((prev) => ({ ...prev, [r.id]: !prev[r.id] }))}
+                                onChangePrivacy={updateVisibility}
+                                onDelete={() => requestDelete(r.id)}
+                                busyRegen={!!regenBusy[r.id]}
+                            />
+                        ))
+                    )}
 
-            {/* Toast */}
-            {toast && <Toast text={toast} />}
-        </StudioShell>
+                    {/* Load more */}
+                    {cursor && (
+                        <div className="border-t p-3 text-center">
+                            <button
+                                className="rounded-lg border px-3 py-1.5 text-sm font-bold hover:bg-black/5"
+                                onClick={loadMore}
+                                disabled={moreLoading}
+                            >
+                                {moreLoading ? <BouncingBallLoader /> : "Load more"}
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Delete confirm modal (single) */}
+                {confirmId && (
+                    <ConfirmModal
+                        title="Delete deed?"
+                        message="This will remove the deed. This can't be undone."
+                        confirmLabel="Delete"
+                        onCancel={() => setConfirmId(null)}
+                        onConfirm={() => hardDelete(confirmId)}
+                        busy={busyDelete}
+                    />
+                )}
+
+                {/* Bulk delete modal */}
+                {confirmBulk && (
+                    <ConfirmModal
+                        title="Delete selected posts?"
+                        message={`You are about to delete ${selectedIds.length} deed(s) including their media and any linked assets.`}
+                        confirmLabel="Delete all"
+                        onCancel={() => setConfirmBulk(false)}
+                        onConfirm={hardDeleteBulk}
+                        busy={busyDelete}
+                    />
+                )}
+
+                {/* Toast */}
+                {toast && <Toast text={toast} />}
+            </StudioShell>
+        </AppShell>
     );
 }
 
@@ -455,12 +472,14 @@ function PostRow({
     onToggleSelect,
     onChangePrivacy,
     onDelete,
+    busyRegen,
 }: {
     row: Deed;
     selected: boolean;
     onToggleSelect: () => void;
     onChangePrivacy: (id: string, v: "public" | "followers" | "private") => void;
     onDelete: () => void;
+    busyRegen: boolean;
 }) {
     const [openMenu, setOpenMenu] = useState(false);
 
@@ -476,10 +495,14 @@ function PostRow({
     const likes = nfmt(row.stats?.likes ?? 0);
     const comments = nfmt(row.stats?.comments ?? 0);
 
-    const poster = row.media?.[0]?.thumbUrl || row.mediaThumbUrl || "/video-placeholder.jpg";
-
+    const poster =
+        row.media?.find((m) => m.thumbUrl)?.thumbUrl ||
+        row.mediaThumbUrl ||
+        row.media?.[0]?.url ||
+        "/video-placeholder.jpg";
+    // const poster = `https://image.mux.com/${row.muxPlaybackId}/thumbnail.jpg?time=1&fit_mode=smartcrop`;
     return (
-        <div className="grid grid-cols-1 md:grid-cols-[24px,1fr,110px,90px,90px,90px,120px,110px] items-start md:items-center gap-3 border-t px-3 py-3 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-[24px,1fr,110px,90px,90px,90px,120px,220px] items-start md:items-center gap-3 border-t px-3 py-3 text-sm">
             {/* Select */}
             <div className="flex items-center justify-center">
                 <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label="Select row" />
@@ -535,8 +558,9 @@ function PostRow({
             {/* Actions (desktop only) */}
             <div className="hidden md:flex items-center justify-center gap-2">
                 <IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} />
-                <IconBtn title="Open" href={`/deeds/${row.id}`} variant="ghost" />
-                <IconBtn title="Comments" href={`/studio/comments?deedId=${row.id}`} variant="ghost" />
+                <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
+                <IconBtn title="Comments" href={`/${row.authorUsername}/video/${row.id}`} variant="ghost" />
+
                 <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
                     <IoTrashOutline />
                 </button>
@@ -554,6 +578,7 @@ function PostRow({
                     <IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} />
                     <IconBtn title="Open" href={`/deeds/${row.id}`} variant="ghost" />
                     <IconBtn title="Comments" href={`/studio/comments?deedId=${row.id}`} variant="ghost" />
+
                     <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
                         <IoTrashOutline />
                     </button>
@@ -567,11 +592,11 @@ function PostRow({
 function UniformThumb({ src, dateStr }: { src: string; dateStr: string }) {
     return (
         <div className="relative flex-none basis-[100px] w-[100px] h-32 overflow-hidden rounded-lg bg-slate-900 ring-1 ring-black/5 shadow-sm">
-  <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
-  <span className="absolute left-0 top-0 rounded-br bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-    <IoTimeOutline className="-mt-0.5 inline" /> {dateStr.split(",")[0] ?? ""}
-  </span>
-</div>
+            <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <span className="absolute left-0 top-0 rounded-br bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                <IoTimeOutline className="-mt-0.5 inline" /> {dateStr.split(",")[0] ?? ""}
+            </span>
+        </div>
     );
 }
 
@@ -593,8 +618,8 @@ function IconBtn({
             {/* Keep icon only (minimal) */}
             {title === "Edit" ? (
                 <IoPencilOutline />
-            ) : title === "Open" ? (
-                <IoOpenOutline />
+            ) : title === "Analytics" ? (
+                <IoTrendingUpOutline />
             ) : (
                 <IoChatbubbleEllipsesOutline />
             )}
@@ -608,3 +633,7 @@ function nfmt(n: number) {
     if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
     return String(n);
 }
+function uploadResumableToPath(blob: any, path: string) {
+    throw new Error("Function not implemented.");
+}
+

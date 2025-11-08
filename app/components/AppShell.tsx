@@ -46,7 +46,7 @@ export default function AppShell({
                 <LeftRailCompact />
                 <LeftNavDesktop uid={uid} handle={effectiveHandle} />
 
-                <main className="flex-1 mt-0 flex justify-center overflow-hidden">
+                <main className="flex-1 w-full mt-0 flex justify-center overflow-hidden">
                     {children}
                 </main>
 
