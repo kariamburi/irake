@@ -1370,25 +1370,53 @@ function useStepScroll(
 }
 
 /* ---------- Root: Splash + decision + Feed ---------- */
+// ...existing imports...
+// nothing extra to import
+
+// ...
+
+/* ---------- Root: Splash + decision + Feed ---------- */
 export default function RootPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+
   const decidedRef = useRef(false);
   const [phase, setPhase] = useState<"splash" | "feed">("splash");
 
+  // NEW: splash memory key (session-based)
+  const SPLASH_KEY = "__ekari_splash_seen_v1__";
+  const [splashSeen, setSplashSeen] = useState<boolean>(false);
+
+  // Prefetch routes
   useEffect(() => {
     router.prefetch("/deeds");
     router.prefetch("/getstarted");
     router.prefetch("/studio/upload");
   }, [router]);
 
+  // NEW: read session flag once on mount
+  useEffect(() => {
+    try {
+      const seen = sessionStorage.getItem(SPLASH_KEY) === "1";
+      if (seen) {
+        setSplashSeen(true);
+        // IMPORTANT: skip splash immediately if already seen.
+        setPhase("feed");
+      }
+    } catch {
+      // ignore storage errors, fallback to splash
+    }
+  }, []);
+
+  // Decide where to go (respect splashSeen)
   useEffect(() => {
     if (authLoading || decidedRef.current) return;
 
     (async () => {
       decidedRef.current = true;
 
-      const minDelay = new Promise((r) => setTimeout(r, 600));
+      // Only delay for the actual first splash; if splashSeen, no delay.
+      const minDelay = splashSeen ? Promise.resolve() : new Promise((r) => setTimeout(r, 600));
 
       let goFeed = true;
       try {
@@ -1400,17 +1428,31 @@ export default function RootPage() {
         }
       } catch (e) {
         console.error("[Splash] Firestore read error:", e);
-        goFeed = true;
+        goFeed = true; // be permissive on errors
       }
 
       await minDelay;
 
-      if (goFeed) setPhase("feed");
-      else router.replace("/getstarted");
-    })();
-  }, [authLoading, user?.uid, router]);
+      if (goFeed) {
+        setPhase("feed");
+      } else {
+        router.replace("/getstarted");
+      }
 
-  if (phase === "splash") {
+      // Mark splash as seen if this was the first time
+      if (!splashSeen) {
+        try {
+          sessionStorage.setItem(SPLASH_KEY, "1");
+          setSplashSeen(true);
+        } catch {
+          /* ignore */
+        }
+      }
+    })();
+  }, [authLoading, user?.uid, router, splashSeen]);
+
+  if (phase === "splash" && !splashSeen) {
+    // show only on true first load in this tab
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: THEME.forest }}>
         <motion.div
@@ -1431,5 +1473,7 @@ export default function RootPage() {
     );
   }
 
+  // If splashSeen (or decision finished), render feed shell
   return <FeedShell />;
 }
+

@@ -113,12 +113,16 @@ export default function SignupPage() {
             <div className="w-full max-w-xl flex flex-col items-center gap-4">
                 {/* Logo + tag */}
                 <motion.div
-                    className="mt-10 flex flex-col items-center gap-2"
+                    className="flex flex-col items-center text-center"
                     initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ type: "spring", stiffness: 140, damping: 14, mass: 0.6, duration: 0.28 }}
+
                 >
                     <Image src="/ekarihub-logo.png" alt="ekarihub" width={320} height={86} priority />
+                    <p className="text-sm md:text-base tracking-wide">
+                        Collaborate • Innovate • Cultivate
+                    </p>
                 </motion.div>
 
                 <motion.p
@@ -246,7 +250,7 @@ export default function SignupPage() {
                             disabled={disableAll}
                         />
                         <label htmlFor="consent" className="text-sm leading-5" style={{ color: EKARI.text }}>
-                            By signing up, you agree to our{" "}
+                            By crafting account, you agree to our{" "}
                             <a
                                 href="https://ekarihub.com/terms"
                                 target="_blank"

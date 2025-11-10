@@ -176,8 +176,13 @@ export default function PhoneLoginPage() {
                         initial={{ opacity: 0, scale: 0.96 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ type: "spring", stiffness: 140, damping: 14, mass: 0.6, duration: 0.28 }}
+                        className="flex flex-col items-center text-center"
                     >
                         <Image src="/ekarihub-logo.png" alt="ekarihub" width={320} height={86} priority />
+                        <p className="text-sm md:text-base tracking-wide">
+                            Collaborate • Innovate • Cultivate
+                        </p>
+
                     </motion.div>
 
                     {/* Tagline */}

@@ -49,7 +49,7 @@ export default function OnboardingPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.15, duration: 0.25 }}
                     >
-                        Connecting Communities, Growing Agribusiness Opportunities
+                        Collaborate • Innovate • Cultivate
                     </motion.p>
 
                     {/* CTAs */}

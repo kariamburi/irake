@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { EKARI } from "../constants/constants";
 import { EXECUTIVES } from "../components/executives";
 import BackBar from "../components/BackBar";
+import { Footer } from "../components/Footer";
+import { Topbar } from "../components/Topbar";
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -18,10 +20,10 @@ export default function AboutHeroPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <BackBar label="Back to Home" href="/" />
+      <Topbar />
       {/* Header section like Meta hero */}
       <header
-        className="py-8 px-6 md:py-12 border-b"
+        className="py-8 px-6 md:py-12"
         style={{ borderColor: EKARI.hair }}
       >
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 md:gap-12 items-center">
@@ -33,7 +35,7 @@ export default function AboutHeroPage() {
           >
             <h1
               className="text-4xl md:text-5xl font-black leading-tight"
-              style={{ color: EKARI.text }}
+              style={{ color: EKARI.forest }}
             >
               Meet our leadership
             </h1>
@@ -66,20 +68,7 @@ export default function AboutHeroPage() {
       {/* Quick peeks (optional) */}
 
 
-      <footer className="mt-12 border-t" style={{ borderColor: EKARI.hair }}>
-        <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between">
-          <Image
-            src="/ekarihub-logo.png"
-            alt="ekarihub"
-            width={160}
-            height={36}
-            className="object-contain"
-          />
-          <div className="text-sm" style={{ color: EKARI.dim }}>
-            © {new Date().getFullYear()} ekarihub
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

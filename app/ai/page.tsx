@@ -145,7 +145,7 @@ export default function Page() {
                 className="object-contain"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                Agribusiness • Regulations • Crop Health
+                Collaborate • Innovate • Cultivate
               </p>
             </div>
 

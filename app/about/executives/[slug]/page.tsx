@@ -8,6 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 import BackBar from "@/app/components/BackBar";
 import { getExecBySlug } from "@/app/components/executives";
 import { EKARI } from "@/app/constants/constants";
+import { Footer } from "@/app/components/Footer";
 
 export default function ExecProfilePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -78,20 +79,7 @@ export default function ExecProfilePage() {
       </div>
 
       {/* -------------------- FOOTER -------------------- */}
-      <footer className="mt-6 border-t" style={{ borderColor: EKARI.hair }}>
-        <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between">
-          <Image
-            src="/ekarihub-logo.png"
-            alt="ekarihub"
-            width={160}
-            height={36}
-            className="object-contain"
-          />
-          <div className="text-sm" style={{ color: EKARI.dim }}>
-            © {new Date().getFullYear()} ekarihub
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }

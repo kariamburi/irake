@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import BackBar from "@/app/components/BackBar";
 import { EKARI } from "@/app/constants/constants";
 import { EXECUTIVES } from "@/app/components/executives";
+import { Footer } from "@/app/components/Footer";
+import { Topbar } from "@/app/components/Topbar";
 
 
 export default function ExecutivesPage() {
@@ -13,7 +15,7 @@ export default function ExecutivesPage() {
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-8">
-      <BackBar label="Back to About" href="/about" />
+      <Topbar />
       <motion.h2
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -57,20 +59,7 @@ export default function ExecutivesPage() {
       </motion.div>
 
       {/* -------------------- FOOTER -------------------- */}
-      <footer className="mt-6 border-t" style={{ borderColor: EKARI.hair }}>
-        <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between">
-          <Image
-            src="/ekarihub-logo.png"
-            alt="ekarihub"
-            width={160}
-            height={36}
-            className="object-contain"
-          />
-          <div className="text-sm" style={{ color: EKARI.dim }}>
-            © {new Date().getFullYear()} ekarihub
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }

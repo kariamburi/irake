@@ -1,9 +1,24 @@
+// app/support/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { IoChatbubblesOutline, IoCallOutline, IoMailOutline, IoSend, IoSearch, IoChevronForward, IoAlertCircleOutline, IoPricetagOutline, IoSettingsOutline, IoBulbOutline, IoCalendarOutline, IoDocumentTextOutline } from "react-icons/io5";
+import {
+  IoChatbubblesOutline,
+  IoCallOutline,
+  IoMailOutline,
+  IoSend,
+  IoSearch,
+  IoChevronForward,
+  IoAlertCircleOutline,
+  IoPricetagOutline,
+  IoSettingsOutline,
+  IoBulbOutline,
+  IoCalendarOutline,
+  IoDocumentTextOutline,
+} from "react-icons/io5";
 import { getAuth } from "firebase/auth";
 import {
   addDoc,
@@ -18,13 +33,10 @@ import {
   where,
   onSnapshot,
 } from "firebase/firestore";
-import {
-  getDownloadURL,
-  ref as sRef,
-  uploadBytes,
-} from "firebase/storage";
+import { getDownloadURL, ref as sRef, uploadBytes } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
-import AppShell from "@/app/components/AppShell";
+import { Topbar } from "../components/Topbar";
+import { Footer } from "../components/Footer";
 
 type Ticket = {
   id: string;
@@ -39,14 +51,23 @@ type Ticket = {
   email?: string;
   name?: string;
   attachments?: { name: string; url: string }[];
-  ticketNo?: string; // friendly short code
+  ticketNo?: string;
+};
+
+const EKARI = {
+  forest: "#233F39",
+  gold: "#C79257",
+  hair: "#E5E7EB",
+  text: "#0F172A",
+  dim: "#6B7280",
+  bg: "#FFFFFF",
 };
 
 const TOPICS = [
-  { key: "billing", label: "Billing & Payments", icon: IoPricetagOutline },
-  { key: "account", label: "Account & Login", icon: IoSettingsOutline },
-  { key: "technical", label: "Technical Issue", icon: IoAlertCircleOutline },
-  { key: "feature", label: "Feature Request", icon: IoBulbOutline },
+  { key: "billing", label: "Billing & Payments", icon: IoPricetagOutline, color: "#FFF7ED" },
+  { key: "account", label: "Account & Login", icon: IoSettingsOutline, color: "#EFF6FF" },
+  { key: "technical", label: "Technical Issue", icon: IoAlertCircleOutline, color: "#EEFDF3" },
+  { key: "feature", label: "Feature Request", icon: IoBulbOutline, color: "#F5F3FF" },
 ] as const;
 
 const PRIORITIES: Ticket["priority"][] = ["low", "normal", "high", "urgent"];
@@ -77,6 +98,53 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
   );
 }
 
+/** Small UI helpers */
+function Card({
+  title,
+  children,
+  footer,
+  className = "",
+}: {
+  title?: React.ReactNode;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border bg-white/90 backdrop-blur-sm shadow-[0_8px_30px_rgba(0,0,0,0.04)] ${className}`}
+      style={{ borderColor: EKARI.hair }}
+    >
+      {title ? <div className="px-5 pt-5 text-[15px] font-black" style={{ color: EKARI.text }}>{title}</div> : null}
+      <div className="px-5 py-4">{children}</div>
+      {footer ? <div className="px-5 pb-5">{footer}</div> : null}
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <label className="text-sm font-semibold" style={{ color: EKARI.text }}>{children}</label>;
+}
+
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className="mt-1 h-11 w-full rounded-xl border px-3 bg-gray-50/70 outline-none focus:bg-white focus:border-gray-300 transition"
+      style={{ borderColor: EKARI.hair }}
+    />
+  );
+}
+function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      className="mt-1 w-full rounded-xl border px-3 py-2 bg-gray-50/70 outline-none focus:bg-white focus:border-gray-300 transition"
+      style={{ borderColor: EKARI.hair, minHeight: 144 }}
+    />
+  );
+}
+
 export default function SupportPage() {
   const auth = getAuth();
   const router = useRouter();
@@ -85,21 +153,22 @@ export default function SupportPage() {
   // Prefill profile basics if available
   const [profile, setProfile] = useState<{ name?: string; email?: string } | null>(null);
   useEffect(() => {
-    let unsub: any;
     (async () => {
-      if (!user?.uid) return setProfile({ name: user?.displayName || "", email: user?.email || "" });
+      if (!user?.uid) {
+        setProfile({ name: user?.displayName || "", email: user?.email || "" });
+        return;
+      }
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
         const d = snap.exists() ? (snap.data() as any) : {};
         setProfile({
-          name: d?.firstName ? `${d.firstName} ${d.surname || ""}`.trim() : (user.displayName || ""),
+          name: d?.firstName ? `${d.firstName} ${d.surname || ""}`.trim() : user.displayName || "",
           email: d?.email || user.email || "",
         });
       } catch {
         setProfile({ name: user?.displayName || "", email: user?.email || "" });
       }
     })();
-    return () => unsub && unsub();
   }, [user?.uid]);
 
   // Form state
@@ -128,7 +197,7 @@ export default function SupportPage() {
     return () => unsub();
   }, [user?.uid]);
 
-  // Handle file pick
+  // File pick
   const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files || []);
     setFiles(list.slice(0, 3)); // cap at 3
@@ -147,7 +216,6 @@ export default function SupportPage() {
     setSubmitting(true);
     setSuccessMsg("");
     try {
-      // Create base ticket first
       const base = {
         subject: subject.trim(),
         topic,
@@ -163,11 +231,10 @@ export default function SupportPage() {
       };
       const docRef = await addDoc(collection(db, "support_tickets"), base);
 
-      // Friendly ticket number (e.g., EK-ABC123)
+      // friendly number
       const ticketNo = "EK-" + docRef.id.slice(0, 6).toUpperCase();
       await updateDoc(doc(db, "support_tickets", docRef.id), { ticketNo });
 
-      // Upload attachments if any
       if (files.length) {
         const uploaded: { name: string; url: string }[] = [];
         for (const f of files) {
@@ -182,7 +249,6 @@ export default function SupportPage() {
         });
       }
 
-      // Reset form
       setSubject("");
       setMessage("");
       setFiles([]);
@@ -197,255 +263,337 @@ export default function SupportPage() {
   };
 
   return (
-    <AppShell>
-      <div className="w-full">
-        {/* Header */}
-        <div className="h-14 border-b border-gray-200 px-4 flex items-center">
-          <div className="font-black text-slate-900 text-[18px]">Support</div>
-        </div>
+    <main className="min-h-screen bg-white scroll-smooth">
+      <Topbar />
 
-        {/* Hero / Search */}
-        <div className="px-4 py-6 border-b border-gray-200 bg-white">
-          <div className="max-w-5xl">
-            <h1 className="text-2xl md:text-3xl font-black text-slate-900">How can we help?</h1>
-            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 h-12 max-w-2xl">
-              <IoSearch className="text-slate-500" />
-              <input
-                placeholder="Search help articles (coming soon)"
-                className="flex-1 bg-transparent outline-none"
-              />
-            </div>
+      {/* Hero */}
+      <section
+        className="relative"
+        style={{
+          background: `radial-gradient(1200px 400px at 20% -10%, #C7925715, transparent 60%), radial-gradient(1200px 400px at 80% -20%, #233F3915, transparent 60%), ${EKARI.bg}`,
+        }}
+      >
+        <div className="mx-auto max-w-6xl px-5 py-8 md:py-12">
+          <div className="flex items-center gap-3">
 
-            {/* Quick categories */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {TOPICS.map(({ key, label, icon: Icon }) => (
-                <Link key={key} href={`/support/${key}`} className="group rounded-xl border border-gray-200 bg-white p-3 hover:shadow-sm transition">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#233F39] text-white flex items-center justify-center">
-                      <Icon />
-                    </div>
-                    <div className="font-extrabold text-[15px] text-slate-900">{label}</div>
-                  </div>
-                  <div className="mt-2 text-sm text-slate-500">Guides & troubleshooting</div>
-                  <div className="mt-2 text-xs text-slate-400 inline-flex items-center gap-1">
-                    Browse <IoChevronForward />
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <span className="text-sm font-semibold" style={{ color: EKARI.dim }}>
+              Support
+            </span>
           </div>
-        </div>
-
-        {/* Content */}
-        <div className="px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Contact + SLA cards */}
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-gray-200 bg-white p-4">
-              <div className="font-black text-slate-900 mb-3">Contact us</div>
-              <div className="space-y-3">
-                <Link href="/bonga" className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition">
-                  <div className="w-9 h-9 rounded-full bg-[#233F39] text-white flex items-center justify-center">
-                    <IoChatbubblesOutline />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-slate-900">Live chat</div>
-                    <div className="text-sm text-slate-500">Get help from our team in chat</div>
-                  </div>
-                  <IoChevronForward className="text-slate-400" />
-                </Link>
-
-                <a href="mailto:support@ekarihub.com" className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition">
-                  <div className="w-9 h-9 rounded-full bg-[#C79257] text-white flex items-center justify-center">
-                    <IoMailOutline />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-slate-900">Email</div>
-                    <div className="text-sm text-slate-500">support@ekarihub.com</div>
-                  </div>
-                  <IoChevronForward className="text-slate-400" />
-                </a>
-
-                <a href="tel:+254700000000" className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition">
-                  <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center">
-                    <IoCallOutline />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-slate-900">Phone</div>
-                    <div className="text-sm text-slate-500">Mon–Fri 9am–5pm EAT</div>
-                  </div>
-                  <IoChevronForward className="text-slate-400" />
-                </a>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 bg-white p-4">
-              <div className="font-black text-slate-900 mb-3">Typical response times</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <div className="text-xs text-slate-500">Chat</div>
-                  <div className="mt-1 text-lg font-black text-slate-900">~5–15 min</div>
-                </div>
-                <div className="rounded-xl border border-gray-200 p-3">
-                  <div className="text-xs text-slate-500">Email</div>
-                  <div className="mt-1 text-lg font-black text-slate-900">~4–8 hrs</div>
-                </div>
-              </div>
-            </div>
+          <h1 className="mt-3 text-3xl md:text-4xl font-black tracking-tight" style={{ color: EKARI.text }}>
+            How can we help?
+          </h1>
+          <div className="mt-4 flex items-center gap-2 rounded-2xl border h-12 max-w-2xl bg-white/80 backdrop-blur-sm px-3 shadow-sm">
+            <IoSearch className="text-slate-500" />
+            <input
+              placeholder="Search help articles (coming soon)"
+              className="flex-1 bg-transparent outline-none"
+            />
           </div>
 
-          {/* Middle/Right: Ticket form & recent tickets */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Submit a ticket */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-4">
+          {/* Quick tiles */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {TOPICS.map(({ key, label, icon: Icon, color }) => (
+              <Link
+                key={key}
+                href={`/support/${key}`}
+                className="group rounded-2xl border p-4 hover:shadow-md transition bg-white/90 backdrop-blur-sm"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: color }}>
+                    <Icon className="text-slate-700" />
+                  </div>
+                  <div className="font-extrabold text-[15px]" style={{ color: EKARI.text }}>
+                    {label}
+                  </div>
+                </div>
+                <div className="mt-2 text-sm" style={{ color: EKARI.dim }}>
+                  Guides & troubleshooting
+                </div>
+                <div className="mt-2 text-xs inline-flex items-center gap-1 text-slate-400 group-hover:text-slate-600">
+                  Browse <IoChevronForward />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="absolute inset-x-0 bottom-0 h-px" style={{ background: EKARI.hair }} />
+      </section>
+
+      {/* Main content */}
+      <section className="mx-auto max-w-6xl px-5 py-8 md:py-12 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8">
+        {/* Left: Ticket form */}
+        <div className="space-y-6">
+          <Card
+            title={
               <div className="flex items-center justify-between">
-                <div className="font-black text-slate-900">Submit a ticket</div>
-                <div className="text-xs text-slate-500 flex items-center gap-2">
-                  <IoDocumentTextOutline /> Please include screenshots/logs if possible
-                </div>
+                <span>Submit a ticket</span>
+                <span className="text-xs font-normal flex items-center gap-2" style={{ color: EKARI.dim }}>
+                  <IoDocumentTextOutline /> Include screenshots/logs if possible
+                </span>
               </div>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-semibold">Subject</label>
-                  <input
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Short summary"
-                    className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold">Topic</label>
-                  <div className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-2 flex items-center">
-                    <select
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value as any)}
-                      className="w-full bg-transparent outline-none px-2"
-                    >
-                      {TOPICS.map(t => (
-                        <option key={t.key} value={t.key}>{t.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold">Priority</label>
-                  <div className="mt-1 flex gap-2">
-                    {PRIORITIES.map(p => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPriority(p)}
-                        className={`h-9 px-3 rounded-full border text-sm font-bold ${priority === p ? "bg-[#233F39] text-white border-[#233F39]" : "bg-white border-gray-200"
-                          }`}
-                      >
-                        {p.charAt(0).toUpperCase() + p.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold">Attachments</label>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*,.pdf,.txt,.log"
-                    onChange={onPickFiles}
-                    className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
-                  />
-                  {files.length > 0 && (
-                    <div className="mt-1 text-xs text-slate-500">{files.length} file(s) selected (max 3)</div>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="text-sm font-semibold">Message</label>
-                  <textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Describe the issue in detail…"
-                    className="mt-1 h-36 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
-                  />
-                </div>
-              </div>
-
-              {!!successMsg && (
-                <div className="mt-3 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                  {successMsg}
-                </div>
-              )}
-
-              <div className="mt-4 flex justify-end">
+            }
+            footer={
+              <div className="mt-1 flex justify-end">
                 <button
                   onClick={submitTicket}
                   disabled={!canSubmit || submitting}
-                  className="inline-flex items-center gap-2 h-11 px-5 rounded-xl bg-[#C79257] text-white font-extrabold disabled:opacity-60"
+                  className="inline-flex items-center gap-2 h-11 px-5 rounded-xl font-extrabold text-white disabled:opacity-60"
+                  style={{ background: EKARI.gold }}
                 >
                   <IoSend />
                   {submitting ? "Submitting…" : "Submit ticket"}
                 </button>
               </div>
+            }
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <FieldLabel>Subject</FieldLabel>
+                <Input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Short summary"
+                />
+              </div>
+
+              <div>
+                <FieldLabel>Topic</FieldLabel>
+                <div
+                  className="mt-1 h-11 w-full rounded-xl border bg-gray-50/70 px-2 flex items-center focus-within:bg-white transition"
+                  style={{ borderColor: EKARI.hair }}
+                >
+                  <select
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value as any)}
+                    className="w-full bg-transparent outline-none px-2"
+                  >
+                    {TOPICS.map((t) => (
+                      <option key={t.key} value={t.key}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <FieldLabel>Priority</FieldLabel>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {PRIORITIES.map((p) => {
+                    const active = priority === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPriority(p)}
+                        className={`h-9 px-3 rounded-full border text-sm font-bold transition ${active ? "text-white" : "bg-white"
+                          }`}
+                        style={{
+                          borderColor: active ? EKARI.forest : EKARI.hair,
+                          background: active ? EKARI.forest : "#fff",
+                        }}
+                      >
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <FieldLabel>Message</FieldLabel>
+                <TextArea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Describe the issue in detail…"
+                />
+                <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                  Tip: What happened, what you expected, steps to reproduce, device/browser, screenshots/logs.
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <FieldLabel>Attachments</FieldLabel>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.txt,.log"
+                  onChange={onPickFiles}
+                  className="mt-1 h-11 w-full rounded-xl border px-3 bg-gray-50/70 outline-none focus:bg-white focus:border-gray-300 transition"
+                  style={{ borderColor: EKARI.hair }}
+                />
+                {files.length > 0 && (
+                  <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                    {files.length} file(s) selected (max 3)
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* My recent tickets */}
-            <div className="rounded-2xl border border-gray-200 bg-white">
-              <div className="p-4 flex items-center justify-between border-b">
-                <div className="font-black text-slate-900">My recent tickets</div>
-                <div className="text-xs text-slate-500 flex items-center gap-1"><IoCalendarOutline /> last 10</div>
+            {!!successMsg && (
+              <div className="mt-4 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                {successMsg}
               </div>
-              {user?.uid ? (
-                tickets.length === 0 ? (
-                  <div className="p-6 text-slate-500 text-sm">No tickets yet.</div>
-                ) : (
-                  <ul className="divide-y divide-gray-200">
-                    {tickets.map(t => (
-                      <li key={t.id} className="px-4 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="font-semibold text-slate-900">{t.subject}</div>
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              {TOPICS.find(x => x.key === (t as any).topic)?.label || "General"} · {prettyDate(t.createdAt)}
-                            </div>
+            )}
+          </Card>
+
+          {/* Recent tickets */}
+          <Card
+            title={
+              <div className="flex items-center justify-between">
+                <span>My recent tickets</span>
+                <span className="text-xs font-normal flex items-center gap-1" style={{ color: EKARI.dim }}>
+                  <IoCalendarOutline /> last 10
+                </span>
+              </div>
+            }
+          >
+            {user?.uid ? (
+              tickets.length === 0 ? (
+                <div className="p-4 text-sm" style={{ color: EKARI.dim }}>
+                  No tickets yet.
+                </div>
+              ) : (
+                <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
+                  {tickets.map((t) => (
+                    <li key={t.id} className="py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-semibold" style={{ color: EKARI.text }}>
+                            {t.subject}
                           </div>
-                          <div className="flex items-center gap-3">
-                            <StatusBadge status={t.status || "open"} />
-                            {t.ticketNo && <span className="text-xs font-bold text-slate-500">{t.ticketNo}</span>}
+                          <div className="text-xs mt-0.5" style={{ color: EKARI.dim }}>
+                            {TOPICS.find((x) => x.key === (t as any).topic)?.label || "General"} · {prettyDate(t.createdAt)}
                           </div>
                         </div>
-                        {t.message && (
-                          <div className="mt-1 text-sm text-slate-700 line-clamp-2">{t.message}</div>
-                        )}
-                        {!!t.attachments?.length && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {t.attachments.map(a => (
-                              <a
-                                key={a.url}
-                                href={a.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs underline text-slate-600 hover:text-slate-900"
-                              >
-                                {a.name}
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )
-              ) : (
-                <div className="p-6 text-slate-500 text-sm">
-                  Sign in to view your tickets.
-                </div>
-              )}
-            </div>
-          </div>
+                        <div className="flex items-center gap-3">
+                          <StatusBadge status={t.status || "open"} />
+                          {t.ticketNo && (
+                            <span className="text-xs font-bold" style={{ color: EKARI.dim }}>
+                              {t.ticketNo}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {t.message && (
+                        <div className="mt-1 text-sm text-slate-700 line-clamp-2">{t.message}</div>
+                      )}
+                      {!!t.attachments?.length && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {t.attachments.map((a) => (
+                            <a
+                              key={a.url}
+                              href={a.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs underline text-slate-600 hover:text-slate-900"
+                            >
+                              {a.name}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : (
+              <div className="p-4 text-sm" style={{ color: EKARI.dim }}>
+                Sign in to view your tickets.
+              </div>
+            )}
+          </Card>
         </div>
-      </div>
-    </AppShell>
+
+        {/* Right: Contact & SLAs */}
+        <aside className="space-y-6">
+          <Card title="Contact us">
+            <div className="space-y-3">
+              <Link
+                href="/bonga"
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <div className="w-9 h-9 rounded-full bg-[#233F39] text-white grid place-items-center">
+                  <IoChatbubblesOutline />
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold" style={{ color: EKARI.text }}>
+                    Live chat
+                  </div>
+                  <div className="text-sm" style={{ color: EKARI.dim }}>
+                    Get help from our team in chat
+                  </div>
+                </div>
+                <IoChevronForward className="text-slate-400" />
+              </Link>
+
+              <a
+                href="mailto:support@ekarihub.com"
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <div className="w-9 h-9 rounded-full bg-[#C79257] text-white grid place-items-center">
+                  <IoMailOutline />
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold" style={{ color: EKARI.text }}>
+                    Email
+                  </div>
+                  <div className="text-sm" style={{ color: EKARI.dim }}>
+                    support@ekarihub.com
+                  </div>
+                </div>
+                <IoChevronForward className="text-slate-400" />
+              </a>
+
+              <a
+                href="tel:+254700000000"
+                className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <div className="w-9 h-9 rounded-full bg-slate-800 text-white grid place-items-center">
+                  <IoCallOutline />
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold" style={{ color: EKARI.text }}>
+                    Phone
+                  </div>
+                  <div className="text-sm" style={{ color: EKARI.dim }}>
+                    Mon–Fri 9am–5pm EAT
+                  </div>
+                </div>
+                <IoChevronForward className="text-slate-400" />
+              </a>
+            </div>
+          </Card>
+
+          <Card title="Typical response times">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border p-3 bg-white/70" style={{ borderColor: EKARI.hair }}>
+                <div className="text-xs" style={{ color: EKARI.dim }}>
+                  Chat
+                </div>
+                <div className="mt-1 text-lg font-black" style={{ color: EKARI.text }}>
+                  ~5–15 min
+                </div>
+              </div>
+              <div className="rounded-xl border p-3 bg-white/70" style={{ borderColor: EKARI.hair }}>
+                <div className="text-xs" style={{ color: EKARI.dim }}>
+                  Email
+                </div>
+                <div className="mt-1 text-lg font-black" style={{ color: EKARI.text }}>
+                  ~4–8 hrs
+                </div>
+              </div>
+            </div>
+          </Card>
+        </aside>
+      </section>
+
+      <Footer />
+    </main>
   );
 }

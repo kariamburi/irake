@@ -120,6 +120,7 @@ function MapPicker({
                     mapTypeControl: false,
                     streetViewControl: false,
                     fullscreenControl: false,
+                    zoomControl: true,
                 });
 
                 // Click to place/move marker + update center

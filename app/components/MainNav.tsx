@@ -161,7 +161,7 @@ export function LeftRailCompact() {
             />
 
             <RailLink href="/ai" icon={<IoSparklesOutline />} label="ekarihub AI" />
-            <RailLink href="/support" icon={<IoHelpBuoyOutline />} label="ekarihub Support" />
+
             <div className="mt-auto mb-2" />
         </aside>
     );
@@ -245,7 +245,7 @@ export function LeftNavDesktop({ uid, handle }: { uid?: string; handle?: string 
                 badgeCount: authUid ? unreadDM : 0,
             },
             { label: "ekarihub AI", href: "/ai", icon: <IoSparklesOutline /> },
-            { label: "ekarihub Support", href: "/support", icon: <IoHelpBuoyOutline /> },
+
         ];
 
     return (
