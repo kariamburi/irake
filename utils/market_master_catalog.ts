@@ -6650,6 +6650,160 @@ export const MARKET_CATALOG: MarketCatalogEntry[] = [
       "Tags": "insect,protein"
     }
   }
+  ,
+  {
+    "type": "product",
+    "category": "Nursery & Seedlings",
+    "subCategory": "Vegetable Seedlings",
+    "name": "Tomato Seedlings",
+    "variety": "Hybrid/Open-pollinated (e.g., Anna F1)",
+    "form": "Tray-raised",
+    "useCase": "Transplanting for field or greenhouse",
+    "typicalPackSize": "128",
+    "unit": "cell tray",
+    "grade": "Certified",
+    "rate": "",
+    "billingUnit": "",
+    "extras": {
+      "Certifications (Organic/GAP/Fairtrade/etc.)": "Certified nursery",
+      "HS Code (placeholder)": "0602",
+      "Tags": "nursery,seedlings,vegetable"
+    }
+  },
+  {
+    "type": "product",
+    "category": "Nursery & Seedlings",
+    "subCategory": "Vegetable Seedlings",
+    "name": "Cabbage Seedlings",
+    "variety": "Hybrid/Open-pollinated (e.g., Gloria F1)",
+    "form": "Tray-raised",
+    "useCase": "Transplanting",
+    "typicalPackSize": "128",
+    "unit": "cell tray",
+    "grade": "Certified",
+    "rate": "",
+    "billingUnit": "",
+    "extras": {
+      "Certifications (Organic/GAP/Fairtrade/etc.)": "Certified nursery",
+      "HS Code (placeholder)": "0602",
+      "Tags": "nursery,seedlings,brassica"
+    }
+  },
+  {
+    "type": "product",
+    "category": "Nursery & Seedlings",
+    "subCategory": "Vegetable Seedlings",
+    "name": "Capsicum (Bell Pepper) Seedlings",
+    "variety": "Green/Colored hybrids",
+    "form": "Tray-raised",
+    "useCase": "Transplanting (open field/greenhouse)",
+    "typicalPackSize": "128",
+    "unit": "cell tray",
+    "grade": "Certified",
+    "rate": "",
+    "billingUnit": "",
+    "extras": {
+      "Certifications (Organic/GAP/Fairtrade/etc.)": "Certified nursery",
+      "HS Code (placeholder)": "0602",
+      "Tags": "nursery,seedlings,capsicum"
+    }
+  },
+  {
+    "type": "product",
+    "category": "Nursery & Seedlings",
+    "subCategory": "Fruit Tree Seedlings",
+    "name": "Avocado Seedlings",
+    "variety": "Hass (grafted)",
+    "form": "Grafted in polybag",
+    "useCase": "Orchard establishment",
+    "typicalPackSize": "1",
+    "unit": "seedling",
+    "grade": "Nursery grade",
+    "rate": "",
+    "billingUnit": "",
+    "extras": {
+      "Certifications (Organic/GAP/Fairtrade/etc.)": "Nursery licensed",
+      "HS Code (placeholder)": "0602",
+      "Tags": "nursery,seedlings,avocado",
+      "Rootstock": "Zutano/Fuerte"
+    }
+  },
+  {
+    "type": "product",
+    "category": "Nursery & Seedlings",
+    "subCategory": "Fruit Tree Seedlings",
+    "name": "Mango Seedlings",
+    "variety": "Apple/Tommy Atkins (grafted)",
+    "form": "Grafted in polybag",
+    "useCase": "Orchard establishment",
+    "typicalPackSize": "1",
+    "unit": "seedling",
+    "grade": "Nursery grade",
+    "rate": "",
+    "billingUnit": "",
+    "extras": {
+      "Certifications (Organic/GAP/Fairtrade/etc.)": "Nursery licensed",
+      "HS Code (placeholder)": "0602",
+      "Tags": "nursery,seedlings,mango"
+    }
+  },
+  {
+    "type": "product",
+    "category": "Nursery & Seedlings",
+    "subCategory": "Agroforestry Tree Seedlings",
+    "name": "Grevillea robusta Seedlings",
+    "variety": "Grevillea robusta",
+    "form": "Polybag",
+    "useCase": "Boundary/woodlot/agroforestry",
+    "typicalPackSize": "1",
+    "unit": "seedling",
+    "grade": "Nursery grade",
+    "rate": "",
+    "billingUnit": "",
+    "extras": {
+      "Certifications (Organic/GAP/Fairtrade/etc.)": "—",
+      "HS Code (placeholder)": "0602",
+      "Tags": "nursery,seedlings,agroforestry"
+    }
+  },
+  {
+    "type": "product",
+    "category": "Nursery & Seedlings",
+    "subCategory": "Agroforestry Tree Seedlings",
+    "name": "Eucalyptus Seedlings",
+    "variety": "Grandis/Clonal",
+    "form": "Bare-root/Polybag",
+    "useCase": "Woodlot/poles",
+    "typicalPackSize": "1",
+    "unit": "seedling",
+    "grade": "Nursery grade",
+    "rate": "",
+    "billingUnit": "",
+    "extras": {
+      "Certifications (Organic/GAP/Fairtrade/etc.)": "—",
+      "HS Code (placeholder)": "0602",
+      "Tags": "nursery,seedlings,eucalyptus",
+    }
+  },
+  {
+    "type": "product",
+    "category": "Nursery & Seedlings",
+    "subCategory": "Plantation Seedlings",
+    "name": "Coffee Seedlings",
+    "variety": "Arabica/Ruiru 11/Batian",
+    "form": "Polybag",
+    "useCase": "Estate/smallholder establishment",
+    "typicalPackSize": "1",
+    "unit": "seedling",
+    "grade": "Certified",
+    "rate": "",
+    "billingUnit": "",
+    "extras": {
+      "Certifications (Organic/GAP/Fairtrade/etc.)": "CRF certified",
+      "HS Code (placeholder)": "0602",
+      "Tags": "nursery,seedlings,coffee"
+    }
+  }
 ];
 
 export const TYPE_OPTIONS = [

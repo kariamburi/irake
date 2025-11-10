@@ -14,7 +14,7 @@ export const INTERESTS = [
     // Crops / products
     "Maize", "Tomato", "Potato", "Coffee", "Vegetables", "Fruits",
     "Dairy", "Beef", "Poultry", "Fish", "Honey", "Forestry", "Flowers",
-    "Cereals",
+    "Cereals", "Plants",
 
     // Inputs & equipment
     "Seeds", "Fertilizers", "Agrochemicals", "Feeds", "Tools",
@@ -28,7 +28,7 @@ export const INTERESTS = [
 
     // Services & knowledge
     "Training", "Extension", "Soil Testing", "Vet Services", "Breeding / AI",
-    "Vaccines & Drugs", "Agronomist", "AgriTech", "Farm Apps",
+    "Vaccines & Drugs", "Agronomist", "AgriTech", "Farm Apps", "Gardening",
 
     // Finance & biz services
     "Loans", "Insurance", "Microfinance", "Sacco", "Consultancy", "Leasing",

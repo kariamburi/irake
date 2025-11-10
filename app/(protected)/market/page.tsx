@@ -27,12 +27,13 @@ import {
   IoPricetagOutline,
 } from "react-icons/io5";
 
-import FilterModal, { distanceKm, Filters, toLower } from "../components/FilterModal";
-import ProductCard, { computeStatus, KES, Product } from "../components/ProductCard";
-import SellModal from "../components/SellModal";
-import AppShell from "../components/AppShell";
-import { EKARI } from "../constants/constants";
+import FilterModal, { distanceKm, Filters, toLower } from "@/app/components/FilterModal";
+import ProductCard, { computeStatus, KES, Product } from "@/app/components/ProductCard";
+import SellModal from "@/app/components/SellModal";
+import AppShell from "@/app/components/AppShell";
+//import { EKARI } from "../constants/constants";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { EKARI } from "@/app/constants/constants";
 
 type SortKey = "recent" | "priceAsc" | "priceDesc";
 

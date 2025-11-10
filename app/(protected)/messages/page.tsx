@@ -20,9 +20,9 @@ import {
 import { IoChevronForward, IoSearchOutline } from "react-icons/io5";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
-import AppShell from "../components/AppShell";
+import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
-import SmartAvatar from "../components/SmartAvatar";
+import SmartAvatar from "@/app/components/SmartAvatar";
 import clsx from "clsx";
 
 const EKARI = {

@@ -17,10 +17,10 @@ import {
 } from "react-icons/io5";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
-import AppShell from "../components/AppShell";
+import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { useRouter } from "next/navigation";
-import { NotificationItem } from "../components/NotificationItem";
+import { NotificationItem } from "@/app/components/NotificationItem";
 
 const EKARI = {
   forest: "#233F39",

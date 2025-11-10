@@ -35,8 +35,8 @@ import {
 } from "firebase/firestore";
 import { getDownloadURL, ref as sRef, uploadBytes } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
-import { Topbar } from "../components/Topbar";
-import { Footer } from "../components/Footer";
+import { Topbar } from "@/app/components/Topbar";
+import { Footer } from "@/app/components/Footer";
 
 type Ticket = {
   id: string;

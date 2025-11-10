@@ -5,7 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Send, Image as ImageIcon, Sparkles, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
-import AppShell from "../components/AppShell";
+import AppShell from "@/app/components/AppShell";
 
 /* ---------------------------- THEME & HELPERS ---------------------------- */
 const EKARI = {
