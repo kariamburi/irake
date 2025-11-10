@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
-import AppShell from "../components/AppShell";
+import AppShell from "@/app/components/AppShell";
 import { IoChevronBack, IoSearchOutline } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
