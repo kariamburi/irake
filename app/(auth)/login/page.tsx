@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
     IoChevronDown, IoChevronUp, IoMailOutline, IoLockClosedOutline,
@@ -39,25 +39,6 @@ export default function LoginPage() {
             setAuthBundle(bundle);
         })();
     }, []);
-    // inside component
-    const searchParams = useSearchParams();
-
-    // tiny helper: only allow same-site paths like "/x" (not "//x" or "http...")
-    const safeNext = (() => {
-        const raw = searchParams?.get("next");
-        if (!raw) return null;
-
-        // already decoded by Next's URLSearchParams; guard anyway
-        const val = raw.trim();
-
-        // must start with a single "/" and not "//"
-        if (!val.startsWith("/") || val.startsWith("//")) return null;
-
-        // optionally block loops back to auth pages
-        if (val === "/login" || val === "/signup") return null;
-
-        return val;
-    })();
 
     // UI state
     const [emailOpen, setEmailOpen] = useState(false);
@@ -93,24 +74,20 @@ export default function LoginPage() {
     // Post-login routing based on Firestore user doc
     useEffect(() => {
         if (authLoading || !user) return;
-
         let alive = true;
         (async () => {
             try {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (!alive) return;
-
-                // prefer ?next= when present and safe
-                const dest = safeNext ?? (snap.exists() ? "/" : "/onboarding");
-                router.replace(dest);
+                router.replace(snap.exists() ? "/" : "/onboarding");
             } catch {
-                const dest = safeNext ?? "/onboarding";
-                router.replace(dest);
+                if (alive) router.replace("/onboarding");
             }
         })();
-
-        return () => { alive = false; };
-    }, [user, authLoading, router, safeNext]);
+        return () => {
+            alive = false;
+        };
+    }, [user, authLoading, router]);
 
     const handleLoginEmail = async () => {
         if (!isValid || loadingEmail || authLoading || !authBundle) return;
