@@ -56,7 +56,7 @@ const EKARI = {
 /* ---------- Channels ---------- */
 type TabKey = "forYou" | "following" | "nearby";
 const TABS: TabKey[] = ["forYou", "following", "nearby"];
-const LABEL: Record<TabKey, string> = { forYou: "For You", following: "Partnered", nearby: "Nearby" };
+const LABEL: Record<TabKey, string> = { forYou: "For You", following: "Partnership", nearby: "Nearby" };
 
 /* ---------- Visibility check (kept from your current file) ---------- */
 type Visibility = "public" | "followers" | "private";
@@ -769,7 +769,12 @@ function VideoCard({
               <div className="text-white/95 font-bold text-sm truncate">
                 {item.authorUsername ? `${item.authorUsername}` : (item.authorId ?? "").slice(0, 6)}
               </div>
-              <div className="text-white/70 text-[11px]">{/* follower count handled by hook */}</div>
+              <div
+                className="items-center text-white/70 text-[11px]"
+                title={`${followersCount} Partner${followersCount === 1 ? "" : "s"}`}
+              >
+                {formatCount(followersCount)} Partner{followersCount === 1 ? "" : "s"}
+              </div>
             </div>
 
             {showFollow && (

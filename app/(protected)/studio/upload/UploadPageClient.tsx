@@ -46,7 +46,7 @@ const EKARI = {
   danger: "#B42318",
 };
 
-const MAX_VIDEO_SEC = 60;
+const MAX_VIDEO_SEC = 90;
 const MAX_MEDIA_MB = 60;
 const DRAFT_KEY = "ekari.createDeed.draft";
 const CAPTION_MAX = 150;
@@ -66,6 +66,7 @@ type DeedDoc = {
   mediaThumbUrl?: string;
   muxUploadId?: string | null;
   muxPlaybackId?: string | null;
+  mediaType?: string;
   media?: Array<{
     kind?: "video" | "image";
     durationSec?: number;
@@ -112,7 +113,7 @@ export default function UploadPage() {
   const search = useSearchParams();
   const editDeedId = search.get("editDeedId");
   const isEditing = !!editDeedId;
-
+  const [mediaKind, setMediaKind] = useState<"video" | "image" | null>(null);
   /* ---------- auth ---------- */
   const { user, loading: authLoading } = useAuth();
   const uid = user?.uid;
@@ -260,6 +261,7 @@ export default function UploadPage() {
         }
 
         const m0 = data.media?.[0];
+        setMediaKind((m0?.kind as "video" | "image" | undefined) ?? (data.mediaType === "photo" ? "image" : "video"));
         setDurationSec(m0?.durationSec ?? null);
         setVideoWH({ width: m0?.width, height: m0?.height });
 
@@ -279,31 +281,52 @@ export default function UploadPage() {
     if (!f) return;
     const mb = f.size / (1024 * 1024);
     if (mb > MAX_MEDIA_MB) { alert(`Max ${MAX_MEDIA_MB} MB. Your file is ~${mb.toFixed(1)} MB.`); return; }
-    if (!f.type.startsWith("video/")) { alert("Please select a video file."); return; }
+    // if (!f.type.startsWith("video/")) { alert("Please select a video file."); return; }
+    // if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+    const isVideo = f.type.startsWith("video/");
+    const isImage = f.type.startsWith("image/");
+    if (!isVideo && !isImage) { alert("Please select a video or image."); return; }
     if (mediaUrl) URL.revokeObjectURL(mediaUrl);
-
     setFile(f);
     const url = URL.createObjectURL(f);
     setMediaUrl(url);
     setProgress(0);
     setErrorMsg("");
-
+    setMediaKind(isVideo ? "video" : "image");
     setThumbDataUrl(null);
     setCoverMs(800);
     setStripThumbs([]);
 
     try {
-      const meta = await probeVideoMeta(url);
-      setDurationSec(Math.round(meta.duration || 0));
-      setVideoWH({ width: meta.width, height: meta.height });
-      const initialCover = await captureVideoFrame(url, 0.8);
-      setThumbDataUrl(initialCover);
-      buildStrip(url, Math.max(1, Math.round(meta.duration || 0)));
+      if (isVideo) {
+        const meta = await probeVideoMeta(url);
+        setDurationSec(Math.round(meta.duration || 0));
+        setVideoWH({ width: meta.width, height: meta.height });
+        const initialCover = await captureVideoFrame(url, 0.8);
+        setThumbDataUrl(initialCover);
+        buildStrip(url, Math.max(1, Math.round(meta.duration || 0)));
+      } else {
+        // Image path
+        const meta = await probeImageMeta(url);
+        setDurationSec(null);
+        setVideoWH({ width: meta.width, height: meta.height });
+        setThumbDataUrl(url); // use the image itself as the poster/thumbnail
+      }
     } finally {
       setStep(1);
     }
   };
-
+  async function probeImageMeta(src: string): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      const img = document.createElement('img'); // avoid shadowed Image
+      img.onload = () => resolve({
+        width: img.naturalWidth || 0,
+        height: img.naturalHeight || 0
+      });
+      img.onerror = () => reject(new Error("Could not load image"));
+      img.src = src;
+    });
+  }
   const buildStrip = async (url: string, durSec: number) => {
     setStripBusy(true);
     try {
@@ -329,7 +352,8 @@ export default function UploadPage() {
   };
 
   const canPost =
-    (!!file || isEditing) && !!uid && (durationSec ?? 0) <= MAX_VIDEO_SEC;
+    (!!file || isEditing) && !!uid &&
+    (mediaKind === "image" || (durationSec ?? 0) <= MAX_VIDEO_SEC);
 
   const replaceMedia = () => (document.getElementById("file-input-main") as HTMLInputElement)?.click();
   const clearMedia = () => {
@@ -389,7 +413,7 @@ export default function UploadPage() {
     onProgress?: (pct: number) => void
   ) => uploadResumable(file, path, onProgress);
 
-  /* ---------- save (Create OR Edit) — VIDEO ONLY ---------- */
+  /* ---------- save (Create OR Edit) — VIDEO or IMAGE ---------- */
   const saveDeed = async () => {
     if (authLoading) return;
 
@@ -398,12 +422,18 @@ export default function UploadPage() {
       setErrorMsg("Please sign in to post.");
       return;
     }
-    if (!isEditing && (!file || !durationSec)) {
-      setErrorMsg("Pick a video and let it load first.");
+
+    if (!isEditing && !file) {
+      setErrorMsg("Pick a media file and let it load first.");
       setStep?.(0);
       return;
     }
-    if (durationSec && durationSec > MAX_VIDEO_SEC) {
+
+    // Enforce 90s cap for videos
+    const MAX_VIDEO_SEC = 90; // <— ensure this matches your top-level const
+    const isVideo = mediaKind === "video";
+    const isImage = mediaKind === "image";
+    if (isVideo && durationSec && durationSec > MAX_VIDEO_SEC) {
       alert(`Video must be ≤ ${MAX_VIDEO_SEC}s.`);
       setStep?.(1);
       return;
@@ -419,12 +449,18 @@ export default function UploadPage() {
       if (useGeo && typeof navigator !== "undefined" && "geolocation" in navigator) {
         await new Promise<void>((resolve, reject) =>
           navigator.geolocation.getCurrentPosition(
-            (p) => { geo = { lat: p.coords.latitude, lng: p.coords.longitude }; resolve(); },
-            (e) => reject(e)
+            (p) => {
+              geo = { lat: p.coords.latitude, lng: p.coords.longitude };
+              resolve();
+            },
+            (e) => reject(e),
+            { maximumAge: 60000 }
           )
         );
       }
-    } catch { /* ignore geo errors */ }
+    } catch {
+      /* ignore geo errors */
+    }
 
     // resolve uploaded audio FIRST (so mixer has a URL)
     let resolvedMusicUrl: string | undefined = musicUrl || undefined;
@@ -432,8 +468,7 @@ export default function UploadPage() {
       if (!resolvedMusicUrl && musicSource === "uploaded" && localSoundFile) {
         const soundPath = `deeds/${uid}/${crypto.randomUUID()}/sound/${localSoundFile.name}`;
         const up = await uploadFileResumable(localSoundFile, soundPath, setProgress);
-        resolvedMusicUrl = up.downloadURL; // http(s) ok for function fetch
-        // setMusicUrl(up.downloadURL); // optional: keep state
+        resolvedMusicUrl = up.downloadURL; // http(s) is fine for CF fetch
       }
     } catch (e) {
       console.error("Audio upload failed", e);
@@ -445,56 +480,54 @@ export default function UploadPage() {
     let deedRef: ReturnType<typeof doc> | null = null;
 
     try {
-      // Reserve id and placeholder
-      deedRef = doc(collection(db, "deeds"));
+      // Use existing doc when editing; reserve a new one only when creating
+      deedRef = isEditing
+        ? doc(db, "deeds", editDeedId!)
+        : doc(collection(db, "deeds"));
       const deedId = deedRef.id;
 
-      await setDoc(deedRef, pruneUndefined({
-        authorId: uid,
-        authorUsername: userProfile?.handle,
-        authorPhotoURL: userProfile?.photoURL,
-        status: "uploading",
-        mediaType: "video",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }));
-
-      // -------- VIDEO PATH --------
-      // MIXING: upload RAW to Storage (gs://) + payload to trigger function
-      if (file && durationSec && willServerMix) {
-        // 1) raw
-        const rawUp = await uploadResumable(
-          file,
-          `deeds/${uid}/${deedId}/raw.mp4`,
-          setProgress
+      // Only create the placeholder doc on *create*
+      if (!isEditing) {
+        await setDoc(
+          deedRef,
+          pruneUndefined({
+            authorId: uid,
+            authorUsername: userProfile?.handle,
+            authorPhotoURL: userProfile?.photoURL,
+            status: isVideo ? "uploading" : "processing",
+            mediaType: isVideo ? "video" : "photo",
+            type: isVideo ? "video" : "photo",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
         );
+      }
 
-        // 2) thumb
+      // =========================
+      // VIDEO: Server-mix path
+      // =========================
+      if (isVideo && file && durationSec && willServerMix) {
+        // 1) upload raw video to Storage (gs://)
+        const rawUp = await uploadResumable(file, `deeds/${uid}/${deedId}/raw.mp4`, setProgress);
+
+        // 2) thumbnail
         let thumbUrl: string | undefined = undefined;
         if (thumbDataUrl) {
           const tBlob = dataUrlToBlob(thumbDataUrl);
-          const tu = await uploadResumable(
-            tBlob,
-            `deeds/${uid}/${deedId}/thumb.jpg`,
-            setProgress
-          );
+          const tu = await uploadResumable(tBlob, `deeds/${uid}/${deedId}/thumb.jpg`, setProgress);
           thumbUrl = tu.downloadURL;
         } else if (file) {
           try {
             const tDataUrl = await generateThumbAtWeb(file, coverMs ?? 800);
             if (tDataUrl) {
               const tBlob = dataUrlToBlob(tDataUrl);
-              const tu = await uploadResumable(
-                tBlob,
-                `deeds/${uid}/${deedId}/thumb.jpg`,
-                setProgress
-              );
+              const tu = await uploadResumable(tBlob, `deeds/${uid}/${deedId}/thumb.jpg`, setProgress);
               thumbUrl = tu.downloadURL;
             }
           } catch { }
         }
 
-        // 3) payload
+        // 3) Firestore payload to trigger mixing
         const media = [
           pruneUndefined({
             url: rawUp.gsUrl, // gs:// for Cloud Function
@@ -503,6 +536,7 @@ export default function UploadPage() {
             durationSec,
             thumbUrl,
             coverMs,
+            kind: "video" as const,
           }),
         ];
 
@@ -513,13 +547,14 @@ export default function UploadPage() {
           type: "video" as const,
           media,
           caption: caption?.trim() || undefined,
-          music: (musicTitle || resolvedMusicUrl)
-            ? pruneUndefined({
-              title: musicTitle || undefined,
-              source: musicSource,
-              url: resolvedMusicUrl || undefined,
-            })
-            : undefined,
+          music:
+            musicTitle || resolvedMusicUrl
+              ? pruneUndefined({
+                title: musicTitle || undefined,
+                source: musicSource,
+                url: resolvedMusicUrl || undefined,
+              })
+              : undefined,
           tags: mergedTags.length ? mergedTags : undefined,
           visibility,
           allowComments,
@@ -533,7 +568,6 @@ export default function UploadPage() {
           text: caption?.trim() || undefined,
           createdAtMs: Date.now(),
 
-          // MIX PARAMS
           mix: pruneUndefined({
             mode: "video_mix",
             needsServerMix: true,
@@ -553,21 +587,89 @@ export default function UploadPage() {
         await updateDoc(deedRef, payload);
       }
 
-      // NO MIX: direct Mux
-      if (file && durationSec && !willServerMix) {
+      // =========================
+      // IMAGE: direct photo or photo->video mix
+      // =========================
+      if (isImage && file) {
+        const imgUp = await uploadResumable(file, `deeds/${uid}/${deedRef!.id}/image.jpg`, setProgress);
+        const willPhotoServerMix = needsServerMix && (musicTitle || resolvedMusicUrl);
+
+        const media = [
+          pruneUndefined({
+            url: willPhotoServerMix ? imgUp.gsUrl : imgUp.downloadURL, // gs:// if we’re going to mix
+            width: videoWH.width, // reusing videoWH for image dims in your UI; adjust if you track imageWH
+            height: videoWH.height,
+            thumbUrl: imgUp.downloadURL,
+            kind: "image" as const,
+          }),
+        ];
+
+        const payload = pruneUndefined({
+          authorId: uid,
+          authorUsername: userProfile?.handle,
+          authorPhotoURL: userProfile?.photoURL,
+          type: "photo" as const,
+          media,
+          caption: caption?.trim() || undefined,
+          music:
+            (musicTitle || resolvedMusicUrl) && willPhotoServerMix
+              ? pruneUndefined({
+                title: musicTitle || undefined,
+                source: musicSource,
+                url: resolvedMusicUrl || undefined,
+              })
+              : undefined,
+          tags: mergedTags.length ? mergedTags : undefined,
+          visibility,
+          allowComments,
+          geo,
+
+          mediaType: "photo" as const,
+          mediaThumbUrl: imgUp.downloadURL,
+          text: caption?.trim() || undefined,
+          createdAtMs: Date.now(),
+
+          mix: willPhotoServerMix
+            ? pruneUndefined({
+              mode: "photo_to_video",
+              needsServerMix: true,
+              keepMic,
+              offsetMs: Math.round(startOffsetSec * 1000),
+              musicGainDb,
+              micGainDb,
+              ducking,
+              duckAmountDb,
+              loop: loopMusic,
+            })
+            : pruneUndefined({ needsServerMix: false }),
+
+          status: willPhotoServerMix ? "mixing" : "processing",
+          updatedAt: serverTimestamp(),
+        });
+
+        await updateDoc(deedRef!, payload);
+
+        // Early exit for images so we don’t hit the Mux path below
+        if (typeof window !== "undefined") localStorage.removeItem(DRAFT_KEY);
+        setProgress(100);
+        const pathKind = "photo";
+        router.push(`/${userProfile?.handle ?? "me"}/${pathKind}/${deedRef!.id}`);
+        return;
+      }
+
+      // =========================
+      // VIDEO: NO MIX — direct Mux
+      // =========================
+      if (isVideo && file && durationSec && !willServerMix) {
         const { createMuxDirectUpload, uploadVideoToMux } = await import("@/utils/muxUpload");
         const { uploadUrl, uploadId } = await createMuxDirectUpload({
           passthrough: { deedId, uid },
         });
         await updateDoc(deedRef, { muxUploadId: uploadId, updatedAt: serverTimestamp() });
 
-        await uploadVideoToMux({
-          file,
-          uploadUrl,
-          onProgress: setProgress,
-        });
+        await uploadVideoToMux({ file, uploadUrl, onProgress: setProgress });
 
-        // thumb (if any)
+        // thumbnail (optional)
         let thumbUrl: string | undefined;
         if (thumbDataUrl) {
           const tBlob = dataUrlToBlob(thumbDataUrl);
@@ -595,13 +697,14 @@ export default function UploadPage() {
           type: "video" as const,
           media,
           caption: caption?.trim() || undefined,
-          music: (musicTitle || resolvedMusicUrl)
-            ? pruneUndefined({
-              title: musicTitle || undefined,
-              source: musicSource,
-              url: resolvedMusicUrl || undefined,
-            })
-            : undefined,
+          music:
+            musicTitle || resolvedMusicUrl
+              ? pruneUndefined({
+                title: musicTitle || undefined,
+                source: musicSource,
+                url: resolvedMusicUrl || undefined,
+              })
+              : undefined,
           tags: mergedTags.length ? mergedTags : undefined,
           visibility,
           allowComments,
@@ -629,8 +732,13 @@ export default function UploadPage() {
 
       // cleanup + navigate
       if (typeof window !== "undefined") localStorage.removeItem(DRAFT_KEY);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("pendingDeedId", deedId);
+      }
       setProgress(100);
-      router.push(`/${userProfile?.handle ?? "me"}/video/${deedRef!.id}`);
+
+      // const pathKind = isImage ? "photo" : "video";
+      router.push(`/${userProfile?.handle}`);
     } catch (e: any) {
       console.error(e);
       setErrorMsg(e?.message || "Failed to save your deed.");
@@ -687,9 +795,9 @@ export default function UploadPage() {
           <div className="rounded-2xl border bg-white" style={{ borderColor: EKARI.hair }}>
             <DropZone onDropFile={onDrop} />
             <div className="px-4 pb-8 pt-6 text-center sm:py-10">
-              <input id="file-input-drop" type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onDrop(f); }} />
+              <input id="file-input-drop" type="file" accept="video/*,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onDrop(f); }} />
               <button className="mx-auto mt-3 rounded-lg px-5 py-3 text-sm font-bold text-white sm:text-base" style={{ backgroundColor: EKARI.gold }} onClick={() => document.getElementById("file-input-drop")?.click()}>
-                Select video
+                Select media
               </button>
             </div>
           </div>
@@ -846,7 +954,7 @@ export default function UploadPage() {
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <input id="file-input-main" type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onDrop(f); }} />
+                    <input id="file-input-main" type="file" accept="video/*,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onDrop(f); }} />
                     <button className="rounded-lg border px-3 py-1.5 text-sm" style={{ borderColor: EKARI.hair }} onClick={replaceMedia}>
                       <IoSwapHorizontalOutline className="inline -mt-0.5 mr-1" /> {file ? "Replace again" : (isEditing ? "Replace video" : "Replace")}
                     </button>
@@ -863,7 +971,7 @@ export default function UploadPage() {
                 )}
               </div>
 
-              {/* Cover selector + Preview Mixer */}
+              {/* Cover selector + Preview Mixer (cover only for video) */}
               <div className="mb-4 rounded-xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
                 <div className="font-extrabold" style={{ color: EKARI.text }}>Cover</div>
 
@@ -872,8 +980,8 @@ export default function UploadPage() {
                     <div className="relative overflow-hidden shrink-0" style={{ borderColor: EKARI.hair }}>
                       <PreviewMixerCard
                         title="Preview"
-                        videoUri={mediaUrl || undefined}
-                        photoUri={undefined}
+                        videoUri={mediaKind === "video" ? (mediaUrl || undefined) : undefined}
+                        photoUri={mediaKind === "image" ? (mediaUrl || undefined) : undefined}
                         posterUri={posterUrl || undefined}
                         musicUri={previewMusicUri || undefined}
                         musicOffsetMs={Math.round(startOffsetSec * 1000)}
@@ -886,12 +994,15 @@ export default function UploadPage() {
                     </div>
                   )}
 
-                  <div className="min-w-0 flex-1">
+                  <div className={`min-w-0 flex-1 ${mediaKind === "image" ? "opacity-60 pointer-events-none" : ""}`}>
                     <div className="mb-2 text-xs" style={{ color: EKARI.dim }}>
-                      {file ? "Pick a thumbnail from your video" : "Cover selection is available after you choose a new video."}
+
+                      {mediaKind === "video"
+                        ? (file ? "Pick a thumbnail from your video" : "Cover selection is available after you choose a video.")
+                        : "Cover timeline is for videos only."}
                     </div>
 
-                    <div className={`flex w-full gap-2 overflow-x-auto ${file ? "" : "opacity-60 pointer-events-none"}`}>
+                    <div className={`flex w-full gap-2 overflow-x-auto ${file && mediaKind === "video" ? "" : "opacity-60 pointer-events-none"}`}>
                       {stripBusy && <div className="text-xs" style={{ color: EKARI.dim }}>Generating previews…</div>}
                       {stripThumbs.map((u, idx) => {
                         const tMs = durationSec && stripThumbs.length ? Math.floor(((idx + 1) / (stripThumbs.length + 1)) * durationSec * 1000) : 0;
@@ -908,18 +1019,20 @@ export default function UploadPage() {
                       })}
                     </div>
 
-                    <div className="mt-3">
-                      <ThemedRange
-                        min={0}
-                        max={totalSec}
-                        step={0.1}
-                        value={coverSec}
-                        onChange={(v) => setCoverMs(Math.floor(v * 1000))}
-                        onCommit={(v) => generateThumbAt(Math.floor(v * 1000))}
-                        percent={percent}
-                        label={`At ${coverSec.toFixed(1)}s`}
-                      />
-                    </div>
+                    {mediaKind === "video" && (
+                      <div className="mt-3">
+                        <ThemedRange
+                          min={0}
+                          max={totalSec}
+                          step={0.1}
+                          value={coverSec}
+                          onChange={(v) => setCoverMs(Math.floor(v * 1000))}
+                          onCommit={(v) => generateThumbAt(Math.floor(v * 1000))}
+                          percent={percent}
+                          label={`At ${coverSec.toFixed(1)}s`}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1056,6 +1169,7 @@ export default function UploadPage() {
                 </div>
 
                 <SettingsPanel
+                  mediaKind={mediaKind}
                   visibility={visibility}
                   onVisibilityChange={(v) => setVisibility(v)}
                   allowComments={allowComments}
@@ -1148,7 +1262,9 @@ function SettingsPanel({
   allowComments, onAllowCommentsChange,
   useGeo, onToggleGeo,
   durationSec, musicTitle,
+  mediaKind,
 }: {
+  mediaKind: "video" | "image" | null;
   visibility: "public" | "followers" | "private";
   onVisibilityChange: (v: "public" | "followers" | "private") => void;
   allowComments: boolean;
@@ -1204,8 +1320,8 @@ function SettingsPanel({
       <SettingRow
         icon={<IoTimeOutline />}
         title="Duration"
-        hint="Limit 60s"
-        right={<BadgeMono>{formatDuration(durationSec)}</BadgeMono>}
+        hint="Limit 90s"
+        right={<BadgeMono>{mediaKind === "video" ? formatDuration(durationSec) : "-"}</BadgeMono>}
       />
 
       {musicTitle ? (
@@ -1345,7 +1461,7 @@ function DropZone({ onDropFile }: { onDropFile: (f: File) => void }) {
         const f = e.dataTransfer.files?.[0]; if (f) onDropFile(f);
       }}
     >
-      <div className="text-lg font-extrabold sm:text-2xl" style={{ color: EKARI.text }}>Select video to upload</div>
+      <div className="text-lg font-extrabold sm:text-2xl" style={{ color: EKARI.text }}>Select media (video or photo) to upload</div>
       <div className="mt-2 text-xs sm:text-sm" style={{ color: EKARI.dim }}>Or drag and drop it here</div>
     </div>
   );

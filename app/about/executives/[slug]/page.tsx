@@ -36,7 +36,7 @@ export default function ExecProfilePage() {
         <motion.div
           {...fadeUp}
           transition={{ duration: 0.7, delay: 0.05 }}
-          className="relative aspect-[4/4] w-full rounded-3xl overflow-hidden"
+          className="relative aspect-[4/6] w-full rounded-3xl overflow-hidden"
         >
           <Image src={exec.photo}
             alt={exec.name} fill className="object-cover" priority />

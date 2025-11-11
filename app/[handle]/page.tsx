@@ -3,11 +3,10 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   collection, doc, getDoc, limit, onSnapshot, orderBy, query, where, deleteDoc, setDoc,
   getDocs, startAfter, updateDoc, serverTimestamp, DocumentData, QueryDocumentSnapshot,
-  addDoc,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -17,8 +16,7 @@ import {
   IoPlayCircleOutline, IoPricetagOutline, IoCubeOutline, IoTrashOutline, IoTimeOutline,
   IoEyeOffOutline, IoCashOutline, IoCheckmarkDone, IoCalendarClearOutline, IoCalendarOutline,
   IoLocationOutline, IoPeopleOutline, IoHeartOutline, IoChatbubblesOutline,
-  IoChatbubbleEllipsesOutline, IoListOutline,
-  IoFilmOutline
+  IoChatbubbleEllipsesOutline, IoListOutline, IoFilmOutline, IoLockClosedOutline, IoClose
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -27,7 +25,6 @@ import { SmartImage } from "../components/SmartImage";
 import SmartAvatar from "../components/SmartAvatar";
 import { deleteObject, getStorage, listAll, ref as sRef } from "firebase/storage";
 
-/* ---------- theme + utils ---------- */
 const EKARI = { forest: "#233F39", bg: "#ffffff", text: "#111827", subtext: "#6B7280", hair: "#E5E7EB", primary: "#C79257" };
 const cn = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
@@ -37,6 +34,7 @@ type Profile = {
   name?: string;
   bio?: string;
   website?: string;
+  phone?: string;
   photoURL?: string;
   followersCount?: number;
   followingCount?: number;
@@ -64,6 +62,8 @@ type Product = {
   sold?: boolean;
 };
 
+type DeedStatus = "ready" | "processing" | "mixing" | "uploading" | "failed" | "deleted";
+
 function nfmt(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
   if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
@@ -71,6 +71,208 @@ function nfmt(n: number) {
 }
 const KES = (n: number) =>
   "KSh " + (Number.isFinite(n) ? n : 0).toLocaleString("en-KE", { maximumFractionDigits: 0 });
+
+/* =========================================================
+   Upload gate — blocks the whole page while a new deed
+   is not READY or FAILED. Detects via ?deedId= or localStorage.
+========================================================= */
+function DeedProcessingGate({
+  authorUid,
+  handle,
+}: {
+  authorUid: string | null;
+  handle: string;
+}) {
+  const router = useRouter();
+  const search = useSearchParams();
+  const [deedId, setDeedId] = React.useState<string | null>(null);
+  const [deed, setDeed] = React.useState<DeedDoc | null>(null);
+  const [busyDelete, setBusyDelete] = React.useState(false);
+
+  // resolve deedId from query, else localStorage
+  React.useEffect(() => {
+    const qId = search?.get?.("deedId");
+    if (qId) {
+      setDeedId(qId);
+      if (typeof window !== "undefined") {
+        try { localStorage.setItem("lastUploadedDeedId", qId); } catch { }
+      }
+      return;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const ls = localStorage.getItem("lastUploadedDeedId");
+        if (ls) setDeedId(ls);
+      } catch { }
+    }
+  }, [search]);
+
+  // subscribe to deed status
+  React.useEffect(() => {
+    if (!deedId) return;
+    const ref = doc(db, "deeds", deedId);
+    const unsub = onSnapshot(ref, (s) => {
+      if (!s.exists()) { setDeed(null); return; }
+      setDeed(toDeed(s.data(), s.id));
+    });
+    return () => unsub();
+  }, [deedId]);
+
+  // compute gating
+  const status = (deed?.status as DeedStatus) || "ready";
+  const isBlocking =
+    Boolean(deedId) &&
+    (status === "uploading" || status === "processing" || status === "mixing");
+
+  const isFailed = Boolean(deedId) && status === "failed";
+  const isReady = Boolean(deedId) && status === "ready";
+
+  // when it becomes ready, clear localStorage + drop query param
+  React.useEffect(() => {
+    if (!deedId) return;
+    if (isReady) {
+      if (typeof window !== "undefined") {
+        try { localStorage.removeItem("lastUploadedDeedId"); } catch { }
+      }
+      // remove ?deedId from the URL (shallow)
+      const url = `/${encodeURIComponent(handle.replace(/^@/, ""))}`;
+      router.replace(url);
+    }
+  }, [deedId, isReady, handle, router]);
+
+  // progress (heuristics with optional deed.progress[0..1])
+  const rawP =
+    typeof (deed as any)?.progress === "number" ? (deed as any).progress :
+      status === "uploading" ? 0.25 :
+        status === "mixing" ? 0.6 :
+          status === "processing" ? 0.8 :
+            status === "ready" ? 1 : 0;
+
+  async function deleteMuxIfAny(d?: DeedDoc | null) {
+    if (!d?.media) return;
+    const muxIds = d.media.map((m) => (m as any)?.muxAssetId).filter(Boolean) as string[];
+    for (const assetId of muxIds) {
+      try {
+        await fetch(`/api/mux/delete?assetId=${encodeURIComponent(assetId)}`, { method: "DELETE" });
+      } catch { }
+    }
+  }
+
+  async function deleteStorageIfAny(d?: DeedDoc | null) {
+    try {
+      if (!d?.authorId || !d?.id) return;
+      const storage = getStorage();
+      const folder = sRef(storage, `deeds/${d.authorId}/${d.id}`);
+      async function deleteFolder(r: ReturnType<typeof sRef>) {
+        const { items, prefixes } = await listAll(r);
+        await Promise.all(items.map((it) => deleteObject(it).catch(() => { })));
+        await Promise.all(prefixes.map((p) => deleteFolder(p)));
+      }
+      await deleteFolder(folder);
+    } catch { }
+  }
+
+  async function hardDeleteFailed() {
+    if (!deedId || !deed) return;
+    const ok = window.confirm("Delete failed upload?");
+    if (!ok) return;
+    try {
+      setBusyDelete(true);
+      await Promise.allSettled([deleteMuxIfAny(deed), deleteStorageIfAny(deed)]);
+      await deleteDoc(doc(db, "deeds", deedId));
+      if (typeof window !== "undefined") {
+        try { localStorage.removeItem("lastUploadedDeedId"); } catch { }
+      }
+      // back to profile clean
+      const url = `/${encodeURIComponent(handle.replace(/^@/, ""))}`;
+      router.replace(url);
+    } catch (e: any) {
+      alert(e?.message || "Delete failed. Try again.");
+    } finally {
+      setBusyDelete(false);
+    }
+  }
+
+  if (!deedId || (!isBlocking && !isFailed)) return null;
+
+  return (
+    <div className="fixed inset-0 z-[200]">
+      {/* Backdrop blocks all interaction */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+
+      {/* Panel */}
+      <div className="absolute left-1/2 top-1/2 w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-white p-5 shadow-2xl">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 grid place-items-center rounded-full bg-emerald-700 text-white">
+            {isFailed ? <IoClose size={18} /> : <DotsLoader />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-extrabold text-slate-900">
+              {isFailed ? "Upload failed" : "Processing your deed"}
+            </div>
+            <div className="mt-1 text-sm text-slate-600">
+              {isFailed
+                ? "We couldn't finish preparing your video. You can delete it and try again."
+                : "We’re mixing and preparing your video. This can take a short moment. You’ll be able to preview and share once it’s ready."}
+            </div>
+
+            {!isFailed && (
+              <div className="mt-4">
+                <div className="mb-1 flex items-center justify-between text-[12px] font-semibold text-slate-600">
+                  <span>Status: {status}</span>
+                  <span>{Math.round(rawP * 100)}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full border border-slate-200">
+                  <div
+                    className="h-full bg-emerald-600 transition-[width] duration-500"
+                    style={{ width: `${Math.max(5, Math.min(100, Math.round(rawP * 100)))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {isFailed && (
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  onClick={hardDeleteFailed}
+                  disabled={busyDelete}
+                  className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+                >
+                  {busyDelete ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer hint */}
+        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+          Note: While processing, profile actions are disabled.
+        </div>
+      </div>
+    </div>
+  );
+}
+function useMutualFollow(viewerUid?: string, targetUid?: string) {
+  const [aFollowsB, setAFollowsB] = React.useState(false);
+  const [bFollowsA, setBFollowsA] = React.useState(false);
+
+  React.useEffect(() => {
+    setAFollowsB(false);
+    setBFollowsA(false);
+    if (!viewerUid || !targetUid || viewerUid === targetUid) return;
+
+    const refA = doc(db, "follows", `${viewerUid}_${targetUid}`); // viewer → profile
+    const refB = doc(db, "follows", `${targetUid}_${viewerUid}`); // profile → viewer
+
+    const unsubA = onSnapshot(refA, (s) => setAFollowsB(s.exists()));
+    const unsubB = onSnapshot(refB, (s) => setBFollowsA(s.exists()));
+
+    return () => { unsubA(); unsubB(); };
+  }, [viewerUid, targetUid]);
+
+  return aFollowsB && bFollowsA;
+}
 
 /* ---------- hooks ---------- */
 function useProfileByUid(uid?: string) {
@@ -86,6 +288,7 @@ function useProfileByUid(uid?: string) {
         name: d.name,
         bio: d.bio,
         website: d.website,
+        phone: d.phone,            // ← ADD THIS
         photoURL: d.photoURL || d.avatarUrl,
         followersCount: Number(d.followersCount ?? 0),
         followingCount: Number(d.followingCount ?? 0),
@@ -105,32 +308,28 @@ function useDeedsByAuthor(uid?: string, isOwner?: boolean) {
   React.useEffect(() => {
     if (!uid) { setItems([]); setLoading(false); return; }
 
-    // Owner sees everything; others only see public
-    const qRef = isOwner
-      ? query(
-        collection(db, "deeds"),
-        where("authorId", "==", uid),
-        orderBy("createdAt", "desc"),
-        limit(60)
-      )
-      : query(
-        collection(db, "deeds"),
-        where("authorId", "==", uid),
-        where("visibility", "==", "public"),
-        orderBy("createdAt", "desc"),
-        limit(60)
-      );
+    const base = query(
+      collection(db, "deeds"),
+      where("authorId", "==", uid),
+      orderBy("createdAt", "desc"),
+      limit(60)
+    );
 
     const unsub = onSnapshot(
-      qRef,
+      base,
       (snap) => {
         const raw = snap.docs.map((d) => toDeed(d.data(), d.id));
-        setItems(raw);
+
+        const filtered = isOwner
+          ? raw.filter((d) => d.status !== "deleted")
+          : raw.filter((d) => d.status === "ready" && (d.visibility || "public") === "public");
+
+        setItems(filtered);
         setLoading(false);
       },
       (err) => {
         console.warn("deeds listener error:", err?.message || err);
-        setItems([]); // be graceful on permission errors
+        setItems([]);
         setLoading(false);
       }
     );
@@ -145,7 +344,6 @@ function useDeedsByAuthor(uid?: string, isOwner?: boolean) {
 
   return { items, likesFallback, loading };
 }
-
 
 function useFollowingState(viewerUid?: string, targetUid?: string) {
   const [isFollowing, setIsFollowing] = React.useState<boolean | null>(null);
@@ -167,7 +365,7 @@ function useFollowingState(viewerUid?: string, targetUid?: string) {
   return { isFollowing, toggle };
 }
 
-/* ---------- header (now receives tab controls) ---------- */
+/* ---------- header (with tabs) ---------- */
 type TabKey = "deeds" | "listings" | "events" | "discussions";
 
 function Header({
@@ -177,8 +375,9 @@ function Header({
   likesValue,
   tab,
   onTabChange,
-  hasUser,               // NEW
-  onRequireAuth,         // NEW
+  hasUser,
+  onRequireAuth,
+  canSeeContacts,
 }: {
   profile: Profile;
   isOwner: boolean;
@@ -186,8 +385,9 @@ function Header({
   likesValue: number;
   tab: TabKey;
   onTabChange: (k: TabKey) => void;
-  hasUser: boolean;                  // NEW
-  onRequireAuth: () => boolean;      // NEW
+  hasUser: boolean;
+  onRequireAuth: () => boolean;
+  canSeeContacts: boolean;  // ← ADD THIS
 }) {
   const followers = profile?.followersCount ?? 0;
   const following = profile?.followingCount ?? 0;
@@ -223,7 +423,7 @@ function Header({
           <SmartAvatar
             src={profile.photoURL || "/avatar-blank.png"}
             alt={profile.handle || "avatar"}
-            size={112}               // matches md size; it’ll scale fine
+            size={112}
             rounded="full"
           />
         </div>
@@ -234,7 +434,6 @@ function Header({
               {profile.handle ? `${profile.handle}` : "Profile"}
             </h1>
 
-            {/* follow / edit */}
             {isOwner ? (
               <Link
                 href={`/${profile.handle}/edit`}
@@ -246,7 +445,6 @@ function Header({
             ) : (
               <>
                 {!hasUser ? (
-                  // Guest: show Follow -> go to login
                   <button
                     onClick={() => onRequireAuth?.()}
                     className="rounded-md px-3 py-1.5 text-sm font-bold text-white"
@@ -255,7 +453,6 @@ function Header({
                     Partner
                   </button>
                 ) : followState.isFollowing === null ? null : (
-                  // Logged-in: normal toggle
                   <button
                     onClick={followState.toggle}
                     className={cn(
@@ -279,27 +476,47 @@ function Header({
 
           {profile.name && <div className="mt-2 text-sm font-semibold" style={{ color: EKARI.text }}>{profile.name}</div>}
           {profile.bio && <p className="mt-1 text-sm leading-5" style={{ color: EKARI.text }}>{profile.bio}</p>}
-          {profile.website && (
-            <a href={profile.website} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm underline" style={{ color: EKARI.primary }}>
-              {profile.website.replace(/^https?:\/\//, "")}
-            </a>
+          {/* Contacts (owner or mutual followers only) */}
+          {canSeeContacts && (
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+              {profile.phone && (
+                <a
+                  href={`tel:${profile.phone.replace(/\s+/g, "")}`}
+                  className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-bold hover:bg-black/5"
+                  style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" className="opacity-80" aria-hidden>
+                    <path fill="currentColor" d="M6.6 10.8c1.2 2.3 3.1 4.2 5.4 5.4l1.8-1.8c.3-.3.7-.4 1.1-.3c1.2.4 2.6.6 4 .6c.6 0 1 .4 1 .9V21c0 .6-.4 1-1 1C10.4 22 2 13.6 2 3c0-.6.4-1 1-1h4.5c.5 0 .9.4.9 1c0 1.4.2 2.8.6 4c.1.4 0 .8-.3 1.1L6.6 10.8z" />
+                  </svg>
+                  <span>{profile.phone}</span>
+                </a>
+              )}
+
+              {profile.website && (
+                <a
+                  href={profile.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-bold hover:bg-black/5"
+                  style={{ borderColor: EKARI.hair, color: EKARI.primary }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" className="opacity-80" aria-hidden>
+                    <path fill="currentColor" d="M14 3h7v7h-2V6.4l-8.3 8.3l-1.4-1.4L17.6 5H14V3ZM5 5h6v2H7v10h10v-4h2v6H5V5Z" />
+                  </svg>
+                  <span>{profile.website.replace(/^https?:\/\//, "")}</span>
+                </a>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="mt-6 border-t" style={{ borderColor: EKARI.hair }}>
         <nav className="flex flex-wrap gap-6 text-sm font-bold px-1 pt-3">
           <TabBtn k="deeds" label="Deeds" icon={<IoFilmOutline size={16} />} />
-          {isOwner && (
-            <TabBtn k="listings" label="My Listings" icon={<IoListOutline size={16} />} />
-          )}
-          {isOwner && (
-            <TabBtn k="events" label="My Events" icon={<IoCalendarOutline size={16} />} />
-          )}
-          {isOwner && (
-            <TabBtn k="discussions" label="My Discussions" icon={<IoChatbubblesOutline size={16} />} />
-          )}
+          {isOwner && <TabBtn k="listings" label="My Listings" icon={<IoListOutline size={16} />} />}
+          {isOwner && <TabBtn k="events" label="My Events" icon={<IoCalendarOutline size={16} />} />}
+          {isOwner && <TabBtn k="discussions" label="My Discussions" icon={<IoChatbubblesOutline size={16} />} />}
         </nav>
       </div>
     </header>
@@ -316,12 +533,12 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /* ---------- grids ---------- */
-function VideosGrid({ items, handle }: { items: DeedDoc[]; handle: string }) {
+function VideosGrid({ items, handle, isOwner }: { items: DeedDoc[]; handle: string; isOwner: boolean }) {
   return (
     <div className="px-3 md:px-6 pb-12">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
         {items.map((d) => (
-          <VideoTile key={d.id} deed={d} handle={handle} />
+          <VideoTile key={d.id} deed={d} handle={handle} isOwner={isOwner} />
         ))}
       </div>
       {items.length === 0 && (
@@ -333,7 +550,7 @@ function VideosGrid({ items, handle }: { items: DeedDoc[]; handle: string }) {
   );
 }
 
-function VideoTile({ deed, handle }: { deed: DeedDoc; handle: string }) {
+function VideoTile({ deed, handle, isOwner }: { deed: DeedDoc; handle: string; isOwner: boolean }) {
   const poster =
     deed.media?.find((m) => m.thumbUrl)?.thumbUrl ||
     deed.mediaThumbUrl ||
@@ -342,26 +559,25 @@ function VideoTile({ deed, handle }: { deed: DeedDoc; handle: string }) {
 
   const views = nfmt(deed.stats?.views ?? 0);
   const [imgLoading, setImgLoading] = React.useState(true);
+  const ready = (deed.status as DeedStatus) === "ready";
+  const href = `/${encodeURIComponent(handle)}/video/${deed.id}`;
 
-  return (
-    <Link
-      href={`/${encodeURIComponent(handle)}/video/${deed.id}`}
-      className="group relative block overflow-hidden rounded-xl bg-black"
+  const Card = (
+    <div
+      className={cn(
+        "group relative block overflow-hidden rounded-xl",
+        ready ? "bg-black" : "bg-slate-200"
+      )}
       style={{ aspectRatio: "9/12" }}
-      prefetch
+      aria-disabled={!ready}
     >
-      {/* Loader overlay */}
       {imgLoading && (
         <div className="absolute inset-0 grid place-items-center bg-gray-100">
           <div
             className="h-8 w-8 rounded-full border-2 animate-spin"
-            style={{
-              borderColor: "#D1D5DB",
-              borderTopColor: EKARI.forest,
-            }}
+            style={{ borderColor: "#D1D5DB", borderTopColor: EKARI.forest }}
             aria-hidden
           />
-
         </div>
       )}
 
@@ -369,23 +585,44 @@ function VideoTile({ deed, handle }: { deed: DeedDoc; handle: string }) {
         src={poster}
         alt={deed.caption || "video"}
         fill
-        className={`h-full w-full object-cover transition-transform group-hover:scale-[1.02] ${imgLoading ? "opacity-0" : "opacity-100"}`}
+        className={`h-full w-full object-cover transition-transform ${imgLoading ? "opacity-0" : "group-hover:scale-[1.02] opacity-100"}`}
         sizes="100vw"
         priority={false}
         onLoadingComplete={() => setImgLoading(false)}
       />
+
+      {!ready && <div className="absolute inset-0 bg-black/40" />}
 
       <div className="absolute left-0 right-0 bottom-0 p-2 text-white text-xs bg-gradient-to-t from-black/70 to-black/0">
         <span className="inline-flex items-center gap-1 font-semibold">
           <IoPlayCircleOutline className="opacity-80" /> {views}
         </span>
       </div>
+
+      {!ready && (
+        <div className="absolute inset-0 grid place-items-center">
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-black/5">
+            <IoLockClosedOutline />
+            {deed.status}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
+  if (!ready) {
+    // Non-ready tiles are not clickable for anyone (owners can still see them).
+    return <div>{Card}</div>;
+  }
+
+  return (
+    <Link href={href} className="block" prefetch aria-label="Open video">
+      {Card}
     </Link>
   );
 }
 
-
-/* ---------- owner tabs: Listings (with lightweight grid) ---------- */
+/* ---------- owner tabs: Listings ---------- */
 function OwnerListingsGrid({ uid }: { uid: string }) {
   const router = useRouter();
   const [items, setItems] = React.useState<Product[]>([]);
@@ -394,7 +631,6 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
   const [loading, setLoading] = React.useState(true);
   const lastDocRef = React.useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
 
-  /* ---------- live initial load ---------- */
   React.useEffect(() => {
     if (!uid) return;
     const qRef = query(
@@ -416,7 +652,6 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
     return () => unsub();
   }, [uid]);
 
-  /* ---------- load more ---------- */
   const loadMore = async () => {
     if (paging || !lastDocRef.current) return;
     setPaging(true);
@@ -442,7 +677,6 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
     }
   };
 
-  /* ---------- actions (owner-only UI, so no guest gate needed) ---------- */
   const updateStatus = async (p: Product, status: Product["status"]) => {
     try {
       await updateDoc(doc(db, "marketListings", p.id), {
@@ -454,42 +688,25 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
       alert(`Failed to update: ${e?.message || "Unknown error"}`);
     }
   };
-  /** Recursively delete all files/folders under a Storage ref */
+
   async function deleteFolderRecursively(folderRef: ReturnType<typeof sRef>) {
     const { items, prefixes } = await listAll(folderRef);
-
-    // delete files in parallel
     await Promise.all(items.map(async (it) => {
-      try {
-        await deleteObject(it);
-      } catch (e) {
-        console.warn("Could not delete file:", it.fullPath, e);
-      }
+      try { await deleteObject(it); } catch (e) { console.warn("Could not delete file:", it.fullPath, e); }
     }));
-
-    // recurse into subfolders
     await Promise.all(prefixes.map((pfx) => deleteFolderRecursively(pfx)));
   }
-
-  /** Delete a whole subcollection in batches (safe under 500 ops/commit) */
-  async function deleteSubcollection(
-    parentPath: string,
-    subcol: string
-  ) {
+  async function deleteSubcollection(parentPath: string, subcol: string) {
     const snap = await getDocs(collection(db, `${parentPath}/${subcol}`));
     if (snap.empty) return;
-
     const docs = snap.docs;
     const chunkSize = 450;
     for (let i = 0; i < docs.length; i += chunkSize) {
       const batch = writeBatch(db);
-      for (const d of docs.slice(i, i + chunkSize)) {
-        batch.delete(d.ref);
-      }
+      for (const d of docs.slice(i, i + chunkSize)) batch.delete(d.ref);
       await batch.commit();
     }
   }
-
   const removeListing = async (p: Product) => {
     const ok = window.confirm("Delete this listing? This will also remove its images.");
     if (!ok) return;
@@ -499,38 +716,20 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
     const imagesFolder = sRef(storage, `products/${p.sellerId}/${p.id}/images`);
 
     try {
-      // 1) Try to delete Storage images first (don’t abort on errors)
-      try {
-        await deleteFolderRecursively(imagesFolder);
-      } catch (e) {
-        console.warn("Images cleanup issue (continuing):", e);
-      }
-
-      // 2) (Optional) Remove subcollections like reviews
-      //    Comment this out if you want to keep historical reviews.
+      try { await deleteFolderRecursively(imagesFolder); } catch (e) { console.warn("Images cleanup issue:", e); }
       await deleteSubcollection(parentPath, "reviews");
-
-      // 3) Delete the listing document itself
       await deleteDoc(doc(db, parentPath));
-
       alert("Listing deleted.");
     } catch (e: any) {
       alert(`Failed to delete: ${e?.message || "Unknown error"}`);
     }
   };
 
-
-
   const statusColor = (p: Product) =>
-    p.status === "sold"
-      ? "bg-red-600"
-      : p.status === "reserved"
-        ? "bg-yellow-500"
-        : p.status === "hidden"
-          ? "bg-gray-500"
-          : "bg-emerald-600";
+    p.status === "sold" ? "bg-red-600" :
+      p.status === "reserved" ? "bg-yellow-500" :
+        p.status === "hidden" ? "bg-gray-500" : "bg-emerald-600";
 
-  /* ---------- grid ---------- */
   if (loading)
     return (
       <div className="px-3 md:px-6 pb-12 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -541,15 +740,10 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
     );
 
   if (items.length === 0)
-    return (
-      <div className="py-16 text-center text-sm text-gray-400">
-        No listings yet.
-      </div>
-    );
+    return <div className="py-16 text-center text-sm text-gray-400">No listings yet.</div>;
 
   return (
     <div className="px-3 md:px-6 pb-12">
-      {/* Count bar */}
       <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-700">
         <IoCubeOutline className="text-emerald-700" />
         <span>{total} listing{total === 1 ? "" : "s"}</span>
@@ -563,20 +757,11 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
             p.type === "lease" || p.type === "service"
               ? `${Number.isFinite(numericRate) && numericRate > 0 ? KES(numericRate) : "—"}${p.billingUnit ? ` / ${p.billingUnit}` : ""}`
               : KES(Number(p.price || 0));
-          const statusLabel = (p.status || (p.sold ? "sold" : "active")).replace(
-            /^\w/,
-            (c) => c.toUpperCase()
-          );
+          const statusLabel = (p.status || (p.sold ? "sold" : "active")).replace(/^\w/, (c) => c.toUpperCase());
 
           return (
-            <div
-              key={p.id}
-              className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition"
-            >
-              <div
-                onClick={() => router.push(`/market/${p.id}`)}
-                className="relative block aspect-[4/3] bg-gray-100 cursor-pointer"
-              >
+            <div key={p.id} className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition">
+              <div onClick={() => router.push(`/market/${p.id}`)} className="relative block aspect-[4/3] bg-gray-100 cursor-pointer">
                 <SmartImage
                   src={cover || ""}
                   alt={p.name || "Listing"}
@@ -584,25 +769,16 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
                   className="object-cover"
                   sizes="(max-width:768px) 100vw, 33vw"
                   fallbackSrc=""
-                  emptyFallback={
-                    <div className="absolute inset-0 grid place-items-center text-gray-400 text-sm bg-gray-50">
-                      No image
-                    </div>
-                  }
+                  emptyFallback={<div className="absolute inset-0 grid place-items-center text-gray-400 text-sm bg-gray-50">No image</div>}
                 />
-
-                <div
-                  className={`absolute left-2 top-2 ${statusColor(p)} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center gap-1`}
-                >
+                <div className={`absolute left-2 top-2 ${statusColor(p)} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center gap-1`}>
                   <IoCheckmarkDone size={12} />
                   {statusLabel}
                 </div>
               </div>
 
               <div className="p-3">
-                <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">
-                  {p.name || "Untitled"}
-                </div>
+                <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">{p.name || "Untitled"}</div>
                 <div className="text-emerald-700 font-black">{priceText}</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {!!p.category && (
@@ -613,44 +789,28 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
                   )}
                 </div>
 
-                {/* Actions */}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {p.status !== "active" && (
-                    <button
-                      onClick={() => updateStatus(p, "active")}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 text-white text-xs font-bold hover:opacity-90"
-                    >
+                    <button onClick={() => updateStatus(p, "active")} className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 text-white text-xs font-bold hover:opacity-90">
                       <IoCheckmarkDone /> Activate
                     </button>
                   )}
                   {p.status !== "sold" && (
-                    <button
-                      onClick={() => updateStatus(p, "sold")}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 text-white text-xs font-bold hover:opacity-90"
-                    >
+                    <button onClick={() => updateStatus(p, "sold")} className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 text-white text-xs font-bold hover:opacity-90">
                       <IoCashOutline /> Sold
                     </button>
                   )}
                   {p.status !== "reserved" && (
-                    <button
-                      onClick={() => updateStatus(p, "reserved")}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500 text-white text-xs font-bold hover:opacity-90"
-                    >
+                    <button onClick={() => updateStatus(p, "reserved")} className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500 text-white text-xs font-bold hover:opacity-90">
                       <IoTimeOutline /> Reserve
                     </button>
                   )}
                   {p.status !== "hidden" && (
-                    <button
-                      onClick={() => updateStatus(p, "hidden")}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-600 text-white text-xs font-bold hover:opacity-90"
-                    >
+                    <button onClick={() => updateStatus(p, "hidden")} className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-600 text-white text-xs font-bold hover:opacity-90">
                       <IoEyeOffOutline /> Hide
                     </button>
                   )}
-                  <button
-                    onClick={() => removeListing(p)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-600 text-white text-xs font-bold hover:opacity-90"
-                  >
+                  <button onClick={() => removeListing(p)} className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-600 text-white text-xs font-bold hover:opacity-90">
                     <IoTrashOutline /> Delete
                   </button>
                 </div>
@@ -660,14 +820,9 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
         })}
       </div>
 
-      {/* Footer */}
       <div className="mt-6 grid place-items-center">
         {lastDocRef.current ? (
-          <button
-            onClick={loadMore}
-            disabled={paging}
-            className="px-4 py-2 rounded-lg bg-emerald-700 text-white font-black hover:opacity-90 disabled:opacity-60"
-          >
+          <button onClick={loadMore} disabled={paging} className="px-4 py-2 rounded-lg bg-emerald-700 text-white font-black hover:opacity-90 disabled:opacity-60">
             {paging ? <BouncingBallLoader /> : "Load more"}
           </button>
         ) : (
@@ -677,6 +832,7 @@ function OwnerListingsGrid({ uid }: { uid: string }) {
     </div>
   );
 }
+
 type EventDoc = {
   id: string;
   title?: string;
@@ -699,8 +855,7 @@ function fmtDate(iso?: string) {
   });
 }
 
-/* ---------- owner tabs: Events & Discussions (placeholders or wire up later) ---------- */
-/* ---------- owner tabs: Events (with delete) ---------- */
+/* ---------- owner tabs: Events ---------- */
 function OwnerEvents({ uid }: { uid: string }) {
   const router = useRouter();
   const [events, setEvents] = React.useState<EventDoc[]>([]);
@@ -709,53 +864,24 @@ function OwnerEvents({ uid }: { uid: string }) {
 
   React.useEffect(() => {
     if (!uid) return;
-    const qRef = query(
-      collection(db, "events"),
-      where("organizerId", "==", uid),
-      orderBy("dateISO", "desc")
-    );
+    const qRef = query(collection(db, "events"), where("organizerId", "==", uid), orderBy("dateISO", "desc"));
     const unsub = onSnapshot(
       qRef,
       (snap) => {
-        setEvents(
-          snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) })) as EventDoc[]
-        );
+        setEvents(snap.docs.map((d) => ({ id: d.id, ...(d.data() as DocumentData) })) as EventDoc[]);
         setLoading(false);
       },
-      (err) => {
-        console.warn("OwnerEvents listener error:", err?.message || err);
-        setLoading(false);
-      }
+      (err) => { console.warn("OwnerEvents listener error:", err?.message || err); setLoading(false); }
     );
     return () => unsub();
   }, [uid]);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  };
+  const handleRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); };
 
-  // --- helpers (scoped here for clarity) ---
   async function deleteFolderRecursively(folderRef: ReturnType<typeof sRef>) {
     const { items, prefixes } = await listAll(folderRef);
-    await Promise.all(items.map(async (it) => {
-      try { await deleteObject(it); } catch (e) {
-        console.warn("Could not delete file:", it.fullPath, e);
-      }
-    }));
+    await Promise.all(items.map(async (it) => { try { await deleteObject(it); } catch (e) { console.warn("Could not delete file:", it.fullPath, e); } }));
     await Promise.all(prefixes.map((p) => deleteFolderRecursively(p)));
-  }
-
-  async function deleteSubcollection(parentPath: string, subcol: string) {
-    const snap = await getDocs(collection(db, `${parentPath}/${subcol}`));
-    if (snap.empty) return;
-    const chunkSize = 450;
-    const docs = snap.docs;
-    for (let i = 0; i < docs.length; i += chunkSize) {
-      const batch = writeBatch(db);
-      for (const d of docs.slice(i, i + chunkSize)) batch.delete(d.ref);
-      await batch.commit();
-    }
   }
 
   const removeEvent = async (e: EventDoc) => {
@@ -763,22 +889,13 @@ function OwnerEvents({ uid }: { uid: string }) {
     if (!ok) return;
 
     const storage = getStorage();
-    const organizer = e.organizerId || uid; // fallback to current owner
+    const organizer = e.organizerId || uid;
     const folderRef = sRef(storage, `events/${organizer}/${e.id}`);
     const parentPath = `events/${e.id}`;
 
     try {
-      // 1) Try to delete Storage assets (best-effort)
-      try { await deleteFolderRecursively(folderRef); }
-      catch (err) { console.warn("Event images cleanup issue (continuing):", err); }
-
-      // 2) Optional: delete subcollections (e.g., RSVPs)
-      // await deleteSubcollection(parentPath, "rsvps");
-
-      // 3) Delete the event document
+      try { await deleteFolderRecursively(folderRef); } catch (err) { console.warn("Event images cleanup issue (continuing):", err); }
       await deleteDoc(doc(db, parentPath));
-
-      // 4) Local UI tidy (snapshot will also update)
       setEvents((prev) => prev.filter((x) => x.id !== e.id));
       alert("Event deleted.");
     } catch (err: any) {
@@ -786,13 +903,7 @@ function OwnerEvents({ uid }: { uid: string }) {
     }
   };
 
-  if (loading)
-    return (
-      <div className="flex justify-center py-12">
-        <BouncingBallLoader />
-      </div>
-    );
-
+  if (loading) return <div className="flex justify-center py-12"><BouncingBallLoader /></div>;
   if (events.length === 0)
     return (
       <div className="px-3 md:px-6 pb-12 text-center text-sm text-gray-500">
@@ -805,69 +916,38 @@ function OwnerEvents({ uid }: { uid: string }) {
 
   return (
     <div className="px-3 md:px-6 pb-12">
-      {/* Header Bar */}
       <div className="flex items-center gap-2 mb-5 text-sm font-semibold text-gray-700">
         <IoCalendarOutline className="text-emerald-700" />
-        <span>
-          {events.length} event{events.length === 1 ? "" : "s"}
-        </span>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-50"
-        >
+        <span>{events.length} event{events.length === 1 ? "" : "s"}</span>
+        <button onClick={handleRefresh} disabled={refreshing} className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-50">
           {refreshing ? "Refreshing..." : "Reload"}
         </button>
       </div>
 
-      {/* Event Cards */}
       <div className="flex flex-col gap-4">
         {events.map((e) => {
           const likes = e?.stats?.likes ?? 0;
           const rsvps = e?.stats?.rsvps ?? 0;
 
           return (
-            <div
-              key={e.id}
-              className="border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition p-4 flex flex-col gap-2"
-            >
-              {/* Top row: open details + delete button */}
+            <div key={e.id} className="border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition p-4 flex flex-col gap-2">
               <div className="flex items-start gap-3">
-                <button
-                  onClick={() => router.push(`/events/${e.id}`)}
-                  className="flex-1 min-w-0 text-left"
-                >
+                <button onClick={() => router.push(`/events/${e.id}`)} className="flex-1 min-w-0 text-left">
                   <div className="flex items-start gap-3">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-700 shrink-0">
                       <IoTimeOutline size={18} color="#fff" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[15px] font-extrabold text-gray-900 truncate">
-                        {e.title || "Untitled event"}
-                      </div>
+                      <div className="text-[15px] font-extrabold text-gray-900 truncate">{e.title || "Untitled event"}</div>
                       <div className="text-[13px] text-gray-500 flex flex-wrap items-center gap-1">
                         <span>{fmtDate(e.dateISO)}</span>
-                        {e.location && (
-                          <>
-                            <span>•</span>
-                            <span className="inline-flex items-center gap-1">
-                              <IoLocationOutline size={12} />
-                              {e.location}
-                            </span>
-                          </>
-                        )}
+                        {e.location && (<><span>•</span><span className="inline-flex items-center gap-1"><IoLocationOutline size={12} />{e.location}</span></>)}
                       </div>
                     </div>
                   </div>
                 </button>
 
-                {/* Delete button (stops navigation) */}
-                <button
-                  onClick={(ev) => { ev.stopPropagation(); removeEvent(e); }}
-                  className="h-9 w-9 grid place-items-center rounded-lg bg-rose-50 border border-rose-200"
-                  aria-label="Delete event"
-                  title="Delete"
-                >
+                <button onClick={(ev) => { ev.stopPropagation(); removeEvent(e); }} className="h-9 w-9 grid place-items-center rounded-lg bg-rose-50 border border-rose-200" aria-label="Delete event" title="Delete">
                   <IoTrashOutline className="text-rose-600" size={18} />
                 </button>
               </div>
@@ -893,19 +973,18 @@ function OwnerEvents({ uid }: { uid: string }) {
 type DiscussionRow = {
   id: string;
   title?: string;
-  createdAt?: any;                 // Firestore Timestamp | string
+  createdAt?: any;
   repliesCount?: number;
   published?: boolean;
-  _pending?: boolean;              // local writes marker (from metadata)
+  _pending?: boolean;
 } & DocumentData;
+
 function dateText(ts: any) {
   if (!ts) return "";
   if (typeof ts === "string") return ts;
   if (ts?.toDate) {
     const d = ts.toDate();
-    return d instanceof Date && !isNaN(d.getTime())
-      ? d.toLocaleDateString()
-      : "";
+    return d instanceof Date && !isNaN(d.getTime()) ? d.toLocaleDateString() : "";
   }
   return "";
 }
@@ -917,103 +996,56 @@ function OwnerDiscussions({ uid }: { uid: string }) {
   const [refreshing, setRefreshing] = React.useState(false);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
-  // Live query of my discussions
   const attachListener = React.useCallback(() => {
-    if (!uid) {
-      setItems([]);
-      setLoading(false);
-      return;
-    }
+    if (!uid) { setItems([]); setLoading(false); return; }
     setLoading(true);
-    const qRef = query(
-      collection(db, "discussions"),
-      where("authorId", "==", uid),
-      orderBy("createdAt", "desc")
-    );
+    const qRef = query(collection(db, "discussions"), where("authorId", "==", uid), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(
       qRef,
       { includeMetadataChanges: true },
       (snap) => {
         const rows = snap.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as DocumentData),
-          _pending: d.metadata.hasPendingWrites,
+          id: d.id, ...(d.data() as DocumentData), _pending: d.metadata.hasPendingWrites,
         })) as DiscussionRow[];
-        setItems(rows);
-        setLoading(false);
+        setItems(rows); setLoading(false);
       },
-      (err) => {
-        console.warn("OwnerDiscussions listener error:", err?.message || err);
-        setLoading(false);
-      }
+      (err) => { console.warn("OwnerDiscussions listener error:", err?.message || err); setLoading(false); }
     );
     return unsub;
   }, [uid]);
 
   React.useEffect(() => {
     const unsub = attachListener();
-    return () => {
-      try { (unsub as unknown as () => void)?.(); } catch { }
-    };
+    return () => { try { (unsub as unknown as () => void)?.(); } catch { } };
   }, [attachListener]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    // re-attach to force refresh (snapshot will sync immediately)
     const unsub = attachListener();
-    setTimeout(() => {
-      setRefreshing(false);
-      try { (unsub as unknown as () => void)?.(); } catch { }
-    }, 500);
+    setTimeout(() => { setRefreshing(false); try { (unsub as unknown as () => void)?.(); } catch { } }, 500);
   };
 
-  // Optimistic publish toggle
   const togglePublish = async (row: DiscussionRow) => {
     const current = row.published ?? true;
     const next = !current;
-
-    // optimistic UI
-    setItems((prev) =>
-      prev.map((i) => (i.id === row.id ? { ...i, published: next, _pending: true } : i))
-    );
-
-    try {
-      setBusyId(row.id);
-      await updateDoc(doc(db, "discussions", row.id), { published: next });
-      // snapshot will clear _pending when commit finishes
-    } catch (e: any) {
-      // rollback
-      setItems((prev) =>
-        prev.map((i) => (i.id === row.id ? { ...i, published: current, _pending: false } : i))
-      );
+    setItems((prev) => prev.map((i) => (i.id === row.id ? { ...i, published: next, _pending: true } : i)));
+    try { setBusyId(row.id); await updateDoc(doc(db, "discussions", row.id), { published: next }); }
+    catch (e: any) {
+      setItems((prev) => prev.map((i) => (i.id === row.id ? { ...i, published: current, _pending: false } : i)));
       alert(e?.message || "Failed to update discussion.");
-    } finally {
-      setBusyId(null);
-    }
+    } finally { setBusyId(null); }
   };
 
   const confirmDelete = async (row: DiscussionRow) => {
     const ok = window.confirm("Delete this discussion? This cannot be undone.");
     if (!ok) return;
-    try {
-      setBusyId(row.id);
-      await deleteDoc(doc(db, "discussions", row.id));
-    } catch (e: any) {
-      alert(e?.message || "Delete failed. Try again.");
-    } finally {
-      setBusyId(null);
-    }
+    try { setBusyId(row.id); await deleteDoc(doc(db, "discussions", row.id)); }
+    catch (e: any) { alert(e?.message || "Delete failed. Try again."); }
+    finally { setBusyId(null); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <BouncingBallLoader />
-      </div>
-    );
-  }
-
-  if (items.length === 0) {
+  if (loading) return <div className="flex justify-center py-12"><BouncingBallLoader /></div>;
+  if (items.length === 0)
     return (
       <div className="px-3 md:px-6 pb-12">
         <div className="py-16 text-center text-sm" style={{ color: EKARI.text }}>
@@ -1022,20 +1054,12 @@ function OwnerDiscussions({ uid }: { uid: string }) {
         </div>
       </div>
     );
-  }
 
   return (
     <div className="px-3 md:px-6 pb-12">
-      {/* Header row */}
       <div className="flex items-center gap-2 mb-4">
-        <div className="text-sm font-semibold text-gray-700">
-          {items.length} discussion{items.length === 1 ? "" : "s"}
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-60"
-        >
+        <div className="text-sm font-semibold text-gray-700">{items.length} discussion{items.length === 1 ? "" : "s"}</div>
+        <button onClick={handleRefresh} disabled={refreshing} className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-60">
           {refreshing ? "Refreshing..." : "Reload"}
         </button>
       </div>
@@ -1047,50 +1071,23 @@ function OwnerDiscussions({ uid }: { uid: string }) {
           const statusCls = isPublished ? "bg-emerald-50 text-emerald-800" : "bg-gray-100 text-gray-700";
 
           return (
-            <div
-              key={item.id}
-              className="border border-gray-200 rounded-xl bg-white shadow-sm p-4"
-            >
-              <button
-                onClick={() => router.push(`/discussions/${item.id}`)}
-                className="block w-full text-left"
-              >
-                <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">
-                  {item.title || "Untitled discussion"}
-                </div>
-
+            <div key={item.id} className="border border-gray-200 rounded-xl bg-white shadow-sm p-4">
+              <button onClick={() => router.push(`/discussions/${item.id}`)} className="block w-full text-left">
+                <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">{item.title || "Untitled discussion"}</div>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-[13px]">
-                  {!!item.createdAt && (
-                    <span className="inline-flex items-center gap-1 text-gray-500">
-                      <IoTimeOutline size={14} />
-                      {dateText(item.createdAt)}
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1 text-gray-500">
-                    <IoChatbubbleEllipsesOutline size={14} />
-                    {(item.repliesCount ?? 0).toString()} answers
-                  </span>
-
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${statusCls}`}>
-                    {statusTxt}
-                  </span>
-
-                  {item._pending && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">
-                      Syncing…
-                    </span>
-                  )}
+                  {!!item.createdAt && (<span className="inline-flex items-center gap-1 text-gray-500"><IoTimeOutline size={14} />{dateText(item.createdAt)}</span>)}
+                  <span className="inline-flex items-center gap-1 text-gray-500"><IoChatbubbleEllipsesOutline size={14} />{(item.repliesCount ?? 0).toString()} answers</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${statusCls}`}>{statusTxt}</span>
+                  {item._pending && (<span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">Syncing…</span>)}
                 </div>
               </button>
 
-              {/* Actions */}
               <div className="mt-3 flex items-center gap-2">
                 <button
                   onClick={() => togglePublish(item)}
                   disabled={busyId === item.id}
                   className={`h-9 px-3 rounded-full text-white text-xs font-extrabold transition
-                    ${isPublished ? "bg-amber-600 hover:opacity-90" : "bg-emerald-700 hover:opacity-90"}
-                    disabled:opacity-60`}
+                    ${isPublished ? "bg-amber-600 hover:opacity-90" : "bg-emerald-700 hover:opacity-90"} disabled:opacity-60`}
                   aria-label={isPublished ? "Unpublish discussion" : "Publish discussion"}
                 >
                   {busyId === item.id ? "Working…" : isPublished ? "Unpublish" : "Publish"}
@@ -1116,8 +1113,6 @@ function OwnerDiscussions({ uid }: { uid: string }) {
     </div>
   );
 }
-
-
 
 /* ---------- page ---------- */
 export default function HandleProfilePage() {
@@ -1150,7 +1145,11 @@ export default function HandleProfilePage() {
 
   const likesValue = profile?.likesTotal ?? likesFallback;
 
-  // 🔐 Small helper to force login for guest actions (follow, like, comment, etc.)
+  const mutual = useMutualFollow(user?.uid, uid ?? undefined);
+  const canSeeContacts = isOwner || (!!user && mutual);
+
+
+
   const requireAuth = React.useCallback(() => {
     if (user) return true;
     try {
@@ -1162,59 +1161,11 @@ export default function HandleProfilePage() {
     return false;
   }, [user, router]);
 
-  // 🔔 Drop a profile view doc when someone else opens the page (once per day)
-  function getDeviceId() {
-    if (typeof window === "undefined") return "anon";
-    try {
-      let id = localStorage.getItem("pv:deviceId");
-      if (!id) {
-        id = crypto?.randomUUID?.() || (Math.random().toString(36).slice(2) + Date.now());
-        localStorage.setItem("pv:deviceId", id);
-      }
-      return id;
-    } catch { return "anon"; }
-  }
-
-  React.useEffect(() => {
-    if (!uid) return;
-    if (isOwner) return; // don't count your own views
-
-    const viewerKey = user?.uid || getDeviceId();     // uid when authed; deviceId for guests
-    const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
-    const docId = `${uid}_${viewerKey}_${ymd}`;
-
-    // throttle per (profile, viewerKey, day)
-    const throttleKey = `pv:${uid}:${ymd}:viewer:${viewerKey}`;
-    if (typeof window !== "undefined") {
-      try { if (localStorage.getItem(throttleKey)) return; } catch { }
-    }
-
-    (async () => {
-      try {
-        await setDoc(
-          doc(db, "profileViews", docId),
-          {
-            profileId: uid,
-            viewerId: user?.uid || null,   // null for guests
-            deviceId: user ? null : viewerKey, // guests supply deviceId for rules
-            ymd,
-            createdAt: serverTimestamp(),
-            ua: typeof navigator !== "undefined" ? navigator.userAgent : null,
-          },
-          { merge: false }
-        );
-        if (typeof window !== "undefined") {
-          try { localStorage.setItem(throttleKey, "1"); } catch { }
-        }
-      } catch (e) {
-        // Non-fatal; log for diagnostics
-        console.warn("profile view write failed:", e);
-      }
-    })();
-  }, [uid, isOwner, user?.uid]);
-
   return (
     <AppShell>
+      {/* Processing Gate blocks the whole page when needed */}
+      <DeedProcessingGate authorUid={uid ?? null} handle={handleWithAt} />
+
       <div className="mx-auto w-full max-w-[1160px] px-4 md:px-8">
         {/* header with tabs */}
         {loadingProfile ? (
@@ -1232,6 +1183,7 @@ export default function HandleProfilePage() {
             onTabChange={setTab}
             hasUser={!!user}
             onRequireAuth={requireAuth}
+            canSeeContacts={canSeeContacts}   // ← ADD THIS
           />
         ) : (
           <div className="flex p-6 items-center justify-center h-screen w-full text-sm" style={{ color: EKARI.subtext }}>
@@ -1248,7 +1200,7 @@ export default function HandleProfilePage() {
               ))}
             </div>
           ) : (
-            <VideosGrid items={items} handle={handleWithAt} />
+            <VideosGrid items={items} handle={handleWithAt} isOwner={isOwner} />
           )
         )}
 

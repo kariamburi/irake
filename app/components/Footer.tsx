@@ -26,7 +26,7 @@ export function Footer() {
                         Resources
                     </div>
                     <ul className="space-y-2 text-sm">
-                        <li><Link href="/policy" className="hover:underline" style={{ color: EKARI.text }}>Privacy Policy</Link></li>
+                        <li><Link href="/privacy" className="hover:underline" style={{ color: EKARI.text }}>Privacy Policy</Link></li>
                         <li><Link href="/terms" className="hover:underline" style={{ color: EKARI.text }}>Terms of Service</Link></li>
 
                     </ul>

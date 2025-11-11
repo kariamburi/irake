@@ -6,7 +6,6 @@ import { ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { EKARI } from "../constants/constants";
 import { EXECUTIVES } from "../components/executives";
-import BackBar from "../components/BackBar";
 import { Footer } from "../components/Footer";
 import { Topbar } from "../components/Topbar";
 
@@ -21,28 +20,29 @@ export default function AboutHeroPage() {
   return (
     <div className="min-h-screen bg-white">
       <Topbar />
-      {/* Header section like Meta hero */}
-      <header
-        className="py-8 px-6 md:py-12"
-        style={{ borderColor: EKARI.hair }}
-      >
-        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 md:gap-12 items-center">
 
-          <motion.div
-            {...fadeUp}
-            transition={{ duration: 0.7 }}
-            className="space-y-4"
-          >
+      {/* Hero */}
+      <header className="py-8 px-6 md:py-12" style={{ borderColor: EKARI.hair }}>
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+          <motion.div {...fadeUp} transition={{ duration: 0.7 }} className="space-y-4">
             <h1
               className="text-4xl md:text-5xl font-black leading-tight"
               style={{ color: EKARI.forest }}
             >
-              Meet our leadership
+              Meet Our Leadership
             </h1>
+
             <p className="text-lg md:text-xl" style={{ color: EKARI.dim }}>
-              ekarihub’s leaders are guiding our company as mixed reality and AI
-              evolve, helping to create the next evolution of agribusiness
-              connection.
+              At ekarihub, our leaders are more than visionaries - they are architects of the
+              next agribusiness revolution. Guided by data, powered by artificial intelligence,
+              and inspired by mixed reality and social media, they are transforming how the world
+              connects, trades, and grows within the agribusiness ecosystem.
+            </p>
+            <p className="text-lg md:text-xl" style={{ color: EKARI.dim }}>
+              Together, they’re redefining sustainability, scalability, and social impact -
+              creating an intelligent, immersive, and borderless network that empowers every
+              player in the value chain, from smallholder farmers to global exporters and
+              consumers.
             </p>
 
             <button
@@ -65,7 +65,7 @@ export default function AboutHeroPage() {
         </div>
       </header>
 
-      {/* Quick peeks (optional) */}
+
 
 
       <Footer />
