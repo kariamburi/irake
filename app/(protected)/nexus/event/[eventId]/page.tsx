@@ -344,7 +344,7 @@ export default function EventDetailsPage() {
                         {counts.rsvps || 0} going
                       </div>
                       <button
-                        onClick={() => router.push(`/dive/event/${eventId}/people`)}
+                        onClick={() => router.push(`/nexus/event/${eventId}/people`)}
                         className="ml-auto text-xs font-extrabold px-3 py-1.5 rounded-full border hover:bg-gray-50"
                         style={{ borderColor: EKARI.hair, color: EKARI.text }}
                       >

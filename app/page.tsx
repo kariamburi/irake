@@ -16,6 +16,11 @@ import {
   IoPause,
   IoArrowRedo,
   IoBookmark,
+  IoSearchCircleOutline,
+  IoSearch,
+  IoCompass,
+  IoCompassOutline,
+  IoTelescopeOutline,
 } from "react-icons/io5";
 import {
   collection,
@@ -33,7 +38,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { db } from "@/lib/firebase";
+import { app, db } from "@/lib/firebase";
 import { useAuth } from "./hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import RightRail from "@/app/components/RightRail";
@@ -42,6 +47,7 @@ import LoginButton from "./components/LoginButton";
 
 // 🔗 single source of truth for deed data
 import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -56,7 +62,7 @@ const EKARI = {
 /* ---------- Channels ---------- */
 type TabKey = "forYou" | "following" | "nearby";
 const TABS: TabKey[] = ["forYou", "following", "nearby"];
-const LABEL: Record<TabKey, string> = { forYou: "For You", following: "Partnership", nearby: "Nearby" };
+const LABEL: Record<TabKey, string> = { forYou: "For You", following: "Following", nearby: "Nearby" };
 
 /* ---------- Visibility check (kept from your current file) ---------- */
 type Visibility = "public" | "followers" | "private";
@@ -177,39 +183,68 @@ async function fetchServerFeed(surface: TabKey, uid: string) {
     const now = Date.now();
     let ids: string[] | null = null;
 
+    // 1) Try cache with TTL
     if (feedSnap.exists()) {
       const d = feedSnap.data() as any;
+      console.log("[feed] feedSnap data", { surface, uid, d });
+
       const ttlSec = Number(d?.ttlSec ?? 60);
-      const updatedAtMs = d?.updatedAt?.toMillis?.() ?? 0;
-      const fresh = now - updatedAtMs < ttlSec * 1000;
-      if (fresh && Array.isArray(d?.ids)) {
-        ids = d.ids;
+      const updatedAtMs =
+        typeof d?.updatedAt?.toMillis === "function"
+          ? d.updatedAt.toMillis()
+          : 0;
+      const fresh = updatedAtMs && now - updatedAtMs < ttlSec * 1000;
+
+      if (fresh && Array.isArray(d.ids) && d.ids.length > 0) {
+        ids = d.ids as string[];
       }
     }
 
+    // 2) If no fresh ids, call refreshFeed
     if (!ids) {
-      const fn = httpsCallable<{ surface: TabKey }, { ids: string[] }>(getFunctions(), "refreshFeed");
-      const res = await fn({ surface });
-      ids = (res.data?.ids || []).filter(Boolean);
+      const auth = getAuth(app);
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) return;
+        // alert(user.uid)
+        console.log("refreshFeed for uid:", user.uid);
+
+        const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
+          getFunctions(),
+          "refreshFeed"
+        );
+        const res = await refreshFeed({ surface });
+        ids = (res.data?.ids || []).filter(Boolean);
+        refreshFeed({ surface: "forYou" })
+          .then((res) => console.log("refreshFeed ok", res.data))
+          .catch((err) => console.error("refreshFeed error", err));
+      });
+
     }
+
     if (!ids || !ids.length) return [];
 
+    // 3) Fetch deeds for these ids
     const base = collection(db, "deeds");
     const docs: any[] = [];
-    // Firestore 'in' max 10
     for (let i = 0; i < ids.length; i += 10) {
       const c = ids.slice(i, i + 10);
       const qs = await getDocs(query(base, where(documentId(), "in", c)));
       qs.forEach((d) => docs.push({ id: d.id, data: d.data() }));
     }
     const map = new Map(docs.map((x) => [x.id, x.data]));
+
+    // 4) Map to player items
     return ids
       .map((id) => toPlayerItem(map.get(id), id))
       .filter(Boolean) as PlayerItem[];
-  } catch {
+  } catch (err) {
+    console.error("[feed] error", err);
     return [];
   }
 }
+
+
+
 
 /* ---------- Likes / Comments / Bookmarks / Shares (unchanged) ---------- */
 function useLikes(itemId: string, uid?: string) {
@@ -771,9 +806,9 @@ function VideoCard({
               </div>
               <div
                 className="items-center text-white/70 text-[11px]"
-                title={`${followersCount} Partner${followersCount === 1 ? "" : "s"}`}
+                title={`${followersCount} Follow${followersCount === 1 ? "" : "s"}`}
               >
-                {formatCount(followersCount)} Partner{followersCount === 1 ? "" : "s"}
+                {formatCount(followersCount)} Follow{followersCount === 1 ? "" : "s"}
               </div>
             </div>
 
@@ -785,7 +820,7 @@ function VideoCard({
                 aria-label="Follow"
                 title="Follow"
               >
-                Partner
+                Follow
               </button>
             )}
           </div>
@@ -793,6 +828,7 @@ function VideoCard({
         </div>
       </article>
 
+      {/* Action rail */}
       {/* Action rail */}
       <div
         className={[
@@ -811,34 +847,54 @@ function VideoCard({
           className={[
             "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
             "h-11 w-11 md:h-12 md:w-12",
-            "bg-black/30 text-white/80 md:bg-white md:text-gray-900 backdrop-blur-sm",
+            "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
           ].join(" ")}
         >
-          <IoHeart className={liked ? "fill-red-500 text-red-500" : ""} size={22} />
+          <IoHeart
+            size={22}
+            className="transition-colors"
+            style={{ color: likeCount ? THEME.forest : THEME.gold }}
+          />
         </button>
         <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
-          {/* likeCount */}{formatCount(likeCount)}
+          {formatCount(likeCount)}
         </div>
 
         {/* Comments */}
         <button
           aria-label="Comments"
-          onClick={() => onOpenComments(item.id)}
-          className="h-11 w-11 md:h-12 md:w-12 grid place-items-center rounded-full bg-black/30 text-white/80 md:bg-white md:text-gray-900 backdrop-blur-sm hover:shadow-lg hover:scale-105 active:scale-95 transition"
+          onClick={onCommentsClick} // ⬅️ use auth-gated handler
+          className={[
+            "h-11 w-11 md:h-12 md:w-12",
+            "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
+            "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+          ].join(" ")}
         >
-          <IoChatbubble size={22} />
+          <IoChatbubble
+            size={22}
+            className="transition-colors"
+            style={{ color: commentsCount ? THEME.forest : THEME.gold }}
+          />
         </button>
         <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
-          {/* commentsCount */}{formatCount(useCommentsCount(item.id))}
+          {formatCount(commentsCount)} {/* ⬅️ use hook value, no hook call here */}
         </div>
 
         {/* Save */}
         <button
           aria-label="Save"
           onClick={onSaveClick}
-          className="h-11 w-11 md:h-12 md:w-12 grid place-items-center rounded-full bg-black/30 text-white/80 md:bg-white md:text-gray-900 backdrop-blur-sm hover:shadow-lg hover:scale-105 active:scale-95 transition"
+          className={[
+            "h-11 w-11 md:h-12 md:w-12",
+            "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
+            "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+          ].join(" ")}
         >
-          <IoBookmark className={saved ? "text-[#C79257]" : ""} size={22} />
+          <IoBookmark
+            size={22}
+            className="transition-colors"
+            style={{ color: totalBookmarks ? THEME.forest : THEME.gold }}
+          />
         </button>
         <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
           {formatCount(totalBookmarks)}
@@ -848,14 +904,23 @@ function VideoCard({
         <button
           aria-label="Share"
           onClick={onShare}
-          className="h-11 w-11 md:h-12 md:w-12 grid place-items-center rounded-full bg-black/30 text-white/80 md:bg-white md:text-gray-900 backdrop-blur-sm  hover:shadow-lg hover:scale-105 active:scale-95 transition"
+          className={[
+            "h-11 w-11 md:h-12 md:w-12",
+            "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
+            "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+          ].join(" ")}
         >
-          <IoArrowRedo size={22} />
+          <IoArrowRedo
+            size={22}
+            className="transition-colors"
+            style={{ color: totalShares ? THEME.forest : THEME.gold }}
+          />
         </button>
         <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
           {formatCount(totalShares)}
         </div>
       </div>
+
     </div>
   );
 }
@@ -935,30 +1000,94 @@ function useUserProfile(uid?: string) {
 }
 
 /* ---------- Channelled Feed Shell ---------- */
-function ChannelTabs({ active, commentsId, railOffsetLg, railOffsetXl, onChange }: { active: TabKey; railOffsetLg: string, railOffsetXl: string, commentsId: string, onChange: (k: TabKey) => void }) {
-  return (
-    <div>
-      <div
+/* ---------- Channelled Feed Shell ---------- */
+function ChannelTabs({
+  active,
+  commentsId,
+  railOffsetLg,
+  railOffsetXl,
+  profile,
+  uid,
+  onChange,
+}: {
+  active: TabKey;
+  railOffsetLg: string;
+  railOffsetXl: string;
+  commentsId: string;
+  profile: any;
+  uid: any;
+  onChange: (k: TabKey) => void;
+}) {
+  const router = useRouter();
 
-        className="mx-auto max-w-[820px] px-3 h-full flex items-center justify-center lg:justify-start lg:ml-[250px] gap-2">
-        {TABS.map((k) => (
+  return (
+    <div className="relative">
+      {/* TABS + EXPLORE + SEARCH */}
+      <div className="mx-auto w-full px-3 h-full flex items-center">
+        <div
+          className={cn(
+            "flex w-full justify-center items-center gap-2",
+            // allow horizontal scroll on small screens, and reserve space on the right for avatar
+            "overflow-x-auto no-scrollbar",
+            commentsId ? "lg:mr-0" : "lg:mr-[100px]",
+          )}
+        >
+
+
+          {/* Tabs */}
+          {TABS.map((k) => (
+            <button
+              key={k}
+              onClick={() => onChange(k)}
+              className={cn(
+                "px-3 py-1.5 w-[90px] rounded-full text-sm font-bold border transition flex-shrink-0",
+                active === k
+                  ? "bg-[#233F39] text-white border-[#233F39]"
+                  : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
+              )}
+            >
+              {LABEL[k]}
+            </button>
+          ))}
+          {/* Explore at the start */}
           <button
-            key={k}
-            onClick={() => onChange(k)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-sm font-bold border transition",
-              active === k
-                ? "bg-[#233F39] text-white border-[#233F39]"
-                : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
-            )}
+            onClick={() => router.push("/dive")}
+            className="flex px-3 py-1.5 w-[90px] gap-2 rounded-full items-center justify-center text-sm font-bold border transition
+                       bg-white text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0"
           >
-            {LABEL[k]}
+            <IoTelescopeOutline /> Dive
           </button>
-        ))}
+          {/* Search at the end of the row */}
+          <button
+            onClick={() => router.push("/search")}
+            className="p-2 hover:bg-gray-100 rounded-full text-sm font-bold border transition
+                       bg-white text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0"
+          >
+            <IoSearch />
+          </button>
+        </div>
+      </div>
+
+      {/* Top user menu (avatar / login) */}
+      <div
+        className={cn(
+          "fixed py-3 z-40 transition-[right] duration-200 right-3 md:right-4"
+        )}
+      >
+        {uid ? (
+          <UserAvatarMenu
+            uid={profile?.uid}
+            photoURL={profile?.photoURL ?? undefined}
+            handle={profile?.handle}
+          />
+        ) : (
+          <LoginButton />
+        )}
       </div>
     </div>
   );
 }
+
 
 function useChannelFeed(tab: TabKey, uid?: string) {
   const following = useFollowing(uid);
@@ -1093,19 +1222,6 @@ function FeedShell() {
           />
         }
       >
-        {/* Top user menu (unchanged) */}
-        <div
-          className={[
-            "fixed py-3 z-40 transition-[right] duration-200",
-            commentsId ? `${railOffsetLg} ${railOffsetXl}` : "right-3 md:right-4",
-          ].join(" ")}
-        >
-          {uid ? (
-            <UserAvatarMenu uid={uid} photoURL={profile?.photoURL ?? user?.photoURL ?? undefined} handle={profile?.handle} />
-          ) : (
-            <LoginButton />
-          )}
-        </div>
 
         {/* Feed scroller */}
         <section
@@ -1120,7 +1236,7 @@ function FeedShell() {
         >
           {/* Sticky translucent bar */}
           <div
-            className="sticky p-2 top-0 z-30 w-full border-b backdrop-blur-md supports-[backdrop-filter]:backdrop-blur-md"
+            className="sticky  p-2 top-0 z-30 w-full border-b backdrop-blur-md supports-[backdrop-filter]:backdrop-blur-md"
             style={{
               height: TAB_BAR_H,
               background:
@@ -1129,7 +1245,7 @@ function FeedShell() {
             }}
           >
 
-            <ChannelTabs commentsId={commentsId ?? ""} railOffsetLg={railOffsetLg} railOffsetXl={railOffsetXl} active={tab} onChange={changeTab} />
+            <ChannelTabs uid={uid} profile={profile} commentsId={commentsId ?? ""} railOffsetLg={railOffsetLg} railOffsetXl={railOffsetXl} active={tab} onChange={changeTab} />
             <TopLoader active={showTopLoader} color="#233F39" />
           </div>
           {loading && <SkeletonCard />}
@@ -1144,7 +1260,7 @@ function FeedShell() {
               data-snap-item="1"
               className={[
                 "w-full flex items-center justify-center snap-start transition-[right] duration-200",
-                commentsId ? "lg:mr-10" : "lg:mr-[200px]",
+                commentsId ? "lg:mr-0" : "lg:mr-[100px]",
               ].join(" ")}
               style={{ height: `100svh`, scrollSnapStop: "always" }}
             >

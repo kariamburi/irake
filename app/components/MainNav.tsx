@@ -16,6 +16,7 @@ import {
     IoFilmOutline,
     IoCartOutline,
     IoHomeOutline,
+    IoCompassOutline,
 } from "react-icons/io5";
 
 import { useAuth } from "@/app/hooks/useAuth";
@@ -143,7 +144,7 @@ export function LeftRailCompact() {
             <RailLink href="/search" icon={<IoSearch />} label="Search" />
             <RailLink href="/" icon={<IoHomeOutline />} label="Deeds" active />
             <RailLink href="/market" icon={<IoCartOutline />} label="ekariMarket" />
-            <RailLink href="/dive" icon={<IoTelescopeOutline />} label="Dive" />
+            <RailLink href="/nexus" icon={<IoCompassOutline />} label="Nexus" />
             <RailLink href="/studio/upload" icon={<IoFilmOutline />} label="Deed studio" />
 
             <RailLink
@@ -228,7 +229,7 @@ export function LeftNavDesktop({ uid, handle }: { uid?: string; handle?: string 
     }> = [
             { label: "Deeds", href: "/", icon: <IoHomeOutline /> },
             { label: "ekariMarket", href: "/market", icon: <IoCartOutline /> },
-            { label: "Dive", href: "/dive", icon: <IoTelescopeOutline /> },
+            { label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
             { label: "Deed studio", href: "/studio/upload", icon: <IoFilmOutline />, requiresAuth: true },
             {
                 label: "Notifications",

@@ -998,7 +998,7 @@ export default function DivePage() {
           <div className="flex items-center gap-2">
             <IoCompassOutline size={22} color={EKARI.forest} />
             <h1 className="text-lg font-extrabold" style={{ color: EKARI.forest }}>
-              Dive
+              Nexus
             </h1>
           </div>
           <button onClick={() => (active === "events" ? loadEvents() : loadDiscs())}>
@@ -1081,7 +1081,7 @@ export default function DivePage() {
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredEvents.map((e) => (
                   <Link
-                    href={`/dive/event/${e.id}`}
+                    href={`/nexus/event/${e.id}`}
                     key={e.id}
                     className="block border border-gray-200 rounded-xl overflow-hidden bg-white hover:shadow-md transition"
                   >
@@ -1147,7 +1147,7 @@ export default function DivePage() {
             <div className="grid gap-3">
               {filteredDiscs.map((d) => (
                 <Link
-                  href={`/dive/discussion/${d.id}`}
+                  href={`/nexus/discussion/${d.id}`}
                   key={d.id}
                   className="block border border-gray-200 rounded-xl bg-white p-3 hover:shadow-md transition"
                 >

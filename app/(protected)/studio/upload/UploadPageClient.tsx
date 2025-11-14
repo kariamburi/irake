@@ -882,7 +882,7 @@ export default function UploadPage() {
                     </div>
                     <div className="mt-2 text-sm font-semibold">{userProfile?.handle ?? "Your handle"}</div>
                     <div className="mt-1 text-[11px] text-gray-500">
-                      Partnered {userProfile?.followingCount || 0} • Partners {userProfile?.followerCount || 0} • Deeds • Likes {userProfile?.likes || 0}
+                      Following {userProfile?.followingCount || 0} • Followers {userProfile?.followerCount || 0} • Deeds • Likes {userProfile?.likes || 0}
                     </div>
                   </div>
 
@@ -1290,7 +1290,7 @@ function SettingsPanel({
             onChange={(e) => onVisibilityChange(e.target.value as any)}
             options={[
               { label: "Public", value: "public" },
-              { label: "Partners", value: "followers" },
+              { label: "Followers", value: "followers" },
               { label: "Private", value: "private" },
             ]}
           />

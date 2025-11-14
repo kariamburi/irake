@@ -270,7 +270,7 @@ export default function StudioHomePage() {
                                     {handleText}
                                 </div>
                                 <div className="text-xs" style={{ color: EKARI.dim }}>
-                                    Likes {likesHeader} · Partners {followersText} · Partnered {followingText}
+                                    Likes {likesHeader} · Followers {followersText} · Following {followingText}
                                 </div>
                             </div>
                         </div>

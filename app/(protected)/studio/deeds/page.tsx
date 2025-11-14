@@ -342,7 +342,7 @@ export default function PostsPage() {
                                     ].join(" ")}
                                     style={{ borderColor: "#E5E7EB", color: "#0F172A" }}
                                 >
-                                    {p === "all" ? "All" : p === "followers" ? "Partners" : cap(p)}
+                                    {p === "all" ? "All" : p === "followers" ? "Followers" : cap(p)}
                                 </button>
                             ))}
                         </div>
@@ -381,7 +381,7 @@ export default function PostsPage() {
                 {/* Table */}
                 <div className="rounded-xl border bg-white">
                     {/* Header hidden on small screens */}
-                    <div className="hidden md:grid grid-cols-[24px,1fr,110px,90px,90px,90px,120px,220px] items-center gap-3 border-b px-3 py-2 text-xs font-semibold text-slate-600">
+                    <div className="hidden md:grid grid-cols-[24px,160px,110px,90px,90px,90px,120px,220px] items-center gap-3 border-b px-3 py-2 text-xs font-semibold text-slate-600">
                         <div className="flex items-center justify-center">
                             <input
                                 type="checkbox"
@@ -482,7 +482,7 @@ function PostRow({
     busyRegen: boolean;
 }) {
     const [openMenu, setOpenMenu] = useState(false);
-
+    const router = useRouter();
     const created =
         row.createdAt?.toDate?.() instanceof Date
             ? row.createdAt.toDate()
@@ -502,17 +502,19 @@ function PostRow({
         "/video-placeholder.jpg";
     // const poster = `https://image.mux.com/${row.muxPlaybackId}/thumbnail.jpg?time=1&fit_mode=smartcrop`;
     return (
-        <div className="grid grid-cols-1 md:grid-cols-[24px,1fr,110px,90px,90px,90px,120px,220px] items-start md:items-center gap-3 border-t px-3 py-3 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-[24px,160px,120px,90px,90px,90px,120px,220px] items-start md:items-center gap-3 border-t px-3 py-3 text-sm">
             {/* Select */}
             <div className="flex items-center justify-center">
                 <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label="Select row" />
             </div>
 
-            {/* Post cell */}
-            <div className="flex min-w-0 items-center gap-3">
+            {/* Post cell `/${row.authorUsername}/deed/${row.id}` */}
+            <div
+                onClick={() => router.push(`/${row.authorUsername}/deed/${row.id}`)}
+                className="flex min-w-0 items-center cursor-pointer gap-3">
                 <UniformThumb src={poster} dateStr={dateStr} />
                 <div className="min-w-0">
-                    <div className="truncate font-semibold text-slate-900">{row.caption || "—"}</div>
+
                     <div className="text-xs text-slate-500">{dateStr}</div>
                 </div>
             </div>
@@ -557,9 +559,9 @@ function PostRow({
 
             {/* Actions (desktop only) */}
             <div className="hidden md:flex items-center justify-center gap-2">
-                <IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} />
+                {/**<IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} /> */}
                 <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
-                <IconBtn title="Comments" href={`/${row.authorUsername}/video/${row.id}`} variant="ghost" />
+                <IconBtn title="Comments" href={`/${row.authorUsername}/deed/${row.id}`} variant="ghost" />
 
                 <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
                     <IoTrashOutline />
@@ -632,8 +634,5 @@ function nfmt(n: number) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
     if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
     return String(n);
-}
-function uploadResumableToPath(blob: any, path: string) {
-    throw new Error("Function not implemented.");
 }
 

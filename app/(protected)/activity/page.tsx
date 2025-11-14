@@ -29,6 +29,7 @@ import {
 } from "react-icons/io5";
 import clsx from "clsx";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { Route } from "lucide-react";
 
 /* ---------------------------- Theme ---------------------------- */
 const EKARI = {
@@ -96,10 +97,12 @@ function dayBucket(date: Date) {
 }
 
 function primaryText(n: Notif) {
-  if (n.type === "like") return `${n.byName || "Someone"} liked your deed 👍`;
+  if (n.type === "like") return `Liked your deed 👍`;
   if (n.type === "comment")
-    return `${n.byName || "Someone"} commented: ${n.preview || ""}`;
-  if (n.type === "follow") return `${n.byName || "Someone"} partnered with you 🤝`;
+    return `Commented your deed: ${n.preview || ""}`;
+  else if (n.type === "profile_view")
+    return `Checked out your profile 👀`;
+  if (n.type === "follow") return `Started following you 🤝`;
   return n.byName || "Notification";
 }
 
@@ -176,7 +179,7 @@ function NotifRow({
   highlight?: boolean;
 }) {
   const [following, setFollowing] = useState<boolean | null>(null);
-
+  const router = useRouter();
   // Only check follow state for "follow" notifications with valid byUserId
   useEffect(() => {
     let mounted = true;
@@ -252,17 +255,37 @@ function NotifRow({
           </div>
         </button>
 
-        {/* Body */}
-        <button
-          onClick={() => onOpenProfile(n.handle, n.byName, n.byPhotoURL)}
-          className="flex-1 min-w-0 text-left group"
-          title={primaryText(n)}
-        >
-          <div className="font-extrabold text-[15px] text-slate-900 truncate group-hover:underline">
+        {/* Body @mwangi/video/i9uOVBRRLUHkAcGXAebq */}
+
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                (n.type === "comment" || n.type === "like") ?
+                  router.push(`${n.handle}/deed/${n.deedId}`) : onOpenProfile(n.handle, n.byName, n.byPhotoURL);
+              }
+              }
+              className="text-left"
+            >
+              <div className="font-extrabold text-[15px] text-slate-900 truncate">
+                {n.byName || "User"}
+              </div>
+            </button>
+            <div className="ml-2 text-[12px] text-slate-500">
+              {timeAgo(n.createdAt)}
+            </div>
+          </div>
+          <div onClick={() => {
+            (n.type === "comment" || n.type === "like") ?
+              router.push(`${n.handle}/deed/${n.deedId}`) : onOpenProfile(n.handle, n.byName, n.byPhotoURL);
+          }
+          }
+            className="text-[13px] cursor-pointer text-slate-600">
             {primaryText(n)}
           </div>
-          <div className="text-[12px] text-slate-500 mt-1">{timeAgo(n.createdAt)}</div>
-        </button>
+        </div>
+
 
         {/* Right actions */}
         {canFollowBack && following !== null && !following && (
@@ -270,7 +293,7 @@ function NotifRow({
             onClick={followBack}
             className="h-8 px-3 rounded-full bg-[#C79257] text-white text-[12px] font-extrabold hover:opacity-95"
           >
-            Partner
+            Follow
           </button>
         )}
         {canFollowBack && following === true && (

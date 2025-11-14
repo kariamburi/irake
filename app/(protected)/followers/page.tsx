@@ -207,7 +207,7 @@ export default function FollowersPage() {
             <IoChevronBack size={20} />
           </button>
           <div className="font-black text-slate-900 text-[18px]">
-            New Partners
+            New followers
           </div>
           {headerRight}
         </div>
@@ -222,7 +222,7 @@ export default function FollowersPage() {
             {refreshing ? "Refreshing…" : "Refresh"}
           </button>
           <div className="text-xs text-gray-500">
-            {followers.length} Partner{followers.length === 1 ? "" : "s"}
+            {followers.length} Follower{followers.length === 1 ? "" : "s"}
           </div>
         </div>
 
@@ -234,7 +234,7 @@ export default function FollowersPage() {
           </div>
         ) : followers.length === 0 ? (
           <div className="px-4 py-12 text-center text-slate-500">
-            No Partners yet.
+            No followers yet.
           </div>
         ) : (
           <ul className="divide-y divide-gray-200">
@@ -284,7 +284,7 @@ export default function FollowersPage() {
                         </div>
                       </div>
                       <div className="text-[13px] text-slate-600">
-                        partnered with you 🤝.
+                        Started following you 🤝.
                       </div>
                     </div>
 
@@ -304,7 +304,7 @@ export default function FollowersPage() {
                         disabled={isPending}
                         className="h-8 px-4 rounded-full bg-[#C79257] text-white text-[12px] font-extrabold disabled:opacity-60"
                       >
-                        Partner
+                        Follow
                       </motion.button>
                     )}
                   </div>

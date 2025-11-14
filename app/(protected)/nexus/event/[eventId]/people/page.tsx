@@ -34,7 +34,7 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 32;
 const EXPORT_PAGE_SIZE = 300;
-const THREAD_ROUTE_FOR = (tid: string) => `/dive/thread/${tid}`;
+const THREAD_ROUTE_FOR = (tid: string) => `/nexus/thread/${tid}`;
 
 type Row = { userId: string; name: string; handle?: string; photoURL?: string | null };
 

@@ -167,7 +167,7 @@ export default function NotificationsPage() {
     );
     const u2 = onSnapshot(fLatestQ, (snap) => {
       const it = snap.docs[0]?.data() as any;
-      setFollowersPreview(it?.name ? `${it.name} partnered with you 🤝` : "");
+      setFollowersPreview(it?.name ? `${it.name} started following you 🤝` : "");
     });
 
     // unseen notifications (exclude 'follow')
@@ -247,11 +247,11 @@ export default function NotificationsPage() {
               <IoPeopleOutline />
             </span>
             <div className="flex-1 text-left">
-              <div className="font-extrabold text-[15px] text-slate-900">New partners</div>
+              <div className="font-extrabold text-[15px] text-slate-900">New followers</div>
               {followersPreview ? (
                 <div className="text-[13px] text-slate-600 truncate">{followersPreview}</div>
               ) : (
-                <div className="text-[13px] text-slate-400">No new partners</div>
+                <div className="text-[13px] text-slate-400">No new followers</div>
               )}
             </div>
             <CountBadge count={followersCount} />
