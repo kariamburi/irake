@@ -139,6 +139,7 @@ export default function SearchPage() {
   const router = useRouter();
 
   const [q, setQ] = useState("");
+  const [lastQuery, setLastQuery] = useState(""); // for “Results for …”
   const [active, setActive] = useState<TabKey>("Top");
 
   const [loading, setLoading] = useState(false);
@@ -155,7 +156,7 @@ export default function SearchPage() {
   const [recents, setRecents] = useState<string[]>([]);
   const [trending] = useState<string[]>(TRENDING_DEFAULT);
 
-  // For underline position
+  // For underline position (desktop)
   const tabIndex = useMemo(() => TABS.indexOf(active), [active]);
   const TAB_WIDTH = 92;
 
@@ -208,17 +209,23 @@ export default function SearchPage() {
         setTagData([]);
         setHasMore(false);
         setPage(0);
+        setLastQuery("");
         return;
       }
 
       try {
         setLoading(true);
+
         const nextPage = reset ? 0 : page + 1;
+        if (reset) {
+          setPage(0);
+          setLastQuery(trimmed);
+        }
 
         const res = await fetchSearchEkarihub(trimmed, tab, nextPage);
 
         setHasMore(!!res.hasMore);
-        setPage(nextPage);
+        if (!reset) setPage(nextPage);
 
         const merge = <T,>(prev: T[], incoming?: T[], override?: boolean) =>
           override ? incoming || [] : [...prev, ...(incoming || [])];
@@ -245,7 +252,10 @@ export default function SearchPage() {
         if (reset) saveRecent(trimmed);
       } catch (e) {
         console.warn("Search error", e);
-        window.alert("Search error. Please check your connection and try again.");
+        // keep this simple for now
+        if (typeof window !== "undefined") {
+          window.alert("Search error. Please check your connection and try again.");
+        }
       } finally {
         setLoading(false);
       }
@@ -305,15 +315,15 @@ export default function SearchPage() {
           <button
             key={`top_deed_${idx}_${d.id}`}
             onClick={() => handleDeedClick(d.id)}
-            className="flex w-full items-center gap-3 rounded-xl py-3 hover:bg-gray-50 text-left"
+            className="flex w-full items-center gap-3 rounded-xl py-3 text-left hover:bg-gray-50"
           >
             <img
               src={d.thumbUrl || PLACEHOLDER_DEED_THUMB}
               alt={d.caption || "deed"}
-              className="h-[62px] w-[110px] rounded-lg object-cover bg-gray-100"
+              className="h-[62px] w-[110px] rounded-lg bg-gray-100 object-cover"
             />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+              <p className="line-clamp-2 text-sm font-semibold text-gray-900">
                 {d.caption || ""}
               </p>
               <p className="mt-1 text-xs text-gray-500">
@@ -329,19 +339,19 @@ export default function SearchPage() {
           <button
             key={`top_event_${idx}_${e.id}`}
             onClick={() => handleEventClick(e.id)}
-            className="flex w-full items-center gap-3 rounded-xl py-3 hover:bg-gray-50 text-left"
+            className="flex w-full items-center gap-3 rounded-xl py-3 text-left hover:bg-gray-50"
           >
             {e.coverUrl ? (
               <img
                 src={e.coverUrl}
                 alt={e.title || "event"}
-                className="h-14 w-20 rounded-lg object-cover bg-gray-100"
+                className="h-14 w-20 rounded-lg bg-gray-100 object-cover"
               />
             ) : (
               <div className="h-14 w-20 rounded-lg bg-gray-100" />
             )}
             <div className="flex-1">
-              <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+              <p className="line-clamp-2 text-sm font-semibold text-gray-900">
                 {e.title || ""}
               </p>
               <p className="mt-1 text-xs text-gray-500">
@@ -363,13 +373,13 @@ export default function SearchPage() {
           <button
             key={`top_disc_${idx}_${d.id}`}
             onClick={() => handleDiscussionClick(d.id)}
-            className="flex w-full items-center gap-3 rounded-xl py-3 hover:bg-gray-50 text-left"
+            className="flex w-full items-center gap-3 rounded-xl py-3 text-left hover:bg-gray-50"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50">
               <IoChatbubblesOutline size={18} color={BRAND.forest} />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+              <p className="line-clamp-2 text-sm font-semibold text-gray-900">
                 {d.title || ""}
               </p>
               <p className="mt-1 text-xs text-gray-500">
@@ -385,12 +395,12 @@ export default function SearchPage() {
           <button
             key={`top_acc_${idx}_${a.id}`}
             onClick={() => handleAccountClick(a.id)}
-            className="flex w-full items-center gap-3 rounded-xl py-3 hover:bg-gray-50 text-left"
+            className="flex w-full items-center gap-3 rounded-xl py-3 text-left hover:bg-gray-50"
           >
             <img
               src={a.avatarUrl || PLACEHOLDER_AVATAR}
               alt={a.displayName}
-              className="h-11 w-11 rounded-full object-cover bg-gray-100"
+              className="h-11 w-11 rounded-full bg-gray-100 object-cover"
             />
             <div className="flex-1">
               <p className="text-sm font-semibold text-gray-900">{a.displayName}</p>
@@ -405,7 +415,7 @@ export default function SearchPage() {
           <button
             key={`top_tag_${idx}_${t.id}`}
             onClick={() => handleTagClick(t.tag)}
-            className="flex w-full items-center gap-2 rounded-xl py-3 hover:bg-gray-50 text-left"
+            className="flex w-full items-center gap-2 rounded-xl py-3 text-left hover:bg-gray-50"
           >
             <IoPricetagOutline size={18} color={BRAND.gold} />
             <span className="text-sm font-semibold text-gray-900">#{t.tag}</span>
@@ -435,6 +445,8 @@ export default function SearchPage() {
     }
   }, [active, topData, deedData, eventData, discData, accData, tagData]);
 
+  const currentCount = listData?.length ?? 0;
+
   /* --------- JSX --------- */
 
   return (
@@ -442,7 +454,7 @@ export default function SearchPage() {
       <main className="min-h-screen w-full bg-gray-50">
         {/* Header */}
         <header
-          className="sticky top-0 z-30 border-b border-gray-200 bg-gradient-to-br from-white to-gray-50/70 backdrop-blur"
+          className="sticky top-0 z-30 border-b bg-gradient-to-br from-white to-gray-50/70 backdrop-blur"
           style={{ borderColor: BRAND.line }}
         >
           <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
@@ -469,10 +481,23 @@ export default function SearchPage() {
               {q && (
                 <button
                   type="button"
-                  onClick={() => setQ("")}
+                  onClick={() => {
+                    setQ("");
+                    setLastQuery("");
+                    setTopData([]);
+                    setDeedData([]);
+                    setEventData([]);
+                    setDiscData([]);
+                    setAccData([]);
+                    setTagData([]);
+                    setHasMore(false);
+                    setPage(0);
+                  }}
                   className="flex items-center justify-center"
                 >
-                  <span className="text-xs text-gray-400 hover:text-gray-600">Clear</span>
+                  <span className="text-xs text-gray-400 hover:text-gray-600">
+                    Clear
+                  </span>
                 </button>
               )}
               <button
@@ -493,8 +518,8 @@ export default function SearchPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex w-full items-center overflow-x-auto px-4 pb-2 pt-1 no-scrollbar relative">
-            <div className="flex gap-2 relative">
+          <div className="mx-auto flex w-full max-w-3xl items-center overflow-x-auto px-4 pb-2 pt-1 no-scrollbar relative">
+            <div className="relative flex gap-2">
               {TABS.map((t, index) => {
                 const isActive = t === active;
                 return (
@@ -502,13 +527,14 @@ export default function SearchPage() {
                     key={t}
                     type="button"
                     className={[
-                      "h-8 w-[92px] rounded-full text-xs font-semibold border flex items-center justify-center transition",
+                      "flex h-8 w-[92px] items-center justify-center rounded-full border text-xs font-semibold transition",
                       isActive
-                        ? "bg-emerald-900 text-white border-emerald-900 shadow-sm"
-                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50",
+                        ? "border-emerald-900 bg-emerald-900 text-white shadow-sm"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50",
                     ].join(" ")}
                     onClick={() => {
                       setActive(t);
+                      setPage(0);
                       if (q.trim()) startSearch(q, t, true);
                     }}
                   >
@@ -517,7 +543,7 @@ export default function SearchPage() {
                 );
               })}
 
-              {/* Underline indicator (simple transform) */}
+              {/* Underline indicator (simple transform, mainly visible on desktop) */}
               <div
                 className="pointer-events-none absolute -bottom-0.5 h-0.5 w-7 rounded-full bg-emerald-900 transition-transform duration-200"
                 style={{
@@ -529,9 +555,19 @@ export default function SearchPage() {
         </header>
 
         {/* Body */}
-        <section className="w-full px-4 pb-10 pt-4">
+        <section className="mx-auto w-full max-w-3xl px-4 pb-10 pt-4">
           {showDefault ? (
             <div className="space-y-6">
+              {/* Small intro / hint */}
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-xs text-emerald-900">
+                <p className="font-semibold">Search ekarihub</p>
+                <p className="mt-1 text-[11px] text-emerald-900/80">
+                  Find deeds, events, discussions, people, and tags across the entire
+                  agribusiness community. Try searching for a crop (“maize”), a topic
+                  (“soil health”), or a market (“avocado export”).
+                </p>
+              </div>
+
               {/* Recents */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -594,15 +630,30 @@ export default function SearchPage() {
               </div>
             </div>
           ) : (
-            <div>
+            <div className="space-y-3">
+              {/* Results header */}
+              {lastQuery && (
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div>
+                    <span>Results for </span>
+                    <span className="font-semibold text-gray-800">“{lastQuery}”</span>
+                    <span>{` · ${active}`}</span>
+                  </div>
+                  {currentCount > 0 && (
+                    <span>{currentCount.toLocaleString()} result{currentCount > 1 ? "s" : ""}</span>
+                  )}
+                </div>
+              )}
+
               {/* Results list */}
               <div className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white">
                 {(!listData || listData.length === 0) && !loading && (
                   <div className="px-4 py-10 text-center text-sm text-gray-500">
-                    No results found.
+                    No results found. Try a different keyword or broaden your search.
                   </div>
                 )}
 
+                {/* TOP */}
                 {active === "Top" &&
                   topData.map((item, idx) => (
                     <div key={idx} className="px-4 first:pt-3 last:pb-3">
@@ -610,20 +661,21 @@ export default function SearchPage() {
                     </div>
                   ))}
 
+                {/* DEEDS */}
                 {active === "Deeds" &&
                   deedData.map((d) => (
                     <button
                       key={d.id}
                       onClick={() => handleDeedClick(d.id)}
-                      className="flex w-full items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                     >
                       <img
                         src={d.thumbUrl || PLACEHOLDER_DEED_THUMB}
                         alt={d.caption || "deed"}
-                        className="h-[62px] w-[110px] rounded-lg object-cover bg-gray-100"
+                        className="h-[62px] w-[110px] rounded-lg bg-gray-100 object-cover"
                       />
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                        <p className="line-clamp-2 text-sm font-semibold text-gray-900">
                           {d.caption || ""}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
@@ -635,24 +687,25 @@ export default function SearchPage() {
                     </button>
                   ))}
 
+                {/* EVENTS */}
                 {active === "Events" &&
                   eventData.map((e) => (
                     <button
                       key={e.id}
                       onClick={() => handleEventClick(e.id)}
-                      className="flex w-full items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                     >
                       {e.coverUrl ? (
                         <img
                           src={e.coverUrl}
                           alt={e.title || "event"}
-                          className="h-14 w-20 rounded-lg object-cover bg-gray-100"
+                          className="h-14 w-20 rounded-lg bg-gray-100 object-cover"
                         />
                       ) : (
                         <div className="h-14 w-20 rounded-lg bg-gray-100" />
                       )}
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                        <p className="line-clamp-2 text-sm font-semibold text-gray-900">
                           {e.title || ""}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
@@ -668,18 +721,19 @@ export default function SearchPage() {
                     </button>
                   ))}
 
+                {/* DISCUSSIONS */}
                 {active === "Discussions" &&
                   discData.map((d) => (
                     <button
                       key={d.id}
                       onClick={() => handleDiscussionClick(d.id)}
-                      className="flex w-full items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                     >
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50">
                         <IoChatbubblesOutline size={18} color={BRAND.forest} />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                        <p className="line-clamp-2 text-sm font-semibold text-gray-900">
                           {d.title || ""}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
@@ -690,17 +744,18 @@ export default function SearchPage() {
                     </button>
                   ))}
 
+                {/* ACCOUNTS */}
                 {active === "Accounts" &&
                   accData.map((a) => (
                     <button
                       key={a.id}
                       onClick={() => handleAccountClick(a.id)}
-                      className="flex w-full items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                     >
                       <img
                         src={a.avatarUrl || PLACEHOLDER_AVATAR}
                         alt={a.displayName}
-                        className="h-11 w-11 rounded-full object-cover bg-gray-100"
+                        className="h-11 w-11 rounded-full bg-gray-100 object-cover"
                       />
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-900">
@@ -713,12 +768,13 @@ export default function SearchPage() {
                     </button>
                   ))}
 
+                {/* TAGS */}
                 {active === "Tags" &&
                   tagData.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => handleTagClick(t.tag)}
-                      className="flex w-full items-center gap-2 px-4 py-3 hover:bg-gray-50 text-left"
+                      className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-gray-50"
                     >
                       <IoPricetagOutline size={18} color={BRAND.gold} />
                       <span className="text-sm font-semibold text-gray-900">

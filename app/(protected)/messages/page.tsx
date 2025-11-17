@@ -1,7 +1,13 @@
 // app/messages/page.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -14,7 +20,6 @@ import {
   orderBy,
   query,
   startAfter,
-  Timestamp,
   DocumentSnapshot,
 } from "firebase/firestore";
 import { IoChevronForward, IoSearchOutline } from "react-icons/io5";
@@ -121,98 +126,166 @@ export default function MessagesPage() {
   const userCache = useRef<Map<string, UserLite | null>>(new Map());
   const threadCache = useRef<Map<string, LastMessage | undefined>>(new Map());
 
-  const fetchPeer = useCallback(
-    async (peerId: string) => {
-      if (userCache.current.has(peerId)) return userCache.current.get(peerId)!;
+  const fetchPeer = useCallback(async (peerId: string) => {
+    if (userCache.current.has(peerId)) return userCache.current.get(peerId)!;
+    try {
       const snap = await getDoc(doc(db, "users", peerId));
       const data = (snap.exists() ? (snap.data() as any) : null) as UserLite | null;
       userCache.current.set(peerId, data);
       return data;
-    },
-    []
-  );
+    } catch (err) {
+      console.error("Error fetching peer:", err);
+      userCache.current.set(peerId, null);
+      return null;
+    }
+  }, []);
 
-  const fetchLastMessage = useCallback(
-    async (threadId: string) => {
-      if (threadCache.current.has(threadId)) return threadCache.current.get(threadId);
+  const fetchLastMessage = useCallback(async (threadId: string) => {
+    if (threadCache.current.has(threadId))
+      return threadCache.current.get(threadId);
+    try {
       const tSnap = await getDoc(doc(db, "threads", threadId));
       const data = tSnap.data() as any;
       const last: LastMessage | undefined = data?.lastMessage;
       threadCache.current.set(threadId, last);
       return last;
-    },
-    []
-  );
+    } catch (err) {
+      console.error("Error fetching lastMessage:", err);
+      threadCache.current.set(threadId, undefined);
+      return undefined;
+    }
+  }, []);
 
   // initial + live list
   useEffect(() => {
-    if (!uid) return;
+    // if not logged in, don't hang on loading
+    if (!uid) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+
     const qy = query(
       collection(db, "userThreads", uid, "threads"),
       orderBy("updatedAt", "desc"),
       limit(25)
     );
-    const unsub = onSnapshot(qy, async (snap) => {
-      setCursor(snap.docs.at(-1) ?? null);
-      const base: RowData[] = await Promise.all(
-        snap.docs.map(async (d) => {
-          const m = d.data() as ThreadMirror;
-          const [peer, lastMessage] = await Promise.all([
-            fetchPeer(m.peerId),
-            fetchLastMessage(m.threadId),
-          ]);
-          return {
-            threadId: m.threadId,
-            peerId: m.peerId,
-            peer: peer ?? null,
-            lastMessage,
-            unread: m.unread ?? 0,
-            updatedAt: (d.data() as any).updatedAt,
-          };
-        })
-      );
-      setRows(base);
-      setLoading(false);
-    });
+
+    const unsub = onSnapshot(
+      qy,
+      (snap) => {
+        (async () => {
+          try {
+            const docs = snap.docs;
+            const lastDoc = docs.length > 0 ? docs[docs.length - 1] : null;
+            setCursor(lastDoc);
+
+            const base: RowData[] = await Promise.all(
+              docs.map(async (d) => {
+                const m = d.data() as ThreadMirror;
+                try {
+                  const [peer, lastMessage] = await Promise.all([
+                    fetchPeer(m.peerId),
+                    fetchLastMessage(m.threadId),
+                  ]);
+
+                  return {
+                    threadId: m.threadId,
+                    peerId: m.peerId,
+                    peer: peer ?? null,
+                    lastMessage,
+                    unread: m.unread ?? 0,
+                    updatedAt: (d.data() as any).updatedAt,
+                  };
+                } catch (innerErr) {
+                  console.error("Error resolving row data:", innerErr);
+                  return {
+                    threadId: m.threadId,
+                    peerId: m.peerId,
+                    peer: null,
+                    lastMessage: undefined,
+                    unread: m.unread ?? 0,
+                    updatedAt: (d.data() as any).updatedAt,
+                  };
+                }
+              })
+            );
+
+            setRows(base);
+            setLoading(false);
+          } catch (err) {
+            console.error("Messages snapshot processing error:", err);
+            setRows([]);
+            setLoading(false);
+          }
+        })();
+      },
+      (error) => {
+        console.error("Messages onSnapshot error:", error);
+        setRows([]);
+        setLoading(false);
+      }
+    );
+
     return () => unsub();
   }, [uid, fetchPeer, fetchLastMessage]);
 
-  const loadMore = useCallback(async () => {
-    if (!uid || !cursor || paging) return;
-    setPaging(true);
-    try {
-      const qMore = query(
-        collection(db, "userThreads", uid, "threads"),
-        orderBy("updatedAt", "desc"),
-        startAfter(cursor),
-        limit(25)
-      );
-      const snap = await getDocs(qMore);
-      setCursor(snap.docs.at(-1) ?? null);
+  const loadMore = useCallback(
+    async () => {
+      if (!uid || !cursor || paging) return;
+      setPaging(true);
+      try {
+        const qMore = query(
+          collection(db, "userThreads", uid, "threads"),
+          orderBy("updatedAt", "desc"),
+          startAfter(cursor),
+          limit(25)
+        );
+        const snap = await getDocs(qMore);
+        const docs = snap.docs;
+        const lastDoc = docs.length > 0 ? docs[docs.length - 1] : null;
+        setCursor(lastDoc);
 
-      const extra: RowData[] = await Promise.all(
-        snap.docs.map(async (d) => {
-          const m = d.data() as ThreadMirror;
-          const [peer, lastMessage] = await Promise.all([
-            fetchPeer(m.peerId),
-            fetchLastMessage(m.threadId),
-          ]);
-          return {
-            threadId: m.threadId,
-            peerId: m.peerId,
-            peer: peer ?? null,
-            lastMessage,
-            unread: m.unread ?? 0,
-            updatedAt: (d.data() as any).updatedAt,
-          };
-        })
-      );
-      setRows((prev) => [...prev, ...extra]);
-    } finally {
-      setPaging(false);
-    }
-  }, [uid, cursor, paging, fetchPeer, fetchLastMessage]);
+        const extra: RowData[] = await Promise.all(
+          docs.map(async (d) => {
+            const m = d.data() as ThreadMirror;
+            try {
+              const [peer, lastMessage] = await Promise.all([
+                fetchPeer(m.peerId),
+                fetchLastMessage(m.threadId),
+              ]);
+              return {
+                threadId: m.threadId,
+                peerId: m.peerId,
+                peer: peer ?? null,
+                lastMessage,
+                unread: m.unread ?? 0,
+                updatedAt: (d.data() as any).updatedAt,
+              };
+            } catch (innerErr) {
+              console.error("Error resolving extra row data:", innerErr);
+              return {
+                threadId: m.threadId,
+                peerId: m.peerId,
+                peer: null,
+                lastMessage: undefined,
+                unread: m.unread ?? 0,
+                updatedAt: (d.data() as any).updatedAt,
+              };
+            }
+          })
+        );
+        setRows((prev) => [...prev, ...extra]);
+      } catch (err) {
+        console.error("loadMore messages error:", err);
+      } finally {
+        setPaging(false);
+      }
+    },
+    [uid, cursor, paging, fetchPeer, fetchLastMessage]
+  );
 
   const openThread = (row: RowData) => {
     const peerName = row.peer?.firstName ?? "";
@@ -246,10 +319,31 @@ export default function MessagesPage() {
     });
   }, [rows, qStr, tab]);
 
-  /* ----------------------------- UI ----------------------------- */
-
   // Shared ring color for focusable elements
   const ringStyle: React.CSSProperties = { ["--tw-ring-color" as any]: EKARI.forest };
+
+  // If not logged in, show simple state instead of hanging
+  if (!uid) {
+    return (
+      <AppShell>
+        <div
+          className="min-h-screen flex items-center justify-center px-6 text-center"
+          style={{ backgroundColor: EKARI.sand }}
+        >
+          <div>
+            <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
+              Sign in to view your messages
+            </div>
+            <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
+              Chats appear here once you start conversations from profiles or ads.
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  /* ----------------------------- UI ----------------------------- */
 
   return (
     <AppShell>
@@ -315,7 +409,6 @@ export default function MessagesPage() {
                 aria-label="Filter messages"
                 style={{
                   borderColor: EKARI.hair,
-                  // tailwind ring color via CSS var
                   ["--tw-ring-color" as any]: EKARI.forest,
                 }}
               />
@@ -341,8 +434,10 @@ export default function MessagesPage() {
 
         {/* Content */}
         {loading ? (
-          <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-
+          <div
+            className="py-16 flex items-center justify-center"
+            style={{ color: EKARI.dim }}
+          >
             <span className="ml-2">
               <BouncingBallLoader />
             </span>
@@ -359,7 +454,9 @@ export default function MessagesPage() {
               No conversations found
             </div>
             <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-              {qStr ? "Try clearing the search or filters." : "Start a chat from a profile to see it here."}
+              {qStr
+                ? "Try clearing the search or filters."
+                : "Start a chat from a profile to see it here."}
             </div>
           </div>
         ) : (
@@ -367,7 +464,9 @@ export default function MessagesPage() {
             {filtered.map((item) => {
               const name = item.peer?.firstName || item.peer?.handle || "User";
               const last = previewOf(item.lastMessage) || "Say hi";
-              const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
+              const when = shortTime(
+                item.lastMessage?.createdAt ?? item.updatedAt
+              );
               const hasUnread = (item.unread ?? 0) > 0;
 
               return (
@@ -382,17 +481,19 @@ export default function MessagesPage() {
                     {/* Avatar + unread dot */}
                     <div className="relative">
                       <SmartAvatar
-                        src={item.peer?.photoURL}
+                        src={item.peer?.photoURL || ""}  // ✅ always a string
                         alt={name}
                         size={46}
                         className={clsx(hasUnread && "ring-2")}
-
                       />
                       {hasUnread && (
                         <span
                           className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
                           title="Unread"
-                          style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
+                          style={{
+                            backgroundColor: EKARI.forest,
+                            borderColor: EKARI.sand,
+                          }}
                         />
                       )}
                     </div>
@@ -408,15 +509,23 @@ export default function MessagesPage() {
                         >
                           {name}
                         </div>
-                        <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
+                        <div
+                          className="ml-auto text-[11px]"
+                          style={{ color: EKARI.dim }}
+                        >
                           {when}
                         </div>
                       </div>
 
                       <div className="mt-0.5 flex items-center gap-2 min-w-0">
                         <div
-                          className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")}
-                          style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
+                          className={clsx(
+                            "truncate text-[13px]",
+                            hasUnread ? "font-semibold" : "font-normal"
+                          )}
+                          style={{
+                            color: hasUnread ? EKARI.text : EKARI.dim,
+                          }}
                         >
                           {last}
                         </div>
@@ -424,7 +533,10 @@ export default function MessagesPage() {
                         {hasUnread && (
                           <span
                             className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                            style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
+                            style={{
+                              backgroundColor: EKARI.forest,
+                              color: EKARI.sand,
+                            }}
                           >
                             {item.unread > 99 ? "99+" : item.unread}
                           </span>
@@ -432,7 +544,11 @@ export default function MessagesPage() {
                       </div>
                     </div>
 
-                    <IoChevronForward size={18} style={{ color: EKARI.sub }} className="hidden sm:block" />
+                    <IoChevronForward
+                      size={18}
+                      style={{ color: EKARI.sub }}
+                      className="hidden sm:block"
+                    />
                   </motion.button>
                 </li>
               );
@@ -447,9 +563,18 @@ export default function MessagesPage() {
               onClick={loadMore}
               disabled={paging || !cursor}
               className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-              style={{ borderColor: EKARI.hair, color: EKARI.text, backgroundColor: EKARI.sand }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(35,63,57,0.05)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = EKARI.sand)}
+              style={{
+                borderColor: EKARI.hair,
+                color: EKARI.text,
+                backgroundColor: EKARI.sand,
+              }}
+              onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor =
+                "rgba(35,63,57,0.05)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = EKARI.sand)
+              }
             >
               {paging ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
             </button>

@@ -106,6 +106,7 @@ function primaryText(n: Notif) {
   return n.byName || "Notification";
 }
 
+
 function badgeFor(n: Notif) {
   switch (n.type) {
     case "like":
