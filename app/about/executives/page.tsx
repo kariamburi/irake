@@ -35,7 +35,7 @@ export default function ExecutivesPage() {
         }}
         className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
       >
-        {EXECUTIVES.slice(0, 1).map((e: any) => (
+        {EXECUTIVES.map((e: any) => (
           <motion.button
             key={e.slug}
             variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
@@ -44,7 +44,7 @@ export default function ExecutivesPage() {
             style={{ borderColor: EKARI.hair }}
           >
             <div className="relative w-full aspect-[4/3]">
-              <Image src={e.photo} alt={e.name} fill className="object-cover" />
+              <Image src={e.passport} alt={e.name} fill className="object-cover" />
             </div>
             <div className="p-4">
               <div className="font-black" style={{ color: EKARI.text }}>

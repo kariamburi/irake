@@ -65,6 +65,7 @@ const EKARI = {
 };
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
+const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
 
 type Profile = {
   id: string;
@@ -469,7 +470,94 @@ function useFollowingState(viewerUid?: string, targetUid?: string) {
   };
   return { isFollowing, toggle };
 }
+function usePartnerStats(ownerUid?: string, viewerUid?: string) {
+  const [partners, setPartners] = React.useState(0);
+  const [mutualPartners, setMutualPartners] = React.useState(0);
 
+  React.useEffect(() => {
+    if (!ownerUid) {
+      setPartners(0);
+      setMutualPartners(0);
+      return;
+    }
+
+    const followsRef = collection(db, "follows");
+
+    let ownerFollowingSet = new Set<string>();
+    let ownerFollowersSet = new Set<string>();
+    let viewerFollowersSet = new Set<string>();
+
+    const recompute = () => {
+      // Owner's mutuals (Partners)
+      let p = 0;
+      ownerFollowingSet.forEach((id) => {
+        if (ownerFollowersSet.has(id)) p++;
+      });
+      setPartners(p);
+
+      // Mutual Partners between VIEWER and OWNER:
+      // people who follow viewer AND follow owner
+      if (viewerUid && viewerUid !== ownerUid) {
+        let m = 0;
+        ownerFollowersSet.forEach((id) => {
+          if (viewerFollowersSet.has(id)) m++;
+        });
+        setMutualPartners(m);
+      } else {
+        setMutualPartners(0);
+      }
+    };
+
+    const unsubFollowing = onSnapshot(
+      query(followsRef, where("followerId", "==", ownerUid)),
+      (snap) => {
+        ownerFollowingSet = new Set(
+          snap.docs.map((d) => (d.data() as any).followingId as string)
+        );
+        recompute();
+      },
+      (err) => console.warn("owner following stats error:", err)
+    );
+
+    const unsubFollowers = onSnapshot(
+      query(followsRef, where("followingId", "==", ownerUid)),
+      (snap) => {
+        ownerFollowersSet = new Set(
+          snap.docs.map((d) => (d.data() as any).followerId as string)
+        );
+        recompute();
+      },
+      (err) => console.warn("owner followers stats error:", err)
+    );
+
+    let unsubViewerFollowers: (() => void) | undefined;
+
+    if (viewerUid && viewerUid !== ownerUid) {
+      unsubViewerFollowers = onSnapshot(
+        query(followsRef, where("followingId", "==", viewerUid)),
+        (snap) => {
+          viewerFollowersSet = new Set(
+            snap.docs.map((d) => (d.data() as any).followerId as string)
+          );
+          recompute();
+        },
+        (err) => console.warn("viewer followers stats error:", err)
+      );
+    }
+
+    return () => {
+      try {
+        unsubFollowing();
+        unsubFollowers();
+        if (unsubViewerFollowers) unsubViewerFollowers();
+      } catch { }
+    };
+  }, [ownerUid, viewerUid]);
+
+  return { partners, mutualPartners };
+}
+
+/* ---------- header (with tabs) ---------- */
 /* ---------- header (with tabs) ---------- */
 type TabKey = "deeds" | "listings" | "events" | "discussions";
 
@@ -483,6 +571,9 @@ function Header({
   hasUser,
   onRequireAuth,
   canSeeContacts,
+  partners,
+  mutualPartners,
+  viewerUid,     // 👈 add this
 }: {
   profile: Profile;
   isOwner: boolean;
@@ -493,10 +584,24 @@ function Header({
   hasUser: boolean;
   onRequireAuth: () => boolean;
   canSeeContacts: boolean;
+  partners: number;
+  mutualPartners: number;
+  viewerUid?: string | null;  // 👈 add this
 }) {
   const followers = profile?.followersCount ?? 0;
   const following = profile?.followingCount ?? 0;
+  const router = useRouter();
+  const handleSlug = React.useMemo(
+    () => (profile.handle || "").replace(/^@/, ""),
+    [profile.handle]
+  );
 
+  const openConnections = (tabKey: "following" | "followers" | "partners" | "mutual") => {
+    if (!handleSlug) return;
+    router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=${tabKey}`);
+  };
+
+  // 👇 helper for header tabs (deeds, listings, etc.)
   function TabBtn({
     k,
     label,
@@ -521,6 +626,35 @@ function Header({
     );
   }
 
+  // 👇 message click handler – create/get thread + go to /messages/[threadId]
+  const handleMessageClick = () => {
+    // 1. Guest → require login
+    if (!hasUser || !viewerUid) {
+      onRequireAuth?.();
+      return;
+    }
+
+    // 2. Don’t allow messaging self
+    if (viewerUid === profile.id) return;
+
+    const peerId = profile.id;
+    const peerName = profile.name || profile.handle || "";
+    const peerPhotoURL = profile.photoURL || "";
+    const peerHandle = profile.handle || "";
+
+    // Deterministic threadId so same pair reuses same thread
+    const threadId = makeThreadId(viewerUid, peerId);
+
+    const qs = new URLSearchParams();
+    qs.set("peerId", peerId);
+    if (peerName) qs.set("peerName", peerName);
+    if (peerPhotoURL) qs.set("peerPhotoURL", peerPhotoURL);
+    if (peerHandle) qs.set("peerHandle", peerHandle);
+
+    router.push(`/messages/${encodeURIComponent(threadId)}?${qs.toString()}`);
+  };
+
+
   return (
     <header className="px-4 md:px-8 pt-6 pb-4">
       <div className="flex justify-center items-center gap-4 md:gap-6">
@@ -543,6 +677,7 @@ function Header({
             </h1>
 
             {isOwner ? (
+              // 👤 OWNER → Edit profile
               <Link
                 href={`/${profile.handle}/edit`}
                 className="flex gap-2 items-center justify-center rounded-md border px-3 py-1.5 text-sm font-bold hover:bg-black/5"
@@ -552,7 +687,9 @@ function Header({
                 Edit profile
               </Link>
             ) : (
-              <>
+              // 👥 VISITOR (or guest) → Follow + Message
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Follow button */}
                 {!hasUser ? (
                   <button
                     onClick={() => onRequireAuth?.()}
@@ -579,14 +716,57 @@ function Header({
                     {followState.isFollowing ? "Following" : "Follow"}
                   </button>
                 )}
-              </>
+
+                {/* ✉️ Message button – visible for everyone except owner
+                    - Guest click → login
+                    - Logged-in click → /messages?to=profile.id
+                */}
+                <button
+                  type="button"
+                  onClick={handleMessageClick}
+                  className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-bold hover:bg-black/5"
+                  style={{ backgroundColor: EKARI.primary, color: EKARI.bg }}
+                >
+                  <IoChatbubblesOutline size={16} />
+                  <span>Message</span>
+                </button>
+              </div>
             )}
           </div>
 
-          <div className="mt-2 flex items-center gap-5 text-sm">
-            <Stat label="Following" value={nfmt(following)} />
-            <Stat label="Followers" value={nfmt(followers)} />
-            <Stat label="Likes" value={nfmt(likesValue)} />
+          {/* 🔹 CLICKABLE STATS → /[handle]/connections */}
+          <div className="mt-2 flex flex-wrap items-center gap-5 text-sm">
+            <button
+              type="button"
+              onClick={() => openConnections("following")}
+              className="inline-flex items-baseline gap-1 hover:opacity-80"
+            >
+              <Stat label="Following" value={nfmt(following)} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openConnections("followers")}
+              className="inline-flex items-baseline gap-1 hover:opacity-80"
+            >
+              <Stat label="Followers" value={nfmt(followers)} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openConnections("partners")}
+              className="inline-flex items-baseline gap-1 hover:opacity-80"
+            >
+              <Stat label="Partners" value={nfmt(partners || 0)} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openConnections("mutual")}
+              className="inline-flex items-baseline gap-1 hover:opacity-80"
+            >
+              <Stat label="Mutual Partners" value={nfmt(mutualPartners || 0)} />
+            </button>
           </div>
 
           {profile.name && (
@@ -609,6 +789,7 @@ function Header({
                   className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-bold hover:bg-black/5"
                   style={{ borderColor: EKARI.hair, color: EKARI.text }}
                 >
+                  {/* phone icon */}
                   <svg
                     width="16"
                     height="16"
@@ -636,6 +817,7 @@ function Header({
                     color: EKARI.primary,
                   }}
                 >
+                  {/* website icon */}
                   <svg
                     width="16"
                     height="16"
@@ -659,9 +841,7 @@ function Header({
       <div className="mt-6 border-t" style={{ borderColor: EKARI.hair }}>
         <nav className="flex flex-wrap gap-6 text-sm font-bold px-1 pt-3">
           <TabBtn k="deeds" label="Deeds" icon={<IoFilmOutline size={16} />} />
-          {/* Listings tab visible to everyone */}
           <TabBtn k="listings" label="Listings" icon={<IoListOutline size={16} />} />
-          {/* Events & Discussions visible to everyone */}
           <TabBtn k="events" label="Events" icon={<IoCalendarOutline size={16} />} />
           <TabBtn
             k="discussions"
@@ -1585,6 +1765,7 @@ export default function HandleProfilePage() {
 
   const mutual = useMutualFollow(user?.uid, uid ?? undefined);
   const canSeeContacts = isOwner || (!!user && mutual);
+  const { partners, mutualPartners } = usePartnerStats(uid ?? undefined, user?.uid);
 
   const requireAuth = React.useCallback(() => {
     if (user) return true;
@@ -1623,6 +1804,9 @@ export default function HandleProfilePage() {
             hasUser={!!user}
             onRequireAuth={requireAuth}
             canSeeContacts={canSeeContacts}
+            partners={partners}
+            mutualPartners={mutualPartners}
+            viewerUid={user?.uid || null}   // 👈 pass viewer uid
           />
         ) : (
           <div

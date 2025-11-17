@@ -1,8 +1,9 @@
-// Central place for your executive data (update freely)
+// Central place for your executive data (update freely) 
 export type Exec = {
     slug: string;
     name: string;
     title: string;
+    passport: string;
     photo: string;
     short?: string;
     bio: string[];
@@ -14,7 +15,8 @@ export const EXECUTIVES: Exec[] = [
         slug: "stephen-ndulah",
         name: "Stephen Ndulah Wafullah",
         title: "Founder & Chief Executive Officer, Ekarihub",
-        photo: "/ceo.jpg",
+        passport: "/executives/ceo_passport.jpg",
+        photo: "/executives/ceo.jpg",
         short:
             "Visionary founder driving ekarihub’s digital agribusiness ecosystem and community.",
         bio: [
@@ -26,68 +28,31 @@ export const EXECUTIVES: Exec[] = [
             "Today, Stephen stands at the intersection of technology, sustainability, and agribusiness, championing a bold vision to reimagine agribusiness as a connected, data-driven, and opportunity-rich frontier for Africa and the world."
         ],
         links: [
-            { label: "Website", href: "https://www.ekarihub.com" },
-            { label: "Email", href: "mailto:ceo@ekarihub.com" }
+            // { label: "Website", href: "https://www.ekarihub.com" },
+            { label: "Email", href: "mailto:ceo@ekarihub.com" },
+            { label: "LinkedIn", href: "https://www.linkedin.com/in/stephen-ndulah" }
         ]
     },
     {
-        slug: "jane-doe",
-        name: "Jane Doe",
-        title: "Chief Operating Officer",
-        photo: "/executives/jane.jpg",
+        slug: "emily-auma-okech",
+        name: "Emily Auma Okech",
+        title: "Head of Marketing, Ekarihub",
+        passport: "/executives/exec-emily_passport.jpeg",
+        photo: "/executives/exec-emily.jpeg",
         short:
-            "Ops leader scaling marketplace logistics, quality, and safety for users nationwide.",
+            "Creative, data-driven marketing leader shaping ekarihub’s brand, growth, and community presence.",
         bio: [
-            "Jane leads operations across marketplace logistics, safety, and policy.",
-            "She scales teams, builds resilient processes, and ensures trusted growth."
-        ]
-    },
-    {
-        slug: "john-kimani",
-        name: "John Kimani",
-        title: "Chief Product Officer",
-        photo: "/executives/john.jpg",
-        short:
-            "Product strategist focused on farmer outcomes, liquidity, and delightful UX.",
-        bio: [
-            "John heads product strategy across ekarihub’s market, studio, and community.",
-            "He is passionate about accessible, fast, and trustworthy farmer tools."
-        ]
-    },
-    {
-        slug: "amina-hassan",
-        name: "Amina Hassan",
-        title: "Chief Technology Officer",
-        photo: "/executives/amina.jpg",
-        short:
-            "Engineering leader building reliable, secure, and scalable platforms for growth.",
-        bio: [
-            "Amina leads platform, AI, and infra — enabling high-reliability experiences.",
-            "Her teams ship secure, scalable systems for payments, media, and data."
-        ]
-    },
-    {
-        slug: "peter-otiende",
-        name: "Peter Otiende",
-        title: "Chief Growth Officer",
-        photo: "/executives/peter.jpg",
-        short:
-            "Growth leader expanding markets, partnerships, and ecosystem opportunities.",
-        bio: [
-            "Peter drives user growth, partnerships, and market development across regions.",
-            "He focuses on durable economics and ecosystem health."
-        ]
-    },
-    {
-        slug: "lucy-wairimu",
-        name: "Lucy Wairimu",
-        title: "Head of Community & Safety",
-        photo: "/executives/lucy.jpg",
-        short:
-            "Building safer, supportive communities that empower farmers and buyers.",
-        bio: [
-            "Lucy leads community health, trust & safety policies, and education programs.",
-            "Her team partners with stakeholders to keep users safe and supported."
+            "Emily Auma Okech is the creative and strategic force behind ekarihub’s brand, growth, and community engagement, ensuring the platform’s story and impact are clearly felt across the agribusiness ecosystem.",
+            "She brings deep experience from FMCG, mobile technology, and alcoholic beverages, where she has refined her ability to drive visibility, shopper engagement, and flawless in-store execution for some of Africa’s most trusted consumer brands.",
+            "Before joining ekarihub, Emily led high-impact trade marketing, retail operations, and nationwide brand activation programs at organisations including Mondelēz International, Godrej Group, Kevian Kenya, Nokia, and Tradco Africa—consistently delivering strong performance and meeting or exceeding KPIs across markets and teams.",
+            "At ekarihub, Emily oversees brand development, digital marketing, user acquisition, retention, and community strategy. She combines storytelling with analytics to grow a vibrant, loyal ecosystem of farmers, agripreneurs, partners, and collaborators on the platform.",
+            "Energetic, insightful, and execution-focused, Emily is committed to ensuring that ekarihub’s voice, identity, and impact remain distinctive and influential across Africa’s agribusiness landscape."
+        ],
+        links: [
+            //{ label: "Website", href: "https://www.ekarihub.com" },
+            // Add direct email / LinkedIn when ready, e.g.:
+            { label: "Email", href: "mailto:emily@ekarihub.com" },
+            { label: "LinkedIn", href: "https://www.linkedin.com/in/AumaOkech" }
         ]
     }
 ];

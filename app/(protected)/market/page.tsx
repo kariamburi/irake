@@ -301,7 +301,7 @@ export default function MarketPage() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products, service or lease…"
+                placeholder="Search products, services or lease…"
                 className="flex-1 outline-none bg-transparent"
                 style={{ color: EKARI.text }}
               />
@@ -406,7 +406,7 @@ export default function MarketPage() {
               <IoCartOutline size={28} style={{ color: EKARI.forest }} />
             </div>
             <div className="text-lg font-black" style={{ color: EKARI.text }}>
-              No products found
+              No Item found
             </div>
             <div className="mt-1" style={{ color: EKARI.dim }}>
               Try adjusting your search or filters.

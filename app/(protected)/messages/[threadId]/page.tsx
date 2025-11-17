@@ -35,6 +35,7 @@ import {
   IoImageOutline,
   IoCameraOutline,
   IoFlagOutline,
+  IoChatbubblesOutline,
 } from "react-icons/io5";
 
 import { db, storage } from "@/lib/firebase";
@@ -43,11 +44,76 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import AppShell from "@/app/components/AppShell";
 
 /* --- Emoji grid (no dependency) --- */
-const EmojiPicker = [
-  "😀", "😁", "😂", "🤣", "😊", "😍", "🥰", "😘", "😎", "🤗", "🤔", "😴", "😅", "😇", "😉", "🙃", "🙂",
-  "😭", "😤", "😡", "🤯", "🤝", "👍", "👎", "👏", "🙏", "💪", "👌", "🤌", "🙌", "🫶", "🤙", "💖", "💗", "💜",
-  "🔥", "✨", "🎉", "🥳", "💯", "✅", "❌", "⚠️", "☑️", "🩷", "🧡", "💛", "💚", "💙", "🖤", "🤍", "🤎",
-  "🍀", "🌟", "⭐️", "🌈", "☀️", "🌙", "🌸", "🌼", "🐶", "🐱", "🦄", "🐣", "🍕", "🍔", "🍟", "🍩", "☕️",
+const EmojiPickerList = [
+  "😀",
+  "😁",
+  "😂",
+  "🤣",
+  "😊",
+  "😍",
+  "🥰",
+  "😘",
+  "😎",
+  "🤗",
+  "🤔",
+  "😴",
+  "😅",
+  "😇",
+  "😉",
+  "🙃",
+  "🙂",
+  "😭",
+  "😤",
+  "😡",
+  "🤯",
+  "🤝",
+  "👍",
+  "👎",
+  "👏",
+  "🙏",
+  "💪",
+  "👌",
+  "🤌",
+  "🙌",
+  "🫶",
+  "🤙",
+  "💖",
+  "💗",
+  "💜",
+  "🔥",
+  "✨",
+  "🎉",
+  "🥳",
+  "💯",
+  "✅",
+  "❌",
+  "⚠️",
+  "☑️",
+  "🩷",
+  "🧡",
+  "💛",
+  "💚",
+  "💙",
+  "🖤",
+  "🤍",
+  "🤎",
+  "🍀",
+  "🌟",
+  "⭐️",
+  "🌈",
+  "☀️",
+  "🌙",
+  "🌸",
+  "🌼",
+  "🐶",
+  "🐱",
+  "🦄",
+  "🐣",
+  "🍕",
+  "🍔",
+  "🍟",
+  "🍩",
+  "☕️",
 ];
 
 const EKARI = {
@@ -62,9 +128,11 @@ const EKARI = {
 
 const hexToRgba = (hex: string, a = 1) => {
   const h = hex.replace("#", "");
-  const full = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
   const n = parseInt(full, 16);
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const r = (n >> 16) & 255,
+    g = (n >> 8) & 255,
+    b = n & 255;
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 };
 
@@ -116,6 +184,8 @@ function lastSeenText(online?: boolean, lastActive?: any) {
 function participantsArray(a: string, b: string) {
   return [a, b].sort();
 }
+
+/* ================================================================ */
 
 export default function ThreadPage() {
   const router = useRouter();
@@ -184,17 +254,33 @@ export default function ThreadPage() {
     return () => ro.disconnect();
   }, []);
 
+  // Guard: if uid / threadId missing → don't spin loader forever
+  useEffect(() => {
+    if (!uid || !threadId) {
+      setLoading(false);
+    }
+  }, [uid, threadId]);
+
+  // Derive peerId if not provided
   // Derive peerId if not provided
   useEffect(() => {
     (async () => {
       if (peerId || !uid || !threadId) return;
       const snap = await getDoc(doc(db, "threads", threadId));
+
+      if (!snap.exists()) {
+        // No such thread → stop endless loader, let UI handle “no messages”
+        setLoading(false);
+        return;
+      }
+
       const data = snap.data() as any;
       const parts: string[] = data?.participants || [];
       const other = parts.find((p) => p !== uid) || "";
       setPeerId(other);
     })();
   }, [uid, threadId, peerId]);
+
 
   // Ensure thread + mirror + zero unread
   useEffect(() => {
@@ -244,11 +330,13 @@ export default function ThreadPage() {
         ...(p || {}),
         online: v.state === "online",
         lastActiveAt:
-          typeof v.lastChanged === "number" ? new Date(v.lastChanged) : p?.lastActiveAt ?? null,
+          typeof v.lastChanged === "number"
+            ? new Date(v.lastChanged)
+            : p?.lastActiveAt ?? null,
       }));
     });
     return () => off();
-  }, [peerId]);
+  }, [peerId, rtdb]);
 
   // Typing (from thread doc)
   useEffect(() => {
@@ -389,7 +477,13 @@ export default function ThreadPage() {
       });
       await updateDoc(doc(db, "threads", threadId), {
         updatedAt: serverTimestamp(),
-        lastMessage: { text: t, type: "text", from: uid, to: peerId, createdAt: serverTimestamp() },
+        lastMessage: {
+          text: t,
+          type: "text",
+          from: uid,
+          to: peerId,
+          createdAt: serverTimestamp(),
+        },
       });
       await setDoc(
         doc(db, "userThreads", uid, "threads", threadId),
@@ -407,7 +501,7 @@ export default function ThreadPage() {
     setInput("");
     setTypingDebounced(false);
     scrollToBottom("smooth");
-    textareaRef.current && (textareaRef.current.style.height = "40px");
+    if (textareaRef.current) textareaRef.current.style.height = "40px";
   }, [input, sendText, setTypingDebounced, scrollToBottom]);
 
   const onPickImage = () => fileInputRef.current?.click();
@@ -470,6 +564,78 @@ export default function ThreadPage() {
     adjust();
   }, [input]);
 
+  const hasMessages = items.length > 0;
+
+  /* ------------------ Empty state (no messages yet) ------------------ */
+  const handleQuickEmoji = (emo: string) => {
+    setInput((prev) => (prev ? `${prev} ${emo}` : emo));
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.focus();
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.value.length;
+        ta.selectionEnd = ta.value.length;
+      });
+    }
+  };
+
+  const EmptyState = () => (
+    <div
+      className="h-full flex flex-col items-center justify-center px-4"
+      style={{ color: EKARI.sub }}
+    >
+      <div className="max-w-md w-full bg-white border rounded-2xl shadow-sm p-2 text-center">
+
+
+        <div className="flex flex-col items-center gap-1">
+
+          <div className="flex items-center mt-2 font-extrabold text-slate-900 text-lg">
+            <div className="mx-auto mb-4 h-16 w-16 rounded-2xl flex items-center justify-center"
+
+            >
+              <IoChatbubblesOutline size={34} color={EKARI.forest} />
+            </div>  Start a conversation
+          </div>
+          <div className="text-xs text-slate-500">
+            {lastSeenText(onlineNow, lastActiveAny)}
+          </div>
+        </div>
+
+        <p className="mt-4 text-sm text-slate-600">
+          You haven&apos;t sent any messages yet. Say hi, share a question, or send an image
+          to get the conversation going.
+        </p>
+
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          {["👋", "😊", "🔥", "👍"].map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => handleQuickEmoji(q)}
+              className="inline-flex items-center justify-center rounded-full border text-sm font-semibold px-3 py-1.5 hover:bg-black/5"
+              style={{ borderColor: EKARI.hair, color: EKARI.text }}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            const ta = textareaRef.current;
+            if (ta) ta.focus();
+          }}
+          className="mt-6 inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm hover:shadow-md"
+          style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
+        >
+          <IoChatbubblesOutline className="mr-2" size={16} />
+          Start chatting
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <AppShell>
       <div className="h-[100dvh] w-full bg-white flex flex-col overflow-hidden">
@@ -479,7 +645,7 @@ export default function ThreadPage() {
           className="top-0 inset-x-0 z-40 bg-white border-b"
           style={{ borderColor: EKARI.hair }}
         >
-          <div className="h-[54px] px-3 flex items-center justify-between">
+          <div className="h-[54px] px-3 flex items-center justify-between max-w-[1100px] mx-auto">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => router.back()}
@@ -489,7 +655,7 @@ export default function ThreadPage() {
                 <IoArrowBack size={20} color={EKARI.text} />
               </button>
 
-              <div className="flex items-center gap-3 max-w-[70%]">
+              <div className="flex items-center gap-3 max-w-[80%]">
                 <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-100">
                   <Image
                     src={peer?.photoURL || peerPhotoURLFromQs || "/avatar-placeholder.png"}
@@ -499,12 +665,16 @@ export default function ThreadPage() {
                     sizes="36px"
                   />
                   {onlineNow && (
-                    <span className="absolute -right-0 -bottom-0 w-[14px] h-[14px] rounded-full border-2"
-                      style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }} />
+                    <span
+                      className="absolute -right-0 -bottom-0 w-[14px] h-[14px] rounded-full border-2"
+                      style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }}
+                    />
                   )}
                 </div>
-                <div>
-                  <div className="font-extrabold text-slate-900">{headerTitle}</div>
+                <div className="min-w-0">
+                  <div className="font-extrabold text-slate-900 text-sm">
+                    {headerTitle}
+                  </div>
                   <div className="flex text-xs text-slate-500">
                     {peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}
                   </div>
@@ -512,7 +682,11 @@ export default function ThreadPage() {
               </div>
             </div>
 
-            <button className="p-2 rounded-lg hover:bg-black/5" aria-label="Report">
+            <button
+              className="p-2 rounded-lg hover:bg-black/5"
+              aria-label="Report"
+              title="Report conversation"
+            >
               <IoFlagOutline size={18} color={EKARI.dim} />
             </button>
           </div>
@@ -523,17 +697,21 @@ export default function ThreadPage() {
           ref={listRef}
           className="flex-1 overflow-y-auto bg-gray-50"
           style={{
-            // Make sure the very last message is never hidden by the composer
             paddingTop: headerH + 8,
             paddingBottom: composerH + 8,
             scrollPaddingBottom: composerH + 8,
             scrollbarGutter: "stable both-edges",
           } as React.CSSProperties}
         >
-          {loading || !threadReady ? (
-            <div className="h-full flex items-center justify-center" style={{ color: EKARI.dim }}>
+          {loading ? (
+            <div
+              className="h-full flex items-center justify-center"
+              style={{ color: EKARI.dim }}
+            >
               <BouncingBallLoader />
             </div>
+          ) : !hasMessages ? (
+            <EmptyState />
           ) : (
             <div className="px-3 py-3">
               {/* Load older */}
@@ -556,12 +734,17 @@ export default function ThreadPage() {
                 return (
                   <div
                     key={msg.id}
-                    className={`my-2 flex ${mine ? "justify-end" : "justify-start"} items-end gap-2`}
+                    className={`my-2 flex ${mine ? "justify-end" : "justify-start"
+                      } items-end gap-2`}
                   >
                     {!mine && (
                       <div className="relative w-6 h-6 rounded-full overflow-hidden bg-gray-200">
                         <Image
-                          src={peer?.photoURL || peerPhotoURLFromQs || "/avatar-placeholder.png"}
+                          src={
+                            peer?.photoURL ||
+                            peerPhotoURLFromQs ||
+                            "/avatar-placeholder.png"
+                          }
                           alt="avatar"
                           fill
                           className="object-cover"
@@ -586,21 +769,36 @@ export default function ThreadPage() {
                       ) : msg.error ? (
                         <span className="text-red-500">Failed to send</span>
                       ) : msg.type === "image" && msg.imageUrl ? (
-                        <a href={msg.imageUrl} target="_blank" rel="noreferrer" className="block">
+                        <a
+                          href={msg.imageUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block"
+                        >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={msg.imageUrl}
                             alt="Sent image"
                             className="rounded-xl bg-gray-100 max-w-full"
-                            style={{ width: 260, height: "auto", objectFit: "cover" }}
+                            style={{
+                              width: 260,
+                              height: "auto",
+                              objectFit: "cover",
+                            }}
                             onLoad={() => scrollToBottom("auto")}
                           />
                         </a>
                       ) : (
-                        !!msg.text && <span className="leading-5 whitespace-pre-wrap break-words">{msg.text}</span>
+                        !!msg.text && (
+                          <span className="leading-5 whitespace-pre-wrap break-words">
+                            {msg.text}
+                          </span>
+                        )
                       )}
 
-                      <div className="mt-1 text-[11px] text-slate-600">{formatMsgTime(msg.createdAt)}</div>
+                      <div className="mt-1 text-[11px] text-slate-600">
+                        {formatMsgTime(msg.createdAt)}
+                      </div>
                     </div>
                   </div>
                 );
@@ -613,7 +811,7 @@ export default function ThreadPage() {
         </div>
 
         {/* Jump to latest */}
-        {showJump && (
+        {showJump && hasMessages && (
           <button
             onClick={() => scrollToBottom("smooth")}
             className="fixed bottom-[88px] right-4 z-40 h-9 px-3 rounded-full text-sm font-extrabold shadow-md"
@@ -627,15 +825,28 @@ export default function ThreadPage() {
         <div
           ref={composerRef}
           className="fixed bottom-0 right-0 left-0 md:left-[260px] z-50 border-t bg-white"
-          style={{ borderColor: EKARI.hair, paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)" }}
+          style={{
+            borderColor: EKARI.hair,
+            paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
+          }}
         >
           <div className="mx-auto w-full max-w-[1100px] px-3">
             <div className="flex items-end gap-2 py-2 relative">
               {/* optional avatar placeholder */}
               <div className="hidden sm:flex w-9 h-9 rounded-full bg-gray-200 overflow-hidden items-center justify-center">
-                <span className="text-xs font-bold text-slate-600">
-                  {user?.displayName?.[0]?.toUpperCase() || "N"}
-                </span>
+                {user?.photoURL ? (
+                  <Image
+                    src={user.photoURL}
+                    alt="You"
+                    width={36}
+                    height={36}
+                    className="object-cover"
+                  />
+                ) : (
+                  <span className="text-xs font-bold text-slate-600">
+                    {user?.displayName?.[0]?.toUpperCase() || "Y"}
+                  </span>
+                )}
               </div>
 
               <div
@@ -700,12 +911,14 @@ export default function ThreadPage() {
                         onMouseLeave={() => setShowEmoji(false)}
                         style={{ borderColor: EKARI.hair }}
                       >
-                        {EmojiPicker.map((emo) => (
+                        {EmojiPickerList.map((emo) => (
                           <button
                             key={emo}
                             onClick={() => {
                               setInput((prev) => prev + emo);
                               setShowEmoji(false);
+                              const ta = textareaRef.current;
+                              if (ta) ta.focus();
                             }}
                             className="text-xl rounded-md hover:bg-black/5"
                             title={emo}
@@ -736,7 +949,7 @@ export default function ThreadPage() {
                     <IoImageOutline size={20} color={EKARI.text} />
                   </button>
 
-                  {/* Camera (mobile shortcut) */}
+                  {/* Camera (shortcut → same file input, user can choose camera on mobile) */}
                   <button
                     className="w-9 h-9 rounded-full flex items-center justify-center"
                     title="Camera"
@@ -752,7 +965,7 @@ export default function ThreadPage() {
               <button
                 onClick={onSend}
                 disabled={!input.trim()}
-                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50"
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
                 title="Send"
                 type="button"
                 style={{ backgroundColor: EKARI.gold }}
