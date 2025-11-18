@@ -79,7 +79,7 @@ type Profile = {
   followersCount?: number;
   followingCount?: number;
   likesTotal?: number;
-  admin?: boolean;   // 👈 add this
+  isAdmin?: boolean;   // 👈 add this
 };
 
 type MarketType =
@@ -378,7 +378,7 @@ function useProfileByUid(uid?: string) {
             followersCount: Number(d.followersCount ?? 0),
             followingCount: Number(d.followingCount ?? 0),
             likesTotal: Number(d.likesTotal ?? 0),
-            admin: !!d.admin,      // 👈 mirror for UI
+            isAdmin: !!d.isAdmin,      // 👈 mirror for UI
           }
           : null
       );
@@ -683,7 +683,7 @@ function Header({
               </h1>
 
               {/* 🔰 Public admin mark for any admin profile */}
-              {profile.admin && (
+              {profile.isAdmin && (
                 showAdminBadge ? (
                   // Owner + admin → clickable chip to admin dashboard
                   <Link

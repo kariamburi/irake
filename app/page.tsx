@@ -177,7 +177,9 @@ function TopLoader({ active, color = "#233F39" }: { active: boolean; color?: str
 }
 
 /* ---------- Server feeds (same contract as mobile) ---------- */
-async function fetchServerFeed(surface: TabKey, uid: string) {
+async function fetchServerFeed(surface: TabKey, uid?: string) {
+  if (!uid) return []; // extra guard
+
   try {
     const feedDocRef = doc(db, `feeds/${uid}/surfaces/${surface}`);
     const feedSnap = await getDoc(feedDocRef);
@@ -202,40 +204,40 @@ async function fetchServerFeed(surface: TabKey, uid: string) {
       }
     }
 
-    // 2) If no fresh ids, call refreshFeed
+    // 2) If no fresh ids, call refreshFeed and WAIT for it
     if (!ids) {
-      const auth = getAuth(app);
-      onAuthStateChanged(auth, async (user) => {
-        if (!user) return;
-        // alert(user.uid)
-        console.log("refreshFeed for uid:", user.uid);
+      const functions = getFunctions(app, "us-central1"); // set region if needed
+      const refreshFeed = httpsCallable<
+        { surface: TabKey },
+        { ids: string[] }
+      >(functions, "refreshFeed");
 
-        const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
-          getFunctions(),
-          "refreshFeed"
-        );
-        const res = await refreshFeed({ surface });
-        ids = (res.data?.ids || []).filter(Boolean);
-        refreshFeed({ surface: "forYou" })
-          .then((res) => console.log("refreshFeed ok", res.data))
-          .catch((err) => console.error("refreshFeed error", err));
-      });
+      console.log("[feed] calling refreshFeed", { surface, uid });
 
+      const res = await refreshFeed({ surface });
+      ids = (res.data?.ids || []).filter(Boolean);
+
+      console.log("[feed] refreshFeed result", { surface, uid, ids });
     }
 
-    if (!ids || !ids.length) return [];
+    if (!ids || !ids.length) {
+      console.log("[feed] no ids for surface", surface, "uid", uid);
+      return [];
+    }
 
     // 3) Fetch deeds for these ids
     const base = collection(db, "deeds");
-    const docs: any[] = [];
+    const docs: { id: string; data: any }[] = [];
+
     for (let i = 0; i < ids.length; i += 10) {
-      const c = ids.slice(i, i + 10);
-      const qs = await getDocs(query(base, where(documentId(), "in", c)));
+      const batch = ids.slice(i, i + 10);
+      const qs = await getDocs(query(base, where(documentId(), "in", batch)));
       qs.forEach((d) => docs.push({ id: d.id, data: d.data() }));
     }
+
     const map = new Map(docs.map((x) => [x.id, x.data]));
 
-    // 4) Map to player items
+    // 4) Map to PlayerItem[]
     return ids
       .map((id) => toPlayerItem(map.get(id), id))
       .filter(Boolean) as PlayerItem[];
