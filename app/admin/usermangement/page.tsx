@@ -498,7 +498,7 @@ export default function UserManagementPage() {
                         )}
                       </span>
                       <span className="text-xs" style={{ color: EKARI.dim }}>
-                        {u.handle ? `@${u.handle}` : u.email || "No email"}
+                        {u.handle ? `${u.handle}` : u.email || "No email"}
                       </span>
                     </div>
                   </div>
