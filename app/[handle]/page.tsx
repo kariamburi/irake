@@ -47,6 +47,7 @@ import {
   IoLockClosedOutline,
   IoClose,
   IoPencilOutline,
+  IoShieldCheckmarkOutline,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -78,6 +79,7 @@ type Profile = {
   followersCount?: number;
   followingCount?: number;
   likesTotal?: number;
+  admin?: boolean;   // 👈 add this
 };
 
 type MarketType =
@@ -376,6 +378,7 @@ function useProfileByUid(uid?: string) {
             followersCount: Number(d.followersCount ?? 0),
             followingCount: Number(d.followingCount ?? 0),
             likesTotal: Number(d.likesTotal ?? 0),
+            admin: !!d.admin,      // 👈 mirror for UI
           }
           : null
       );
@@ -574,6 +577,7 @@ function Header({
   partners,
   mutualPartners,
   viewerUid,     // 👈 add this
+  showAdminBadge,    // 👈 add this
 }: {
   profile: Profile;
   isOwner: boolean;
@@ -587,6 +591,7 @@ function Header({
   partners: number;
   mutualPartners: number;
   viewerUid?: string | null;  // 👈 add this
+  showAdminBadge?: boolean;   // 👈 add this
 }) {
   const followers = profile?.followersCount ?? 0;
   const following = profile?.followingCount ?? 0;
@@ -669,12 +674,34 @@ function Header({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
-            <h1
-              className="text-xl md:text-2xl font-extrabold truncate"
-              style={{ color: EKARI.text }}
-            >
-              {profile.handle ? `${profile.handle}` : "Profile"}
-            </h1>
+            <div className="flex items-center justify-center gap-2">
+              <h1
+                className="text-xl md:text-2xl font-extrabold truncate"
+                style={{ color: EKARI.text }}
+              >
+                {profile.handle ? `${profile.handle}` : "Profile"}
+              </h1>
+
+              {/* 🔰 Public admin mark for any admin profile */}
+              {profile.admin && (
+                showAdminBadge ? (
+                  // Owner + admin → clickable chip to admin dashboard
+                  <Link
+                    href="/admin/overview"
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-slate-900 text-white hover:bg-slate-800"
+                  >
+                    <IoShieldCheckmarkOutline size={12} />
+                    <span>Admin</span>
+                  </Link>
+                ) : (
+                  // Visitors → read-only Ekari Admin chip
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <IoShieldCheckmarkOutline size={12} />
+                    <span>ekari Admin</span>
+                  </span>
+                )
+              )}
+            </div>
 
             {isOwner ? (
               // 👤 OWNER → Edit profile
@@ -725,7 +752,7 @@ function Header({
                   type="button"
                   onClick={handleMessageClick}
                   className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-bold hover:bg-black/5"
-                  style={{ backgroundColor: EKARI.primary, color: EKARI.bg }}
+                  style={{ backgroundColor: EKARI.forest, color: EKARI.bg }}
                 >
                   <IoChatbubblesOutline size={16} />
                   <span>Message</span>
@@ -1736,6 +1763,30 @@ export default function HandleProfilePage() {
 
   const [uid, setUid] = React.useState<string | null | undefined>(undefined);
   const [tab, setTab] = React.useState<TabKey>("deeds");
+  const [viewerIsAdmin, setViewerIsAdmin] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function checkAdminClaim() {
+      if (!user) {
+        if (!cancelled) setViewerIsAdmin(false);
+        return;
+      }
+      try {
+        const tokenResult = await user.getIdTokenResult();
+        const isAdmin = !!(tokenResult.claims as any)?.admin;
+        if (!cancelled) setViewerIsAdmin(isAdmin);
+      } catch (err) {
+        console.warn("Failed to read admin claim:", err);
+        if (!cancelled) setViewerIsAdmin(false);
+      }
+    }
+
+    checkAdminClaim();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   React.useEffect(() => {
     let active = true;
@@ -1807,6 +1858,7 @@ export default function HandleProfilePage() {
             partners={partners}
             mutualPartners={mutualPartners}
             viewerUid={user?.uid || null}   // 👈 pass viewer uid
+            showAdminBadge={viewerIsAdmin && isOwner}
           />
         ) : (
           <div

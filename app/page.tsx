@@ -21,6 +21,7 @@ import {
   IoCompass,
   IoCompassOutline,
   IoTelescopeOutline,
+  IoLogoUsd,
 } from "react-icons/io5";
 import {
   collection,
@@ -48,6 +49,7 @@ import LoginButton from "./components/LoginButton";
 // 🔗 single source of truth for deed data
 import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { DonateDialogWeb } from "./components/DonateDialogWeb";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -597,6 +599,17 @@ function VideoCard({
   const totalBookmarks = useBookmarkTotalFromDeed(item.id);
   const totalShares = useShareTotalFromDeed(item.id);
   const { following, followersCount, toggle: toggleFollow } = useFollowAuthor(item.authorId, uid);
+  const [donateOpen, setDonateOpen] = useState(false);
+
+  const canSupport = !!item.authorId && uid !== item.authorId;
+
+  const onSupportClick = () => {
+    if (!uid) {
+      router.push("login/getstarted?next=/");
+      return;
+    }
+    setDonateOpen(true);
+  };
 
   const onShare = async () => {
     const url = `${location.origin}/deed/${item.id}`;
@@ -839,6 +852,34 @@ function VideoCard({
           mediaReady ? "opacity-100" : "opacity-0 pointer-events-none",
         ].join(" ")}
       >
+        {/* support */}
+        {canSupport && (
+          <>
+            <button
+              aria-label="Support this deed"
+              title="Support this deed"
+              onClick={onSupportClick}
+              className={[
+                "h-11 w-11 md:h-12 md:w-12",
+                "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
+                "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+              ].join(" ")}
+            >
+              <IoLogoUsd
+                size={22}
+                className="transition-colors"
+                style={{ color: THEME.gold }}
+              />
+            </button>
+            <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
+              Support
+            </div>
+          </>
+        )}
+
+
+
+
         {/* Like */}
         <button
           aria-label="Like"
@@ -920,6 +961,13 @@ function VideoCard({
           {formatCount(totalShares)}
         </div>
       </div>
+      <DonateDialogWeb
+        open={donateOpen}
+        onClose={() => setDonateOpen(false)}
+        deedId={item.id}
+        creatorId={item.authorId}
+        creatorName={item.authorUsername}
+      />
 
     </div>
   );
