@@ -63,7 +63,7 @@ export type DeedDoc = {
 /* --------------- Resolve UID by handle ---------------- */
 export async function resolveUidByHandle(handle: string): Promise<{ uid: string; data: any } | null> {
   // normalize: remove leading "@"
-  const clean = handle.startsWith("@") ? handle : "@"+handle;
+  const clean = handle.startsWith("@") ? handle : "@" + handle;
 
   const q = query(collection(db, "users"), where("handle", "==", clean), limit(1));
   const snap = await getDocs(q);
@@ -78,8 +78,8 @@ export const toDeed = (d: DocumentData, id: string): DeedDoc => {
     typeof d.createdAtMs === "number"
       ? d.createdAtMs
       : d.createdAt instanceof Timestamp
-      ? d.createdAt.toMillis()
-      : undefined;
+        ? d.createdAt.toMillis()
+        : undefined;
 
   const m0: DeedMedia | undefined = Array.isArray(d.media) ? d.media[0] : undefined;
 
@@ -150,6 +150,14 @@ export type PlayerItem = {
   createdAt: number;
   visibility: "public" | "followers" | "private";
   stats?: DeedStats;
+  music?: {
+    title?: string;
+    artist?: string;
+    coverUrl?: string;
+    soundId?: string;
+    source?: "library" | "uploaded" | "external";
+    url?: string;
+  };
 };
 
 export function toPlayerItem(d: any, id: string): PlayerItem {
@@ -157,8 +165,8 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
     typeof d.createdAtMs === "number"
       ? d.createdAtMs
       : d.createdAt instanceof Timestamp
-      ? d.createdAt.toMillis()
-      : Date.now();
+        ? d.createdAt.toMillis()
+        : Date.now();
 
   const m0 = Array.isArray(d.media) ? d.media[0] : undefined;
   const kind = (d.type ?? m0?.kind ?? d.mediaType)?.toString().toLowerCase();
@@ -172,7 +180,10 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
     const muxPlaybackId = d.muxPlaybackId ?? m0?.muxPlaybackId;
     if (muxPlaybackId) {
       mediaUrl = `https://stream.mux.com/${muxPlaybackId}.m3u8`;
-      posterUrl = d.posterUrl ?? m0?.thumbUrl ?? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`;
+      posterUrl =
+        d.posterUrl ??
+        m0?.thumbUrl ??
+        `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`;
     } else {
       mediaUrl = d.mediaUrl ?? m0?.url ?? null;
       posterUrl = d.posterUrl ?? m0?.thumbUrl;
@@ -184,6 +195,19 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
 
   const visibility: PlayerItem["visibility"] =
     d.visibility === "followers" || d.visibility === "private" ? d.visibility : "public";
+
+  // 🔊 NEW: normalize music from Firestore
+  const rawMusic = d.music as any | undefined;
+  const music: PlayerItem["music"] | undefined = rawMusic
+    ? {
+      title: rawMusic.title ?? undefined,
+      artist: rawMusic.artist ?? undefined,
+      coverUrl: rawMusic.coverUrl ?? undefined,
+      soundId: rawMusic.soundId ?? undefined,
+      source: rawMusic.source ?? undefined,
+      url: rawMusic.url ?? undefined,
+    }
+    : undefined;
 
   return {
     id,
@@ -197,6 +221,9 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
     createdAt: createdAtMs,
     visibility,
     stats: d.stats ?? {},
+
+    // 🔥 include it here
+    music,
   };
 }
 

@@ -59,7 +59,14 @@ type DeedDoc = {
   tags?: string[];
   visibility?: "public" | "followers" | "private";
   allowComments?: boolean;
-  music?: { title?: string; source?: "library" | "uploaded" | "external"; url?: string };
+  music?: {
+    title?: string;
+    artist?: string;
+    coverUrl?: string;
+    soundId?: string;
+    source?: "library" | "uploaded" | "external";
+    url?: string;
+  };
   geo?: { lat: number; lng: number };
   status?: "ready" | "processing" | "uploading" | "failed" | "deleted" | "mixing";
   createdAtMs?: number;
@@ -180,7 +187,8 @@ export default function UploadPage() {
   const [musicUrl, setMusicUrl] = useState("");
   const [localSoundFile, setLocalSoundFile] = useState<File | null>(null);
   const [needsServerMix, setNeedsServerMix] = useState<boolean>(false);
-
+  const [musicCoverUrl, setMusicCoverUrl] = useState<string | undefined>(undefined);
+  const [musicSoundId, setMusicSoundId] = useState<string | undefined>(undefined);
   // MIXING state (aligning with mobile)
   const [musicGainDb, setMusicGainDb] = useState<number>(-8);
   const [videoGainDb, setVideoGainDb] = useState<number>(0);
@@ -248,6 +256,8 @@ export default function UploadPage() {
         setMusicTitle(data.music?.title || "");
         if (data.music?.url) setMusicUrl(data.music.url);
         if (data.music?.source) setMusicSource(data.music.source);
+        if (data.music?.coverUrl) setMusicCoverUrl(data.music.coverUrl);
+        if (data.music?.soundId) setMusicSoundId(data.music.soundId);
         setSelectedTags(Array.isArray(data.tags) ? data.tags : []);
 
         // Pre-fill mix options if present
@@ -553,6 +563,8 @@ export default function UploadPage() {
                 title: musicTitle || undefined,
                 source: musicSource,
                 url: resolvedMusicUrl || undefined,
+                coverUrl: musicCoverUrl || undefined,
+                soundId: musicSoundId || undefined,
               })
               : undefined,
           tags: mergedTags.length ? mergedTags : undefined,
@@ -617,6 +629,8 @@ export default function UploadPage() {
                 title: musicTitle || undefined,
                 source: musicSource,
                 url: resolvedMusicUrl || undefined,
+                coverUrl: musicCoverUrl || undefined,
+                soundId: musicSoundId || undefined,
               })
               : undefined,
           tags: mergedTags.length ? mergedTags : undefined,
@@ -703,6 +717,8 @@ export default function UploadPage() {
                 title: musicTitle || undefined,
                 source: musicSource,
                 url: resolvedMusicUrl || undefined,
+                coverUrl: musicCoverUrl || undefined,
+                soundId: musicSoundId || undefined,
               })
               : undefined,
           tags: mergedTags.length ? mergedTags : undefined,
@@ -1235,12 +1251,16 @@ export default function UploadPage() {
               setMusicTitle(picked.title || "Library sound");
               setLocalSoundFile(null);
               setNeedsServerMix(true);
+              setMusicCoverUrl(picked.coverUrl || picked.thumbnailUrl || undefined);
+              setMusicSoundId(picked.soundId);
             } else if (picked.source === "external") {
               setMusicSource("external");
               setMusicUrl(picked.url || "");
               setMusicTitle(picked.title || "Linked sound");
               setLocalSoundFile(null);
               setNeedsServerMix(true);
+              setMusicCoverUrl(undefined);
+              setMusicSoundId(undefined);
             } else if (picked.source === "uploaded") {
               setMusicSource("uploaded");
               setMusicUrl("");
@@ -1248,6 +1268,8 @@ export default function UploadPage() {
               // @ts-ignore - our web sheet passes a File as "file"
               setLocalSoundFile((picked as any).file || null);
               setNeedsServerMix(true);
+              setMusicCoverUrl(undefined);
+              setMusicSoundId(undefined);
             }
           }}
         />

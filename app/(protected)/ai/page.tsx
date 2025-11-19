@@ -60,7 +60,7 @@ export default function Page() {
       id: "sys-welcome",
       role: "assistant",
       text:
-        "Hi! I’m ekari AI 🌿 Ask me anything about agribusiness, local regulations, or crop health. You can also upload a photo for analysis.",
+        "Hi! I’m ekari AI 🌿— your smart assistant on ekarihub here to help you diagnose crops and livestock, explore markets, understand local regulations and guide you through the entire agribusiness and green-living ecosystem with instant answers, smart insights, and photo analysis.",
       createdAt: Date.now(),
     },
   ]);

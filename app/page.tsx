@@ -22,6 +22,7 @@ import {
   IoCompassOutline,
   IoTelescopeOutline,
   IoLogoUsd,
+  IoMusicalNotesOutline,
 } from "react-icons/io5";
 import {
   collection,
@@ -595,6 +596,7 @@ function VideoCard({
   const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
   const firstFrameFiredRef = useRef(false);
 
+
   const { liked, count: likeCount, toggle: toggleLike } = useLikes(item.id, uid);
   const commentsCount = useCommentsCount(item.id);
   const { saved, toggle: toggleSave } = useBookmarks(item.id, uid);
@@ -709,7 +711,20 @@ function VideoCard({
   }, [muted]);
 
   const avatar = item.authorPhotoURL || "/avatar-placeholder.png";
+  // --- Sound display (library vs original) ---
+  // --- Sound display (library vs original) ---
+  const music = item.music;
 
+  const isLibrarySound =
+    music?.source === "library" && !!music?.coverUrl;
+
+  const soundLabel = isLibrarySound
+    ? music?.title || "Library sound"
+    : "Original sound";
+
+  const soundAvatar = isLibrarySound
+    ? (music?.coverUrl as string)
+    : avatar;
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
     const v = videoRef.current;
@@ -821,9 +836,9 @@ function VideoCard({
               </div>
               <div
                 className="items-center text-white/70 text-[11px]"
-                title={`${followersCount} Follow${followersCount === 1 ? "" : "s"}`}
+                title={`${followersCount} Follower${followersCount === 1 ? "" : "s"}`}
               >
-                {formatCount(followersCount)} Follow{followersCount === 1 ? "" : "s"}
+                {formatCount(followersCount)} Follower{followersCount === 1 ? "" : "s"}
               </div>
             </div>
 
@@ -840,6 +855,31 @@ function VideoCard({
             )}
           </div>
           {!!item.text && <p className="text-white/95 text-sm leading-5 line-clamp-3">{item.text}</p>}
+
+          {/* Sound row */}
+          <div className="mt-1 flex items-center gap-2">
+            {isLibrarySound && (<div className="h-5 w-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={soundAvatar}
+                alt={soundLabel}
+                className="h-full w-full object-cover"
+              />
+            </div>
+            )}
+            <div className="flex items-center gap-1 text-[11px] text-white/85 min-w-0">
+              <IoMusicalNotesOutline className="flex-shrink-0" size={14} />
+              <span className="truncate max-w-[180px] sm:max-w-[220px]">
+                {soundLabel}
+
+              </span>
+              {!isLibrarySound && (
+                <span className="hidden sm:inline opacity-80">
+                  • Original sound
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </article>
 

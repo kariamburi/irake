@@ -20,6 +20,8 @@ export type PickedSound = {
     soundId?: string;
     url?: string;
     file?: File | null;
+    coverUrl?: string;
+    thumbnailUrl?: string;
 };
 
 type SoundDoc = {
@@ -215,6 +217,8 @@ export default function SoundSheetWeb({
                 url: it.url,
                 title: it.title,
                 artist: it.artist,
+                coverUrl: it.coverUrl,
+                thumbnailUrl: it.thumbnailUrl,
             });
             onClose();
         },

@@ -389,7 +389,7 @@ export default function PaystackCallbackClient() {
                         >
                             {donation.deedId && (
                                 <Link
-                                    href={`/deeds/${donation.deedId}`}
+                                    href={`studio/deed/${donation.deedId}`}
                                     style={{
                                         display: "inline-flex",
                                         alignItems: "center",

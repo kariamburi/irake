@@ -8,7 +8,8 @@ import { db } from "@/lib/firebase";
 import {
     IoClose, IoChevronUp, IoChevronDown, IoVolumeMute, IoVolumeHigh,
     IoBarChartOutline, IoHeartOutline, IoChatbubbleOutline, IoShareOutline,
-    IoHeart, IoBookmark, IoBookmarkOutline, IoArrowBack, IoArrowUp
+    IoHeart, IoBookmark, IoBookmarkOutline, IoArrowBack, IoArrowUp,
+    IoMusicalNotesOutline
 } from "react-icons/io5";
 import { fetchUserSiblings, resolveUidByHandle, toPlayerItem } from "@/lib/fire-queries";
 import RightRail from "@/app/components/RightRail";
@@ -188,6 +189,19 @@ export default function PlayerByHandlePage() {
                 : (typeof item.createdAt === "number"
                     ? new Date(item.createdAt)
                     : undefined));
+    const music = item.music;
+    const avatar = item.authorPhotoURL || "/avatar-placeholder.png";
+    const isLibrarySound =
+        music?.source === "library" && !!music?.coverUrl;
+
+    const soundLabel = isLibrarySound
+        ? music?.title || "Library sound"
+        : "Original sound";
+
+    const soundAvatar = isLibrarySound
+        ? (music?.coverUrl as string)
+        : avatar;
+
     const handleToPath = (h?: string) => (h ? `/${encodeURIComponent(h.startsWith("@") ? h : `@${h}`)}` : null);
     const onViewProfileClick = (handle?: string) => {
         const path = handleToPath(handle);
@@ -343,7 +357,7 @@ export default function PlayerByHandlePage() {
 
                                     {ready && item && !isOwner && (<button
                                         onClick={() => requireAuth(toggleFollow)}
-                                        title={following ? "Partnered" : "Partner"}
+                                        title={following ? "Following" : "Follow"}
                                         className={[
                                             "rounded-full px-3 py-1 text-xs font-bold transition",
                                             following
@@ -356,13 +370,37 @@ export default function PlayerByHandlePage() {
                                                 : { backgroundColor: EKARI.primary }
                                         }
                                     >
-                                        {following ? "Partnered" : "Partner"}
+                                        {following ? "Following" : "Follow"}
                                     </button>)}
                                 </div>
 
                                 {!!item.text && (
                                     <p className="text-sm leading-5 text-white/95 line-clamp-3">{item.text}</p>
                                 )}
+                                {/* Sound row */}
+                                <div className="mt-1 flex items-center gap-2">
+                                    {isLibrarySound && (<div className="h-5 w-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={soundAvatar}
+                                            alt={soundLabel}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+                                    )}
+                                    <div className="flex items-center gap-1 text-[11px] text-white/85 min-w-0">
+                                        <IoMusicalNotesOutline className="flex-shrink-0" size={14} />
+                                        <span className="truncate max-w-[180px] sm:max-w-[220px]">
+                                            {soundLabel}
+
+                                        </span>
+                                        {!isLibrarySound && (
+                                            <span className="hidden sm:inline opacity-80">
+                                                • Original sound
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

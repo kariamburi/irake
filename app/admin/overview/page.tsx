@@ -181,7 +181,7 @@ export default function AdminOverviewPage() {
                     { label: "Marketplace", key: "listings", href: "/admin/market" },
                     { label: "Events", key: "events", href: "/admin/events" },
                     { label: "Discussions", key: "discussions", href: "/admin/discussions" },
-                    { label: "Donations", key: "donations", href: "/admin/donations" },
+                    { label: "Donations", key: "donations", href: "/admin/wallets" },
                 ].map((card) => {
                     const value =
                         stats && (stats as any)[card.key as keyof OverviewStats as any];
