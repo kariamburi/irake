@@ -33,28 +33,26 @@ export const EXECUTIVES: Exec[] = [
             { label: "LinkedIn", href: "https://www.linkedin.com/in/stephen-ndulah" }
         ]
     },
-    {
-        slug: "emily-auma-okech",
-        name: "Emily Auma",
-        title: "Head of Marketing, Ekarihub",
-        passport: "/executives/exec-emily_passport.jpeg",
-        photo: "/executives/exec-emily.jpeg",
-        short:
-            "Creative, data-driven marketing leader shaping ekarihub’s brand, growth, and community presence.",
-        bio: [
-            "Emily Auma is the creative and strategic force behind ekarihub’s brand, growth, and community engagement, ensuring the platform’s story and impact are clearly felt across the agribusiness ecosystem.",
-            "She brings deep experience from FMCG, mobile technology, and alcoholic beverages, where she has refined her ability to drive visibility, shopper engagement, and flawless in-store execution for some of Africa’s most trusted consumer brands.",
-            "Before joining ekarihub, Emily led high-impact trade marketing, retail operations, and nationwide brand activation programs at organisations including Unga Limited, Weetabix, Githunguri Dairy, Kenchic, Mondelēz International, Godrej Group, Kevian Kenya and Nokia - consistently delivering strong performance and meeting or exceeding KPIs across markets and teams.",
-            "At ekarihub, Emily oversees brand development, digital marketing, user acquisition, retention, and community strategy. She combines storytelling with analytics to grow a vibrant, loyal ecosystem of farmers, agripreneurs, partners, and collaborators on the platform.",
-            "Energetic, insightful, and execution-focused, Emily is committed to ensuring that ekarihub’s voice, identity, and impact remain distinctive and influential across Africa’s agribusiness landscape."
-        ],
-        links: [
-            //{ label: "Website", href: "https://www.ekarihub.com" },
-            // Add direct email / LinkedIn when ready, e.g.:
-            { label: "Email", href: "mailto:emily@ekarihub.com" },
-            { label: "LinkedIn", href: "https://www.linkedin.com/in/AumaOkech" }
-        ]
-    }
+    // {
+    //   slug: "emily-auma-okech",
+    //  name: "Emily Auma",
+    //   title: "Head of Marketing, Ekarihub",
+    //  passport: "/executives/exec-emily_passport.jpeg",
+    //   photo: "/executives/exec-emily.jpeg",
+    //   short:
+    //    "Creative, data-driven marketing leader shaping ekarihub’s brand, growth, and community presence.",
+    // bio: [
+    //   "Emily Auma is the creative and strategic force behind ekarihub’s brand, growth, and community engagement, ensuring the platform’s story and impact are clearly felt across the agribusiness ecosystem.",
+    //    "She brings deep experience from FMCG, mobile technology, and alcoholic beverages, where she has refined her ability to drive visibility, shopper engagement, and flawless in-store execution for some of Africa’s most trusted consumer brands.",
+    //   "Before joining ekarihub, Emily led high-impact trade marketing, retail operations, and nationwide brand activation programs at organisations including Unga Limited, Weetabix, Githunguri Dairy, Kenchic, Mondelēz International, Godrej Group, Kevian Kenya and Nokia - consistently delivering strong performance and meeting or exceeding KPIs across markets and teams.",
+    //     "At ekarihub, Emily oversees brand development, digital marketing, user acquisition, retention, and community strategy. She combines storytelling with analytics to grow a vibrant, loyal ecosystem of farmers, agripreneurs, partners, and collaborators on the platform.",
+    //     "Energetic, insightful, and execution-focused, Emily is committed to ensuring that ekarihub’s voice, identity, and impact remain distinctive and influential across Africa’s agribusiness landscape."
+    // ],
+    //  links: [
+    //      { label: "Email", href: "mailto:emily@ekarihub.com" },
+    //      { label: "LinkedIn", href: "https://www.linkedin.com/in/AumaOkech" }
+    //  ]
+    //}
 ];
 
 export const getExecBySlug = (slug: string) =>

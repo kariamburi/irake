@@ -45,10 +45,8 @@ const SUGGESTIONS = [
   "Diagnose: spots on maize leaves",
   "Best fertilizer schedule for tomatoes",
   "Kenya export regulations for avocados",
-  // "Pesticide safety & PHI for beans",
 ];
 
-/* -------------------------------- PAGE --------------------------------- */
 export default function Page() {
   const { user } = useAuth();
   const aiEndpoint =
@@ -66,8 +64,8 @@ export default function Page() {
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [pendingImage, setPendingImage] = useState<string | null>(null); // preview URL
-  const [pendingFile, setPendingFile] = useState<File | null>(null); // actual file to upload
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const [lastSentAt, setLastSentAt] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -80,7 +78,6 @@ export default function Page() {
 
   useEffect(scrollToEnd, [messages]);
 
-  // cleanup typing interval on unmount
   useEffect(() => {
     return () => {
       if (typingIntervalRef.current) {
@@ -89,22 +86,19 @@ export default function Page() {
     };
   }, []);
 
-  // ---- REAL AI CALL (same backend as mobile) ----
   const sendToAI = useCallback(
     async (prompt: string, file?: File | null): Promise<string> => {
       try {
         let imageUrl: string | null = null;
 
-        // 1) If there's an image, upload to Firebase Storage so the CF can see it
         if (file) {
-          const key = `ekariAi/${user?.uid || "anon"
-            }/${Date.now()}_${file.name || "image.jpg"}`;
+          const key = `ekariAi/${user?.uid || "anon"}/${Date.now()}_${file.name || "image.jpg"
+            }`;
           const ref = sRef(storage, key);
           await uploadBytes(ref, file);
           imageUrl = await getDownloadURL(ref);
         }
 
-        // 2) Call the Cloud Function
         const res = await fetch(aiEndpoint, {
           method: "POST",
           headers: {
@@ -135,11 +129,9 @@ export default function Page() {
     [aiEndpoint, user?.uid]
   );
 
-  /** ChatGPT-style typing animation */
   const animateAssistantReply = useCallback((fullText: string) => {
     if (!fullText) return;
 
-    // clear any previous interval
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
     }
@@ -147,7 +139,6 @@ export default function Page() {
     const id = `ai_${Date.now()}`;
     const createdAt = Date.now();
 
-    // add empty assistant message
     setMessages((prev) => [
       ...prev,
       { id, role: "assistant", text: "", createdAt },
@@ -156,7 +147,7 @@ export default function Page() {
     setIsTyping(true);
 
     let index = 0;
-    const step = Math.max(1, Math.floor(fullText.length / 120)); // faster for long text
+    const step = Math.max(1, Math.floor(fullText.length / 120));
     const interval = setInterval(() => {
       index = Math.min(fullText.length, index + step);
 
@@ -203,7 +194,7 @@ export default function Page() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setPendingImage(null);
-    const fileToSend = pendingFile; // capture current file
+    const fileToSend = pendingFile;
     setPendingFile(null);
     setSending(true);
 
@@ -241,7 +232,6 @@ export default function Page() {
     setPendingImage(url);
   };
 
-  // Chat bubble colors
   const mineBg = hexToRgba(EKARI.gold, 0.09);
   const mineBorder = hexToRgba(EKARI.gold, 0.6);
   const theirsBg = "#FFFFFF";
@@ -249,18 +239,24 @@ export default function Page() {
 
   return (
     <AppShell>
-      {/* Outer responsive wrapper */}
-      <div className="flex min-h-screen w-full bg-slate-50 px-0 md:px-4 lg:px-6">
-        {/* Centered chat card on desktop, full width on mobile */}
-        <div className="relative mx-auto flex w-full max-w-5xl flex-col bg-white text-slate-900 md:rounded-2xl md:border md:border-slate-200 md:shadow-sm md:my-4">
-          {/* Header */}
-          <div className="border-b border-slate-200">
+      {/* Outer wrapper: lock to viewport & hide page scrolling */}
+      <div className="flex h-screen w-full bg-slate-50 px-0 md:px-4 lg:px-6 overflow-hidden">
+        {/* Card: full-height, flex column, only middle scrolls */}
+        <div
+          className="
+            relative mx-auto flex h-full w-full max-w-5xl flex-col
+            bg-white text-slate-900
+            md:rounded-2xl md:border md:border-slate-200 md:shadow-sm md:my-4
+            md:h-[calc(100vh-2rem)]
+            overflow-hidden
+          "
+        >
+          {/* Header / top bar (fixed within card) */}
+          <div className="border-b border-slate-200 flex-shrink-0">
             <div className="px-3 sm:px-4 py-3 flex items-center justify-between">
-              {/* Left spacer for balance on desktop */}
               <div className="w-8 hidden sm:block" />
 
-              <div className="flex flex-col items-center sm:items-center w-full">
-                {/* Model pill */}
+              <div className="flex flex-col items-center w-full">
                 <div className="flex justify-center">
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] px-3 py-1 border border-emerald-100">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -269,13 +265,11 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* Right spacer */}
               <div className="w-8 hidden sm:block" />
             </div>
 
             <div className="pb-3 px-3 sm:px-4">
               <div className="max-w-3xl mx-auto flex flex-col gap-2">
-                {/* Smart chips */}
                 <div className="mt-1 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                   {SUGGESTIONS.map((s, i) => (
                     <button
@@ -294,15 +288,16 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Messages area: the ONLY scrollable region */}
+          <div className="flex-1 overflow-y-auto overscroll-contain">
             <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 space-y-3">
               {messages.map((msg) => {
                 const mine = msg.role === "user";
                 return (
                   <div
                     key={msg.id}
-                    className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                    className={`flex ${mine ? "justify-end" : "justify-start"
+                      }`}
                   >
                     <div
                       className="max-w-[82%] rounded-2xl px-3.5 py-2.5 text-[15px] leading-relaxed border shadow-sm bg-white"
@@ -332,7 +327,6 @@ export default function Page() {
                 );
               })}
 
-              {/* Thinking hint before streaming starts */}
               {sending && !isTyping && (
                 <div className="flex justify-start">
                   <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-slate-200 px-3 py-1 text-[11px] text-slate-500 shadow-sm">
@@ -346,7 +340,6 @@ export default function Page() {
                 </div>
               )}
 
-              {/* Typing chip while text is animating in */}
               {isTyping && (
                 <div className="flex justify-start">
                   <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-slate-200 px-3 py-1 text-[11px] text-slate-500 shadow-sm">
@@ -362,7 +355,6 @@ export default function Page() {
 
               <div ref={messagesEndRef} />
 
-              {/* Disclaimer */}
               <p className="mt-2 text-[11px] text-slate-400 text-center">
                 ekari AI provides guidance only and is not a substitute for a
                 certified agronomist or legal advisor.
@@ -370,7 +362,7 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Pending image preview */}
+          {/* Pending image preview overlay (stays above scroll, below composer) */}
           {pendingImage && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -398,8 +390,8 @@ export default function Page() {
             </motion.div>
           )}
 
-          {/* Composer */}
-          <div className="border-t border-slate-200 bg-white">
+          {/* Composer / bottom bar (fixed within card) */}
+          <div className="border-t border-slate-200 bg-white flex-shrink-0">
             <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-1">
               <div className="flex items-end gap-2">
                 <label
@@ -439,7 +431,9 @@ export default function Page() {
 
                 <button
                   onClick={onSend}
-                  disabled={sending || (!input.trim() && !pendingImage && !pendingFile)}
+                  disabled={
+                    sending || (!input.trim() && !pendingImage && !pendingFile)
+                  }
                   className="p-3 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed
                              active:scale-95 transition shadow"
                   style={{ backgroundColor: EKARI.gold }}

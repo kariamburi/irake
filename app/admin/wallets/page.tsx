@@ -4,340 +4,534 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
   collection,
-  query,
-  where,
+  onSnapshot,
   orderBy,
+  query,
   limit,
-  getDocs,
+  DocumentData,
+  doc,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { IoCashOutline } from "react-icons/io5";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { db, app } from "@/lib/firebase";
+import Link from "next/link";
+import Image from "next/image";
 
 const EKARI = {
   forest: "#233F39",
   gold: "#C79257",
   sand: "#FFFFFF",
-  text: "#0F172A",
+  ink: "#111827",
   dim: "#6B7280",
   hair: "#E5E7EB",
+  bgSoft: "#F3F4F6",
 };
 
-type DonationDoc = {
+type WithdrawalStatus = "pending" | "approved" | "rejected";
+
+type WithdrawalRequest = {
   id: string;
-  deedId?: string;
-  creatorId?: string;
-  donorId?: string;
-  amount?: number; // minor units
-  currency?: string;
-  creatorShare?: number; // minor units
-  platformShare?: number; // minor units
-  status?: string;
-  createdAt?: any;
-};
-
-type CreatorWallet = {
   creatorId: string;
+  amount: number; // minor units
   currency: string;
-  totalReceivedMinor: number;
-  totalPlatformMinor: number;
-  donationsCount: number;
-  lastDonationAt: any | null;
+  status: WithdrawalStatus;
+  requestedAt?: any;
+  processedAt?: any;
+  processedBy?: string;
+  payoutRef?: string | null;
+  payoutMethod?: "mpesa" | "bank" | "manual" | null;
+  mpesaReceiptCode?: string | null;
+  note?: string | null;
 };
 
-function moneyMinor(n: number, currency: string) {
-  const major = n / 100;
-  return `${currency} ${major.toLocaleString("en-KE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+type CreatorLite = {
+  handle?: string | null;
+  photoURL?: string | null;
+};
+
+function formatDate(v: any) {
+  if (!v) return "";
+  if (v.toDate) {
+    return v.toDate().toLocaleString();
+  }
+  if (typeof v === "string") return v;
+  return "";
 }
 
-function fmtDate(ts: any) {
-  if (!ts) return "";
-  if (ts.toDate) {
-    const d = ts.toDate();
-    return d.toLocaleString();
-  }
-  return String(ts);
+/** Small hook to load creator handle + avatar for each row */
+function useCreatorProfile(creatorId?: string): CreatorLite | null {
+  const [profile, setProfile] = useState<CreatorLite | null>(null);
+
+  useEffect(() => {
+    if (!creatorId) {
+      setProfile(null);
+      return;
+    }
+    const ref = doc(db, "users", creatorId);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const data = snap.data() as any | undefined;
+        if (!data) {
+          setProfile(null);
+          return;
+        }
+        setProfile({
+          handle: data.handle ?? null,
+          photoURL: data.photoURL ?? null,
+        });
+      },
+      () => setProfile(null)
+    );
+    return () => unsub();
+  }, [creatorId]);
+
+  return profile;
 }
 
 export default function AdminWalletsPage() {
-  const [donations, setDonations] = useState<DonationDoc[]>([]);
+  const [items, setItems] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+
+  // filters/search
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">(
+    "pending"
+  );
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const base = query(
-          collection(db, "donations"),
-          where("status", "==", "succeeded"),
-          orderBy("createdAt", "desc"),
-          limit(200) // top 200 recent; adjust as needed
-        );
-        const snap = await getDocs(base);
-        if (cancelled) return;
-        setDonations(
-          snap.docs.map(
-            (d) =>
-            ({
-              id: d.id,
-              ...(d.data() as any),
-            } as DonationDoc)
-          )
-        );
-      } catch (err) {
-        console.error("AdminWallets load error", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const { platformTotals, creators } = useMemo(() => {
-    const byCreator = new Map<string, CreatorWallet>();
-    let platformMinor = 0;
-    let platformCurrency = "KES"; // default; overridden by first record
-    let totalCount = 0;
-
-    for (const d of donations) {
-      if (!d.creatorId || !d.amount) continue;
-      const currency = (d.currency || "KES").toUpperCase();
-      const creatorShare = Number(d.creatorShare ?? Math.round(d.amount * 0.9));
-      const platformShare = Number(d.platformShare ?? d.amount - creatorShare);
-
-      // global platform
-      platformMinor += platformShare;
-      if (!platformCurrency && currency) platformCurrency = currency;
-      totalCount++;
-
-      // per creator
-      const key = d.creatorId;
-      const existing = byCreator.get(key);
-      if (!existing) {
-        byCreator.set(key, {
-          creatorId: key,
-          currency,
-          totalReceivedMinor: creatorShare,
-          totalPlatformMinor: platformShare,
-          donationsCount: 1,
-          lastDonationAt: d.createdAt ?? null,
-        });
-      } else {
-        existing.totalReceivedMinor += creatorShare;
-        existing.totalPlatformMinor += platformShare;
-        existing.donationsCount += 1;
-        if (
-          !existing.lastDonationAt ||
-          (d.createdAt &&
-            d.createdAt?.toMillis &&
-            existing.lastDonationAt?.toMillis &&
-            d.createdAt.toMillis() > existing.lastDonationAt.toMillis())
-        ) {
-          existing.lastDonationAt = d.createdAt ?? existing.lastDonationAt;
-        }
-      }
-    }
-
-    const creatorsArr = Array.from(byCreator.values()).sort(
-      (a, b) => b.totalReceivedMinor - a.totalReceivedMinor
+    const q = query(
+      collection(db, "withdrawalRequests"),
+      orderBy("requestedAt", "desc"),
+      limit(100)
     );
 
-    return {
-      platformTotals: {
-        currency: platformCurrency,
-        platformMinor,
-        donationsCount: totalCount,
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const rows: WithdrawalRequest[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as DocumentData),
+        })) as any;
+        setItems(rows);
+        setLoading(false);
       },
-      creators: creatorsArr,
-    };
-  }, [donations]);
+      (err) => {
+        console.error("Error loading withdrawalRequests", err);
+        setItems([]);
+        setLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, []);
+
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    return items.filter((req) => {
+      if (statusFilter !== "all" && req.status !== statusFilter) return false;
+
+      if (!q) return true;
+
+      const haystack =
+        (req.creatorId || "").toLowerCase() +
+        " " +
+        (req.id || "").toLowerCase() +
+        " " +
+        (req.payoutRef || "").toLowerCase();
+
+      return haystack.includes(q);
+    });
+  }, [items, statusFilter, search]);
+
+  const handleDecision = async (
+    req: WithdrawalRequest,
+    decision: "approve" | "reject"
+  ) => {
+    if (actionBusyId) return;
+
+    const amountMajor = req.amount / 100;
+
+    // Confirm
+    const confirmText =
+      decision === "approve"
+        ? `Approve withdrawal of KSh ${amountMajor.toFixed(
+          2
+        )} for creator ${req.creatorId}?`
+        : `Reject withdrawal of KSh ${amountMajor.toFixed(
+          2
+        )} for creator ${req.creatorId}?`;
+
+    if (!window.confirm(confirmText)) return;
+
+    // Optional extra info: MPesa receipt code / reason
+    let payoutRef: string | undefined;
+    let note: string | undefined;
+    let payoutMethod: "mpesa" | "manual" | undefined;
+
+    if (decision === "approve") {
+      payoutMethod = "mpesa";
+      const refInput = window.prompt(
+        "Optionally enter the M-Pesa receipt or bank reference code (you can leave this blank and fill later):"
+      );
+      if (refInput && refInput.trim()) {
+        payoutRef = refInput.trim();
+      }
+    } else {
+      const reason = window.prompt(
+        "Optionally enter a short reason for rejecting this withdrawal (will be visible in logs / email):"
+      );
+      if (reason && reason.trim()) {
+        note = reason.trim();
+      }
+    }
+
+    try {
+      setActionBusyId(`${req.id}:${decision}`);
+
+      const functions = getFunctions(app, "us-central1");
+      const processWithdrawalRequest = httpsCallable<
+        {
+          requestId: string;
+          decision: "approve" | "reject";
+          payoutMethod?: "mpesa" | "manual";
+          payoutRef?: string;
+          note?: string;
+        },
+        { ok: boolean }
+      >(functions, "processWithdrawalRequest");
+
+      await processWithdrawalRequest({
+        requestId: req.id,
+        decision,
+        payoutMethod,
+        payoutRef,
+        note,
+      });
+
+      // onSnapshot will update table automatically
+    } catch (err: any) {
+      console.error("processWithdrawalRequest error", err);
+      alert(
+        err?.message ||
+        "Unable to process this withdrawal. Please check logs and try again."
+      );
+    } finally {
+      setActionBusyId(null);
+    }
+  };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div
+      className="rounded-3xl bg-white/80 p-4 md:p-5 shadow-sm border space-y-4"
+      style={{ borderColor: EKARI.hair }}
+    >
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+      <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1
-            className="text-2xl md:text-3xl font-extrabold"
-            style={{ color: EKARI.text }}
+            className="text-lg md:text-xl font-extrabold"
+            style={{ color: EKARI.ink }}
           >
-            Creator earnings
+            Creator withdrawals
           </h1>
-          <p className="text-sm md:text-base" style={{ color: EKARI.dim }}>
-            Overview of tip-based donations. This view aggregates the last 200
-            successful donations into per-creator “wallets” and shows ekarihub&apos;s
-            platform share.
+          <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
+            Review and approve withdrawal requests from creator wallets. Approved
+            payouts should match M-Pesa / bank transfers you make.
           </p>
         </div>
-      </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5">
-        <div
-          className="rounded-2xl border shadow-sm p-4 flex flex-col justify-between bg-white"
-          style={{ borderColor: EKARI.hair }}
-        >
-          <div className="text-xs font-semibold text-gray-500 mb-1">
-            Total succeeded donations (sample)
+        {/* Filters + search */}
+        <div className="flex flex-col md:flex-row gap-2 md:items-center">
+          <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs">
+            {(["pending", "approved", "rejected", "all"] as const).map((s) => {
+              const active = statusFilter === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusFilter(s)}
+                  className={[
+                    "px-3 py-1 rounded-full font-semibold transition",
+                    active
+                      ? "bg-white shadow-sm"
+                      : "text-slate-500 hover:bg-white/70",
+                  ].join(" ")}
+                  style={
+                    active
+                      ? { color: EKARI.ink }
+                      : { color: "rgba(55,65,81,0.9)" }
+                  }
+                >
+                  {s === "all"
+                    ? "All"
+                    : s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              );
+            })}
           </div>
-          {loading ? (
-            <div className="h-6 w-24 bg-gray-100 rounded animate-pulse" />
-          ) : (
-            <div
-              className="text-2xl font-extrabold"
-              style={{ color: EKARI.text }}
-            >
-              {platformTotals.donationsCount.toLocaleString("en-KE")}
-            </div>
-          )}
-          <div className="mt-2 text-[11px] text-gray-500">
-            Based on the last 200 successful donations.
-          </div>
+
+          <input
+            type="text"
+            placeholder="Search by creator UID, request ID, reference…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full md:w-64 rounded-full border px-3 py-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            style={{ borderColor: EKARI.hair, color: EKARI.ink }}
+          />
         </div>
+      </header>
 
-        <div
-          className="rounded-2xl border shadow-sm p-4 flex flex-col justify-between bg-white"
-          style={{ borderColor: EKARI.hair }}
-        >
-          <div className="text-xs font-semibold text-gray-500 mb-1">
-            Platform share (approx.)
-          </div>
-          {loading ? (
-            <div className="h-6 w-28 bg-gray-100 rounded animate-pulse" />
-          ) : (
-            <div
-              className="text-2xl font-extrabold flex items-center gap-2"
-              style={{ color: EKARI.forest }}
-            >
-              <IoCashOutline />
-              {platformTotals.platformMinor > 0
-                ? moneyMinor(
-                  platformTotals.platformMinor,
-                  platformTotals.currency || "KES"
-                )
-                : "—"}
-            </div>
-          )}
-          <div className="mt-2 text-[11px] text-gray-500">
-            Using creatorShare / platformShare fields where present; falling back
-            to 90/10 split.
-          </div>
+      {/* Table / states */}
+      {loading ? (
+        <div className="flex items-center gap-2 py-6">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-800 border-t-transparent" />
+          <p className="text-xs" style={{ color: EKARI.dim }}>
+            Loading withdrawal requests…
+          </p>
         </div>
-
-        <div
-          className="rounded-2xl border shadow-sm p-4 flex flex-col justify-between bg-white"
-          style={{ borderColor: EKARI.hair }}
-        >
-          <div className="text-xs font-semibold text-gray-500 mb-1">
-            Active tipped creators (sample)
-          </div>
-          {loading ? (
-            <div className="h-6 w-24 bg-gray-100 rounded animate-pulse" />
-          ) : (
-            <div
-              className="text-2xl font-extrabold"
-              style={{ color: EKARI.text }}
-            >
-              {creators.length.toLocaleString("en-KE")}
-            </div>
-          )}
-          <div className="mt-2 text-[11px] text-gray-500">
-            Creators who have received at least one successful donation.
-          </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
+          <p
+            className="mb-1 text-sm font-extrabold"
+            style={{ color: EKARI.ink }}
+          >
+            No matching withdrawal requests
+          </p>
+          <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
+            Try changing the status filter or search text.
+          </p>
         </div>
-      </div>
-
-      {/* Top creators table */}
-      <div
-        className="rounded-2xl border shadow-sm bg-white overflow-hidden"
-        style={{ borderColor: EKARI.hair }}
-      >
-        <div className="px-4 py-3 border-b" style={{ borderColor: EKARI.hair }}>
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h2
-                className="text-sm font-extrabold"
-                style={{ color: EKARI.text }}
-              >
-                Top creators by earnings
-              </h2>
-              <p className="text-xs" style={{ color: EKARI.dim }}>
-                Aggregated from the most recent successful donations.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-xs">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-gray-500">
-                <th className="text-left px-4 py-2 font-semibold">Creator</th>
-                <th className="text-left px-2 py-2 font-semibold">Earnings</th>
-                <th className="text-left px-2 py-2 font-semibold">Platform</th>
-                <th className="text-left px-2 py-2 font-semibold">Tips</th>
-                <th className="text-left px-2 py-2 font-semibold">Last tip</th>
+              <tr className="border-b" style={{ borderColor: EKARI.hair }}>
+                <th className="py-2 pr-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                  Creator
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                  Amount
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                  Status
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                  Requested
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                  Payout ref / method
+                </th>
+                <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                  Processed
+                </th>
+                <th className="py-2 pl-3 text-right font-semibold text-xs uppercase tracking-wide text-slate-500">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-6 text-center text-gray-400"
-                  >
-                    Loading…
-                  </td>
-                </tr>
-              ) : creators.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-6 text-center text-gray-400"
-                  >
-                    No creator earnings yet.
-                  </td>
-                </tr>
-              ) : (
-                creators.slice(0, 30).map((c) => (
-                  <tr
-                    key={c.creatorId}
-                    className="border-t text-gray-700 hover:bg-gray-50"
-                    style={{ borderColor: EKARI.hair }}
-                  >
-                    <td className="px-4 py-2">
-                      <div className="font-mono text-[11px]">
-                        {c.creatorId.slice(0, 12)}…
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 font-extrabold text-[11px]">
-                      {c.totalReceivedMinor > 0
-                        ? moneyMinor(c.totalReceivedMinor, c.currency)
-                        : "—"}
-                    </td>
-                    <td className="px-2 py-2 text-[11px] text-gray-500">
-                      {c.totalPlatformMinor > 0
-                        ? moneyMinor(c.totalPlatformMinor, c.currency)
-                        : "—"}
-                    </td>
-                    <td className="px-2 py-2 text-[11px] text-gray-500">
-                      {c.donationsCount.toLocaleString("en-KE")}
-                    </td>
-                    <td className="px-2 py-2 text-[11px] text-gray-500">
-                      {fmtDate(c.lastDonationAt)}
-                    </td>
-                  </tr>
-                ))
-              )}
+              {filteredItems.map((req) => {
+                const amountMajor = req.amount / 100;
+                const isPending = req.status === "pending";
+                const busyApprove = actionBusyId === `${req.id}:approve`;
+                const busyReject = actionBusyId === `${req.id}:reject`;
+
+                let statusColor = "#F97316"; // pending
+                let statusBg = "#FFEDD5";
+                if (req.status === "approved") {
+                  statusColor = "#16A34A";
+                  statusBg = "#DCFCE7";
+                }
+                if (req.status === "rejected") {
+                  statusColor = "#DC2626";
+                  statusBg = "#FEE2E2";
+                }
+
+                return (
+                  <WithdrawalRow
+                    key={req.id}
+                    req={req}
+                    amountMajor={amountMajor}
+                    statusColor={statusColor}
+                    statusBg={statusBg}
+                    isPending={isPending}
+                    busyApprove={busyApprove}
+                    busyReject={busyReject}
+                    handleDecision={handleDecision}
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </div>
+      )}
     </div>
+  );
+}
+
+/** Row separated so we can use hooks inside (for creator profile). */
+function WithdrawalRow(props: {
+  req: WithdrawalRequest;
+  amountMajor: number;
+  statusColor: string;
+  statusBg: string;
+  isPending: boolean;
+  busyApprove: boolean;
+  busyReject: boolean;
+  handleDecision: (
+    req: WithdrawalRequest,
+    decision: "approve" | "reject"
+  ) => Promise<void>;
+}) {
+  const {
+    req,
+    amountMajor,
+    statusColor,
+    statusBg,
+    isPending,
+    busyApprove,
+    busyReject,
+    handleDecision,
+  } = props;
+
+  const creator = useCreatorProfile(req.creatorId);
+
+  const displayHandle =
+    creator?.handle && typeof creator.handle === "string"
+      ? creator.handle
+      : null;
+
+  const initialId = req.creatorId?.slice(0, 6) || "creator";
+
+  return (
+    <tr
+      className="border-b last:border-b-0"
+      style={{ borderColor: EKARI.hair }}
+    >
+      <td className="py-2 pr-3 align-top">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+            {creator?.photoURL ? (
+              <Image
+                src={creator.photoURL}
+                alt={displayHandle ?? initialId}
+                width={32}
+                height={32}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span>{initialId.toUpperCase()}</span>
+            )}
+          </div>
+          <div className="flex flex-col">
+            {displayHandle ? (
+              <Link
+                href={`/${displayHandle}`}
+                className="text-xs font-semibold text-emerald-700 hover:underline"
+              >
+                {displayHandle}
+              </Link>
+            ) : (
+              <span className="text-xs font-semibold text-slate-800">
+                {initialId}…
+              </span>
+            )}
+            <span
+              className="text-[10px] text-slate-500"
+              title={req.creatorId}
+            >
+              {req.creatorId.slice(0, 12)}…
+            </span>
+          </div>
+        </div>
+      </td>
+
+      <td className="py-2 px-3 align-top">
+        <span className="font-semibold" style={{ color: EKARI.ink }}>
+          {req.currency || "KES"} {amountMajor.toFixed(2)}
+        </span>
+      </td>
+
+      <td className="py-2 px-3 align-top">
+        <span
+          className="inline-flex items-center rounded-full px-2 py-[2px] text-[11px] font-semibold"
+          style={{
+            backgroundColor: statusBg,
+            color: statusColor,
+          }}
+        >
+          {req.status.toUpperCase()}
+        </span>
+      </td>
+
+      <td className="py-2 px-3 align-top">
+        <span className="text-xs" style={{ color: EKARI.dim }}>
+          {formatDate(req.requestedAt)}
+        </span>
+      </td>
+
+      <td className="py-2 px-3 align-top">
+        <div className="flex flex-col gap-0.5">
+          {req.payoutRef && (
+            <span className="text-xs font-mono" style={{ color: EKARI.ink }}>
+              {req.payoutRef}
+            </span>
+          )}
+          {req.payoutMethod && (
+            <span className="text-[10px] text-slate-500">
+              Method: {req.payoutMethod.toUpperCase()}
+            </span>
+          )}
+          {req.note && (
+            <span className="text-[10px] text-slate-500">
+              Note: {req.note}
+            </span>
+          )}
+        </div>
+      </td>
+
+      <td className="py-2 px-3 align-top">
+        {req.processedAt ? (
+          <span className="text-xs" style={{ color: EKARI.dim }}>
+            {formatDate(req.processedAt)}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
+        )}
+      </td>
+
+      <td className="py-2 pl-3 align-top text-right">
+        {isPending ? (
+          <div className="inline-flex gap-2">
+            <button
+              type="button"
+              disabled={busyApprove}
+              onClick={() => handleDecision(req, "approve")}
+              className={[
+                "rounded-full px-3 py-1 text-xs font-semibold",
+                "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed",
+              ].join(" ")}
+            >
+              {busyApprove ? "Approving…" : "Approve"}
+            </button>
+            <button
+              type="button"
+              disabled={busyReject}
+              onClick={() => handleDecision(req, "reject")}
+              className={[
+                "rounded-full px-3 py-1 text-xs font-semibold",
+                "bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed",
+              ].join(" ")}
+            >
+              {busyReject ? "Reject" : "Reject"}
+            </button>
+          </div>
+        ) : (
+          <span className="text-[11px] text-slate-400">Processed</span>
+        )}
+      </td>
+    </tr>
   );
 }

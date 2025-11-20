@@ -11,6 +11,7 @@ import Link from "next/link";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Image from "next/image";
+
 const EKARI = {
     forest: "#233F39",
     gold: "#C79257",
@@ -27,13 +28,12 @@ const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/market", label: "Market" },
     { href: "/admin/events", label: "Events" },
     { href: "/admin/discussions", label: "Discussions" },
-    { href: "/admin/wallets", label: "Creator earnings" },
-
-    // 🔽 If you had more before, keep/add them here:
+    { href: "/admin/earnings", label: "Creator earnings" },
+    { href: "/admin/wallets", label: "Creator withdrawals" },
+    { href: "/admin/finance", label: "Finance Settings" },
     { href: "/admin/support-tickets", label: "Support tickets" },
     { href: "/admin/sounds", label: "Sounds library" },
     { href: "/admin/usermangement", label: "User mangement" },
-    // e.g. { href: "/admin/users", label: "Users" },
 ];
 
 function getAdminTitle(pathname: string): string {
@@ -44,16 +44,17 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/market")) return "Market listings";
     if (pathname.startsWith("/admin/events")) return "Events";
     if (pathname.startsWith("/admin/discussions")) return "Discussions";
-    if (pathname.startsWith("/admin/wallets")) return "Creator earnings";
+    if (pathname.startsWith("/admin/earnings")) return "Creator earnings";
+    if (pathname.startsWith("/admin/wallets")) return "Creator withdrawals";
+    if (pathname.startsWith("/admin/finance")) return "Finance Settings";
     if (pathname.startsWith("/admin/support-tickets")) return "Support tickets";
     if (pathname.startsWith("/admin/sounds")) return "Sounds library";
     if (pathname.startsWith("/admin/usermangement")) return "User mangement";
-    // add more mappings as you add menus
 
     return "Admin";
 }
 
-// Left navigation using EKARI theme + all nav items
+// Left nav
 function AdminNav() {
     const pathname = usePathname();
 
@@ -68,9 +69,7 @@ function AdminNav() {
                         href={item.href}
                         className={[
                             "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition",
-                            active
-                                ? "shadow-sm"
-                                : "hover:bg-black/10 hover:text-white",
+                            active ? "shadow-sm" : "hover:bg-black/10 hover:text-white",
                         ].join(" ")}
                         style={
                             active
@@ -90,11 +89,15 @@ function AdminNav() {
         </nav>
     );
 }
+
 function useUserProfile(uid?: string) {
     const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
 
     useEffect(() => {
-        if (!uid) { setProfile(null); return; }
+        if (!uid) {
+            setProfile(null);
+            return;
+        }
         const ref = doc(db, "users", uid);
         const unsub = onSnapshot(ref, (snap) => {
             const data = snap.data() as any | undefined;
@@ -118,15 +121,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const [isAdmin, setIsAdmin] = React.useState(false);
     const uid = user?.uid;
     const profile = useUserProfile(uid);
+
     // Client-side guard: only users with admin claim can stay here
     React.useEffect(() => {
         let cancelled = false;
 
         async function check() {
+            // build "next" so after login we go back to the SAME admin url
+            const nextPath =
+                pathname && pathname.startsWith("/admin") ? pathname : "/admin/overview";
+
             if (!user) {
                 setChecking(false);
                 setIsAdmin(false);
-                router.replace("/login?next=/admin/overview");
+                router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
                 return;
             }
             try {
@@ -154,7 +162,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return () => {
             cancelled = true;
         };
-    }, [user, router]);
+    }, [user, router, pathname]); // 👈 include pathname so it updates correctly
 
     if (checking) {
         return (
@@ -182,20 +190,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 style={{ backgroundColor: EKARI.hair }}
             >
                 <div className="flex flex-col items-center gap-3 px-4 text-center">
-                    <IoAlertCircleOutline
-                        size={32}
-                        style={{ color: "#DC2626" }}
-                    />
-                    <div
-                        className="text-base font-bold"
-                        style={{ color: EKARI.text }}
-                    >
+                    <IoAlertCircleOutline size={32} style={{ color: "#DC2626" }} />
+                    <div className="text-base font-bold" style={{ color: EKARI.text }}>
                         Not authorized
                     </div>
-                    <p
-                        className="text-sm max-w-xs"
-                        style={{ color: EKARI.dim }}
-                    >
+                    <p className="text-sm max-w-xs" style={{ color: EKARI.dim }}>
                         You need an admin account to view this area. Please contact the ekarihub
                         team if you believe this is a mistake.
                     </p>
@@ -207,10 +206,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const title = getAdminTitle(pathname);
 
     return (
-        <div
-            className="flex min-h-screen"
-            style={{ backgroundColor: EKARI.hair }}
-        >
+        <div className="flex min-h-screen" style={{ backgroundColor: EKARI.hair }}>
             {/* Left sidebar */}
             <aside
                 className="hidden md:flex w-64 flex-col border-r"
@@ -228,7 +224,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         alt="ekarihub"
                         width={100}
                         height={86}
-                        onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/ekarihub-logo.png")}
+                        onError={(e) =>
+                            ((e.currentTarget as HTMLImageElement).src = "/ekarihub-logo.png")
+                        }
                         priority
                     />
                     <div
@@ -249,7 +247,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
             </aside>
 
-            {/* Right side: top bar + content */}
+            {/* Right side */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* TOP BAR */}
                 <header
@@ -259,7 +257,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         borderColor: EKARI.hair,
                     }}
                 >
-                    {/* Title */}
                     <div className="flex flex-col justify-center">
                         <span
                             className="text-[11px] font-semibold uppercase tracking-[0.14em]"
@@ -275,7 +272,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </span>
                     </div>
 
-                    {/* Right corner: name + badge + avatar */}
                     <div className="flex items-center gap-3">
                         <div className="hidden sm:flex flex-col items-end">
                             <span
@@ -298,7 +294,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <UserAvatarMenu
                             uid={user.uid}
                             photoURL={profile?.photoURL}
-                            // You can pass the actual handle here instead of displayName if you want
                             handle={profile?.handle || null}
                         />
                     </div>

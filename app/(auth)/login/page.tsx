@@ -1,15 +1,16 @@
+// app/login/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // 👈 added useSearchParams
 import { motion } from "framer-motion";
 import {
     IoChevronDown, IoChevronUp, IoMailOutline, IoLockClosedOutline,
     IoEyeOutline, IoEyeOffOutline,
 } from "react-icons/io5";
-import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth"; // <-- no GoogleAuthProvider here
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { db, getAuthSafe } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -29,7 +30,14 @@ const EKARI = {
 
 export default function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams(); // 👈 read query params
     const { user, loading: authLoading } = useAuth();
+
+    // Read ?next=/some/path from URL
+    const nextParam = searchParams?.get("next") || null;
+    // Basic safety: only allow internal paths starting with "/"
+    const safeNext =
+        nextParam && nextParam.startsWith("/") ? nextParam : null;
 
     // Load Firebase auth safely (client-only)
     const [authBundle, setAuthBundle] = useState<{ auth: any; googleProvider: any } | null>(null);
@@ -71,23 +79,38 @@ export default function LoginPage() {
         }
     };
 
-    // Post-login routing based on Firestore user doc
+    // Post-login routing based on Firestore user doc + ?next=
     useEffect(() => {
         if (authLoading || !user) return;
         let alive = true;
+
         (async () => {
             try {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (!alive) return;
-                router.replace(snap.exists() ? "/" : "/onboarding");
+
+                if (!snap.exists()) {
+                    // New user → onboarding (you can also pass next if you want)
+                    router.replace("/onboarding");
+                    return;
+                }
+
+                // Existing user: respect ?next= if present, else go home
+                if (safeNext) {
+                    router.replace(safeNext);
+                } else {
+                    router.replace("/");
+                }
             } catch {
-                if (alive) router.replace("/onboarding");
+                if (!alive) return;
+                router.replace("/onboarding");
             }
         })();
+
         return () => {
             alive = false;
         };
-    }, [user, authLoading, router]);
+    }, [user, authLoading, router, safeNext]);
 
     const handleLoginEmail = async () => {
         if (!isValid || loadingEmail || authLoading || !authBundle) return;
@@ -126,25 +149,44 @@ export default function LoginPage() {
     const disableAll = authLoading || loadingEmail || loadingGoogle || !authBundle;
 
     return (
-        <main className="min-h-screen w-full flex flex-col justify-center px-5 items-center" style={{ backgroundColor: EKARI.sand }}>
+        <main
+            className="min-h-screen w-full flex flex-col justify-center px-5 items-center"
+            style={{ backgroundColor: EKARI.sand }}
+        >
             <div className="w-full max-w-xl flex flex-col items-center gap-4">
-
                 {/* Logo + tagline */}
                 <div className="flex w-full flex-col items-center gap-4">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.96 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: "spring", stiffness: 140, damping: 14, mass: 0.6, duration: 0.28 }}
+                        transition={{
+                            type: "spring",
+                            stiffness: 140,
+                            damping: 14,
+                            mass: 0.6,
+                            duration: 0.28,
+                        }}
                         className="flex flex-col items-center text-center"
                     >
-                        <Image src="/ekarihub-logo.png" alt="ekarihub" width={320} height={86} priority />
+                        <Image
+                            src="/ekarihub-logo.png"
+                            alt="ekarihub"
+                            width={320}
+                            height={86}
+                            priority
+                        />
                         <p className="text-sm md:text-base tracking-wide">
                             Collaborate • Innovate • Cultivate
                         </p>
                     </motion.div>
 
-                    <p className="text-center text-sm leading-5" style={{ color: EKARI.subtext, maxWidth: 340 }}>
-                        {authLoading ? "Checking your session..." : "Log in to Ekarihub"}
+                    <p
+                        className="text-center text-sm leading-5"
+                        style={{ color: EKARI.subtext, maxWidth: 340 }}
+                    >
+                        {authLoading
+                            ? "Checking your session..."
+                            : "Log in to Ekarihub"}
                     </p>
 
                     {/* Card */}
@@ -152,7 +194,11 @@ export default function LoginPage() {
                         className="w-full rounded-2xl bg-white px-4 py-4 mt-4"
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.15, duration: 0.26, ease: "easeOut" }}
+                        transition={{
+                            delay: 0.15,
+                            duration: 0.26,
+                            ease: "easeOut",
+                        }}
                     >
                         {/* Phone */}
                         <button
@@ -172,36 +218,67 @@ export default function LoginPage() {
                                 className="w-full flex items-center justify-center gap-3 rounded-md border bg-white py-3 active:scale-[0.98] transition disabled:opacity-60"
                                 style={{ borderColor: "#dadce0" }}
                             >
-                                <Image src="/google-logo.png" width={18} height={18} alt="Google" />
+                                <Image
+                                    src="/google-logo.png"
+                                    width={18}
+                                    height={18}
+                                    alt="Google"
+                                />
                                 <span className="text-[16px] text-[#3c4043] font-medium">
-                                    {loadingGoogle ? "Signing in..." : "Sign in with Google"}
+                                    {loadingGoogle
+                                        ? "Signing in..."
+                                        : "Sign in with Google"}
                                 </span>
                             </button>
                         </div>
 
                         {/* Divider */}
                         <div className="flex items-center my-4">
-                            <div className="flex-1 h-px" style={{ backgroundColor: EKARI.hair }} />
-                            <span className="mx-3 text-xs font-bold" style={{ color: EKARI.dim }}>or</span>
-                            <div className="flex-1 h-px" style={{ backgroundColor: EKARI.hair }} />
+                            <div
+                                className="flex-1 h-px"
+                                style={{ backgroundColor: EKARI.hair }}
+                            />
+                            <span
+                                className="mx-3 text-xs font-bold"
+                                style={{ color: EKARI.dim }}
+                            >
+                                or
+                            </span>
+                            <div
+                                className="flex-1 h-px"
+                                style={{ backgroundColor: EKARI.hair }}
+                            />
                         </div>
 
                         {/* Email toggle */}
                         <button
-                            onClick={() => setEmailOpen(s => !s)}
+                            onClick={() => setEmailOpen((s) => !s)}
                             disabled={disableAll}
                             className="mx-auto flex items-center gap-1 font-extrabold active:scale-[0.98] transition disabled:opacity-60"
                             style={{ color: EKARI.text }}
                         >
-                            {emailOpen ? "Hide email login" : "Log in with email"}
-                            {emailOpen ? <IoChevronUp size={18} /> : <IoChevronDown size={18} />}
+                            {emailOpen
+                                ? "Hide email login"
+                                : "Log in with email"}
+                            {emailOpen ? (
+                                <IoChevronUp size={18} />
+                            ) : (
+                                <IoChevronDown size={18} />
+                            )}
                         </button>
 
                         {emailOpen && (
                             <div className="mt-2">
                                 {/* Email */}
-                                <div className="mt-2 flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]" style={{ borderColor: EKARI.hair }}>
-                                    <IoMailOutline className="mr-2" size={18} color={EKARI.dim} />
+                                <div
+                                    className="mt-2 flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
+                                    style={{ borderColor: EKARI.hair }}
+                                >
+                                    <IoMailOutline
+                                        className="mr-2"
+                                        size={18}
+                                        color={EKARI.dim}
+                                    />
                                     <input
                                         type="email"
                                         inputMode="email"
@@ -209,39 +286,74 @@ export default function LoginPage() {
                                         placeholder="Email"
                                         className="w-full bg-transparent outline-none text-base"
                                         value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        onChange={(e) =>
+                                            setEmail(e.target.value)
+                                        }
                                         aria-label="Email"
                                         disabled={disableAll}
                                     />
                                 </div>
 
                                 {/* Password */}
-                                <div className="mt-3 flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]" style={{ borderColor: EKARI.hair }}>
-                                    <IoLockClosedOutline className="mr-2" size={18} color={EKARI.dim} />
+                                <div
+                                    className="mt-3 flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
+                                    style={{ borderColor: EKARI.hair }}
+                                >
+                                    <IoLockClosedOutline
+                                        className="mr-2"
+                                        size={18}
+                                        color={EKARI.dim}
+                                    />
                                     <input
-                                        type={showPassword ? "text" : "password"}
+                                        type={
+                                            showPassword ? "text" : "password"
+                                        }
                                         autoComplete="current-password"
                                         placeholder="Password"
                                         className="w-full bg-transparent outline-none text-base"
                                         value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === "Enter") handleLoginEmail(); }}
+                                        onChange={(e) =>
+                                            setPassword(e.target.value)
+                                        }
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter")
+                                                handleLoginEmail();
+                                        }}
                                         aria-label="Password"
                                         disabled={disableAll}
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setShowPassword(s => !s)}
+                                        onClick={() =>
+                                            setShowPassword((s) => !s)
+                                        }
                                         className="ml-2 p-1"
-                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        aria-label={
+                                            showPassword
+                                                ? "Hide password"
+                                                : "Show password"
+                                        }
                                         disabled={disableAll}
                                     >
-                                        {showPassword ? <IoEyeOffOutline size={20} color={EKARI.dim} /> : <IoEyeOutline size={20} color={EKARI.dim} />}
+                                        {showPassword ? (
+                                            <IoEyeOffOutline
+                                                size={20}
+                                                color={EKARI.dim}
+                                            />
+                                        ) : (
+                                            <IoEyeOutline
+                                                size={20}
+                                                color={EKARI.dim}
+                                            />
+                                        )}
                                     </button>
                                 </div>
 
                                 {!!errorMsg && (
-                                    <p className="mt-2 text-center font-semibold" style={{ color: EKARI.danger }}>
+                                    <p
+                                        className="mt-2 text-center font-semibold"
+                                        style={{ color: EKARI.danger }}
+                                    >
                                         {errorMsg}
                                     </p>
                                 )}
@@ -250,9 +362,15 @@ export default function LoginPage() {
                                     onClick={handleLoginEmail}
                                     disabled={!isValid || disableAll}
                                     className="mt-3 w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
-                                    style={{ backgroundColor: EKARI.gold, opacity: !isValid || disableAll ? 0.6 : 1 }}
+                                    style={{
+                                        backgroundColor: EKARI.gold,
+                                        opacity:
+                                            !isValid || disableAll ? 0.6 : 1,
+                                    }}
                                 >
-                                    {loadingEmail ? "Logging in..." : "Log in"}
+                                    {loadingEmail
+                                        ? "Logging in..."
+                                        : "Log in"}
                                 </button>
 
                                 <button
@@ -268,8 +386,14 @@ export default function LoginPage() {
 
                         {/* Signup */}
                         <div className="mt-3 flex justify-center items-center text-sm">
-                            <span style={{ color: EKARI.dim }}>New here?&nbsp;</span>
-                            <Link href="/signup" className="font-extrabold" style={{ color: EKARI.forest }}>
+                            <span style={{ color: EKARI.dim }}>
+                                New here?&nbsp;
+                            </span>
+                            <Link
+                                href="/signup"
+                                className="font-extrabold"
+                                style={{ color: EKARI.forest }}
+                            >
                                 Craft Account
                             </Link>
                         </div>

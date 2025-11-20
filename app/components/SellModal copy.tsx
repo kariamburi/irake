@@ -22,7 +22,6 @@ import {
     unitsFor,
     defaultPackFor,
     type MarketType,
-    MARKET_CATALOG,            // 👈 NEW: pull full catalog so we can map name → category + useCase
 } from "@/utils/market_master_catalog";
 import type { Product } from "./ProductCard";
 
@@ -46,33 +45,7 @@ const EKARI = {
     hair: "#E5E7EB",
 };
 
-const DIRECT_NAME_TYPES: MarketType[] = ["product", "animal", "lease", "tree"];
-
-/* ===== Helpers from catalog ===== */
-
-const norm = (s?: string | null) => (s || "").trim().toLowerCase();
-
-/** All unique names for a given type (product/animal/lease/tree) */
-function namesForType(t: MarketType): string[] {
-    return Array.from(
-        new Set(
-            MARKET_CATALOG
-                .filter((r) => r.type === t)
-                .map((r) => r.name?.trim())
-                .filter(Boolean) as string[]
-        )
-    ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-}
-
-/** Find the catalog row for (type, name) so we can pull category + useCase, etc */
-function findCatalogRow(type: MarketType, name: string) {
-    const n = norm(name);
-    return MARKET_CATALOG.find(
-        (r) => r.type === type && norm(r.name) === n
-    );
-}
-
-/* ============ Other helpers (unchanged) ============ */
+/* ============ Helpers ============ */
 
 const toLower = (s?: string | null) => (s ? s.toLowerCase() : "");
 
@@ -89,14 +62,14 @@ const COUNTY_REGEXES = KENYA_COUNTIES.map((c) => {
     const pat = c.replace(/[\-\s]/g, "[\\-\\s]?").replace(/’|'/g, "['’]?");
     return { name: c, re: new RegExp(`\\b${pat}\\b`, "i") };
 });
-
 /** Read an ImageBitmap or HTMLImage for drawing onto canvas */
 async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
     if ("createImageBitmap" in window) {
         try {
+            // createImageBitmap tends to respect EXIF orientation in modern browsers
             return await createImageBitmap(file);
         } catch {
-            // fall back
+            // fall back to HTMLImageElement
         }
     }
     const img = new Image();
@@ -111,58 +84,56 @@ async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
 }
 
 /**
- * High-quality client compression
+ * High-quality client compression:
+ * - Resize so longest side <= maxSide
+ * - Export WebP (quality ladder) targeting <= targetBytes
+ * - Returns a Blob and a preview URL
  */
 async function compressImage(
     file: File,
     opts: {
-        maxSide?: number;
-        targetBytes?: number;
-        initialQuality?: number;
-        minQuality?: number;
-        mime?: string;
+        maxSide?: number;          // longest side
+        targetBytes?: number;      // aim under this
+        initialQuality?: number;   // start quality
+        minQuality?: number;       // floor
+        mime?: string;             // output mime
     } = {}
 ): Promise<{ blob: Blob; url: string; width: number; height: number; name: string }> {
     const {
         maxSide = 1600,
-        targetBytes = 550 * 1024,
+        targetBytes = 550 * 1024,   // ~550KB target for listings
         initialQuality = 0.82,
         minQuality = 0.6,
         mime = "image/webp",
     } = opts;
 
-    if (
-        file.size <= targetBytes &&
-        (file.type === "image/webp" || file.type === "image/jpeg" || file.type === "image/png")
-    ) {
+    // If already smaller than target and not huge dimensions, keep original to preserve fidelity
+    if (file.size <= targetBytes && (file.type === "image/webp" || file.type === "image/jpeg" || file.type === "image/png")) {
         const url = URL.createObjectURL(file);
-        return {
-            blob: file,
-            url,
-            width: 0,
-            height: 0,
-            name: file.name.replace(/\.[^.]+$/, "") + ".webp",
-        };
+        return { blob: file, url, width: 0, height: 0, name: file.name.replace(/\.[^.]+$/, "") + ".webp" };
     }
 
     const bmp = await loadBitmap(file);
     const srcW = "width" in bmp ? bmp.width : (bmp as any).naturalWidth;
     const srcH = "height" in bmp ? bmp.height : (bmp as any).naturalHeight;
 
+    // Compute target size (preserve aspect)
     const scale = Math.min(1, maxSide / Math.max(srcW, srcH));
     const dstW = Math.max(1, Math.round(srcW * scale));
     const dstH = Math.max(1, Math.round(srcH * scale));
 
+    // Draw into canvas
     const canvas = document.createElement("canvas");
     canvas.width = dstW;
     canvas.height = dstH;
     const ctx = canvas.getContext("2d", { alpha: true });
     if (!ctx) throw new Error("Canvas 2D unavailable");
-
+    // High-quality scaling hints
     (ctx as any).imageSmoothingEnabled = true;
     (ctx as any).imageSmoothingQuality = "high";
     ctx.drawImage(bmp as any, 0, 0, dstW, dstH);
 
+    // Try quality ladder to meet size target (don’t over-compress)
     let q = initialQuality;
     let out: Blob | null = await new Promise((res) => canvas.toBlob(res, mime, q));
     if (!out) throw new Error("toBlob failed");
@@ -173,14 +144,9 @@ async function compressImage(
         if (!out) throw new Error("toBlob failed");
     }
 
+    // If still huge (e.g., very detailed images), we at least return the best we could
     const url = URL.createObjectURL(out);
-    return {
-        blob: out,
-        url,
-        width: dstW,
-        height: dstH,
-        name: file.name.replace(/\.[^.]+$/, "") + ".webp",
-    };
+    return { blob: out, url, width: dstW, height: dstH, name: file.name.replace(/\.[^.]+$/, "") + ".webp" };
 }
 
 function matchCountyFromText(text: string | undefined | null): string | undefined {
@@ -201,7 +167,6 @@ function guessTownFromText(text: string | undefined | null, county?: string): st
 
 const KES = (n: number) =>
     "KSh " + (n || 0).toLocaleString("en-KE", { maximumFractionDigits: 0 });
-
 
 /* ================= Google Maps loader ================= */
 async function loadGoogleMaps(apiKey?: string): Promise<typeof google | null> {
@@ -449,6 +414,9 @@ function LocationPickerModal({
         </div>
     );
 }
+
+/* ===================== MAIN: SellModal ===================== */
+
 export default function SellModal({
     open,
     onClose,
@@ -458,7 +426,7 @@ export default function SellModal({
     onClose: () => void;
     onCreated: (p: Product) => void;
 }) {
-    // Steps: 0 Type, 1 Name (or Category+Item), 2 Pack+Unit, 3 Price/Rate, 4 Photos+Location+Review
+    // Steps: 0 Type, 1 Category+Item, 2 Pack+Unit, 3 Price/Rate, 4 Photos+Location+Review
     const [step, setStep] = useState<number>(0);
 
     type PhotoItem = { blob: Blob; url: string; name: string };
@@ -473,44 +441,17 @@ export default function SellModal({
         [typeSel]
     );
     const [category, setCategory] = useState<string>(categoriesForType[0] || "");
-
-    // Name + use-case tips
-    const [name, setName] = useState<string>("");
-    const [useCaseTip, setUseCaseTip] = useState<string>("");
-
-    // All names for this type (for autosuggest for product/animal/lease/tree)
-    const allNamesForType = useMemo(
-        () => namesForType(typeSel),
-        [typeSel]
-    );
-
-    // Name suggestions filtered by input
-    const nameSuggestions = useMemo(() => {
-        if (!DIRECT_NAME_TYPES.includes(typeSel)) return [];
-        if (!allNamesForType.length) return [];
-
-        const q = norm(name);
-        if (!q) {
-            // initial: show top chunk
-            return allNamesForType.slice(0, 40);
-        }
-        return allNamesForType
-            .filter((n) => n.toLowerCase().includes(q))
-            .slice(0, 40);
-    }, [typeSel, allNamesForType, name]);
-
-    // For service (old path), we still use category → productsFor(category)
     const productNames = useMemo(
         () => (category ? productsFor(typeSel, category) : []),
         [typeSel, category]
     );
-
-    // Skip pack/unit step for lease/service (same as before)
     useEffect(() => {
         if (step === 2 && (typeSel === "lease" || typeSel === "service")) {
             setStep(3);
         }
     }, [step, typeSel]);
+
+    const [name, setName] = useState<string>(productNames[0] || "");
 
     // Step 2
     const [unit, setUnit] = useState<string>("");
@@ -539,7 +480,6 @@ export default function SellModal({
             setTypeSel("product");
             setCategory("");
             setName("");
-            setUseCaseTip("");
             setUnit("");
             setPack("");
             setPrice("");
@@ -555,13 +495,16 @@ export default function SellModal({
         }
     }, [open]);
 
-    // Keep category initialized (mainly for service path)
     useEffect(() => {
         const first = categoriesForType[0] || "";
         setCategory((prev) => (prev ? prev : first));
     }, [categoriesForType]);
 
-    // Auto pack + unit when name changes (unchanged logic)
+    useEffect(() => {
+        const firstName = productNames[0] || "";
+        setName((prev) => (prev ? prev : firstName));
+    }, [productNames]);
+
     useEffect(() => {
         if (!name) return;
         const d: any = defaultPackFor(name);
@@ -582,67 +525,40 @@ export default function SellModal({
         }
     }, [name]);
 
-    // NEW: When name changes for product/animal/lease/tree, auto-pick category and tree use-case tip
-    useEffect(() => {
-        if (!name.trim()) {
-            setUseCaseTip("");
-            return;
-        }
-        if (!DIRECT_NAME_TYPES.includes(typeSel)) {
-            setUseCaseTip("");
-            return;
-        }
-
-        const row = findCatalogRow(typeSel, name);
-        const fallbackCategory = CATEGORY_OPTIONS_BY_TYPE[typeSel]?.[0] || "";
-
-        if (row?.category || fallbackCategory) {
-            setCategory(row?.category || fallbackCategory);
-        }
-
-        if (typeSel === "tree") {
-            setUseCaseTip(row?.useCase || "");
-        } else {
-            setUseCaseTip("");
-        }
-    }, [name, typeSel]);
-
     // file picker
-    const onPickFiles = useCallback(
-        async (files: FileList | null) => {
-            if (!files) return;
-            const incoming = Array.from(files).filter((f) => f.type.startsWith("image/"));
-            if (!incoming.length) return;
+    const onPickFiles = useCallback(async (files: FileList | null) => {
+        if (!files) return;
+        const incoming = Array.from(files).filter((f) => f.type.startsWith("image/"));
+        if (!incoming.length) return;
 
-            const room = Math.max(0, 5 - photos.length);
-            const slice = incoming.slice(0, room);
+        // Limit to 5 images total
+        const room = Math.max(0, 5 - photos.length);
+        const slice = incoming.slice(0, room);
 
-            const compressed = await Promise.all(
-                slice.map((f) =>
-                    compressImage(f, {
-                        maxSide: 1600,
-                        targetBytes: 550 * 1024,
-                        initialQuality: 0.82,
-                        minQuality: 0.6,
-                        mime: "image/webp",
-                    })
-                )
-            );
+        const compressed = await Promise.all(
+            slice.map((f) =>
+                compressImage(f, {
+                    maxSide: 1600,          // good for marketplaces; bump to 2048 if you want
+                    targetBytes: 550 * 1024,
+                    initialQuality: 0.82,
+                    minQuality: 0.6,
+                    mime: "image/webp",
+                })
+            )
+        );
 
-            setPhotos((prev) => [...prev, ...compressed]);
-        },
-        [photos.length]
-    );
+        setPhotos((prev) => [...prev, ...compressed]);
+    }, [photos.length]);
 
     const removeImg = useCallback((idx: number) => {
         setPhotos((prev) => {
             const next = [...prev];
+            // revoke preview URL to free memory
             URL.revokeObjectURL(next[idx]?.url);
             next.splice(idx, 1);
             return next;
         });
     }, []);
-
     const unitsitems = useMemo(() => {
         const rawunits = unitsFor(name) ?? [];
         const out: string[] = [];
@@ -651,17 +567,11 @@ export default function SellModal({
         for (const entry of asArray) {
             if (Array.isArray(entry)) {
                 for (const v of entry) {
-                    const t = String(v)
-                        .split(" ")
-                        .map((s) => s.trim())
-                        .filter(Boolean);
+                    const t = String(v).split(" ").map((s) => s.trim()).filter(Boolean);
                     out.push(...t);
                 }
             } else if (typeof entry === "string") {
-                const t = entry
-                    .split(" ")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
+                const t = entry.split(" ").map((s) => s.trim()).filter(Boolean);
                 out.push(...t);
             } else if (entry != null) {
                 out.push(String(entry).trim());
@@ -676,7 +586,6 @@ export default function SellModal({
         return undefined;
     }
 
-    // kept for service path
     const catalogItems = useMemo(() => {
         const raw = productsFor(typeSel, category) ?? [];
         const arr: any[] = Array.isArray(raw) ? raw : [raw];
@@ -684,17 +593,11 @@ export default function SellModal({
         for (const entry of arr) {
             if (Array.isArray(entry)) {
                 for (const v of entry) {
-                    const t = String(v)
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean);
+                    const t = String(v).split(",").map((s) => s.trim()).filter(Boolean);
                     out.push(...t);
                 }
             } else if (typeof entry === "string") {
-                const t = entry
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
+                const t = entry.split(",").map((s) => s.trim()).filter(Boolean);
                 out.push(...t);
             } else if (entry != null) {
                 out.push(String(entry).trim());
@@ -717,7 +620,7 @@ export default function SellModal({
         }
         if (step === 4) return photos.length > 0 && !!placeText.trim() && !!coords;
         return false;
-    }, [step, typeSel, category, name, price, rate, billingUnit, photos.length, placeText, coords]);
+    }, [step, typeSel, category, name, pack, unit, price, rate, billingUnit, photos.length, placeText, coords]);
 
     const onNext = useCallback(() => {
         if (!canNext) {
@@ -745,7 +648,7 @@ export default function SellModal({
         if (step > 0) setStep(step - 1);
     }, [step]);
 
-    // Upload -> Firestore create (unchanged except using same category/name)
+    // Upload -> Firestore create (UNDEFINED-SAFE)
     const createProduct = useCallback(async () => {
         if (!photos.length) return alert("Please add at least one photo.");
         if (!name.trim()) return alert("Please choose what you’re selling.");
@@ -774,9 +677,11 @@ export default function SellModal({
             const db = getFirestore();
             const storage = getStorage();
 
+            // Parse county/town out of free text
             const countyFromText = matchCountyFromText(placeText) || "";
             const townFromText = guessTownFromText(placeText, countyFromText) || "";
 
+            // Build place WITHOUT undefined keys
             const place: {
                 text: string;
                 textLower: string;
@@ -805,23 +710,20 @@ export default function SellModal({
             const prodRef = doc(collection(db, "marketListings"));
             const docId = prodRef.id;
 
+            // Upload up to 5 images
             const toUpload = photos.slice(0, 5);
             const urls = await Promise.all(
                 toUpload.map(async (p, i) => {
                     const path = `products/${user.uid}/${docId}/images/${i}.webp`;
                     const ref = sRef(storage, path);
-                    await uploadBytes(ref, p.blob, {
-                        contentType: "image/webp",
-                        cacheControl: "public,max-age=31536000,immutable",
-                    });
+                    await uploadBytes(ref, p.blob, { contentType: "image/webp", cacheControl: "public,max-age=31536000,immutable" });
                     return await getDownloadURL(ref);
                 })
             );
 
-            const nPrice =
-                typeSel === "lease" || typeSel === "service"
-                    ? 0
-                    : Number(String(price).replace(/[^\d.]/g, ""));
+            const nPrice = typeSel === "lease" || typeSel === "service"
+                ? 0
+                : Number(String(price).replace(/[^\d.]/g, ""));
 
             const base: any = {
                 name: name.trim(),
@@ -834,8 +736,8 @@ export default function SellModal({
                 type: typeSel,
                 nameLower: name.trim().toLowerCase(),
                 categoryLower: category.toLowerCase(),
-                place,
-                location: coords,
+                place,                // safe object
+                location: coords,     // coords is guaranteed non-null above
                 status: "active",
                 sold: false,
             };
@@ -844,9 +746,6 @@ export default function SellModal({
             if (typeSel === "lease" || typeSel === "service") {
                 base.rate = rate.trim();
                 base.billingUnit = billingUnit.trim();
-            }
-            if (typeSel === "tree" && useCaseTip) {
-                base.useCase = useCaseTip; // optional: persist tree use-case
             }
 
             await setDoc(prodRef, base);
@@ -858,7 +757,7 @@ export default function SellModal({
             setSaving(false);
             alert(e?.message || "Failed to post. Please try again.");
         }
-    }, [photos, name, category, typeSel, rate, billingUnit, price, unit, pack, coords, placeText, useCaseTip, onCreated, onClose]);
+    }, [photos, name, category, typeSel, rate, billingUnit, price, unit, pack, coords, placeText, onCreated, onClose]);
 
     if (!open) return null;
 
@@ -873,7 +772,7 @@ export default function SellModal({
 
             {/* sheet */}
             <div
-                className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 h-[80vh] flex flex-col"
+                className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 max-h-[90vh] overflow-hidden"
                 role="dialog"
                 aria-modal="true"
             >
@@ -900,41 +799,27 @@ export default function SellModal({
                     ))}
                     <div className="ml-2 font-bold text-gray-800">
                         {step === 0 && "Type"}
-                        {step === 1 &&
-                            (DIRECT_NAME_TYPES.includes(typeSel)
-                                ? "Item"
-                                : "Category & Item")}
+                        {step === 1 && "Category & Item"}
                         {step === 2 && "Pack & Unit"}
-                        {step === 3 &&
-                            (typeSel === "lease" || typeSel === "service"
-                                ? "Rate & Billing"
-                                : "Price")}
+                        {step === 3 && (typeSel === "lease" || typeSel === "service" ? "Rate & Billing" : "Price")}
                         {step === 4 && "Photos & Location • Review"}
                     </div>
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto pr-1 mt-2">
+                <div className="overflow-y-auto pr-1" style={{ maxHeight: "60vh" }}>
                     {/* Step 0: Type */}
                     {step === 0 && (
                         <div>
-                            <label className="text-xs font-extrabold text-gray-500">
-                                What are you selling?
-                            </label>
+                            <label className="text-xs font-extrabold text-gray-500">What are you selling?</label>
                             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                                 {TYPE_OPTIONS.map((t) => {
                                     const active = t === typeSel;
                                     return (
                                         <button
                                             key={t}
-                                            onClick={() => {
-                                                setTypeSel(t);
-                                                setName("");
-                                                setUseCaseTip("");
-                                            }}
-                                            className={`shrink-0 px-3 py-2 rounded-full border text-sm font-bold ${active
-                                                ? "bg-emerald-800 text-white border-emerald-800"
-                                                : "bg-gray-50 text-gray-900 border-gray-200"
+                                            onClick={() => setTypeSel(t)}
+                                            className={`shrink-0 px-3 py-2 rounded-full border text-sm font-bold ${active ? "bg-emerald-800 text-white border-emerald-800" : "bg-gray-50 text-gray-900 border-gray-200"
                                                 }`}
                                         >
                                             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -945,134 +830,57 @@ export default function SellModal({
                         </div>
                     )}
 
-                    {/* Step 1: Name-first (product/animal/lease/tree) OR old Category+Item (service) */}
+                    {/* Step 1: Category & Item */}
                     {step === 1 && (
                         <div>
-                            {DIRECT_NAME_TYPES.includes(typeSel) ? (
-                                <>
-                                    <label className="text-xs font-extrabold text-gray-500">
-                                        What exactly are you selling?
-                                    </label>
-                                    <input
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        placeholder={
-                                            typeSel === "product"
-                                                ? "e.g. Maize grain, Tomatoes, Milk"
-                                                : typeSel === "animal"
-                                                    ? "e.g. Dairy cow, Kienyeji chicken"
-                                                    : typeSel === "lease"
-                                                        ? "e.g. Tractor hire, Land lease"
-                                                        : "e.g. Grevillea, Eucalyptus"
-                                        }
-                                        className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                                    />
+                            <label className="text-xs font-extrabold text-gray-500">Category</label>
+                            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                                {categoriesForType.map((c) => {
+                                    const active = c === category;
+                                    return (
+                                        <button
+                                            key={c}
+                                            onClick={() => setCategory(c)}
+                                            className={`shrink-0 px-3 py-2 rounded-full border text-sm font-bold ${active ? "bg-emerald-800 text-white border-emerald-800" : "bg-gray-50 text-gray-900 border-gray-200"
+                                                }`}
+                                        >
+                                            {c}
+                                        </button>
+                                    );
+                                })}
+                            </div>
 
-                                    {/* Auto category hint (for all DIRECT_NAME_TYPES) */}
-                                    {category && (
-                                        <div className="mt-1 text-xs text-gray-500">
-                                            We’ll list this under{" "}
-                                            <span className="font-semibold text-gray-800">
-                                                {category}
-                                            </span>{" "}
-                                            so buyers can find it easily.
-                                        </div>
-                                    )}
-
-                                    {/* 🌱 Tree use-case chip right under the name */}
-                                    {typeSel === "tree" && useCaseTip && (
-                                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1">
-                                            <span className="text-[11px] font-black text-emerald-900">
-                                                Use-case
-                                            </span>
-                                            <span className="text-[11px] text-emerald-800 truncate max-w-[220px]">
-                                                {useCaseTip}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Autosuggest list for names */}
-                                    {nameSuggestions.length > 0 && (
-                                        <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-1">
-                                            {nameSuggestions.map((n) => (
-                                                <button
-                                                    key={n}
-                                                    type="button"
-                                                    onClick={() => setName(n)}
-                                                    className={`w-full text-left text-sm px-3 py-1.5 rounded-lg hover:bg-white ${norm(n) === norm(name)
-                                                        ? "font-semibold text-emerald-800"
-                                                        : "text-gray-800"
-                                                        }`}
-                                                >
-                                                    {n}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    {/* Service: keep old Category + Item flow */}
-                                    <label className="text-xs font-extrabold text-gray-500">
-                                        Category
-                                    </label>
-                                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                                        {categoriesForType.map((c) => {
-                                            const active = c === category;
-                                            return (
-                                                <button
-                                                    key={c}
-                                                    onClick={() => setCategory(c)}
-                                                    className={`shrink-0 px-3 py-2 rounded-full border text-sm font-bold ${active
-                                                        ? "bg-emerald-800 text-white border-emerald-800"
-                                                        : "bg-gray-50 text-gray-900 border-gray-200"
-                                                        }`}
-                                                >
-                                                    {c}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <label className="block mt-3 text-xs font-extrabold text-gray-500">
-                                        Item
-                                    </label>
-                                    <input
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        placeholder={
-                                            (productsFor(typeSel, category)[0] &&
-                                                `e.g. ${productsFor(typeSel, category)[0]}`) ||
-                                            "Type or pick from catalog"
-                                        }
-                                        className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                                    />
-                                    {catalogItems.length > 0 && (
-                                        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                                            {catalogItems.slice(0, 60).map((it) => (
-                                                <button
-                                                    key={it}
-                                                    onClick={() => setName(it)}
-                                                    className="shrink-0 px-3 py-2 rounded-full border text-sm font-bold bg-gray-50 text-gray-900 border-gray-200"
-                                                >
-                                                    {it}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </>
+                            <label className="block mt-3 text-xs font-extrabold text-gray-500">Item</label>
+                            <input
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder={
+                                    (productsFor(typeSel, category)[0] && `e.g. ${productsFor(typeSel, category)[0]}`) ||
+                                    "Type or pick from catalog"
+                                }
+                                className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                            />
+                            {catalogItems.length > 0 && (
+                                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                                    {catalogItems.slice(0, 60).map((it) => (
+                                        <button
+                                            key={it}
+                                            onClick={() => setName(it)}
+                                            className="shrink-0 px-3 py-2 rounded-full border text-sm font-bold bg-gray-50 text-gray-900 border-gray-200"
+                                        >
+                                            {it}
+                                        </button>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     )}
 
-
-                    {/* Step 2: Pack & Unit (products only; still hidden for lease/service) */}
+                    {/* Step 2: Pack & Unit (products only) */}
                     {step === 2 && typeSel !== "lease" && typeSel !== "service" && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label className="text-xs font-extrabold text-gray-500">
-                                    Typical pack size
-                                </label>
+                                <label className="text-xs font-extrabold text-gray-500">Typical pack size</label>
                                 <input
                                     value={String(pack || "")}
                                     onChange={(e) => setPack(e.target.value)}
@@ -1082,16 +890,11 @@ export default function SellModal({
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-extrabold text-gray-500">
-                                    Unit
-                                </label>
+                                <label className="text-xs font-extrabold text-gray-500">Unit</label>
                                 <input
                                     value={unit}
                                     onChange={(e) => setUnit(e.target.value)}
-                                    placeholder={
-                                        firstString(unitsFor(name)) ??
-                                        "kg / bag / carton / head"
-                                    }
+                                    placeholder={firstString(unitsFor(name)) ?? "kg / bag / carton / head"}
                                     className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
                                 />
                                 {unitsitems.length > 0 && (
@@ -1117,9 +920,7 @@ export default function SellModal({
                             {typeSel === "lease" || typeSel === "service" ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs font-extrabold text-gray-500">
-                                            Rate
-                                        </label>
+                                        <label className="text-xs font-extrabold text-gray-500">Rate</label>
                                         <input
                                             value={rate}
                                             onChange={(e) => setRate(e.target.value)}
@@ -1129,9 +930,7 @@ export default function SellModal({
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-extrabold text-gray-500">
-                                            Billing unit
-                                        </label>
+                                        <label className="text-xs font-extrabold text-gray-500">Billing unit</label>
                                         <input
                                             value={billingUnit}
                                             onChange={(e) => setBillingUnit(e.target.value)}
@@ -1142,9 +941,7 @@ export default function SellModal({
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="text-xs font-extrabold text-gray-500">
-                                        Price (KES)
-                                    </label>
+                                    <label className="text-xs font-extrabold text-gray-500">Price (KES)</label>
                                     <input
                                         value={price}
                                         onChange={(e) => setPrice(e.target.value)}
@@ -1167,30 +964,20 @@ export default function SellModal({
                                     {photos.length < 5 && (
                                         <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
                                             <IoImagesOutline size={18} className="text-gray-600" />
-                                            <span className="text-sm font-semibold text-gray-800">
-                                                Choose images (max 5)
-                                            </span>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                multiple
-                                                hidden
-                                                onChange={(e) => onPickFiles(e.target.files)}
-                                            />
+                                            <span className="text-sm font-semibold text-gray-800">Choose images (max 5)</span>
+                                            <input type="file" accept="image/*" multiple hidden onChange={(e) => onPickFiles(e.target.files)} />
                                         </label>
                                     )}
                                     <div className="text-xs text-gray-500">{photos.length}/5 selected</div>
+
+
                                 </div>
 
                                 {photos.length > 0 && (
                                     <div className="mt-3 flex flex-wrap gap-3">
                                         {photos.map((p, idx) => (
                                             <div key={p.url} className="relative w-24 h-24">
-                                                <img
-                                                    src={p.url}
-                                                    alt=""
-                                                    className="w-full h-full object-cover rounded-xl border border-gray-200"
-                                                />
+                                                <img src={p.url} alt="" className="w-full h-full object-cover rounded-xl border border-gray-200" />
                                                 <button
                                                     onClick={() => removeImg(idx)}
                                                     className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-6 h-6 grid place-items-center"
@@ -1206,19 +993,15 @@ export default function SellModal({
 
                             {/* Location */}
                             <div>
-                                <label className="text-xs font-extrabold text-gray-500">
-                                    Where is the product?
-                                </label>
+                                <label className="text-xs font-extrabold text-gray-500">Where is the product?</label>
 
                                 <div className="mt-2 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+
                                     <button
                                         onClick={() => {
                                             setCandidateText(placeText || "");
                                             setCandidateCenter(
-                                                coords || {
-                                                    latitude: -1.286389,
-                                                    longitude: 36.817223, // Nairobi default
-                                                }
+                                                coords || { latitude: -1.286389, longitude: 36.817223 } // Nairobi default
                                             );
                                             setLocModalOpen(true);
                                         }}
@@ -1234,71 +1017,38 @@ export default function SellModal({
                                         Coords: {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
                                     </div>
                                 )}
-
-                                {!!placeText && (
-                                    <div className="mt-1 text-xs text-gray-600">
-                                        Place: {placeText}
-                                    </div>
-                                )}
                             </div>
 
                             {/* Review */}
                             <div className="border border-gray-200 rounded-xl p-3 bg-gray-50">
                                 <div className="font-black text-gray-900 mb-1">Review</div>
                                 <div className="space-y-1 text-sm">
+                                    <div><span className="font-bold text-gray-500">Type:</span> {typeSel}</div>
+                                    <div><span className="font-bold text-gray-500">Category:</span> {category || "-"}</div>
+                                    <div><span className="font-bold text-gray-500">Item:</span> {name || "-"}</div>
                                     <div>
-                                        <span className="font-bold text-gray-500">Type:</span> {typeSel}
-                                    </div>
-                                    <div>
-                                        <span className="font-bold text-gray-500">Category:</span>{" "}
-                                        {category || "-"}
-                                    </div>
-                                    <div>
-                                        <span className="font-bold text-gray-500">Item:</span>{" "}
-                                        {name || "-"}
-                                    </div>
-                                    {typeSel === "tree" && useCaseTip && (
-                                        <div>
-                                            <span className="font-bold text-gray-500">Use-case tips:</span>{" "}
-                                            {useCaseTip}
-                                        </div>
-                                    )}
-                                    <div>
-                                        <span className="font-bold text-gray-500">Pack/Unit:</span>{" "}
-                                        {pack || "-"} {unit || ""}
+                                        <span className="font-bold text-gray-500">Pack/Unit:</span> {pack || "-"} {unit || ""}
                                     </div>
                                     {typeSel === "lease" || typeSel === "service" ? (
                                         <div>
-                                            <span className="font-bold text-gray-500">Rate:</span>{" "}
-                                            {rate || "-"} ({billingUnit || "-"})
+                                            <span className="font-bold text-gray-500">Rate:</span> {rate || "-"} ({billingUnit || "-"})
                                         </div>
                                     ) : (
                                         <div>
                                             <span className="font-bold text-gray-500">Price:</span>{" "}
-                                            {price
-                                                ? KES(Number(price.replace(/[^\d]/g, "")) || 0)
-                                                : "-"}
+                                            {price ? KES(Number(price.replace(/[^\d]/g, ""))) : "-"}
                                         </div>
                                     )}
-                                    <div>
-                                        <span className="font-bold text-gray-500">Photos:</span>{" "}
-                                        {photos.length}/5
-                                    </div>
-                                    <div>
-                                        <span className="font-bold text-gray-500">Location:</span>{" "}
-                                        {placeText || "-"}
-                                    </div>
+                                    <div><span className="font-bold text-gray-500">Photos:</span> {photos.length}/5</div>
+                                    <div><span className="font-bold text-gray-500">Location:</span> {placeText || "-"}</div>
                                     <div>
                                         <span className="font-bold text-gray-500">Coords:</span>{" "}
-                                        {coords
-                                            ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
-                                            : "-"}
+                                        {coords ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` : "-"}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
-
                 </div>
 
                 {/* Footer nav */}
@@ -1306,9 +1056,7 @@ export default function SellModal({
                     <button
                         onClick={onBack}
                         disabled={step === 0 || saving}
-                        className={`h-11 px-4 rounded-xl border font-bold inline-flex items-center gap-2 ${step === 0
-                            ? "text-gray-400 border-gray-200"
-                            : "text-gray-800 border-gray-200 hover:bg-gray-50"
+                        className={`h-11 px-4 rounded-xl border font-bold inline-flex items-center gap-2 ${step === 0 ? "text-gray-400 border-gray-200" : "text-gray-800 border-gray-200 hover:bg-gray-50"
                             } disabled:opacity-60`}
                     >
                         <IoChevronBack />
@@ -1349,12 +1097,7 @@ export default function SellModal({
             {locModalOpen && (
                 <LocationPickerModal
                     initialText={candidateText}
-                    initialCenter={
-                        candidateCenter || {
-                            latitude: -1.286389,
-                            longitude: 36.817223,
-                        }
-                    }
+                    initialCenter={candidateCenter || { latitude: -1.286389, longitude: 36.817223 }}
                     onCancel={() => setLocModalOpen(false)}
                     onUse={(text, center) => {
                         setPlaceText(text);

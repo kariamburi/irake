@@ -576,8 +576,8 @@ function Header({
   canSeeContacts,
   partners,
   mutualPartners,
-  viewerUid,     // 👈 add this
-  showAdminBadge,    // 👈 add this
+  viewerUid,
+  showAdminBadge,
 }: {
   profile: Profile;
   isOwner: boolean;
@@ -590,8 +590,8 @@ function Header({
   canSeeContacts: boolean;
   partners: number;
   mutualPartners: number;
-  viewerUid?: string | null;  // 👈 add this
-  showAdminBadge?: boolean;   // 👈 add this
+  viewerUid?: string | null;
+  showAdminBadge?: boolean;
 }) {
   const followers = profile?.followersCount ?? 0;
   const following = profile?.followingCount ?? 0;
@@ -606,7 +606,7 @@ function Header({
     router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=${tabKey}`);
   };
 
-  // 👇 helper for header tabs (deeds, listings, etc.)
+  // tabs
   function TabBtn({
     k,
     label,
@@ -620,26 +620,25 @@ function Header({
     return (
       <button
         onClick={() => onTabChange(k)}
-        className={`flex items-center gap-1.5 px-1 pb-2 border-b-2 transition ${active
-          ? "border-black text-black"
-          : "border-transparent text-gray-500 hover:text-gray-700"
-          }`}
+        className={cn(
+          "flex items-center gap-1.5 px-1 pb-2 border-b-2 text-sm font-semibold transition",
+          active
+            ? "border-slate-900 text-slate-900"
+            : "border-transparent text-slate-500 hover:text-slate-800"
+        )}
       >
-        <span className={active ? "text-black" : "text-gray-500"}>{icon}</span>
+        {icon && <span className={active ? "text-slate-900" : "text-slate-500"}>{icon}</span>}
         <span>{label}</span>
       </button>
     );
   }
 
-  // 👇 message click handler – create/get thread + go to /messages/[threadId]
+  // message click
   const handleMessageClick = () => {
-    // 1. Guest → require login
     if (!hasUser || !viewerUid) {
       onRequireAuth?.();
       return;
     }
-
-    // 2. Don’t allow messaging self
     if (viewerUid === profile.id) return;
 
     const peerId = profile.id;
@@ -647,9 +646,7 @@ function Header({
     const peerPhotoURL = profile.photoURL || "";
     const peerHandle = profile.handle || "";
 
-    // Deterministic threadId so same pair reuses same thread
     const threadId = makeThreadId(viewerUid, peerId);
-
     const qs = new URLSearchParams();
     qs.set("peerId", peerId);
     if (peerName) qs.set("peerName", peerName);
@@ -659,43 +656,49 @@ function Header({
     router.push(`/messages/${encodeURIComponent(threadId)}?${qs.toString()}`);
   };
 
-
   return (
     <header className="px-4 md:px-8 pt-6 pb-4">
-      <div className="flex justify-center items-center gap-4 md:gap-6">
-        <div className="h-24 w-24 md:h-28 md:w-28 rounded-full overflow-hidden bg-gray-200 shrink-0 relative">
-          <SmartAvatar
-            src={profile.photoURL || "/avatar-blank.png"}
-            alt={profile.handle || "avatar"}
-            size={112}
-            rounded="full"
-          />
+      {/* TOP: avatar + name + actions */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+        {/* avatar */}
+        <div className="shrink-0">
+          <div className="relative h-24 w-24 md:h-28 md:w-28 rounded-full overflow-hidden bg-slate-200 ring-2 ring-slate-100">
+            <SmartAvatar
+              src={profile.photoURL || "/avatar-blank.png"}
+              alt={profile.handle || "avatar"}
+              size={112}
+              rounded="full"
+            />
+          </div>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center justify-center gap-2">
+        {/* right side */}
+        <div className="min-w-0 flex-1 space-y-2">
+          {/* first row: name + badges + actions */}
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            {/* name + admin badge */}
+            <div className="flex flex-wrap items-center gap-2">
               <h1
-                className="text-xl md:text-2xl font-extrabold truncate"
+                className="truncate text-xl md:text-2xl font-black"
                 style={{ color: EKARI.text }}
               >
-                {profile.handle ? `${profile.handle}` : "Profile"}
+                {profile.handle ? profile.handle : "Profile"}
               </h1>
 
-              {/* 🔰 Public admin mark for any admin profile */}
+              {/* admin badge */}
               {profile.isAdmin && (
                 showAdminBadge ? (
-                  // Owner + admin → clickable chip to admin dashboard
+                  // owner viewing own admin profile → dark "Admin" chip linking to dashboard
                   <Link
                     href="/admin/overview"
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-slate-900 text-white hover:bg-slate-800"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-extrabold text-white shadow-sm hover:bg-slate-800"
                   >
                     <IoShieldCheckmarkOutline size={12} />
                     <span>Admin</span>
                   </Link>
                 ) : (
-                  // Visitors → read-only Ekari Admin chip
-                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  // public admin chip
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-extrabold text-emerald-800">
                     <IoShieldCheckmarkOutline size={12} />
                     <span>ekari Admin</span>
                   </span>
@@ -703,24 +706,34 @@ function Header({
               )}
             </div>
 
+            {/* actions: owner vs visitor */}
             {isOwner ? (
-              // 👤 OWNER → Edit profile
-              <Link
-                href={`/${profile.handle}/edit`}
-                className="flex gap-2 items-center justify-center rounded-md border px-3 py-1.5 text-sm font-bold hover:bg-black/5"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <IoPencilOutline />
-                Edit profile
-              </Link>
-            ) : (
-              // 👥 VISITOR (or guest) → Follow + Message
               <div className="flex flex-wrap items-center gap-2">
-                {/* Follow button */}
+                <Link
+                  href={`/${handleSlug}/edit`}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold shadow-sm-sm hover:bg-slate-50"
+                  style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                >
+                  <IoPencilOutline size={15} />
+                  <span>Edit profile</span>
+                </Link>
+
+                <Link
+                  href={`/${handleSlug}/earnings`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-transparent px-3.5 py-1.5 text-xs md:text-sm font-semibold shadow-sm hover:shadow-md"
+                  style={{ backgroundColor: EKARI.forest, color: EKARI.bg }}
+                >
+                  💰
+                  <span>Earnings</span>
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                {/* follow */}
                 {!hasUser ? (
                   <button
                     onClick={() => onRequireAuth?.()}
-                    className="rounded-md px-3 py-1.5 text-sm font-bold text-white"
+                    className="inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs md:text-sm font-semibold text-white shadow-sm hover:shadow-md"
                     style={{ backgroundColor: EKARI.primary }}
                   >
                     Follow
@@ -729,30 +742,22 @@ function Header({
                   <button
                     onClick={followState.toggle}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-sm font-bold",
+                      "inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs md:text-sm font-semibold transition",
                       followState.isFollowing
-                        ? "border hover:bg-black/5"
-                        : "text-white"
+                        ? "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                        : "bg-emerald-700 text-white shadow-sm hover:shadow-md"
                     )}
-                    style={
-                      followState.isFollowing
-                        ? { borderColor: EKARI.hair }
-                        : { backgroundColor: EKARI.primary }
-                    }
                   >
                     {followState.isFollowing ? "Following" : "Follow"}
                   </button>
                 )}
 
-                {/* ✉️ Message button – visible for everyone except owner
-                    - Guest click → login
-                    - Logged-in click → /messages?to=profile.id
-                */}
+                {/* message */}
                 <button
                   type="button"
                   onClick={handleMessageClick}
-                  className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-bold hover:bg-black/5"
-                  style={{ backgroundColor: EKARI.forest, color: EKARI.bg }}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold hover:bg-slate-50"
+                  style={{ borderColor: EKARI.hair, color: EKARI.text }}
                 >
                   <IoChatbubblesOutline size={16} />
                   <span>Message</span>
@@ -761,8 +766,8 @@ function Header({
             )}
           </div>
 
-          {/* 🔹 CLICKABLE STATS → /[handle]/connections */}
-          <div className="mt-2 flex flex-wrap items-center gap-5 text-sm">
+          {/* stats row */}
+          <div className="mt-1 flex flex-wrap items-center gap-5 text-[13px]">
             <button
               type="button"
               onClick={() => openConnections("following")}
@@ -770,7 +775,6 @@ function Header({
             >
               <Stat label="Following" value={nfmt(following)} />
             </button>
-
             <button
               type="button"
               onClick={() => openConnections("followers")}
@@ -778,7 +782,6 @@ function Header({
             >
               <Stat label="Followers" value={nfmt(followers)} />
             </button>
-
             <button
               type="button"
               onClick={() => openConnections("partners")}
@@ -786,7 +789,6 @@ function Header({
             >
               <Stat label="Partners" value={nfmt(partners || 0)} />
             </button>
-
             <button
               type="button"
               onClick={() => openConnections("mutual")}
@@ -796,27 +798,27 @@ function Header({
             </button>
           </div>
 
+          {/* name + bio */}
           {profile.name && (
-            <div className="mt-2 text-sm font-semibold" style={{ color: EKARI.text }}>
+            <div className="mt-1 text-sm font-semibold" style={{ color: EKARI.text }}>
               {profile.name}
             </div>
           )}
           {profile.bio && (
-            <p className="mt-1 text-sm leading-5" style={{ color: EKARI.text }}>
+            <p className="mt-0.5 text-sm leading-5 text-slate-800">
               {profile.bio}
             </p>
           )}
 
-          {/* Contacts (owner or mutual followers only) */}
+          {/* contacts */}
           {canSeeContacts && (
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
               {profile.phone && (
                 <a
                   href={`tel:${profile.phone.replace(/\s+/g, "")}`}
-                  className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-bold hover:bg-black/5"
+                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold hover:bg-slate-50"
                   style={{ borderColor: EKARI.hair, color: EKARI.text }}
                 >
-                  {/* phone icon */}
                   <svg
                     width="16"
                     height="16"
@@ -838,13 +840,9 @@ function Header({
                   href={profile.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-bold hover:bg-black/5"
-                  style={{
-                    borderColor: EKARI.hair,
-                    color: EKARI.primary,
-                  }}
+                  className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs md:text-sm font-semibold hover:bg-slate-50"
+                  style={{ borderColor: EKARI.hair, color: EKARI.primary }}
                 >
-                  {/* website icon */}
                   <svg
                     width="16"
                     height="16"
@@ -865,8 +863,9 @@ function Header({
         </div>
       </div>
 
+      {/* tabs */}
       <div className="mt-6 border-t" style={{ borderColor: EKARI.hair }}>
-        <nav className="flex flex-wrap gap-6 text-sm font-bold px-1 pt-3">
+        <nav className="flex flex-wrap gap-6 px-1 pt-3 text-sm font-bold">
           <TabBtn k="deeds" label="Deeds" icon={<IoFilmOutline size={16} />} />
           <TabBtn k="listings" label="Listings" icon={<IoListOutline size={16} />} />
           <TabBtn k="events" label="Events" icon={<IoCalendarOutline size={16} />} />
@@ -880,6 +879,7 @@ function Header({
     </header>
   );
 }
+
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
