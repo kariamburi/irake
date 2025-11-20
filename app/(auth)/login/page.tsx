@@ -33,11 +33,20 @@ export default function LoginPage() {
     const searchParams = useSearchParams(); // 👈 read query params
     const { user, loading: authLoading } = useAuth();
 
-    // Read ?next=/some/path from URL
-    const nextParam = searchParams?.get("next") || null;
-    // Basic safety: only allow internal paths starting with "/"
-    const safeNext =
-        nextParam && nextParam.startsWith("/") ? nextParam : null;
+    const [safeNext, setSafeNext] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        const sp = new URLSearchParams(window.location.search);
+        const nextParam = sp.get("next");
+
+        if (nextParam && nextParam.startsWith("/")) {
+            setSafeNext(nextParam);
+        } else {
+            setSafeNext(null);
+        }
+    }, []);
 
     // Load Firebase auth safely (client-only)
     const [authBundle, setAuthBundle] = useState<{ auth: any; googleProvider: any } | null>(null);
