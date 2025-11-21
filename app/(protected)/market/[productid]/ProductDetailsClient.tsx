@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -42,10 +47,12 @@ import {
     IoRemove,
     IoChevronBack,
     IoChevronForward,
+    IoLocationOutline, // 👈 for location row
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
-// ===== Types =====
+/* ================== Types ================== */
+
 type Review = {
     id: string;
     userId: string;
@@ -60,6 +67,40 @@ type ReviewerLite = {
     id: string;
     name: string;
     photoURL: string | null;
+};
+
+type ProductPlace = {
+    text?: string;
+    county?: string;
+    town?: string;
+};
+
+type ProductLocation = {
+    latitude: number;
+    longitude: number;
+};
+
+type ProductDoc = {
+    id: string;
+    name: string;
+    price: number;
+    category?: string;
+    imageUrl?: string;
+    imageUrls?: string[];
+    sellerId: string;
+    createdAt?: Timestamp | any;
+    type?: string;
+    unit?: string;
+    typicalPackSize?: number | string;
+    rate?: string;
+    billingUnit?: string;
+    nameLower?: string;
+    categoryLower?: string;
+    status?: "active" | "sold" | "reserved" | "hidden";
+    sold?: boolean;
+    place?: ProductPlace;
+    location?: ProductLocation;
+    coords?: ProductLocation; // in case some docs used coords instead of location
 };
 
 // ===== Theme =====
@@ -81,7 +122,121 @@ const reviewDocRef = (dbi: any, listingId: string, reviewUserId: string) =>
 const voteRef = (dbi: any, listingId: string, reviewUserId: string, voterId: string) =>
     doc(dbi, "reviewVotes", `${listingId}_${reviewUserId}_${voterId}`);
 
-// ===== Component =====
+/* ------------- Google Maps helpers (same style as FilterModal / MapPicker) ------------- */
+
+const NAIROBI = { latitude: -1.286389, longitude: 36.817223 };
+
+function loadGoogleMaps(apiKey?: string): Promise<typeof google | null> {
+    if (typeof window === "undefined") return Promise.resolve(null);
+    if ((window as any).google?.maps) return Promise.resolve((window as any).google);
+
+    return new Promise((resolve, reject) => {
+        if (!apiKey) {
+            console.warn("Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY — Map will not render.");
+            resolve(null);
+            return;
+        }
+        const exist = document.getElementById("gmaps-sdk");
+        if (exist) {
+            const check = () => {
+                if ((window as any).google?.maps) resolve((window as any).google);
+                else setTimeout(check, 100);
+            };
+            check();
+            return;
+        }
+        const script = document.createElement("script");
+        script.id = "gmaps-sdk";
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&v=weekly`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve((window as any).google || null);
+        script.onerror = (e) => reject(e);
+        document.head.appendChild(script);
+    });
+}
+
+/**
+ * Read-only map preview (marker only), styled similarly to MapPicker.
+ */
+function MapPreview({
+    center,
+    height = 220,
+}: {
+    center: { latitude: number; longitude: number } | null;
+    height?: number;
+}) {
+    const mapDivRef = useRef<HTMLDivElement | null>(null);
+    const mapRef = useRef<google.maps.Map | null>(null);
+    const markerRef = useRef<google.maps.Marker | null>(null);
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    // Init map
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            const g = await loadGoogleMaps(apiKey);
+            if (!alive || !g || !mapDivRef.current) return;
+
+            const fallback = NAIROBI;
+            const init = center ?? fallback;
+
+            if (!mapRef.current) {
+                mapRef.current = new g.maps.Map(mapDivRef.current, {
+                    center: { lat: init.latitude, lng: init.longitude },
+                    zoom: center ? 13 : 11,
+                    disableDefaultUI: true,
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    fullscreenControl: false,
+                    zoomControl: true,
+                });
+            } else {
+                mapRef.current.setCenter(
+                    new g.maps.LatLng(init.latitude, init.longitude)
+                );
+            }
+        })();
+
+        return () => {
+            alive = false;
+        };
+    }, [apiKey, center?.latitude, center?.longitude]);
+
+    // Add / update marker
+    useEffect(() => {
+        const g = (window as any).google as typeof google | undefined;
+        if (!g || !mapRef.current || !center) return;
+
+        const latlng = new g.maps.LatLng(center.latitude, center.longitude);
+
+        if (!markerRef.current) {
+            markerRef.current = new g.maps.Marker({
+                map: mapRef.current,
+                position: latlng,
+                draggable: false,
+            });
+        } else {
+            markerRef.current.setPosition(latlng);
+        }
+    }, [center?.latitude, center?.longitude]);
+
+    return (
+        <div
+            ref={mapDivRef}
+            style={{
+                height,
+                borderRadius: 12,
+                marginTop: 8,
+                overflow: "hidden",
+                border: `1px solid ${EKARI.hair}`,
+            }}
+        />
+    );
+}
+
+/* ================== Component ================== */
+
 export default function ProductDetailsClient({
     params,
 }: { params: { productid: string } }) {
@@ -92,7 +247,7 @@ export default function ProductDetailsClient({
     const dbi = getFirestore();
 
     const [loading, setLoading] = useState(true);
-    const [product, setProduct] = useState<any>(null);
+    const [product, setProduct] = useState<ProductDoc | null>(null);
     const [seller, setSeller] = useState<any>(null);
 
     // gallery (page)
@@ -134,13 +289,17 @@ export default function ProductDetailsClient({
                     router.push("/market");
                     return;
                 }
-                const p = { id: pSnap.id, ...(pSnap.data() as any) };
+                const p = { id: pSnap.id, ...(pSnap.data() as any) } as ProductDoc;
                 setProduct(p);
 
                 if (p.sellerId) {
                     const uRef = doc(dbi, "users", p.sellerId);
                     const uSnap = await getDoc(uRef);
-                    setSeller(uSnap.exists() ? { id: uSnap.id, ...(uSnap.data() as any) } : { id: p.sellerId });
+                    setSeller(
+                        uSnap.exists()
+                            ? { id: uSnap.id, ...(uSnap.data() as any) }
+                            : { id: p.sellerId }
+                    );
                 }
             } finally {
                 setLoading(false);
@@ -180,7 +339,9 @@ export default function ProductDetailsClient({
                             const us = await getDoc(doc(dbi, "users", uid));
                             const ud = us.data() || {};
                             const name =
-                                (ud.firstName ? `${ud.firstName} ${ud.surname || ""}`.trim() : null) ||
+                                (ud.firstName
+                                    ? `${ud.firstName} ${ud.surname || ""}`.trim()
+                                    : null) ||
                                 ud.displayName ||
                                 ud.handle ||
                                 "User";
@@ -222,7 +383,11 @@ export default function ProductDetailsClient({
     // ===== Gallery helpers (page) =====
     const images = useMemo(() => {
         if (!product) return [];
-        const arr = product.imageUrls?.length ? product.imageUrls : product.imageUrl ? [product.imageUrl] : [];
+        const arr = product.imageUrls?.length
+            ? product.imageUrls
+            : product.imageUrl
+                ? [product.imageUrl]
+                : [];
         return (arr || []).filter(Boolean);
     }, [product]);
 
@@ -258,7 +423,9 @@ export default function ProductDetailsClient({
         if (!touchStartX.current || !touchEndX.current) return;
         const diff = touchStartX.current - touchEndX.current;
         if (Math.abs(diff) > swipeThreshold) {
-            diff > 0 ? goTo(active + 1 < images.length ? active + 1 : 0) : goTo(active > 0 ? active - 1 : images.length - 1);
+            diff > 0
+                ? goTo(active + 1 < images.length ? active + 1 : 0)
+                : goTo(active > 0 ? active - 1 : images.length - 1);
         }
         touchStartX.current = touchEndX.current = null;
     };
@@ -431,7 +598,6 @@ export default function ProductDetailsClient({
             }
         } catch (e: any) {
             if (e?.code === "permission-denied") {
-                // Silent or friendly toast—no scary error
                 console.warn("Voting not allowed (likely self-vote).");
                 return;
             }
@@ -439,7 +605,7 @@ export default function ProductDetailsClient({
         }
     };
 
-    // ===== Render =====
+    // ===== Loading / missing =====
     if (loading)
         return (
             <div className="flex h-screen items-center justify-center text-gray-500">
@@ -462,6 +628,37 @@ export default function ProductDetailsClient({
             ? (product.createdAt as Timestamp).toDate()
             : null;
 
+    // ===== Location label + center from product (place + location) =====
+    let locationLabel: string | null = null;
+    let center: { latitude: number; longitude: number } | null = null;
+
+    if (product) {
+        const place = (product.place || {}) as ProductPlace;
+        const town = place.town || "";
+        const county = place.county || "";
+        const text = place.text || "";
+
+        const bits = [town, county].filter(Boolean);
+        locationLabel = bits.length ? bits.join(", ") : text || null;
+
+        const rawLocation = (product.location || product.coords) as
+            | ProductLocation
+            | null
+            | undefined;
+
+        if (
+            rawLocation &&
+            typeof rawLocation.latitude === "number" &&
+            typeof rawLocation.longitude === "number"
+        ) {
+            center = {
+                latitude: rawLocation.latitude,
+                longitude: rawLocation.longitude,
+            };
+        }
+    }
+
+    // ===== Render =====
     return (
         <main className="min-h-screen w-full bg-[#F7F9F8] pb-24">
             {/* Header (sticky) */}
@@ -601,7 +798,10 @@ export default function ProductDetailsClient({
                         className="text-3xl font-black"
                         style={{ color: EKARI.forest }}
                     >
-                        {KES(product.price)}
+                        {product.type === "lease" || product.type === "service"
+                            ? `${product.rate ? KES(Number(product.rate)) : "-"}${product.billingUnit ? ` / ${product.billingUnit}` : ""
+                            }`
+                            : KES(product.price || 0)}
                     </span>
                     <span
                         className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-full ${isSold
@@ -626,6 +826,43 @@ export default function ProductDetailsClient({
                     <p className="text-[color:var(--dim,#6B7280)] text-sm mt-1">
                         Posted {created.toLocaleDateString()}
                     </p>
+                )}
+
+                {/* ===== Location & Map (read-only) ===== */}
+                {(locationLabel || center) && (
+                    <div className="mt-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F3F4F6] border border-[color:var(--hair,#E5E7EB)]">
+                                <IoLocationOutline
+                                    size={18}
+                                    className="text-[color:var(--dim,#6B7280)]"
+                                />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--dim,#6B7280)]">
+                                    Location
+                                </p>
+                                {locationLabel && (
+                                    <p className="text-sm font-semibold text-[color:var(--text,#0F172A)] truncate">
+                                        {locationLabel}
+                                    </p>
+                                )}
+                                {center && (
+                                    <a
+                                        href={`https://www.google.com/maps?q=${center.latitude},${center.longitude}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center text-[11px] font-semibold text-[#2563EB] hover:underline mt-0.5"
+                                    >
+                                        View on Google Maps
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+
+                        {center && <MapPreview center={center} />}
+                    </div>
                 )}
             </div>
 
@@ -785,16 +1022,22 @@ export default function ProductDetailsClient({
                                                             } hover:opacity-90`}
                                                         title="Mark as helpful"
                                                     >
-                                                        {myHelpful[r.userId] ? <IoThumbsUp size={14} /> : <IoThumbsUpOutline size={14} />}
+                                                        {myHelpful[r.userId] ? (
+                                                            <IoThumbsUp size={14} />
+                                                        ) : (
+                                                            <IoThumbsUpOutline size={14} />
+                                                        )}
                                                         Helpful • {r.helpfulCount ?? 0}
                                                     </button>
                                                 )}
                                                 {mine && (
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-extrabold opacity-60 cursor-not-allowed bg-[#F6F7F7] border-[color:var(--hair,#E5E7EB)] text-[color:var(--dim,#6B7280)]" title="You can't vote your own review">
+                                                    <span
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-extrabold opacity-60 cursor-not-allowed bg-[#F6F7F7] border-[color:var(--hair,#E5E7EB)] text-[color:var(--dim,#6B7280)]"
+                                                        title="You can't vote your own review"
+                                                    >
                                                         <IoThumbsUpOutline size={14} /> Helpful
                                                     </span>
                                                 )}
-
                                             </div>
                                         </div>
                                     </div>

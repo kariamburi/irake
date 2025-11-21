@@ -82,11 +82,16 @@ export async function POST(req: NextRequest) {
             // In both modes we expect media[0].url to be the original gs:// to purge:
             // - video_mix: gs://.../raw.mp4
             // - photo_to_video: gs://.../image.jpg
-            const originalUrl: string | undefined = media0?.url;
 
             // 4) Try to delete the original object in Storage
-            const purged = await deleteIfGsUrl(originalUrl);
+            const shouldDeleteOriginal = inferredMode === "video_mix"; // only video_mix
+            let purged = false;
+            let originalUrl: string | undefined = undefined;
 
+            if (shouldDeleteOriginal) {
+                originalUrl = media0?.url;
+                purged = await deleteIfGsUrl(originalUrl);
+            }
             // 5) Update deed: mark ready, set playback id, record purge outcome
             //    We do NOT try to surgically remove media[0].url (array element paths are brittle).
             //    Instead, record audit fields so clients can ignore the original, and flip mediaType to "video" for photo_to_video.
