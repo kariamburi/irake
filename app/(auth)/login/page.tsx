@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation"; // 👈 added useSearchParams
+import { useRouter } from "next/navigation"; // 👈 added useSearchParams
 import { motion } from "framer-motion";
 import {
     IoChevronDown, IoChevronUp, IoMailOutline, IoLockClosedOutline,
@@ -30,7 +30,6 @@ const EKARI = {
 
 export default function LoginPage() {
     const router = useRouter();
-    const searchParams = useSearchParams(); // 👈 read query params
     const { user, loading: authLoading } = useAuth();
 
     const [safeNext, setSafeNext] = useState<string | null>(null);
