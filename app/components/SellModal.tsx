@@ -845,10 +845,14 @@ export default function SellModal({
                 base.rate = rate.trim();
                 base.billingUnit = billingUnit.trim();
             }
-            if (typeSel === "tree" && useCaseTip) {
-                base.useCase = useCaseTip; // optional: persist tree use-case
-            }
 
+            if (typeSel === "tree") {
+                const uc = useCaseTip.trim();
+                if (uc) {
+                    base.useCase = uc;
+                    base.useCaseLower = uc.toLowerCase();
+                }
+            }
             await setDoc(prodRef, base);
             onCreated({ id: docId, ...base } as Product);
             setSaving(false);

@@ -47,7 +47,9 @@ import {
     IoRemove,
     IoChevronBack,
     IoChevronForward,
-    IoLocationOutline, // 👈 for location row
+    IoLocationOutline,
+    IoCubeOutline,
+    IoLeafOutline, // 👈 for location row
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
@@ -101,6 +103,8 @@ type ProductDoc = {
     place?: ProductPlace;
     location?: ProductLocation;
     coords?: ProductLocation; // in case some docs used coords instead of location
+    useCase?: string;       // 👈 NEW
+    useCaseLower?: string;  // 👈 optional helper
 };
 
 // ===== Theme =====
@@ -623,6 +627,7 @@ export default function ProductDetailsClient({
     const isOwner = product.sellerId === auth.currentUser?.uid;
     const isSold = product.status === "sold" || product.sold;
     const isReserved = product.status === "reserved";
+    const isTree = product.type === "tree";
     const created =
         product.createdAt?.toDate?.() instanceof Date
             ? (product.createdAt as Timestamp).toDate()
@@ -785,10 +790,32 @@ export default function ProductDetailsClient({
                 </p>
 
                 <div className="mt-2 flex flex-wrap gap-2">
+                    {/* Category pill */}
                     {product.category && (
                         <span className="inline-flex items-center gap-1 border border-[color:var(--hair,#E5E7EB)] bg-[#FAFAFA] text-xs font-semibold rounded-full px-3 py-1">
                             <IoPricetagOutline size={14} />
                             {product.category}
+                        </span>
+                    )}
+
+                    {/* Unit pill (pack + unit) */}
+                    {product.unit && (
+                        <span className="inline-flex items-center gap-1 border border-[color:var(--hair,#E5E7EB)] bg-[#F9FAFB] text-xs font-semibold rounded-full px-3 py-1">
+                            <IoCubeOutline size={14} className="text-[color:var(--dim,#6B7280)]" />
+                            <span>
+                                {product.typicalPackSize ? `${product.typicalPackSize} ` : ""}
+                                {product.unit}
+                            </span>
+                        </span>
+                    )}
+
+                    {/* 🌳 Tree use-case pill */}
+                    {isTree && product.useCase && (
+                        <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 text-xs font-semibold rounded-full px-3 py-1">
+                            <IoLeafOutline size={14} className="text-emerald-600" />
+                            <span className="text-emerald-700 truncate max-w-[180px]">
+                                {product.useCase}
+                            </span>
                         </span>
                     )}
                 </div>

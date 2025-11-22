@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -8,11 +14,6 @@ import {
   doc,
   getDoc,
   updateDoc,
-  query,
-  collection,
-  where,
-  limit,
-  getDocs,
   serverTimestamp,
 } from "firebase/firestore";
 import {
@@ -28,11 +29,9 @@ import {
   linkWithPhoneNumber,
   RecaptchaVerifier,
 } from "firebase/auth";
-import {
-  IoArrowBack,
-  IoPencil,
-  IoLockClosed,
-} from "react-icons/io5";
+import { IoArrowBack, IoPencil, IoLockClosed } from "react-icons/io5";
+import Cropper from "react-easy-crop";
+
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
@@ -49,43 +48,196 @@ const EKARI = {
   subtext: "#5C6B66",
 };
 
-/* ====== Catalogs (aligned with OnboardingWizard) ====== */
 const INTERESTS = [
-  "Maize", "Tomato", "Potato", "Coffee", "Vegetables", "Fruits", "Dairy", "Beef", "Poultry", "Fish", "Honey", "Forestry", "Flowers", "Cereals",
-  "Seeds", "Fertilizers", "Agrochemicals", "Feeds", "Tools", "Machinery", "Irrigation", "Greenhouses",
-  "Processing", "Value Addition", "Packaging", "Cold Chain", "Quality Control",
-  "Market Linkages", "Export", "Organic", "Traceability", "Compliance",
-  "Training", "Extension", "Soil Testing", "Vet Services", "Breeding / AI",
-  "Vaccines & Drugs", "Agronomist", "AgriTech", "Farm Apps",
-  "Loans", "Insurance", "Microfinance", "Sacco", "Consultancy", "Leasing",
-  "Cooperatives", "Transport", "Logistics",
-  "Climate Smart", "Resilience", "Water Management",
-  "Pests", "Diseases", "Contamination", "Fall Armyworm", "Stem Borer", "Tomato Leafminer (Tuta absoluta)",
-  "Maize Lethal Necrosis", "Late Blight", "Bacterial Wilt", "Coffee Rust", "Foot and Mouth", "Newcastle Disease",
-  "East Coast Fever", "Mastitis", "Aflatoxin", "Mycotoxins",
+  "Maize",
+  "Tomato",
+  "Potato",
+  "Coffee",
+  "Vegetables",
+  "Fruits",
+  "Dairy",
+  "Beef",
+  "Poultry",
+  "Fish",
+  "Honey",
+  "Forestry",
+  "Flowers",
+  "Cereals",
+  "Seeds",
+  "Fertilizers",
+  "Agrochemicals",
+  "Feeds",
+  "Tools",
+  "Machinery",
+  "Irrigation",
+  "Greenhouses",
+  "Processing",
+  "Value Addition",
+  "Packaging",
+  "Cold Chain",
+  "Quality Control",
+  "Market Linkages",
+  "Export",
+  "Organic",
+  "Traceability",
+  "Compliance",
+  "Training",
+  "Extension",
+  "Soil Testing",
+  "Vet Services",
+  "Breeding / AI",
+  "Vaccines & Drugs",
+  "Agronomist",
+  "AgriTech",
+  "Farm Apps",
+  "Loans",
+  "Insurance",
+  "Microfinance",
+  "Sacco",
+  "Consultancy",
+  "Leasing",
+  "Cooperatives",
+  "Transport",
+  "Logistics",
+  "Climate Smart",
+  "Resilience",
+  "Water Management",
+  "Pests",
+  "Diseases",
+  "Contamination",
+  "Fall Armyworm",
+  "Stem Borer",
+  "Tomato Leafminer (Tuta absoluta)",
+  "Maize Lethal Necrosis",
+  "Late Blight",
+  "Bacterial Wilt",
+  "Coffee Rust",
+  "Foot and Mouth",
+  "Newcastle Disease",
+  "East Coast Fever",
+  "Mastitis",
+  "Aflatoxin",
+  "Mycotoxins",
 ];
 
 const ROLES = [
-  "Farmer", "Beekeeper", "Horticulturalist", "Livestock Keeper", "Aquaculture", "Forestry",
-  "Input Supplier", "Equipment / Machinery Dealer", "Irrigation / Greenhouse Vendor",
-  "Veterinarian", "Para-vet", "Breeder / AI", "Agronomist", "Animal Health Distributor",
-  "Processor", "Value Adder", "Packer / Packaging", "Cold Storage / Cold Chain",
-  "Aggregator", "Cooperative", "Trader", "Exporter", "Retailer",
-  "Online Distributor", "Transporter / Logistics",
-  "Bank", "Microfinance", "Sacco", "Insurance", "Consultant", "Leasing",
-  "Researcher", "Trainer / Extension", "ICT / AgriTech Provider",
-  "Government Agency", "Regulator", "Certifier", "NGO / Development Partner",
-  "Consumer / Buyer (Household)", "Consumer / Buyer (Institution)", "Export Buyer",
+  "Farmer",
+  "Beekeeper",
+  "Horticulturalist",
+  "Livestock Keeper",
+  "Aquaculture",
+  "Forestry",
+  "Input Supplier",
+  "Equipment / Machinery Dealer",
+  "Irrigation / Greenhouse Vendor",
+  "Veterinarian",
+  "Para-vet",
+  "Breeder / AI",
+  "Agronomist",
+  "Animal Health Distributor",
+  "Processor",
+  "Value Adder",
+  "Packer / Packaging",
+  "Cold Storage / Cold Chain",
+  "Aggregator",
+  "Cooperative",
+  "Trader",
+  "Exporter",
+  "Retailer",
+  "Online Distributor",
+  "Transporter / Logistics",
+  "Bank",
+  "Microfinance",
+  "Sacco",
+  "Insurance",
+  "Consultant",
+  "Leasing",
+  "Researcher",
+  "Trainer / Extension",
+  "ICT / AgriTech Provider",
+  "Government Agency",
+  "Regulator",
+  "Certifier",
+  "NGO / Development Partner",
+  "Consumer / Buyer (Household)",
+  "Consumer / Buyer (Institution)",
+  "Export Buyer",
 ];
 
 /* ============== Helpers ============== */
 const validateUrl = (v: string) =>
-  !v || /^https?:\/\/[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:\/?#[\]@!$&'()*+,;=.]+$/.test(v.trim());
+  !v ||
+  /^https?:\/\/[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:\/?#[\]@!$&'()*+,;=.]+$/.test(
+    v.trim()
+  );
+
+/** Max avatar size (square) */
+const MAX_AVATAR_SIZE = 512;
+
+/** helper: Firebase URL detector */
+const isFirebaseUrl = (u?: string | null) =>
+  !!u &&
+  (u.startsWith("gs://") || u.includes("firebasestorage.googleapis.com"));
+
+/** Canvas crop + downscale to max 512x512 */
+async function getCroppedImageBlob(
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number }
+): Promise<Blob> {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    // 👇 use the DOM Image constructor, not the imported Next.js <Image />
+    const img = new window.Image();
+    // Optional: if you ever crop external URLs, this helps avoid CORS issues
+    // img.crossOrigin = "anonymous";
+
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
+    img.src = imageSrc;
+  });
+
+  const cropW = pixelCrop.width;
+  const cropH = pixelCrop.height;
+
+  const maxDim = Math.max(cropW, cropH);
+  const scale = maxDim > MAX_AVATAR_SIZE ? MAX_AVATAR_SIZE / maxDim : 1;
+
+  const targetW = Math.round(cropW * scale);
+  const targetH = Math.round(cropH * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetW;
+  canvas.height = targetH;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not get 2D context");
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    targetW,
+    targetH
+  );
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Canvas is empty"));
+      },
+      "image/jpeg",
+      0.9
+    );
+  });
+}
+
 
 /* =========================================================
-   PAGE (/[handle]/edit) — Professional UI with per-field sheets
-   - Handle is READ-ONLY now
-   - Each field shows an Edit button that opens a bottom sheet
+   PAGE (/[handle]/edit)
    ========================================================= */
 export default function EditProfilePage() {
   const params = useParams<{ handle: string }>();
@@ -115,20 +267,48 @@ export default function EditProfilePage() {
   const [areaOfInterest, setAreaOfInterest] = useState<string[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
 
-  type SheetKind = null | "name" | "bio" | "website" | "phone" | "interests" | "roles";
+  type SheetKind =
+    | null
+    | "name"
+    | "bio"
+    | "website"
+    | "phone"
+    | "interests"
+    | "roles";
   const [sheet, setSheet] = useState<SheetKind>(null);
 
   // phone link state
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [smsCode, setSmsCode] = useState("");
-  const confirmationResultRef = useRef<ReturnType<typeof linkWithPhoneNumber> extends Promise<infer T> ? T : any | null>(null);
+  const confirmationResultRef =
+    useRef<
+      ReturnType<typeof linkWithPhoneNumber> extends Promise<infer T>
+      ? T
+      : any | null
+    >(null);
   const recaptchaRef = useRef<any>(null);
+
+  // ---------- Avatar crop state ----------
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null); // original object URL
+  const [avatarCropOpen, setAvatarCropOpen] = useState(false);
+
+  const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any | null>(null);
+
+  const [avatarPreviewCropped, setAvatarPreviewCropped] = useState<
+    string | null
+  >(null); // circle preview URL
 
   // ---------- Load current user + guard by route handle ----------
   useEffect(() => {
     const off = onAuthStateChanged(auth, async (u) => {
-      if (!u) { setLoading(false); return; }
+      if (!u) {
+        setLoading(false);
+        return;
+      }
       setUid(u.uid);
       try {
         const snap = await getDoc(doc(db, "users", u.uid));
@@ -140,14 +320,21 @@ export default function EditProfilePage() {
           setBio(d.bio || "");
           setPhotoURL(d.photoURL || null);
           setInitialPhotoURL(d.photoURL || null);
-          setAreaOfInterest(Array.isArray(d.areaOfInterest) ? d.areaOfInterest : []);
+          setAreaOfInterest(
+            Array.isArray(d.areaOfInterest) ? d.areaOfInterest : []
+          );
           setRoles(Array.isArray(d.roles) ? d.roles : []);
           setWebsite(d.website ?? null);
           setPhone(d.phone ?? u.phoneNumber ?? null);
           setPhoneVerified(!!d.phoneVerified || !!u.phoneNumber);
 
-          const routeH = (params?.handle || "").toString().replace(/^@/, "").toLowerCase();
-          const myH = (d.handleLower || (d.handle || "").replace(/^@/, "").toLowerCase());
+          const routeH = (params?.handle || "")
+            .toString()
+            .replace(/^@/, "")
+            .toLowerCase();
+          const myH = (
+            d.handleLower || (d.handle || "").replace(/^@/, "").toLowerCase()
+          );
           if (routeH && myH && routeH !== myH) {
             router.replace(`/${myH}/edit`);
           }
@@ -163,33 +350,30 @@ export default function EditProfilePage() {
   const onPickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uid) return;
-    setSaving(true);
-    setErrorMsg("");
-    try {
-      const rf = sRef(storage, `avatars/${uid}/${Date.now()}-${file.name}`);
-      await uploadBytes(rf, file);
-      const url = await getDownloadURL(rf);
-      setPhotoURL(url);
-      if (initialPhotoURL && initialPhotoURL !== url && isFirebaseUrl(initialPhotoURL)) {
-        try { await deleteObject(sRef(storage, initialPhotoURL)); } catch { }
-      }
-      setInitialPhotoURL(url);
-    } catch (err: any) {
-      setErrorMsg(err?.message || "Could not upload avatar.");
-    } finally {
-      setSaving(false);
-      e.currentTarget.value = "";
-    }
-  };
 
-  const isFirebaseUrl = (u?: string | null) => !!u && (u.startsWith("gs://") || u.includes("firebasestorage.googleapis.com"));
+    // reset input so the same file can be picked again
+    e.currentTarget.value = "";
+
+    // Create a local preview URL and open cropper sheet
+    const url = URL.createObjectURL(file);
+    setAvatarFile(file);
+    setAvatarPreview(url);
+    setAvatarPreviewCropped(null);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    setAvatarCropOpen(true);
+  };
 
   const saveField = async (patch: Record<string, any>) => {
     if (!uid) return;
     setSaving(true);
     setErrorMsg("");
     try {
-      await updateDoc(doc(db, "users", uid), { ...patch, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, "users", uid), {
+        ...patch,
+        updatedAt: serverTimestamp(),
+      });
     } catch (err: any) {
       setErrorMsg(err?.message || "Could not save changes.");
     } finally {
@@ -197,30 +381,173 @@ export default function EditProfilePage() {
     }
   };
 
+  // cleanup util for temporary avatar previews
+  const cleanupAvatarPreview = () => {
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    if (avatarPreviewCropped) {
+      URL.revokeObjectURL(avatarPreviewCropped);
+    }
+    setAvatarPreview(null);
+    setAvatarPreviewCropped(null);
+    setAvatarFile(null);
+  };
+
+  const onCancelAvatarCrop = () => {
+    cleanupAvatarPreview();
+    setAvatarCropOpen(false);
+  };
+
+  const onConfirmAvatarCrop = async () => {
+    if (!uid || !avatarPreview || !croppedAreaPixels) return;
+    setSaving(true);
+    setErrorMsg("");
+
+    try {
+      const croppedBlob = await getCroppedImageBlob(
+        avatarPreview,
+        croppedAreaPixels
+      );
+
+      const filename = avatarFile?.name || "avatar.jpg";
+      const rf = sRef(storage, `avatars/${uid}/${Date.now()}-${filename}`);
+
+      await uploadBytes(rf, croppedBlob);
+      const url = await getDownloadURL(rf);
+
+      // 1) Update local UI state
+      setPhotoURL(url);
+
+      // 2) Delete old avatar file from Storage (if it was Firebase)
+      if (
+        initialPhotoURL &&
+        initialPhotoURL !== url &&
+        isFirebaseUrl(initialPhotoURL)
+      ) {
+        try {
+          await deleteObject(sRef(storage, initialPhotoURL));
+        } catch {
+          // ignore storage delete failure
+        }
+      }
+
+      // 3) Persist new photo URL to Firestore users collection
+      try {
+        await updateDoc(doc(db, "users", uid), {
+          photoURL: url,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (e: any) {
+        // Optional: show soft error if Firestore update fails
+        console.error("Failed to update user photoURL:", e);
+        setErrorMsg(
+          e?.message || "Photo changed locally but could not save to profile."
+        );
+      }
+
+      setInitialPhotoURL(url);
+      setAvatarCropOpen(false);
+      cleanupAvatarPreview();
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Could not upload avatar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Reset avatar to default placeholder
+  const onResetAvatar = async () => {
+    if (!uid) return;
+    if (!window.confirm("Reset profile photo to default?")) return;
+
+    setSaving(true);
+    setErrorMsg("");
+
+    try {
+      // delete from storage if it was stored there
+      if (initialPhotoURL && isFirebaseUrl(initialPhotoURL)) {
+        try {
+          await deleteObject(sRef(storage, initialPhotoURL));
+        } catch {
+          // ignore delete errors
+        }
+      }
+
+      await updateDoc(doc(db, "users", uid), {
+        photoURL: null,
+        updatedAt: serverTimestamp(),
+      });
+
+      setPhotoURL(null);
+      setInitialPhotoURL(null);
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Could not reset avatar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // react-easy-crop: when crop is finished, compute preview circle
+  const handleCropComplete = useCallback(
+    async (_: any, croppedPixels: any) => {
+      setCroppedAreaPixels(croppedPixels);
+      if (!avatarPreview) return;
+      try {
+        const blob = await getCroppedImageBlob(avatarPreview, croppedPixels);
+        const url = URL.createObjectURL(blob);
+        setAvatarPreviewCropped((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+      } catch {
+        // ignore preview errors
+      }
+    },
+    [avatarPreview]
+  );
+
   // ---------- Phone link (web SDK with invisible Recaptcha) ----------
   const ensureRecaptcha = () => {
     if (recaptchaRef.current) return true;
     try {
-      const node = document.getElementById("recaptcha-container") || (() => {
-        const div = document.createElement("div");
-        div.id = "recaptcha-container"; div.style.position = "fixed"; div.style.bottom = "-10000px"; document.body.appendChild(div); return div;
-      })();
+      const node =
+        document.getElementById("recaptcha-container") ||
+        (() => {
+          const div = document.createElement("div");
+          div.id = "recaptcha-container";
+          div.style.position = "fixed";
+          div.style.bottom = "-10000px";
+          document.body.appendChild(div);
+          return div;
+        })();
       // @ts-ignore
-      recaptchaRef.current = new RecaptchaVerifier(getAuth(), node, { size: "invisible" });
+      recaptchaRef.current = new RecaptchaVerifier(getAuth(), node, {
+        size: "invisible",
+      });
       return true;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   };
 
   const sendSms = async (raw: string) => {
     if (!uid) return;
     const e164 = raw.startsWith("+") ? raw : `+${raw}`;
-    if (!/^\+\d{8,15}$/.test(e164)) { setErrorMsg("Invalid phone number"); return; }
+    if (!/^\+\d{8,15}$/.test(e164)) {
+      setErrorMsg("Invalid phone number");
+      return;
+    }
     setPhoneBusy(true);
     setErrorMsg("");
     try {
       ensureRecaptcha();
       // @ts-ignore
-      const conf = await linkWithPhoneNumber(getAuth().currentUser!, e164, recaptchaRef.current);
+      const conf = await linkWithPhoneNumber(
+        getAuth().currentUser!,
+        e164,
+        recaptchaRef.current
+      );
       confirmationResultRef.current = conf;
       setSmsSent(true);
     } catch (err: any) {
@@ -248,10 +575,14 @@ export default function EditProfilePage() {
 
   // ---------- UI ----------
   if (loading) {
-    return (<AppShell>
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="animate-pulse text-[color:var(--ekari-gold,#C79257)]"><BouncingBallLoader /></div>
-      </div></AppShell>
+    return (
+      <AppShell>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <div className="animate-pulse text-[color:var(--ekari-gold,#C79257)]">
+            <BouncingBallLoader />
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
@@ -262,7 +593,11 @@ export default function EditProfilePage() {
       <div className="w-full px-4 py-4">
         {/* Header */}
         <div className="flex h-12 items-center justify-between border-b border-gray-200">
-          <button onClick={() => router.back()} className="p-2 -ml-2 rounded hover:bg-gray-50" aria-label="Back">
+          <button
+            onClick={() => router.back()}
+            className="p-2 -ml-2 rounded hover:bg-gray-50"
+            aria-label="Back"
+          >
             <IoArrowBack size={20} />
           </button>
           <div className="font-extrabold text-slate-900">Edit Profile</div>
@@ -273,125 +608,458 @@ export default function EditProfilePage() {
         <div className="flex flex-col items-center mt-4 mb-2">
           <div className="p-1 rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39] shadow-sm">
             <div className="p-1 rounded-full bg-white">
-              <div className="h-26 w-26 relative rounded-full overflow-hidden" style={{ height: 104, width: 104 }}>
+              <div
+                className="h-26 w-26 relative rounded-full overflow-hidden"
+                style={{ height: 104, width: 104 }}
+              >
                 {photoURL ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photoURL} alt="avatar" className="h-full w-full object-cover" />
+                  <img
+                    src={photoURL}
+                    alt="avatar"
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
-                  <Image src="/avatar-placeholder.png" alt="avatar" fill className="object-cover" />
+                  <Image
+                    src="/avatar-placeholder.png"
+                    alt="avatar"
+                    fill
+                    className="object-cover"
+                  />
                 )}
               </div>
             </div>
           </div>
-          <label className="mt-2 text-[#C79257] font-bold underline cursor-pointer">
-            <input type="file" accept="image/*" className="hidden" onChange={onPickAvatar} />
-            Change Photo
-          </label>
+
+          {/* Change / reset controls */}
+          <div className="mt-2 flex flex-col items-center gap-1">
+            <label className="text-[#C79257] font-bold underline cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={onPickAvatar}
+              />
+              Change Photo
+            </label>
+
+            <button
+              type="button"
+              onClick={onResetAvatar}
+              disabled={saving || (!photoURL && !initialPhotoURL)}
+              className="text-xs text-slate-500 hover:text-rose-500 disabled:opacity-40"
+            >
+              Reset to default avatar
+            </button>
+          </div>
         </div>
 
         {/* Read-only fields with Edit actions */}
         <div className="mt-4 divide-y rounded-2xl border bg-white shadow-sm overflow-hidden">
-          <ItemRow label="Name" value={`${firstName || "-"} ${surname || ""}`.trim() || "-"} onEdit={() => setSheet("name")} />
+          <ItemRow
+            label="Name"
+            value={`${firstName || "-"} ${surname || ""}`.trim() || "-"}
+            onEdit={() => setSheet("name")}
+          />
           <ItemRow label="Username" value={handle || "-"} locked />
-          <ItemRow label="Bio" value={bio || "Add bio"} onEdit={() => setSheet("bio")} />
-          <ItemRow label="Phone" value={phone ? `${phoneVerified ? "✅ " : "⚠️ "}${phone}` : "Add phone"} onEdit={() => setSheet("phone")} />
-          <ItemRow label="Website" value={website || "Add website"} onEdit={() => setSheet("website")} />
-          <ItemRow label="Interests" value={areaOfInterest.length ? `${areaOfInterest.length} selected` : "Add interests"} onEdit={() => setSheet("interests")} />
-          <ItemRow label="Roles" value={roles.length ? `${roles.length} selected` : "Add roles"} onEdit={() => setSheet("roles")} />
+          <ItemRow
+            label="Bio"
+            value={bio || "Add bio"}
+            onEdit={() => setSheet("bio")}
+          />
+          <ItemRow
+            label="Phone"
+            value={
+              phone
+                ? `${phoneVerified ? "✅ " : "⚠️ "}${phone}`
+                : "Add phone"
+            }
+            onEdit={() => setSheet("phone")}
+          />
+          <ItemRow
+            label="Website"
+            value={website || "Add website"}
+            onEdit={() => setSheet("website")}
+          />
+          <ItemRow
+            label="Interests"
+            value={
+              areaOfInterest.length
+                ? `${areaOfInterest.length} selected`
+                : "Add interests"
+            }
+            onEdit={() => setSheet("interests")}
+          />
+          <ItemRow
+            label="Roles"
+            value={roles.length ? `${roles.length} selected` : "Add roles"}
+            onEdit={() => setSheet("roles")}
+          />
         </div>
 
-        {!!errorMsg && <p className="text-center text-rose-600 mt-3">{errorMsg}</p>}
-
-
+        {!!errorMsg && (
+          <p className="text-center text-rose-600 mt-3">{errorMsg}</p>
+        )}
       </div>
 
+      {/* Avatar crop sheet */}
+      <BottomSheet
+        open={avatarCropOpen}
+        title="Crop profile photo"
+        onClose={onCancelAvatarCrop}
+      >
+        {avatarPreview ? (
+          <div className="space-y-4">
+            {/* Live circular preview (what profile will look like) */}
+            <div className="flex justify-center mb-1">
+              <div className="w-24 h-24 rounded-full border-2 border-[#C79257] shadow-sm overflow-hidden bg-slate-100">
+                {avatarPreviewCropped ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarPreviewCropped}
+                    alt="Crop preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  // fallback: show original until first crop complete
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarPreview}
+                    alt="Crop preview"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Main crop area */}
+            <div className="relative w-full aspect-square bg-black rounded-xl overflow-hidden">
+              <Cropper
+                image={avatarPreview}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                showGrid={false}
+                cropShape="round"
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={handleCropComplete}
+              />
+            </div>
+
+            {/* Zoom slider */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600">
+                Zoom
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.1}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full"
+                style={{ accentColor: EKARI.forest }}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                className="h-10 px-4 rounded-xl border"
+                onClick={onCancelAvatarCrop}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
+                onClick={onConfirmAvatarCrop}
+                disabled={saving || !croppedAreaPixels}
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-600">
+            No image selected. Choose a photo to crop.
+          </p>
+        )}
+      </BottomSheet>
+
       {/* SHEETS */}
-      <BottomSheet open={sheet === "name"} title="Edit name" onClose={() => setSheet(null)}>
+      <BottomSheet
+        open={sheet === "name"}
+        title="Edit name"
+        onClose={() => setSheet(null)}
+      >
         <div className="space-y-3">
           <div>
-            <label className="text-sm font-semibold text-slate-800">First name</label>
-            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3" />
+            <label className="text-sm font-semibold text-slate-800">
+              First name
+            </label>
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="First name"
+              className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+            />
           </div>
           <div>
-            <label className="text-sm font-semibold text-slate-800">Surname</label>
-            <input value={surname} onChange={(e) => setSurname(e.target.value)} placeholder="Surname" className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3" />
+            <label className="text-sm font-semibold text-slate-800">
+              Surname
+            </label>
+            <input
+              value={surname}
+              onChange={(e) => setSurname(e.target.value)}
+              placeholder="Surname"
+              className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>Cancel</button>
-            <button className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold" onClick={async () => { await saveField({ firstName, surname }); setSheet(null); }}>Save</button>
+            <button
+              className="h-10 px-4 rounded-xl border"
+              onClick={() => setSheet(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold"
+              onClick={async () => {
+                await saveField({ firstName, surname });
+                setSheet(null);
+              }}
+            >
+              Save
+            </button>
           </div>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "bio"} title="Edit bio" onClose={() => setSheet(null)}>
+      <BottomSheet
+        open={sheet === "bio"}
+        title="Edit bio"
+        onClose={() => setSheet(null)}
+      >
         <div className="space-y-2">
-          <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={220} placeholder="Tell people about you…" className="mt-1 h-32 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2" />
-          <div className="flex items-center justify-between text-xs text-gray-500"><span>{bio.length}/220</span></div>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            maxLength={220}
+            placeholder="Tell people about you…"
+            className="mt-1 h-32 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+          />
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>{bio.length}/220</span>
+          </div>
           <div className="flex justify-end gap-2 pt-1">
-            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>Cancel</button>
-            <button className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold" onClick={async () => { await saveField({ bio }); setSheet(null); }}>Save</button>
+            <button
+              className="h-10 px-4 rounded-xl border"
+              onClick={() => setSheet(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold"
+              onClick={async () => {
+                await saveField({ bio });
+                setSheet(null);
+              }}
+            >
+              Save
+            </button>
           </div>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "website"} title="Website URL" onClose={() => setSheet(null)}>
+      <BottomSheet
+        open={sheet === "website"}
+        title="Website URL"
+        onClose={() => setSheet(null)}
+      >
         <div className="space-y-2">
-          <input value={website || ""} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3" />
-          {!validWebsite && <p className="text-xs text-rose-600">Invalid URL</p>}
+          <input
+            value={website || ""}
+            onChange={(e) => setWebsite(e.target.value)}
+            placeholder="https://example.com"
+            className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+          />
+          {!validWebsite && (
+            <p className="text-xs text-rose-600">Invalid URL</p>
+          )}
           <div className="flex justify-end gap-2 pt-1">
-            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>Cancel</button>
-            <button disabled={!validWebsite} className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60" onClick={async () => { await saveField({ website: (website || "")?.trim() || null }); setSheet(null); }}>Save</button>
+            <button
+              className="h-10 px-4 rounded-xl border"
+              onClick={() => setSheet(null)}
+            >
+              Cancel
+            </button>
+            <button
+              disabled={!validWebsite}
+              className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
+              onClick={async () => {
+                await saveField({
+                  website: (website || "")?.trim() || null,
+                });
+                setSheet(null);
+              }}
+            >
+              Save
+            </button>
           </div>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "interests"} title="Edit interests" onClose={() => setSheet(null)}>
-        <TagPicker label="Interests" value={areaOfInterest} onChange={setAreaOfInterest} options={INTERESTS} popular={INTERESTS.slice(0, 12)} max={8} />
+      <BottomSheet
+        open={sheet === "interests"}
+        title="Edit interests"
+        onClose={() => setSheet(null)}
+      >
+        <TagPicker
+          label="Interests"
+          value={areaOfInterest}
+          onChange={setAreaOfInterest}
+          options={INTERESTS}
+          popular={INTERESTS.slice(0, 12)}
+          max={8}
+        />
         <div className="flex justify-end gap-2 pt-3">
-          <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>Cancel</button>
-          <button className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold" onClick={async () => { await saveField({ areaOfInterest }); setSheet(null); }}>Save</button>
+          <button
+            className="h-10 px-4 rounded-xl border"
+            onClick={() => setSheet(null)}
+          >
+            Cancel
+          </button>
+          <button
+            className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold"
+            onClick={async () => {
+              await saveField({ areaOfInterest });
+              setSheet(null);
+            }}
+          >
+            Save
+          </button>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "roles"} title="Edit roles" onClose={() => setSheet(null)}>
-        <TagPicker label="Roles" value={roles} onChange={setRoles} options={ROLES} popular={ROLES.slice(0, 12)} max={5} />
+      <BottomSheet
+        open={sheet === "roles"}
+        title="Edit roles"
+        onClose={() => setSheet(null)}
+      >
+        <TagPicker
+          label="Roles"
+          value={roles}
+          onChange={setRoles}
+          options={ROLES}
+          popular={ROLES.slice(0, 12)}
+          max={5}
+        />
         <div className="flex justify-end gap-2 pt-3">
-          <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>Cancel</button>
-          <button className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold" onClick={async () => { await saveField({ roles }); setSheet(null); }}>Save</button>
+          <button
+            className="h-10 px-4 rounded-xl border"
+            onClick={() => setSheet(null)}
+          >
+            Cancel
+          </button>
+          <button
+            className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold"
+            onClick={async () => {
+              await saveField({ roles });
+              setSheet(null);
+            }}
+          >
+            Save
+          </button>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "phone"} title="Verify & link phone" onClose={() => setSheet(null)}>
+      <BottomSheet
+        open={sheet === "phone"}
+        title="Verify & link phone"
+        onClose={() => setSheet(null)}
+      >
         {!smsSent ? (
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-semibold">Your phone number</label>
-              <input value={phone || ""} onChange={(e) => setPhone(e.target.value)} placeholder="+2547XXXXXXXX" className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3" />
+              <label className="text-sm font-semibold">
+                Your phone number
+              </label>
+              <input
+                value={phone || ""}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+2547XXXXXXXX"
+                className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+              />
             </div>
             <div className="flex justify-end gap-2">
-              <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>Cancel</button>
-              <button disabled={phoneBusy} className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60" onClick={() => sendSms(phone || "")}>
+              <button
+                className="h-10 px-4 rounded-xl border"
+                onClick={() => setSheet(null)}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={phoneBusy}
+                className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
+                onClick={() => sendSms(phone || "")}
+              >
                 {phoneBusy ? "Sending…" : "Send code"}
               </button>
             </div>
-            {!!errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
+            {!!errorMsg && (
+              <p className="text-xs text-rose-600">{errorMsg}</p>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-semibold">Enter verification code</label>
-              <input value={smsCode} onChange={(e) => setSmsCode(e.target.value.replace(/[^\d]/g, '').slice(0, 6))} placeholder="6-digit code" className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3" />
+              <label className="text-sm font-semibold">
+                Enter verification code
+              </label>
+              <input
+                value={smsCode}
+                onChange={(e) =>
+                  setSmsCode(
+                    e.target.value.replace(/[^\d]/g, "").slice(0, 6)
+                  )
+                }
+                placeholder="6-digit code"
+                className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+              />
             </div>
             <div className="flex justify-between items-center">
-              <button className="text-sm underline" disabled={phoneBusy} onClick={() => { setSmsSent(false); setSmsCode(""); }}>Back</button>
+              <button
+                className="text-sm underline"
+                disabled={phoneBusy}
+                onClick={() => {
+                  setSmsSent(false);
+                  setSmsCode("");
+                }}
+              >
+                Back
+              </button>
               <div className="flex gap-2">
-                <button disabled={phoneBusy} className="h-10 px-4 rounded-xl border" onClick={() => sendSms(phone || "")}>Resend</button>
-                <button disabled={phoneBusy || smsCode.length !== 6} className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60" onClick={confirmSms}>
+                <button
+                  disabled={phoneBusy}
+                  className="h-10 px-4 rounded-xl border"
+                  onClick={() => sendSms(phone || "")}
+                >
+                  Resend
+                </button>
+                <button
+                  disabled={phoneBusy || smsCode.length !== 6}
+                  className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
+                  onClick={confirmSms}
+                >
                   {phoneBusy ? "Verifying…" : "Verify & Link"}
                 </button>
               </div>
             </div>
-            {!!errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
+            {!!errorMsg && (
+              <p className="text-xs text-rose-600">{errorMsg}</p>
+            )}
           </div>
         )}
       </BottomSheet>
@@ -405,18 +1073,37 @@ export default function EditProfilePage() {
 /* =========================================================
    ItemRow — compact modern row with trailing Edit
    ========================================================= */
-function ItemRow({ label, value, onEdit, locked }: { label: string; value: string; onEdit?: () => void; locked?: boolean; }) {
+function ItemRow({
+  label,
+  value,
+  onEdit,
+  locked,
+}: {
+  label: string;
+  value: string;
+  onEdit?: () => void;
+  locked?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between px-4 py-4 hover:bg-slate-50 transition-colors">
       <div>
-        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div>
-        <div className="mt-1 text-slate-900 font-semibold break-words">{value}</div>
+        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">
+          {label}
+        </div>
+        <div className="mt-1 text-slate-900 font-semibold break-words">
+          {value}
+        </div>
       </div>
       <div>
         {locked ? (
-          <span className="inline-flex items-center gap-1 text-slate-400 text-sm"><IoLockClosed /> Locked</span>
+          <span className="inline-flex items-center gap-1 text-slate-400 text-sm">
+            <IoLockClosed /> Locked
+          </span>
         ) : (
-          <button onClick={onEdit} className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm font-bold">
+          <button
+            onClick={onEdit}
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm font-bold"
+          >
             <IoPencil /> Edit
           </button>
         )}
@@ -428,7 +1115,17 @@ function ItemRow({ label, value, onEdit, locked }: { label: string; value: strin
 /* =========================================================
    BottomSheet primitive (accessible)
    ========================================================= */
-function BottomSheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode; }) {
+function BottomSheet({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
@@ -436,9 +1133,13 @@ function BottomSheet({ open, title, onClose, children }: { open: boolean; title:
       <div className="absolute inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto md:w-[480px] md:rounded-l-2xl bg-white border-t md:border-l border-gray-200 rounded-t-2xl shadow-xl">
         <div className="flex items-center justify-between p-4 border-b">
           <div className="font-extrabold text-slate-900">{title}</div>
-          <button className="px-2 py-1 text-slate-600" onClick={onClose}>✕</button>
+          <button className="px-2 py-1 text-slate-600" onClick={onClose}>
+            ✕
+          </button>
         </div>
-        <div className="p-4 overflow-auto max-h-[70vh] md:max-h-[80vh]">{children}</div>
+        <div className="p-4 overflow-auto max-h-[70vh] md:max-h-[80vh]">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -469,24 +1170,36 @@ function TagPicker({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [] as string[];
-    return options.filter(o => !selected.has(o)).filter(o => o.toLowerCase().includes(q)).slice(0, 12);
+    return options
+      .filter((o) => !selected.has(o))
+      .filter((o) => o.toLowerCase().includes(q))
+      .slice(0, 12);
   }, [query, options, selected]);
 
-  const add = (t: string) => { if (!canAddMore || selected.has(t)) return; onChange([...value, t]); };
-  const remove = (t: string) => onChange(value.filter(x => x !== t));
+  const add = (t: string) => {
+    if (!canAddMore || selected.has(t)) return;
+    onChange([...value, t]);
+  };
+  const remove = (t: string) => onChange(value.filter((x) => x !== t));
   const toggle = (t: string) => (selected.has(t) ? remove(t) : add(t));
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <span className="font-extrabold text-slate-900">{label}</span>
-        <span className="text-xs text-gray-500">{value.length}/{max}</span>
+        <span className="text-xs text-gray-500">
+          {value.length}/{max}
+        </span>
       </div>
 
       {!!value.length && (
         <div className="flex flex-wrap gap-2 mt-2">
-          {value.map(t => (
-            <button key={t} onClick={() => remove(t)} className="rounded-full border border-gray-200 px-3 py-1 text-sm font-semibold">
+          {value.map((t) => (
+            <button
+              key={t}
+              onClick={() => remove(t)}
+              className="rounded-full border border-gray-200 px-3 py-1 text-sm font-semibold"
+            >
               {t} ×
             </button>
           ))}
@@ -495,11 +1208,18 @@ function TagPicker({
 
       {!!popular.length && (
         <div className="flex flex-wrap gap-2 mt-3">
-          {popular.map(p => {
+          {popular.map((p) => {
             const active = selected.has(p);
             return (
-              <button key={p} onClick={() => toggle(p)} disabled={!active && !canAddMore}
-                className={`rounded-full px-3 py-2 text-sm font-extrabold border ${active ? "bg-[#233F39] text-white border-[#233F39]" : "bg-white text-slate-900 border-gray-200"}`}>
+              <button
+                key={p}
+                onClick={() => toggle(p)}
+                disabled={!active && !canAddMore}
+                className={`rounded-full px-3 py-2 text-sm font-extrabold border ${active
+                  ? "bg-[#233F39] text-white border-[#233F39]"
+                  : "bg-white text-slate-900 border-gray-200"
+                  }`}
+              >
                 {p}
               </button>
             );
@@ -508,13 +1228,23 @@ function TagPicker({
       )}
 
       <div className="mt-3 border border-gray-200 rounded-xl bg-gray-50 px-3">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${label.toLowerCase()}…`} className="h-11 w-full bg-transparent outline-none" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${label.toLowerCase()}…`}
+          className="h-11 w-full bg-transparent outline-none"
+        />
       </div>
 
       {!!filtered.length && (
         <div className="mt-2 max-h-56 overflow-auto border border-gray-200 rounded-lg bg-white">
-          {filtered.map(opt => (
-            <button key={opt} onClick={() => add(opt)} disabled={!canAddMore} className="w-full text-left px-3 py-2 hover:bg-gray-50">
+          {filtered.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => add(opt)}
+              disabled={!canAddMore}
+              className="w-full text-left px-3 py-2 hover:bg-gray-50"
+            >
               {opt}
             </button>
           ))}

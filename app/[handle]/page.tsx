@@ -662,14 +662,25 @@ function Header({
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
         {/* avatar */}
         <div className="shrink-0">
-          <div className="relative h-24 w-24 md:h-28 md:w-28 rounded-full overflow-hidden bg-slate-200 ring-2 ring-slate-100">
-            <SmartAvatar
-              src={profile.photoURL || "/avatar-blank.png"}
-              alt={profile.handle || "avatar"}
-              size={112}
-              rounded="full"
-            />
+          <div className="p-1 rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39] shadow-sm">
+            <div className="p-1 rounded-full bg-white">
+              <div
+                className="h-26 w-26 relative rounded-full overflow-hidden"
+                style={{ height: 104, width: 104 }}
+              >
+                <SmartAvatar
+                  src={profile.photoURL || "/avatar-blank.png"}
+                  alt={profile.handle || "avatar"}
+                  size={112}
+                  rounded="full"
+                />
+              </div>
+            </div>
           </div>
+
+
+
+
         </div>
 
         {/* right side */}

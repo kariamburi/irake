@@ -51,6 +51,7 @@ import LoginButton from "./components/LoginButton";
 import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { DonateDialogWeb } from "./components/DonateDialogWeb";
+import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -392,7 +393,11 @@ function pauseIfCurrent(el: HTMLVideoElement) {
   el.pause();
 }
 
-function useHls(videoRef: React.RefObject<HTMLVideoElement | null>, src?: string | null) {
+function useHls(
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+  src?: string | null,
+  opts: { maxHeight?: number } = {}
+) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
@@ -403,29 +408,153 @@ function useHls(videoRef: React.RefObject<HTMLVideoElement | null>, src?: string
       return;
     }
 
+    // Native HLS (Safari / some iOS)
     if (video.canPlayType("application/vnd.apple.mpegURL")) {
       (video as any).src = src;
       return;
     }
 
     let hls: any;
+    let HlsMod: any;
+
     (async () => {
       const mod = await import("hls.js");
       const Hls = mod.default;
+      HlsMod = Hls;
       if (Hls?.isSupported()) {
-        hls = new Hls({ enableWorker: true });
+        hls = new Hls({
+          enableWorker: true,
+          capLevelToPlayerSize: true, // don’t go above player size
+        });
+
         hls.loadSource(src);
         hls.attachMedia(video);
+
+        // 🔒 Clamp max resolution if requested
+        // 🔒 Clamp max resolution if requested
+        const maxHeight = opts.maxHeight; // 👈 capture once
+        if (typeof maxHeight === "number") {
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            const levels = hls.levels || [];
+            let capIndex = -1;
+
+            for (let i = 0; i < levels.length; i++) {
+              const h = levels[i]?.height || 0;
+              if (h <= maxHeight && i > capIndex) {
+                capIndex = i;
+              }
+            }
+
+            if (capIndex >= 0) {
+              // Limit ABR to this level index (0..N)
+              hls.autoLevelCapping = capIndex;
+            }
+          });
+        }
       } else {
         (video as any).src = src;
       }
     })();
 
     return () => {
-      hls?.destroy?.();
+      try {
+        hls?.destroy?.();
+      } catch { }
     };
-  }, [videoRef, src]);
+  }, [videoRef, src, opts.maxHeight]);
 }
+
+// ⬇️ Add this AFTER useHls definition
+
+function VideoPreload({
+  src,
+  poster,
+}: {
+  src: string;
+  poster?: string | null;
+}) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  // Re-use existing HLS wiring for .m3u8 sources
+  useHls(videoRef, src);
+
+  return (
+    <video
+      ref={videoRef}
+      muted
+      playsInline
+      preload="metadata"
+      poster={poster || undefined}
+      style={{
+        position: "absolute",
+        width: 1,
+        height: 1,
+        opacity: 0,
+        pointerEvents: "none",
+        top: -9999,
+        left: -9999,
+      }}
+    />
+  );
+}
+
+function AdjacentPreloadWeb({
+  items,
+  activeIndex,
+  mode = "light",
+}: {
+  items: PlayerItem[];
+  activeIndex: number;
+  mode?: PreloadMode;
+}) {
+  if (mode === "none") return null;
+
+  const candidates: PlayerItem[] = [];
+
+  const pushIfVideo = (it?: PlayerItem) => {
+    if (it && it.mediaType === "video" && it.mediaUrl) {
+      candidates.push(it);
+    }
+  };
+
+  if (mode === "light") {
+    // 🔍 Only preload the *next* card
+    pushIfVideo(items[activeIndex + 1]);
+  } else {
+    // 🚀 Aggressive: prev/next and +/-2
+    pushIfVideo(items[activeIndex + 1]);
+    pushIfVideo(items[activeIndex - 1]);
+    pushIfVideo(items[activeIndex + 2]);
+    pushIfVideo(items[activeIndex - 2]);
+  }
+
+  if (!candidates.length) return null;
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "fixed",
+        width: 1,
+        height: 1,
+        opacity: 0,
+        pointerEvents: "none",
+        top: -9999,
+        left: -9999,
+        zIndex: -1,
+      }}
+    >
+      {candidates.map((it) => (
+        <VideoPreload
+          key={`preload_${it.id}`}
+          src={it.mediaUrl!}
+          poster={it.posterUrl}
+        />
+      ))}
+    </div>
+  );
+}
+
 
 function useAutoPlay(
   ref: React.RefObject<HTMLVideoElement | null>,
@@ -577,6 +706,8 @@ function VideoCard({
   onOpenComments,
   railOpen,
   tabOffsetPx = 0,
+  dataSaverOn,
+  hlsMaxHeight,
 }: {
   item: PlayerItem;
   uid?: string;
@@ -585,13 +716,15 @@ function VideoCard({
   onOpenComments: (deedId: string) => void;
   railOpen: boolean;
   tabOffsetPx?: number; // ⬅️ new
+  dataSaverOn?: boolean;
+  hlsMaxHeight?: number;
 }) {
   //const { w: cardW, h: cardH } = useDeedBox(railOpen);
   const { w: cardW, h: cardH } = useDeedBox(railOpen, tabOffsetPx); // ⬅️ pass offset
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const { muted, toggleMute, registerVideo, unregisterVideo } = useGlobalMute();
   const router = useRouter();
-
+  const authorProfile = useAuthorProfile(item.authorId);
   const [mediaReady, setMediaReady] = useState(item.mediaType !== "video");
   const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
   const firstFrameFiredRef = useRef(false);
@@ -609,7 +742,7 @@ function VideoCard({
 
   const onSupportClick = () => {
     if (!uid) {
-      router.push("login/getstarted?next=/");
+      router.push("login/?next=/");
       return;
     }
     setDonateOpen(true);
@@ -664,7 +797,11 @@ function VideoCard({
   };
 
   const handleToPath = (h?: string) => (h ? `/${encodeURIComponent(h.startsWith("@") ? h : `@${h}`)}` : null);
-  const onViewProfileClick = (handle?: string) => {
+
+
+
+  const onViewProfileClick = () => {
+    const handle = authorProfile?.handle || item.authorUsername;
     const path = handleToPath(handle);
     if (!path) return;
     router.push(path);
@@ -695,7 +832,7 @@ function VideoCard({
   };
 
   useAutoPlay(videoRef, { root: scrollRootRef, threshold: 0.35, rootMargin: "-30% 0px -30% 0px", initialMuted: muted });
-  useHls(videoRef, item.mediaUrl || undefined);
+  useHls(videoRef, item.mediaUrl || undefined, { maxHeight: hlsMaxHeight });
 
   useEffect(() => {
     const v = videoRef.current;
@@ -710,7 +847,10 @@ function VideoCard({
     if (videoRef.current) (videoRef.current as any).muted = muted;
   }, [muted]);
 
-  const avatar = item.authorPhotoURL || "/avatar-placeholder.png";
+  const avatar =
+    authorProfile?.photoURL ||
+    item.authorPhotoURL ||
+    "/avatar-placeholder.png";
   // --- Sound display (library vs original) ---
   // --- Sound display (library vs original) ---
   const music = item.music;
@@ -754,6 +894,12 @@ function VideoCard({
         className="group relative overflow-hidden rounded-2xl border shadow-[0_8px_30px_rgba(0,0,0,.12)]"
         style={{ top: tabOffsetPx - 5, width: cardW, height: cardH }}
       >
+        {/* Loader overlay until mediaReady */}
+        {!mediaReady && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40">
+            <BouncingBallLoader />
+          </div>
+        )}
         {/* Top overlay controls */}
         {item.mediaType === "video" && (
           <>
@@ -789,7 +935,7 @@ function VideoCard({
               playsInline
               loop
               controlsList="nodownload noremoteplayback"
-              preload="metadata"
+              preload={dataSaverOn ? "metadata" : "auto"}
               className={["max-h-full max-w-full", "object-cover"].join(" ")}
               onClick={togglePlay}
               onLoadedMetadata={handleVideoReady}
@@ -820,19 +966,27 @@ function VideoCard({
         >
           <div className="flex items-center gap-2 mb-1">
             <div
-              onClick={() => onViewProfileClick(item.authorUsername)}
+              onClick={onViewProfileClick}
               className={cn(
                 "h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0",
-                item.authorUsername ? "cursor-pointer" : "cursor-default"
+                (authorProfile?.handle || item.authorUsername) ? "cursor-pointer" : "cursor-default"
               )}
-              aria-label={item.authorUsername ? `Open ${item.authorUsername} profile` : undefined}
+              aria-label={
+                authorProfile?.handle || item.authorUsername
+                  ? `Open ${(authorProfile?.handle || item.authorUsername)} profile`
+                  : undefined
+              }
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={avatar} alt={item.authorUsername || item.authorId || "author"} className="h-full w-full object-cover" />
+              <img src={avatar} alt={authorProfile?.handle || item.authorUsername || item.authorId || "author"} className="h-full w-full object-cover" />
             </div>
-            <div onClick={() => onViewProfileClick(item.authorUsername)} className="cursor-pointer min-w-0">
+            <div onClick={() => onViewProfileClick()} className="cursor-pointer min-w-0">
               <div className="text-white/95 font-bold text-sm truncate">
-                {item.authorUsername ? `${item.authorUsername}` : (item.authorId ?? "").slice(0, 6)}
+                {authorProfile?.handle
+                  ? authorProfile.handle
+                  : item.authorUsername
+                    ? item.authorUsername
+                    : (item.authorId ?? "").slice(0, 6)}
               </div>
               <div
                 className="items-center text-white/70 text-[11px]"
@@ -1071,20 +1225,95 @@ function useIsDesktop() {
 }
 
 function useUserProfile(uid?: string) {
-  const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
+  const [profile, setProfile] = useState<{
+    handle?: string;
+    photoURL?: string;
+    dataSaverVideos?: boolean;
+    uid?: string;
+  } | null>(null);
 
   useEffect(() => {
-    if (!uid) { setProfile(null); return; }
+    if (!uid) {
+      setProfile(null);
+      return;
+    }
     const ref = doc(db, "users", uid);
     const unsub = onSnapshot(ref, (snap) => {
       const data = snap.data() as any | undefined;
+      if (!data) {
+        setProfile(null);
+        return;
+      }
+      setProfile({
+        uid,
+        handle: data?.handle,
+        photoURL: data?.photoURL,
+        dataSaverVideos: !!data?.dataSaverVideos,
+      });
+    });
+    return () => unsub();
+  }, [uid]);
+
+  return profile;
+}
+
+
+type PreloadMode = "none" | "light" | "aggressive";
+
+function useNetworkProfile() {
+  const [state, setState] = useState<{
+    effectiveType?: string;
+    saveData?: boolean;
+  }>({});
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+
+    const nav: any = navigator as any;
+    const conn =
+      nav.connection || nav.mozConnection || nav.webkitConnection || null;
+    if (!conn) return;
+
+    const update = () => {
+      setState({
+        effectiveType: conn.effectiveType,
+        saveData: !!conn.saveData,
+      });
+    };
+
+    update();
+    conn.addEventListener?.("change", update);
+    return () => conn.removeEventListener?.("change", update);
+  }, []);
+
+  return state;
+}
+
+/** 🔥 NEW: live author profile for each deed */
+function useAuthorProfile(authorId?: string) {
+  const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
+
+  useEffect(() => {
+    if (!authorId) {
+      setProfile(null);
+      return;
+    }
+
+    const ref = doc(db, "users", authorId);
+    const unsub = onSnapshot(ref, (snap) => {
+      const data = snap.data() as any | undefined;
+      if (!data) {
+        setProfile(null);
+        return;
+      }
       setProfile({
         handle: data?.handle,
         photoURL: data?.photoURL,
       });
     });
+
     return () => unsub();
-  }, [uid]);
+  }, [authorId]);
 
   return profile;
 }
@@ -1099,6 +1328,10 @@ function ChannelTabs({
   profile,
   uid,
   onChange,
+  dataSaverOn,
+  userDataSaver,
+  onToggleDataSaver,
+
 }: {
   active: TabKey;
   railOffsetLg: string;
@@ -1107,6 +1340,9 @@ function ChannelTabs({
   profile: any;
   uid: any;
   onChange: (k: TabKey) => void;
+  dataSaverOn: boolean;             // 👈 NEW
+  userDataSaver: boolean;           // 👈 NEW
+  onToggleDataSaver: () => void;    // 👈 NEW
 }) {
   const router = useRouter();
 
@@ -1130,7 +1366,7 @@ function ChannelTabs({
               key={k}
               onClick={() => onChange(k)}
               className={cn(
-                "px-3 py-1.5 w-[90px] rounded-full text-sm font-bold border transition flex-shrink-0",
+                "px-3 py-1.5 text-xs lg:text-sm w-[70px] lg:w-[90px] rounded-full text-sm font-bold border transition flex-shrink-0",
                 active === k
                   ? "bg-[#233F39] text-white border-[#233F39]"
                   : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
@@ -1142,7 +1378,7 @@ function ChannelTabs({
           {/* Explore at the start */}
           <button
             onClick={() => router.push("/dive")}
-            className="flex px-3 py-1.5 w-[90px] gap-2 rounded-full items-center justify-center text-sm font-bold border transition
+            className="flex px-3 py-1.5 text-xs lg:text-sm w-[70px] lg:w-[90px] gap-2 rounded-full items-center justify-center font-bold border transition
                        bg-white text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0"
           >
             <IoTelescopeOutline /> Dive
@@ -1150,10 +1386,33 @@ function ChannelTabs({
           {/* Search at the end of the row */}
           <button
             onClick={() => router.push("/search")}
-            className="p-2 hover:bg-gray-100 rounded-full text-sm font-bold border transition
+            className="p-2 hidden lg:inline hover:bg-gray-100 rounded-full text-sm font-bold border transition
                        bg-white text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0"
           >
             <IoSearch />
+          </button>
+          {/* 🔋 Data saver pill with hover hint */}
+          <button
+            type="button"
+            onClick={onToggleDataSaver}
+            disabled={!uid} // guest taps will redirect via handler in FeedShell
+            className={cn(
+              "ml-1 flex items-center gap-1 px-3 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0",
+              dataSaverOn
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+            )}
+            title={
+              dataSaverOn
+                ? "Data saver active – videos may preload less and cap resolution to save your data."
+                : "Data saver off – videos can use higher resolution and more aggressive preloading."
+            }
+          >
+            <span
+              className="inline-flex h-2 w-2 rounded-full"
+              style={{ backgroundColor: dataSaverOn ? "#16A34A" : "#9CA3AF" }}
+            />
+            <span>Data saver</span>
           </button>
         </div>
       </div>
@@ -1236,6 +1495,34 @@ function FeedShell() {
   const { user } = useAuth();
   const uid = user?.uid;
   const profile = useUserProfile(uid);
+  const { effectiveType, saveData } = useNetworkProfile();
+
+  const userDataSaver = !!profile?.dataSaverVideos;
+  const isVerySlow =
+    effectiveType === "2g" || effectiveType === "slow-2g";
+  const isFast =
+    effectiveType === "4g" || effectiveType === "5g";
+  const globalDataSaverOn = !!saveData;
+
+  const dataSaverOn = userDataSaver || globalDataSaverOn || isVerySlow;
+
+  const preloadMode: PreloadMode = dataSaverOn
+    ? "none" // 🧵 user wants to save data or connection is very slow
+    : isFast && !globalDataSaverOn
+      ? "aggressive" // 💨 good connection, no data-saver → preload more neighbors
+      : "light"; // default
+  // 🎚 Clamp HLS resolution based on network/data saver
+  let hlsMaxHeight: number | undefined;
+  if (dataSaverOn || isVerySlow) {
+    // super conservative: up to 480p
+    hlsMaxHeight = 480;
+  } else if (!isFast) {
+    // mid-speed (3G-ish): allow up to 720p
+    hlsMaxHeight = 720;
+  } else {
+    // fast 4G / Wi-Fi: no cap (full resolution)
+    hlsMaxHeight = undefined;
+  }
 
   const [tab, setTab] = useState<TabKey>("forYou");
   const { items, loading, reload } = useChannelFeed(tab, uid);
@@ -1246,6 +1533,28 @@ function FeedShell() {
 
   // gate changes
   const router = useRouter();
+  // 🔄 Toggle user preference in Firestore
+  const [updatingDataSaver, setUpdatingDataSaver] = useState(false);
+
+  const toggleUserDataSaver = useCallback(async () => {
+    if (!uid) {
+      router.push("/getstarted?next=/");
+      return;
+    }
+    if (updatingDataSaver) return;
+    setUpdatingDataSaver(true);
+    try {
+      await setDoc(
+        doc(db, "users", uid),
+        { dataSaverVideos: !userDataSaver },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn("Failed to toggle dataSaverVideos", e);
+    } finally {
+      setUpdatingDataSaver(false);
+    }
+  }, [uid, router, userDataSaver, updatingDataSaver]);
   const changeTab = useCallback((k: TabKey) => {
     if (!uid && (k === "following" || k === "nearby")) {
       router.push("/getstarted?next=/");
@@ -1335,7 +1644,9 @@ function FeedShell() {
             }}
           >
 
-            <ChannelTabs uid={uid} profile={profile} commentsId={commentsId ?? ""} railOffsetLg={railOffsetLg} railOffsetXl={railOffsetXl} active={tab} onChange={changeTab} />
+            <ChannelTabs uid={uid} profile={profile} commentsId={commentsId ?? ""} railOffsetLg={railOffsetLg} railOffsetXl={railOffsetXl} active={tab} onChange={changeTab} dataSaverOn={dataSaverOn}              // 👈 NEW
+              userDataSaver={userDataSaver}
+              onToggleDataSaver={toggleUserDataSaver} />
             <TopLoader active={showTopLoader} color="#233F39" />
           </div>
           {loading && <SkeletonCard />}
@@ -1362,6 +1673,8 @@ function FeedShell() {
                 railOpen={!!commentsId}
                 onFirstFrame={undefined}
                 tabOffsetPx={TAB_BAR_H} // ⬅️ pass down (new prop)
+                dataSaverOn={dataSaverOn}   // 👈 NEW
+                hlsMaxHeight={hlsMaxHeight}
               />
             </div>
           ))}
@@ -1441,7 +1754,13 @@ function FeedShell() {
             />
           </div>
         </div>
+
       </AppShell>
+      <AdjacentPreloadWeb
+        items={items}
+        activeIndex={index}
+        mode={preloadMode}
+      />
     </MuteProvider>
   );
 }
