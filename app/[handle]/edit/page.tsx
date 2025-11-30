@@ -15,6 +15,10 @@ import {
   getDoc,
   updateDoc,
   serverTimestamp,
+  collection,
+  getDocs,
+  query,
+  orderBy,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -45,124 +49,16 @@ const EKARI = {
   text: "#0F172A",
   dim: "#6B7280",
   danger: "#B42318",
-  subtext: "#5C6B66",
+  subtext: "#5C5B66",
 };
 
-const INTERESTS = [
-  "Maize",
-  "Tomato",
-  "Potato",
-  "Coffee",
-  "Vegetables",
-  "Fruits",
-  "Dairy",
-  "Beef",
-  "Poultry",
-  "Fish",
-  "Honey",
-  "Forestry",
-  "Flowers",
-  "Cereals",
-  "Seeds",
-  "Fertilizers",
-  "Agrochemicals",
-  "Feeds",
-  "Tools",
-  "Machinery",
-  "Irrigation",
-  "Greenhouses",
-  "Processing",
-  "Value Addition",
-  "Packaging",
-  "Cold Chain",
-  "Quality Control",
-  "Market Linkages",
-  "Export",
-  "Organic",
-  "Traceability",
-  "Compliance",
-  "Training",
-  "Extension",
-  "Soil Testing",
-  "Vet Services",
-  "Breeding / AI",
-  "Vaccines & Drugs",
-  "Agronomist",
-  "AgriTech",
-  "Farm Apps",
-  "Loans",
-  "Insurance",
-  "Microfinance",
-  "Sacco",
-  "Consultancy",
-  "Leasing",
-  "Cooperatives",
-  "Transport",
-  "Logistics",
-  "Climate Smart",
-  "Resilience",
-  "Water Management",
-  "Pests",
-  "Diseases",
-  "Contamination",
-  "Fall Armyworm",
-  "Stem Borer",
-  "Tomato Leafminer (Tuta absoluta)",
-  "Maize Lethal Necrosis",
-  "Late Blight",
-  "Bacterial Wilt",
-  "Coffee Rust",
-  "Foot and Mouth",
-  "Newcastle Disease",
-  "East Coast Fever",
-  "Mastitis",
-  "Aflatoxin",
-  "Mycotoxins",
-];
+type GroupConfig = {
+  id?: string;
+  title: string;
+  items: string[];
+};
 
-const ROLES = [
-  "Farmer",
-  "Beekeeper",
-  "Horticulturalist",
-  "Livestock Keeper",
-  "Aquaculture",
-  "Forestry",
-  "Input Supplier",
-  "Equipment / Machinery Dealer",
-  "Irrigation / Greenhouse Vendor",
-  "Veterinarian",
-  "Para-vet",
-  "Breeder / AI",
-  "Agronomist",
-  "Animal Health Distributor",
-  "Processor",
-  "Value Adder",
-  "Packer / Packaging",
-  "Cold Storage / Cold Chain",
-  "Aggregator",
-  "Cooperative",
-  "Trader",
-  "Exporter",
-  "Retailer",
-  "Online Distributor",
-  "Transporter / Logistics",
-  "Bank",
-  "Microfinance",
-  "Sacco",
-  "Insurance",
-  "Consultant",
-  "Leasing",
-  "Researcher",
-  "Trainer / Extension",
-  "ICT / AgriTech Provider",
-  "Government Agency",
-  "Regulator",
-  "Certifier",
-  "NGO / Development Partner",
-  "Consumer / Buyer (Household)",
-  "Consumer / Buyer (Institution)",
-  "Export Buyer",
-];
+/* ---------- Static fallbacks (used if Firestore empty) ---------- */
 
 /* ============== Helpers ============== */
 const validateUrl = (v: string) =>
@@ -185,11 +81,7 @@ async function getCroppedImageBlob(
   pixelCrop: { x: number; y: number; width: number; height: number }
 ): Promise<Blob> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-    // 👇 use the DOM Image constructor, not the imported Next.js <Image />
     const img = new window.Image();
-    // Optional: if you ever crop external URLs, this helps avoid CORS issues
-    // img.crossOrigin = "anonymous";
-
     img.onload = () => resolve(img);
     img.onerror = (err) => reject(err);
     img.src = imageSrc;
@@ -234,8 +126,7 @@ async function getCroppedImageBlob(
     );
   });
 }
-
-
+const INTERESTS_FALLBACK = null;
 /* =========================================================
    PAGE (/[handle]/edit)
    ========================================================= */
@@ -267,6 +158,13 @@ export default function EditProfilePage() {
   const [areaOfInterest, setAreaOfInterest] = useState<string[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
 
+  // 🔹 Dynamic taxonomy options for TagPicker
+  // 🔹 Dynamic taxonomy options for TagPicker
+  const [interestOptions, setInterestOptions] = useState<string[]>([]);
+  const [roleOptions, setRoleOptions] = useState<string[]>([]);
+  const [taxonomyLoading, setTaxonomyLoading] = useState<boolean>(true);
+  const [taxonomyError, setTaxonomyError] = useState<string | null>(null);
+
   type SheetKind =
     | null
     | "name"
@@ -274,9 +172,12 @@ export default function EditProfilePage() {
     | "website"
     | "phone"
     | "interests"
-    | "roles";
+    | "roles"
+    | "currency";
   const [sheet, setSheet] = useState<SheetKind>(null);
-
+  // 🔹 NEW: preferred currency + country
+  const [preferredCurrency, setPreferredCurrency] = useState<"KES" | "USD" | null>(null);
+  const [countryCode, setCountryCode] = useState<string | null>(null);
   // phone link state
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
@@ -288,6 +189,84 @@ export default function EditProfilePage() {
       : any | null
     >(null);
   const recaptchaRef = useRef<any>(null);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTaxonomy() {
+      try {
+        setTaxonomyLoading(true);
+        setTaxonomyError(null);
+
+        // 1) Try grouped catalogs: interest_groups & role_groups
+        const igSnap = await getDocs(
+          query(collection(db, "interest_groups"), orderBy("order", "asc"))
+        );
+        const rgSnap = await getDocs(
+          query(collection(db, "role_groups"), orderBy("order", "asc"))
+        );
+
+        if (cancelled) return;
+
+        const ig: GroupConfig[] = igSnap.docs
+          .map((d) => {
+            const data = d.data() as any;
+            return {
+              id: d.id,
+              title: data.title ?? d.id,
+              items: Array.isArray(data.items) ? data.items : [],
+            };
+          })
+          .filter((g) => g.items.length);
+
+        const rg: GroupConfig[] = rgSnap.docs
+          .map((d) => {
+            const data = d.data() as any;
+            return {
+              id: d.id,
+              title: data.title ?? d.id,
+              items: Array.isArray(data.items) ? data.items : [],
+            };
+          })
+          .filter((g) => g.items.length);
+
+        let interestFlat = ig.flatMap((g) => g.items);
+        let roleFlat = rg.flatMap((g) => g.items);
+
+        // 2) If grouped catalogs are empty, fall back to taxonomy/master
+        if (!interestFlat.length || !roleFlat.length) {
+          const taxSnap = await getDoc(doc(db, "taxonomy", "master"));
+          if (taxSnap.exists()) {
+            const data = taxSnap.data() as any;
+
+            if (!interestFlat.length && Array.isArray(data.interests)) {
+              interestFlat = data.interests;
+            }
+
+            if (!roleFlat.length && Array.isArray(data.roles)) {
+              roleFlat = data.roles;
+            }
+          }
+        }
+
+        // 3) Set options (deduped)
+        setInterestOptions(Array.from(new Set(interestFlat)));
+        setRoleOptions(Array.from(new Set(roleFlat)));
+      } catch (e: any) {
+        if (!cancelled) {
+          setTaxonomyError("Could not load interests & roles.");
+          setInterestOptions([]);
+          setRoleOptions([]);
+        }
+      } finally {
+        if (!cancelled) setTaxonomyLoading(false);
+      }
+    }
+
+    void loadTaxonomy();
+    return () => {
+      cancelled = true;
+    };
+  }, [db]);
 
   // ---------- Avatar crop state ----------
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -301,6 +280,79 @@ export default function EditProfilePage() {
   const [avatarPreviewCropped, setAvatarPreviewCropped] = useState<
     string | null
   >(null); // circle preview URL
+
+  // ---------- Load taxonomy (interests & roles) from Firestore ----------
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTaxonomy() {
+      try {
+        setTaxonomyLoading(true);
+        setTaxonomyError(null);
+
+        const igSnap = await getDocs(
+          query(collection(db, "interest_groups"), orderBy("order", "asc"))
+        );
+        const rgSnap = await getDocs(
+          query(collection(db, "role_groups"), orderBy("order", "asc"))
+        );
+
+        if (cancelled) return;
+
+        const ig: GroupConfig[] = igSnap.docs
+          .map((d) => {
+            const data = d.data() as any;
+
+            return {
+              id: d.id,
+              title: data.title ?? d.id,
+              items: Array.isArray(data.items) ? data.items : [],
+            };
+          })
+          .filter((g) => g.items.length);
+
+        const rg: GroupConfig[] = rgSnap.docs
+          .map((d) => {
+            const data = d.data() as any;
+            return {
+              id: d.id,
+              title: data.title ?? d.id,
+              items: Array.isArray(data.items) ? data.items : [],
+            };
+          })
+          .filter((g) => g.items.length);
+
+        // Flatten & dedupe
+        const interestFlat = ig.flatMap((g) => g.items);
+        const roleFlat = rg.flatMap((g) => g.items);
+
+        if (interestFlat.length) {
+          setInterestOptions(Array.from(new Set(interestFlat)));
+        } else {
+          setInterestOptions([]);
+        }
+
+        if (roleFlat.length) {
+          setRoleOptions(Array.from(new Set(roleFlat)));
+        } else {
+          setRoleOptions([]);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setTaxonomyError("Could not load interests & roles, using defaults.");
+          setInterestOptions([]);
+          setRoleOptions([]);
+        }
+      } finally {
+        if (!cancelled) setTaxonomyLoading(false);
+      }
+    }
+
+    void loadTaxonomy();
+    return () => {
+      cancelled = true;
+    };
+  }, [db]);
 
   // ---------- Load current user + guard by route handle ----------
   useEffect(() => {
@@ -327,7 +379,11 @@ export default function EditProfilePage() {
           setWebsite(d.website ?? null);
           setPhone(d.phone ?? u.phoneNumber ?? null);
           setPhoneVerified(!!d.phoneVerified || !!u.phoneNumber);
-
+          setCountryCode(d.countryCode ?? null);
+          const fromDoc = d.preferredCurrency as "KES" | "USD" | undefined;
+          const fallback =
+            (d.countryCode === "KE" ? "KES" : "USD") as "KES" | "USD";
+          setPreferredCurrency(fromDoc ?? fallback);
           const routeH = (params?.handle || "")
             .toString()
             .replace(/^@/, "")
@@ -439,7 +495,6 @@ export default function EditProfilePage() {
           updatedAt: serverTimestamp(),
         });
       } catch (e: any) {
-        // Optional: show soft error if Firestore update fails
         console.error("Failed to update user photoURL:", e);
         setErrorMsg(
           e?.message || "Photo changed locally but could not save to profile."
@@ -465,7 +520,6 @@ export default function EditProfilePage() {
     setErrorMsg("");
 
     try {
-      // delete from storage if it was stored there
       if (initialPhotoURL && isFirebaseUrl(initialPhotoURL)) {
         try {
           await deleteObject(sRef(storage, initialPhotoURL));
@@ -681,6 +735,19 @@ export default function EditProfilePage() {
             value={website || "Add website"}
             onEdit={() => setSheet("website")}
           />
+
+          {/* 🔹 NEW: Preferred currency row */}
+          <ItemRow
+            label="Preferred currency"
+            value={
+              preferredCurrency
+                ? preferredCurrency === "KES"
+                  ? "KES – Kenyan Shilling (M-Pesa available)"
+                  : "USD – US Dollar"
+                : "Auto (based on country)"
+            }
+            onEdit={() => setSheet("currency")}
+          />
           <ItemRow
             label="Interests"
             value={
@@ -710,7 +777,7 @@ export default function EditProfilePage() {
       >
         {avatarPreview ? (
           <div className="space-y-4">
-            {/* Live circular preview (what profile will look like) */}
+            {/* Live circular preview */}
             <div className="flex justify-center mb-1">
               <div className="w-24 h-24 rounded-full border-2 border-[#C79257] shadow-sm overflow-hidden bg-slate-100">
                 {avatarPreviewCropped ? (
@@ -721,7 +788,6 @@ export default function EditProfilePage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  // fallback: show original until first crop complete
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={avatarPreview}
@@ -881,7 +947,7 @@ export default function EditProfilePage() {
         <div className="space-y-2">
           <input
             value={website || ""}
-            onChange={(e) => setWebsite(e.target.value)}
+            onChange={(e: any) => setWebsite(e.target.value)}
             placeholder="https://example.com"
             className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
           />
@@ -910,19 +976,102 @@ export default function EditProfilePage() {
           </div>
         </div>
       </BottomSheet>
+      <BottomSheet
+        open={sheet === "currency"}
+        title="Preferred currency"
+        onClose={() => setSheet(null)}
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-slate-600">
+            This will be the default currency for donations you make.
+          </p>
+          <p className="text-xs text-slate-500">
+            M-Pesa is only available when donating in <span className="font-semibold">KES</span>.
+          </p>
+
+          <div className="mt-3 space-y-2">
+            {(["KES", "USD"] as ("KES" | "USD")[]).map((code) => {
+              const active = preferredCurrency === code;
+              const label =
+                code === "KES"
+                  ? "KES – Kenyan Shilling"
+                  : "USD – US Dollar";
+              const note =
+                code === "KES"
+                  ? "Best for Kenya-based donations (M-Pesa supported)."
+                  : "Good for global / international donors.";
+
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setPreferredCurrency(code)}
+                  className={`w-full flex items-start gap-2 rounded-xl border px-3 py-2 text-left ${active ? "border-[#233F39] bg-[#233F39]/5" : "border-gray-200 bg-white"
+                    }`}
+                >
+                  <div className="mt-1">
+                    <div
+                      className={`h-4 w-4 rounded-full border flex items-center justify-center ${active ? "border-[#233F39]" : "border-gray-300"
+                        }`}
+                    >
+                      {active && (
+                        <div className="h-2.5 w-2.5 rounded-full bg-[#233F39]" />
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      {label}
+                    </div>
+                    <div className="text-xs text-slate-500">{note}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              className="h-10 px-4 rounded-xl border"
+              onClick={() => setSheet(null)}
+            >
+              Cancel
+            </button>
+            <button
+              disabled={!preferredCurrency}
+              className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
+              onClick={async () => {
+                if (!preferredCurrency) return;
+                await saveField({ preferredCurrency });
+                setSheet(null);
+              }}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
 
       <BottomSheet
         open={sheet === "interests"}
         title="Edit interests"
         onClose={() => setSheet(null)}
       >
+        {taxonomyLoading && (
+          <p className="text-xs text-gray-500 mb-1">
+            Loading interest options…
+          </p>
+        )}
+        {taxonomyError && (
+          <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>
+        )}
         <TagPicker
           label="Interests"
           value={areaOfInterest}
           onChange={setAreaOfInterest}
-          options={INTERESTS}
-          popular={INTERESTS.slice(0, 12)}
-          max={8}
+          options={interestOptions}
+          popular={interestOptions}
+          max={10}
         />
         <div className="flex justify-end gap-2 pt-3">
           <button
@@ -948,13 +1097,21 @@ export default function EditProfilePage() {
         title="Edit roles"
         onClose={() => setSheet(null)}
       >
+        {taxonomyLoading && (
+          <p className="text-xs text-gray-500 mb-1">
+            Loading role options…
+          </p>
+        )}
+        {taxonomyError && (
+          <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>
+        )}
         <TagPicker
           label="Roles"
           value={roles}
           onChange={setRoles}
-          options={ROLES}
-          popular={ROLES.slice(0, 12)}
-          max={5}
+          options={roleOptions}
+          popular={roleOptions}
+          max={10}
         />
         <div className="flex justify-end gap-2 pt-3">
           <button

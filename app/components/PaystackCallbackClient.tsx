@@ -26,6 +26,7 @@ type DonationStatus = "pending" | "succeeded" | "failed";
 
 type DonationDoc = {
     deedId: string;
+    handle: string;
     creatorId: string;
     donorId?: string | null;
     status: DonationStatus;
@@ -389,7 +390,7 @@ export default function PaystackCallbackClient() {
                         >
                             {donation.deedId && (
                                 <Link
-                                    href={`studio/deed/${donation.deedId}`}
+                                    href={`/${donation.handle}/deed/${donation.deedId}`}
                                     style={{
                                         display: "inline-flex",
                                         alignItems: "center",

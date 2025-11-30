@@ -1061,14 +1061,10 @@ function VideoCard({
                 "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
               ].join(" ")}
             >
-              <IoLogoUsd
-                size={22}
-                className="transition-colors"
-                style={{ color: THEME.gold }}
-              />
+              💰
             </button>
             <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
-              Support
+              Uplift
             </div>
           </>
         )}
@@ -1319,7 +1315,6 @@ function useAuthorProfile(authorId?: string) {
 }
 
 /* ---------- Channelled Feed Shell ---------- */
-/* ---------- Channelled Feed Shell ---------- */
 function ChannelTabs({
   active,
   commentsId,
@@ -1331,7 +1326,6 @@ function ChannelTabs({
   dataSaverOn,
   userDataSaver,
   onToggleDataSaver,
-
 }: {
   active: TabKey;
   railOffsetLg: string;
@@ -1340,26 +1334,23 @@ function ChannelTabs({
   profile: any;
   uid: any;
   onChange: (k: TabKey) => void;
-  dataSaverOn: boolean;             // 👈 NEW
-  userDataSaver: boolean;           // 👈 NEW
-  onToggleDataSaver: () => void;    // 👈 NEW
+  dataSaverOn: boolean;
+  userDataSaver: boolean;
+  onToggleDataSaver: () => void;
 }) {
   const router = useRouter();
 
   return (
     <div className="relative">
-      {/* TABS + EXPLORE + SEARCH */}
-      <div className="mx-auto w-full px-3 h-full flex items-center">
+      {/* TABS + EXPLORE + SEARCH + DATA SAVER */}
+      <div className="mx-auto z-60 w-full px-3 h-full flex items-center">
         <div
           className={cn(
             "flex w-full justify-center items-center gap-2",
-            // allow horizontal scroll on small screens, and reserve space on the right for avatar
             "overflow-x-auto no-scrollbar",
-            commentsId ? "lg:mr-0" : "lg:mr-[100px]",
+            commentsId ? "lg:mr-0" : "lg:mr-[100px]"
           )}
         >
-
-
           {/* Tabs */}
           {TABS.map((k) => (
             <button
@@ -1375,15 +1366,17 @@ function ChannelTabs({
               {LABEL[k]}
             </button>
           ))}
-          {/* Explore at the start */}
+
+          {/* Dive In */}
           <button
             onClick={() => router.push("/dive")}
-            className="flex px-3 py-1.5 text-xs lg:text-sm w-[70px] lg:w-[90px] gap-2 rounded-full items-center justify-center font-bold border transition
+            className="flex px-3 py-1.5 text-xs lg:text-sm w-[90px] lg:w-[100px] gap-2 rounded-full items-center justify-center font-bold border transition
                        bg-white text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0"
           >
-            <IoTelescopeOutline /> Dive
+            <IoTelescopeOutline /> Dive In
           </button>
-          {/* Search at the end of the row */}
+
+          {/* Search */}
           <button
             onClick={() => router.push("/search")}
             className="p-2 hidden lg:inline hover:bg-gray-100 rounded-full text-sm font-bold border transition
@@ -1391,11 +1384,12 @@ function ChannelTabs({
           >
             <IoSearch />
           </button>
-          {/* 🔋 Data saver pill with hover hint */}
+
+          {/* Data saver pill */}
           <button
             type="button"
             onClick={onToggleDataSaver}
-            disabled={!uid} // guest taps will redirect via handler in FeedShell
+            disabled={!uid}
             className={cn(
               "ml-1 flex items-center gap-1 px-3 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0",
               dataSaverOn
@@ -1415,23 +1409,6 @@ function ChannelTabs({
             <span>Data saver</span>
           </button>
         </div>
-      </div>
-
-      {/* Top user menu (avatar / login) */}
-      <div
-        className={cn(
-          "fixed py-3 z-40 transition-[right] duration-200 right-3 md:right-4"
-        )}
-      >
-        {uid ? (
-          <UserAvatarMenu
-            uid={profile?.uid}
-            photoURL={profile?.photoURL ?? undefined}
-            handle={profile?.handle}
-          />
-        ) : (
-          <LoginButton />
-        )}
       </div>
     </div>
   );
@@ -1626,7 +1603,7 @@ function FeedShell() {
         <section
           ref={scrollerRef}
           tabIndex={0}
-          className="w-full bg-gray-100 flex flex-col items-center gap-0 overflow-y-scroll no-scrollbar scroll-smooth outline-none"
+          className="w-full flex flex-col items-center gap-0 overflow-y-scroll no-scrollbar scroll-smooth outline-none"
           style={{
             height: "100svh",
             scrollSnapType: "y mandatory" as any,

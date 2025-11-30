@@ -1,6 +1,13 @@
+// app/components/FilterModal.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import {
     IoChevronDown,
     IoChevronUp,
@@ -10,20 +17,24 @@ import {
     IoFilter,
     IoClose,
 } from "react-icons/io5";
-import {
-    TYPE_OPTIONS,
-    CATEGORY_OPTIONS_BY_TYPE,
-    type MarketType,
-    MARKET_CATALOG, // 👈 new
-} from "@/utils/market_master_catalog";
 import clsx from "clsx";
 import { EKARI } from "../constants/constants";
+import { type MarketType } from "@/utils/market_master_catalog";
+import {
+    collection,
+    onSnapshot,
+    orderBy,
+    query,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { CurrencyCode } from "@/app/components/ProductCard";
 
 /* -------------------- Types & utils -------------------- */
+
 export type Filters = {
     type: MarketType | null;
     category: string | null;
-    /** NEW: filter by item name (e.g. "Tomato seedlings") */
+    /** filter by item name (e.g. "Tomato seedlings") */
     name?: string | null;
     minPrice?: number;
     maxPrice?: number;
@@ -32,6 +43,32 @@ export type Filters = {
     locationText?: string | null;
     radiusKm?: number | null;
     center?: { latitude: number; longitude: number } | null;
+    currency?: CurrencyCode | null; // 👈 NEW
+};
+
+type MarketTypeDoc = {
+    id: MarketType;
+    label: string;
+    order?: number;
+    active?: boolean;
+};
+
+type MarketCategoryDoc = {
+    id: string;
+    typeId: MarketType;
+    name: string;
+    order?: number;
+    active?: boolean;
+};
+
+type MarketItemDoc = {
+    id: string;
+    type: MarketType;
+    category: string;
+    name: string;
+    nameLower?: string;
+    categoryLower?: string;
+    active?: boolean;
 };
 
 export const toLower = (s?: string | null) => (s ? s.toLowerCase() : "");
@@ -45,30 +82,11 @@ const norm = (s?: string | null) => (s || "").trim().toLowerCase();
 /* Nairobi CBD default */
 const NAIROBI = { latitude: -1.286389, longitude: 36.817223 };
 
-/* ---------- Catalog helpers (reused idea from SellModal) ---------- */
-function namesForType(t: MarketType): string[] {
-    return Array.from(
-        new Set(
-            MARKET_CATALOG
-                .filter((r) => r.type === t)
-                .map((r) => r.name?.trim())
-                .filter(Boolean) as string[]
-        )
-    ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-}
-
-function findCatalogRow(type: MarketType, name: string) {
-    const n = norm(name);
-    return MARKET_CATALOG.find(
-        (r) => r.type === type && norm(r.name) === n
-    );
-}
-
 /* -------------------- Google Maps loader -------------------- */
 function loadGoogleMaps(apiKey?: string): Promise<typeof google | null> {
     if (typeof window === "undefined") return Promise.resolve(null);
-    if ((window as any).google?.maps)
-        return Promise.resolve((window as any).google);
+    // already loaded
+    if ((window as any).google?.maps) return Promise.resolve((window as any).google);
 
     return new Promise((resolve, reject) => {
         if (!apiKey) {
@@ -81,8 +99,7 @@ function loadGoogleMaps(apiKey?: string): Promise<typeof google | null> {
         const exist = document.getElementById("gmaps-sdk");
         if (exist) {
             const check = () => {
-                if ((window as any).google?.maps)
-                    resolve((window as any).google);
+                if ((window as any).google?.maps) resolve((window as any).google);
                 else setTimeout(check, 100);
             };
             check();
@@ -160,16 +177,13 @@ function MapPicker({
                     zoomControl: true,
                 });
 
-                mapRef.current.addListener(
-                    "click",
-                    (e: google.maps.MapMouseEvent) => {
-                        if (!e.latLng) return;
-                        onChangeCenter({
-                            latitude: e.latLng.lat(),
-                            longitude: e.latLng.lng(),
-                        });
-                    }
-                );
+                mapRef.current.addListener("click", (e: google.maps.MapMouseEvent) => {
+                    if (!e.latLng) return;
+                    onChangeCenter({
+                        latitude: e.latLng.lat(),
+                        longitude: e.latLng.lng(),
+                    });
+                });
             }
 
             if (searchRef.current) {
@@ -226,8 +240,7 @@ function MapPicker({
             (markerRef.current as google.maps.Marker).addListener(
                 "dragend",
                 (ev: any) => {
-                    const pos = (ev as unknown as google.maps.MapMouseEvent)
-                        .latLng;
+                    const pos = (ev as unknown as google.maps.MapMouseEvent).latLng;
                     if (!pos) return;
                     onChangeCenter({
                         latitude: pos.lat(),
@@ -299,6 +312,125 @@ export default function FilterModal({
     initial: Filters;
     onApply: (f: Filters) => void;
 }) {
+    /* ------- Firestore-backed catalog (types, categories, items) ------- */
+    const [typeDocs, setTypeDocs] = useState<MarketTypeDoc[]>([]);
+    const [categoryDocs, setCategoryDocs] = useState<MarketCategoryDoc[]>([]);
+    const [itemDocs, setItemDocs] = useState<MarketItemDoc[]>([]);
+
+    useEffect(() => {
+        const ref = collection(db, "market_types");
+        const q = query(ref, orderBy("order", "asc"));
+        const unsub = onSnapshot(q, (snap) => {
+            const rows: MarketTypeDoc[] = [];
+            snap.forEach((d) => rows.push(d.data() as MarketTypeDoc));
+            setTypeDocs(rows);
+        });
+        return () => unsub();
+    }, []);
+
+    useEffect(() => {
+        const ref = collection(db, "market_categories");
+        const q = query(ref, orderBy("order", "asc"));
+        const unsub = onSnapshot(q, (snap) => {
+            const rows: MarketCategoryDoc[] = [];
+            snap.forEach((d) => rows.push(d.data() as MarketCategoryDoc));
+            setCategoryDocs(rows);
+        });
+        return () => unsub();
+    }, []);
+
+    useEffect(() => {
+        const ref = collection(db, "market_items");
+        const q = query(ref, orderBy("nameLower", "asc"));
+        const unsub = onSnapshot(q, (snap) => {
+            const rows: MarketItemDoc[] = [];
+            snap.forEach((d) => rows.push(d.data() as MarketItemDoc));
+            setItemDocs(rows);
+        });
+        return () => unsub();
+    }, []);
+
+    /* ------- Derived catalog helpers (from Firestore) ------- */
+
+    const typeOptions: MarketType[] = useMemo(() => {
+        const activeSorted = [...typeDocs]
+            .filter((t) => t.active !== false)
+            .sort((a, b) =>
+                (a.label || a.id).localeCompare(b.label || b.id, undefined, {
+                    sensitivity: "base",
+                })
+            );
+        if (activeSorted.length) {
+            return activeSorted.map((t) => t.id as MarketType);
+        }
+        // fallback if Firestore empty
+        return [
+            "product",
+            "animal",
+            "tree",
+            "lease",
+            "service",
+            "arableLand",
+        ] as MarketType[];
+    }, [typeDocs]);
+
+    const categoriesByType = useMemo(() => {
+        const map: Record<MarketType, MarketCategoryDoc[]> = {
+            product: [],
+            animal: [],
+            tree: [],
+            lease: [],
+            service: [],
+            arableLand: [],
+        };
+        for (const c of categoryDocs) {
+            if (!c.typeId || !map[c.typeId]) continue;
+            if (c.active === false) continue;
+            map[c.typeId].push(c);
+        }
+        (Object.keys(map) as MarketType[]).forEach((t) => {
+            map[t] = map[t].sort((a, b) =>
+                a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+            );
+        });
+        return map;
+    }, [categoryDocs]);
+
+    const itemsByType = useMemo(() => {
+        const map: Record<MarketType, MarketItemDoc[]> = {
+            product: [],
+            animal: [],
+            tree: [],
+            lease: [],
+            service: [],
+            arableLand: [],
+        };
+        for (const i of itemDocs) {
+            if (!i.type || !map[i.type]) continue;
+            if (i.active === false) continue;
+            map[i.type].push(i);
+        }
+        (Object.keys(map) as MarketType[]).forEach((t) => {
+            map[t] = map[t].sort((a, b) =>
+                (a.name || "").localeCompare(b.name || "", undefined, {
+                    sensitivity: "base",
+                })
+            );
+        });
+        return map;
+    }, [itemDocs]);
+
+    const findCatalogRow = useCallback(
+        (type: MarketType, name: string) => {
+            const list = itemsByType[type] || [];
+            const target = norm(name);
+            return list.find((r) => norm(r.name) === target);
+        },
+        [itemsByType]
+    );
+
+    /* ---------------- State for current filter ---------------- */
+
     const [typeSel, setTypeSel] = useState<Filters["type"]>(
         initial.type || null
     );
@@ -314,11 +446,13 @@ export default function FilterModal({
         initial.maxPrice ? String(initial.maxPrice) : ""
     );
 
+    const [currency, setCurrency] = useState<CurrencyCode | null>(
+        initial.currency ?? null
+    );
+
     const [locCounty, setLocCounty] = useState<string>(initial.county || "");
     const [locTown, setLocTown] = useState<string>(initial.town || "");
-    const [locText, setLocText] = useState<string>(
-        initial.locationText || ""
-    );
+    const [locText, setLocText] = useState<string>(initial.locationText || "");
 
     const [radiusKm, setRadiusKm] = useState<string>(
         typeof initial.radiusKm === "number" && !isNaN(initial.radiusKm)
@@ -342,14 +476,26 @@ export default function FilterModal({
     );
 
     const categoriesForType = useMemo(
-        () => (typeSel ? CATEGORY_OPTIONS_BY_TYPE[typeSel] || [] : []),
-        [typeSel]
+        () =>
+            typeSel
+                ? (categoriesByType[typeSel] || []).map((c) => c.name)
+                : [],
+        [typeSel, categoriesByType]
     );
 
-    const allNamesForType = useMemo(
-        () => (typeSel ? namesForType(typeSel) : []),
-        [typeSel]
-    );
+    const allNamesForType = useMemo(() => {
+        if (!typeSel) return [];
+        const list = itemsByType[typeSel] || [];
+        return Array.from(
+            new Set(
+                list
+                    .map((r) => r.name?.trim())
+                    .filter(Boolean) as string[]
+            )
+        ).sort((a, b) =>
+            a.localeCompare(b, undefined, { sensitivity: "base" })
+        );
+    }, [typeSel, itemsByType]);
 
     const nameSuggestions = useMemo(() => {
         if (!typeSel || !DIRECT_NAME_TYPES.includes(typeSel)) return [];
@@ -369,12 +515,12 @@ export default function FilterModal({
             setName(initial.name || "");
             setMinPrice(initial.minPrice ? String(initial.minPrice) : "");
             setMaxPrice(initial.maxPrice ? String(initial.maxPrice) : "");
+            setCurrency(initial.currency ?? null);
             setLocCounty(initial.county || "");
             setLocTown(initial.town || "");
             setLocText(initial.locationText || "");
             setRadiusKm(
-                typeof initial.radiusKm === "number" &&
-                    !isNaN(initial.radiusKm)
+                typeof initial.radiusKm === "number" && !isNaN(initial.radiusKm)
                     ? String(initial.radiusKm)
                     : "10"
             );
@@ -394,40 +540,39 @@ export default function FilterModal({
     // Auto category when name changes (for product/animal/lease/tree)
     useEffect(() => {
         if (!typeSel || !DIRECT_NAME_TYPES.includes(typeSel)) return;
-        if (!name.trim()) {
-            // user cleared name, don't force category
-            return;
-        }
+        if (!name.trim()) return;
+
         const row = findCatalogRow(typeSel, name);
         const fallbackCategory =
-            CATEGORY_OPTIONS_BY_TYPE[typeSel]?.[0] || null;
+            categoriesByType[typeSel]?.[0]?.name || null;
         setCategory(row?.category || fallbackCategory || null);
-    }, [typeSel, name]);
+    }, [typeSel, name, findCatalogRow, categoriesByType]);
 
     const locSummary = useMemo(() => {
         const bits: string[] = [];
         if (locTown) bits.push(locTown);
         if (locCounty) bits.push(locCounty);
-        const r = radiusKm
-            ? clamp(Number(radiusKm) || 0, 0, 500)
-            : 0;
+        const r = radiusKm ? clamp(Number(radiusKm) || 0, 0, 500) : 0;
         if (r && center) bits.push(`${r} km`);
         return bits.join(" • ") || "Off";
     }, [locTown, locCounty, radiusKm, center]);
 
     const clearAll = useCallback(() => {
+        // Reset local UI state
         setTypeSel(null);
         setCategory(null);
         setName("");
         setMinPrice("");
         setMaxPrice("");
+        setCurrency(null);
         setLocCounty("");
         setLocTown("");
         setLocText("");
-        setRadiusKm("10");
-        setCenter({ ...NAIROBI });
+        setRadiusKm("10");          // UI default when user opens location later
+        setCenter({ ...NAIROBI });  // UI default only
         setLocOpen(false);
 
+        // Tell parent: NO filters active at all
         onApply({
             type: null,
             category: null,
@@ -437,8 +582,9 @@ export default function FilterModal({
             county: null,
             town: null,
             locationText: null,
-            radiusKm: 10,
-            center: { ...NAIROBI },
+            radiusKm: null,  // 👈 no radius filter
+            center: null,    // 👈 no location filter
+            currency: null,  // 👈 clear currency filter too
         });
     }, [onApply]);
 
@@ -459,6 +605,7 @@ export default function FilterModal({
             locationText: locText || null,
             radiusKm: km ?? null,
             center: center || null,
+            currency: currency ?? null,
         });
         onClose();
     }, [
@@ -472,6 +619,7 @@ export default function FilterModal({
         locText,
         radiusKm,
         center,
+        currency,
         onApply,
         onClose,
     ]);
@@ -483,6 +631,8 @@ export default function FilterModal({
     const parsedRadius = radiusKm
         ? clamp(Number(radiusKm) || 0, 0, 500)
         : 10;
+
+    const priceCurrencyLabel = currency || "KES";
 
     return (
         <div className="fixed inset-0 z-50">
@@ -540,7 +690,7 @@ export default function FilterModal({
                             Type
                         </div>
                         <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                            {[null, ...TYPE_OPTIONS].map((t, i) => {
+                            {[null, ...typeOptions].map((t, i) => {
                                 const active = (t || null) === typeSel;
                                 return (
                                     <button
@@ -564,7 +714,7 @@ export default function FilterModal({
                         </div>
                     </div>
 
-                    {/* Name + autosuggest for product/animal/lease/tree */}
+                    {/* Item name + autosuggest */}
                     {typeSel && DIRECT_NAME_TYPES.includes(typeSel) && (
                         <div>
                             <div className="text-[12px] font-extrabold text-gray-500">
@@ -612,65 +762,89 @@ export default function FilterModal({
                         </div>
                     )}
 
-                    {/* Category chip row ONLY for non-direct-name types (e.g. service) */}
-                    {!!typeSel &&
-                        !DIRECT_NAME_TYPES.includes(typeSel) && (
+                    {/* Category chips for non-direct-name types */}
+                    {!!typeSel && !DIRECT_NAME_TYPES.includes(typeSel) && (
+                        <div>
+                            <div className="text-[12px] font-extrabold text-gray-500">
+                                Category
+                            </div>
+                            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                                {[null, ...(categoriesForType || [])].map((c, i) => {
+                                    const active = (c || null) === category;
+                                    return (
+                                        <button
+                                            key={`${c || "all"}-${i}`}
+                                            onClick={() => setCategory(c || null)}
+                                            className={clsx(
+                                                "px-3 py-2 rounded-full border text-[12px] font-bold shrink-0",
+                                                active ? chipActive : chipIdle
+                                            )}
+                                        >
+                                            {c || "All"}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Currency + Price */}
+                    <div className="space-y-2">
+                        {/* Currency selector */}
+                        <div>
+                            <div className="text-[12px] font-extrabold text-gray-500">
+                                Currency
+                            </div>
+                            <div className="mt-2 flex gap-2">
+                                {[
+                                    { label: "Any", value: null },
+                                    { label: "KES", value: "KES" as CurrencyCode },
+                                    { label: "USD", value: "USD" as CurrencyCode },
+                                ].map((opt) => {
+                                    const active = currency === opt.value;
+                                    return (
+                                        <button
+                                            key={opt.label}
+                                            type="button"
+                                            onClick={() => setCurrency(opt.value)}
+                                            className={clsx(
+                                                "px-3 py-1.5 rounded-full border text-[12px] font-bold",
+                                                active ? chipActive : chipIdle
+                                            )}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Min / Max price */}
+                        <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <div className="text-[12px] font-extrabold text-gray-500">
-                                    Category
+                                    Min price ({priceCurrencyLabel})
                                 </div>
-                                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                                    {[null, ...(categoriesForType || [])].map(
-                                        (c, i) => {
-                                            const active =
-                                                (c || null) === category;
-                                            return (
-                                                <button
-                                                    key={`${c || "all"}-${i}`}
-                                                    onClick={() =>
-                                                        setCategory(c || null)
-                                                    }
-                                                    className={clsx(
-                                                        "px-3 py-2 rounded-full border text-[12px] font-bold shrink-0",
-                                                        active
-                                                            ? chipActive
-                                                            : chipIdle
-                                                    )}
-                                                >
-                                                    {c || "All"}
-                                                </button>
-                                            );
-                                        }
-                                    )}
+                                <input
+                                    value={minPrice}
+                                    onChange={(e) => setMinPrice(e.target.value)}
+                                    inputMode="numeric"
+                                    placeholder="e.g. 100"
+                                    className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-3 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <div className="text-[12px] font-extrabold text-gray-500">
+                                    Max price ({priceCurrencyLabel})
                                 </div>
+                                <input
+                                    value={maxPrice}
+                                    onChange={(e) => setMaxPrice(e.target.value)}
+                                    inputMode="numeric"
+                                    placeholder="e.g. 10,000"
+                                    className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-3 outline-none"
+                                />
                             </div>
-                        )}
-
-                    {/* Price */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <div className="text-[12px] font-extrabold text-gray-500">
-                                Min price (KES)
-                            </div>
-                            <input
-                                value={minPrice}
-                                onChange={(e) => setMinPrice(e.target.value)}
-                                inputMode="numeric"
-                                placeholder="e.g. 100"
-                                className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-3 outline-none"
-                            />
-                        </div>
-                        <div>
-                            <div className="text-[12px] font-extrabold text-gray-500">
-                                Max price (KES)
-                            </div>
-                            <input
-                                value={maxPrice}
-                                onChange={(e) => setMaxPrice(e.target.value)}
-                                inputMode="numeric"
-                                placeholder="e.g. 10,000"
-                                className="mt-2 h-11 w-full rounded-xl border border-gray-200 px-3 outline-none"
-                            />
                         </div>
                     </div>
 
@@ -682,10 +856,7 @@ export default function FilterModal({
                             aria-expanded={locOpen}
                         >
                             <div className="flex items-center gap-2 flex-1">
-                                <IoLocationOutline
-                                    className="text-gray-900"
-                                    size={16}
-                                />
+                                <IoLocationOutline className="text-gray-900" size={16} />
                                 <div
                                     className="text-[12px] font-black"
                                     style={{ color: EKARI.text }}
@@ -729,9 +900,7 @@ export default function FilterModal({
                                         step={1}
                                         value={parsedRadius}
                                         onChange={(e) =>
-                                            setRadiusKm(
-                                                String(e.target.value)
-                                            )
+                                            setRadiusKm(String(e.target.value))
                                         }
                                         className="mt-3 w-full accent-emerald-700"
                                     />
@@ -768,9 +937,8 @@ export default function FilterModal({
                                             className="text-sm font-semibold"
                                             style={{ color: "#92400E" }}
                                         >
-                                            Pick a center by searching or
-                                            clicking the map to apply radius
-                                            filtering.
+                                            Pick a center by searching or clicking the map to
+                                            apply radius filtering.
                                         </div>
                                     </div>
                                 )}

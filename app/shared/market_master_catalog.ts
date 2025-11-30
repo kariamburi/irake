@@ -1,5 +1,5 @@
 // AUTO-GENERATED Market Master Catalog
-export type MarketType = "product" | "tree" | "animal" | "lease" | "service" | "arableLand";
+export type MarketType = "product" | "tree" | "animal" | "lease" | "service";
 
 export type MarketCatalogEntry = {
   type: MarketType;

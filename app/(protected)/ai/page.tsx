@@ -240,7 +240,7 @@ export default function Page() {
   return (
     <AppShell>
       {/* Outer wrapper: lock to viewport & hide page scrolling */}
-      <div className="flex h-screen w-full bg-slate-50 px-0 md:px-4 lg:px-6 overflow-hidden">
+      <div className="flex h-screen w-full px-0 md:px-4 lg:px-6 overflow-hidden">
         {/* Card: full-height, flex column, only middle scrolls */}
         <div
           className="

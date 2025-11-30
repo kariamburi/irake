@@ -17,10 +17,13 @@ const EKARI = {
     text: "#0F172A",
 };
 
+export type CurrencyCode = "KES" | "USD";
+
 export type Product = {
     id: string;
     name: string;
-    price: number;
+    price?: number;              // 👈 safer as optional
+    currency?: CurrencyCode;     // 👈 NEW
     category?: string;
     imageUrl?: string;
     imageUrls?: string[];
@@ -50,6 +53,20 @@ export type Product = {
 export const KES = (n: number) =>
     "KSh " + (n || 0).toLocaleString("en-KE", { maximumFractionDigits: 0 });
 
+export const USD = (n: number) =>
+    "USD " + (n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
+
+function formatListingPrice(p: Product): string {
+    const raw = p.price ?? 0;
+
+    if (!raw || raw <= 0) return "Price on request";
+
+    const currency: CurrencyCode =
+        p.currency === "USD" || p.currency === "KES" ? p.currency : "KES"; // default for old listings
+
+    return currency === "USD" ? USD(raw) : KES(raw);
+}
+
 export function computeStatus(
     p: Product
 ): "active" | "sold" | "reserved" | "hidden" {
@@ -71,18 +88,29 @@ export default function ProductCard({
             ? 1
             : 0;
 
+    // Use stored currency for normal items and for rate
+    const numericRate = p.rate
+        ? Number(String(p.rate).replace(/[^\d.]/g, ""))
+        : 0;
+
+    const rateText =
+        numericRate > 0
+            ? (p.currency === "USD" ? USD(numericRate) : KES(numericRate))
+            : "—";
+
     const priceText =
         p.type === "lease" || p.type === "service"
-            ? `${p.rate ? KES(Number(p.rate)) : "—"}${p.billingUnit ? ` / ${p.billingUnit}` : ""
-            }`
-            : KES(p.price || 0);
+            ? `${rateText}${p.billingUnit ? ` / ${p.billingUnit}` : ""}`
+            : formatListingPrice(p); // 👈 uses stored currency
 
     const status = computeStatus(p);
     const isSold = status === "sold";
     const isReserved = status === "reserved";
     const isHidden = status === "hidden";
 
-    const ringStyle = { "--tw-ring-color": `${EKARI.forest}` } as React.CSSProperties;
+    const ringStyle = {
+        "--tw-ring-color": `${EKARI.forest}`,
+    } as React.CSSProperties;
 
     // --- image loading state ---
     const [imgLoading, setImgLoading] = React.useState<boolean>(!!cover);
@@ -120,7 +148,6 @@ export default function ProductCard({
                                     }}
                                     aria-hidden
                                 />
-
                             </div>
                         )}
 
@@ -128,7 +155,6 @@ export default function ProductCard({
                             src={cover}
                             alt={p.name || "Product"}
                             fill
-                            // fade-in when loaded
                             className={clsx(
                                 "object-cover transition-opacity duration-300",
                                 imgLoading ? "opacity-0" : "opacity-100",

@@ -1,13 +1,8 @@
 "use client";
 
-import React, {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
     IoCalendarOutline,
     IoLocationOutline,
@@ -17,33 +12,17 @@ import {
     IoMaleOutline,
     IoFemaleOutline,
     IoPersonOutline,
-    IoClose,
+    IoChevronBackOutline,
 } from "react-icons/io5";
-import {
-    GoogleMap,
-    Marker,
-    useLoadScript,
-    Autocomplete,
-} from "@react-google-maps/api";
+
+import { GoogleMap, Marker, useLoadScript, Autocomplete } from "@react-google-maps/api";
 
 import { db, storage } from "@/lib/firebase";
-import {
-    doc,
-    setDoc,
-    serverTimestamp,
-    collection,
-    getDocs,
-    query,
-    orderBy,
-} from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "@/app/hooks/useAuth";
-import {
-    INTEREST_GROUPS as STATIC_INTEREST_GROUPS,
-    INTERESTS as STATIC_INTERESTS,
-    ROLE_GROUPS as STATIC_ROLE_GROUPS,
-    ROLES as STATIC_ROLES,
-} from "@/app/constants/constants";
+import { INTEREST_GROUPS, INTERESTS, ROLE_GROUPS, ROLES } from "@/app/constants/constants";
+import { signOut } from "firebase/auth";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
 
 /* ---------- Brand ---------- */
@@ -60,12 +39,6 @@ const EKARI = {
 };
 
 type Gender = "male" | "female" | "other";
-type Currency = "KES" | "USD";
-type GroupConfig = {
-    id?: string;
-    title: string;
-    items: string[];
-};
 
 /* ---------- Helpers ---------- */
 const normalizeTag = (s: string) =>
@@ -171,13 +144,7 @@ type SmartPickerProps = {
     popular?: string[];
     placeholder?: string;
     max?: number;
-    ekari?: {
-        hair: string;
-        text: string;
-        forest: string;
-        gold: string;
-        dim: string;
-    };
+    ekari?: { hair: string; text: string; forest: string; gold: string; dim: string };
     groups?: { title: string; items: string[] }[];
     inlineBrowse?: boolean;
 };
@@ -211,9 +178,7 @@ function SmartPicker({
         const q = query.trim().toLowerCase();
         return base.map((g) => ({
             ...g,
-            items: q
-                ? g.items.filter((i) => i.toLowerCase().includes(q))
-                : g.items,
+            items: q ? g.items.filter((i) => i.toLowerCase().includes(q)) : g.items,
         }));
     }, [groups, options, query]);
 
@@ -326,10 +291,7 @@ function SmartPicker({
                             <div className="font-extrabold" style={{ color: ekari.text }}>
                                 {label}
                             </div>
-                            <button
-                                onClick={() => setOpenModal(false)}
-                                className="text-sm font-bold"
-                            >
+                            <button onClick={() => setOpenModal(false)} className="text-sm font-bold">
                                 Close
                             </button>
                         </div>
@@ -350,10 +312,7 @@ function SmartPicker({
 
                         <GroupedList />
 
-                        <div
-                            className="mt-4 text-right text-xs"
-                            style={{ color: ekari.dim }}
-                        >
+                        <div className="mt-4 text-right text-xs" style={{ color: ekari.dim }}>
                             {value.length}/{max} selected
                         </div>
                     </div>
@@ -366,7 +325,7 @@ function SmartPicker({
 /* ===================== Onboarding Wizard (Web) ===================== */
 export default function OnboardingWizardPage() {
     const router = useRouter();
-    const { user, loading: authLoading, signOutUser } = useAuth();
+    const { user, loading: authLoading } = useAuth();
 
     // Guard: if auth resolved and no user → go to login
     useEffect(() => {
@@ -393,136 +352,26 @@ export default function OnboardingWizardPage() {
     const abortRef = useRef<AbortController | null>(null);
 
     const today = new Date();
-    const maxDOB = new Date(
-        today.getFullYear() - 18,
-        today.getMonth(),
-        today.getDate()
-    ); // 18+
+    const maxDOB = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate()); // 18+
     const minDOB = new Date(1900, 0, 1);
-
+    const dateToStr = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+            d.getDate()
+        ).padStart(2, "0")}`;
     const isAdult = useMemo(() => {
         if (!dobDate) return false;
         return new Date(dobDate) <= maxDOB;
     }, [dobDate]);
-    const quickDecades = [
-        { label: "1960s", year: 1965 },
-        { label: "1970s", year: 1975 },
-        { label: "1980s", year: 1985 },
-        { label: "1990s", year: 1995 },
-        { label: "2000s", year: 2005 },
-    ];
 
-    function handleDecadeClick(targetYear: number) {
-        // Only apply if within allowed range (18+ and >= 1900)
-        if (!years.includes(targetYear)) return;
-
-        const yStr = String(targetYear);
-        setDobYear(yStr);
-
-        // Keep month/day if possible; adjust day if it overflows that month
-        if (dobMonth) {
-            const maxDay = daysInMonth(targetYear, parseInt(dobMonth, 10));
-            const currentDay = parseInt(dobDay || "0", 10);
-
-            if (!currentDay || currentDay > maxDay) {
-                setDobDay(String(Math.min(currentDay || 1, maxDay)).padStart(2, "0"));
-            }
-        }
-    }
-    // Step 2 & 3 selections
+    // Step 2 & 3
     const [areaOfInterest, setAreaOfInterest] = useState<string[]>([]);
     const [roles, setRoles] = useState<string[]>([]);
 
-    // 🔹 Dynamic taxonomy from Firestore
-    const [interestGroups, setInterestGroups] = useState<GroupConfig[]>([]);
-    const [roleGroups, setRoleGroups] = useState<GroupConfig[]>([]);
-    const [taxonomyLoading, setTaxonomyLoading] = useState(true);
-    const [taxonomyError, setTaxonomyError] = useState<string | null>(null);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        async function loadTaxonomy() {
-            try {
-                setTaxonomyLoading(true);
-                setTaxonomyError(null);
-
-                const igSnap = await getDocs(
-                    query(collection(db, "interest_groups"), orderBy("order", "asc"))
-                );
-                const rgSnap = await getDocs(
-                    query(collection(db, "role_groups"), orderBy("order", "asc"))
-                );
-
-                if (cancelled) return;
-
-                const ig: GroupConfig[] = igSnap.docs
-                    .map((d) => {
-                        const data = d.data() as any;
-                        return {
-                            id: d.id,
-                            title: data.title ?? d.id,
-                            items: Array.isArray(data.items) ? data.items : [],
-                        };
-                    })
-                    .filter((g) => g.items.length);
-
-                const rg: GroupConfig[] = rgSnap.docs
-                    .map((d) => {
-                        const data = d.data() as any;
-                        return {
-                            id: d.id,
-                            title: data.title ?? d.id,
-                            items: Array.isArray(data.items) ? data.items : [],
-                        };
-                    })
-                    .filter((g) => g.items.length);
-
-                setInterestGroups(ig);
-                setRoleGroups(rg);
-            } catch (e: any) {
-                if (!cancelled) {
-                    setTaxonomyError("Could not load interest/role options.");
-                }
-            } finally {
-                if (!cancelled) setTaxonomyLoading(false);
-            }
-        }
-
-        void loadTaxonomy();
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    // Use Firestore groups when available, otherwise fall back to constants
-    const interestGroupsForUI = interestGroups.length
-        ? interestGroups
-        : STATIC_INTEREST_GROUPS;
-
-    const roleGroupsForUI = roleGroups.length
-        ? roleGroups
-        : STATIC_ROLE_GROUPS;
-
-    const interestOptions = useMemo(() => {
-        const fromGroups = interestGroupsForUI.flatMap((g) => g.items);
-        const all = fromGroups.length ? fromGroups : STATIC_INTERESTS;
-        return Array.from(new Set(all));
-    }, [interestGroupsForUI]);
-
-    const roleOptions = useMemo(() => {
-        const fromGroups = roleGroupsForUI.flatMap((g) => g.items);
-        const all = fromGroups.length ? fromGroups : STATIC_ROLES;
-        return Array.from(new Set(all));
-    }, [roleGroupsForUI]);
-
     // Step 4
-    const [locStatus, setLocStatus] = useState<
-        "idle" | "denied" | "loading" | "ready"
-    >("idle");
-    const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-        null
+    const [locStatus, setLocStatus] = useState<"idle" | "denied" | "loading" | "ready">(
+        "idle"
     );
+    const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [place, setPlace] = useState<string>("");
     const [locTab, setLocTab] = useState<"search" | "map">("search");
 
@@ -634,19 +483,34 @@ export default function OnboardingWizardPage() {
             HANDLE_REGEX.test(core) &&
             handleAvailable === true
         );
-    }, [
-        firstName,
-        surname,
-        gender,
-        dobDate,
-        isAdult,
-        handle,
-        handleAvailable,
-    ]);
+    }, [firstName, surname, gender, dobDate, isAdult, handle, handleAvailable]);
 
     const canNext2 = areaOfInterest.length > 0;
     const canNext3 = roles.length > 0;
 
+    /* ---------- Geolocation (web) ---------- */
+    async function requestLocation() {
+        try {
+            if (!("geolocation" in navigator)) {
+                setLocStatus("denied");
+                return;
+            }
+            setLocStatus("loading");
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    setCoords({ lat, lng });
+                    if (!place) setPlace("");
+                    setLocStatus("ready");
+                },
+                () => setLocStatus("denied"),
+                { enableHighAccuracy: false, timeout: 10000 }
+            );
+        } catch {
+            setLocStatus("denied");
+        }
+    }
 
     /* ---------- Photo ---------- */
     function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -657,13 +521,12 @@ export default function OnboardingWizardPage() {
     }
 
     /* ---------- Flow ---------- */
-    const onBack = () =>
-        setStep((s) => (s === 1 ? 1 : ((s - 1) as 1 | 2 | 3 | 4 | 5)));
+    const onBack = () => setStep((s) => (s === 1 ? 1 : ((s - 1) as any)));
     const handleNext = () => {
         if (step === 5) {
             void saveProfile();
         } else {
-            setStep((s) => (s === 5 ? 5 : ((s + 1) as 1 | 2 | 3 | 4 | 5)));
+            setStep((s) => (s === 5 ? 5 : ((s + 1) as any)));
         }
     };
 
@@ -719,9 +582,7 @@ export default function OnboardingWizardPage() {
             const filename = `avatars/${user.uid}/${Date.now()}_${f.name}`;
             const rf = ref(storage, filename);
             const bytes = new Uint8Array(await f.arrayBuffer());
-            await uploadBytes(rf, bytes, {
-                contentType: f.type || "image/jpeg",
-            });
+            await uploadBytes(rf, bytes, { contentType: f.type || "image/jpeg" });
             const url = await getDownloadURL(rf);
             return url;
         } finally {
@@ -736,10 +597,7 @@ export default function OnboardingWizardPage() {
         county: string | null;
         displayName?: string | null;
     };
-    async function reverseGeocode(
-        lat: number,
-        lng: number
-    ): Promise<RevGeo> {
+    async function reverseGeocode(lat: number, lng: number): Promise<RevGeo> {
         try {
             const q = new URLSearchParams({ lat: String(lat), lng: String(lng) });
             const resp = await fetch(`/api/revgeo?${q.toString()}`, {
@@ -794,25 +652,11 @@ export default function OnboardingWizardPage() {
         const countryName = geoCountry || "Kenya";
         const countryCode = geoCountryCode || "KE";
         const countyName = geoCounty || null;
-        // 👇 Auto-derive preferred currency based on country
-        let derivedCurrency: Currency = "USD";
 
-        if (countryCode === "KE") {
-            // Kenya → KES so M-Pesa is visible by default
-            derivedCurrency = "KES";
-        } else {
-            // Everyone else → USD (global cards)
-            derivedCurrency = "USD";
-        }
         const rolesArr = Array.isArray(roles) ? roles : roles ? [roles] : [];
-        const interestsArr = Array.isArray(areaOfInterest)
-            ? areaOfInterest
-            : areaOfInterest
-                ? [areaOfInterest]
-                : [];
+        const interestsArr = Array.isArray(areaOfInterest) ? areaOfInterest : areaOfInterest ? [areaOfInterest] : [];
 
-        let photoURL: string | null =
-            (user.photoURL as string | null) || null;
+        let photoURL: string | null = (user.photoURL as string | null) || null;
         try {
             if (file) {
                 photoURL = await uploadProfilePhoto(file);
@@ -836,9 +680,7 @@ export default function OnboardingWizardPage() {
 
                 phone: user.phoneNumber || null,
                 email: user.email || null,
-                // 👇 Auto-set based on country
-                preferredCurrency: derivedCurrency,
-                preferredCurrencyTag: derivedCurrency.toLowerCase(),
+
                 // Location
                 country: countryName,
                 countryCode,
@@ -921,8 +763,7 @@ export default function OnboardingWizardPage() {
     );
 
     // Autocomplete ref so we can read the selected place
-    const autocompleteRef =
-        useRef<google.maps.places.Autocomplete | null>(null);
+    const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
     const autocompleteInputRef = useRef<HTMLInputElement | null>(null);
 
     function onAutocompleteLoad(ac: google.maps.places.Autocomplete) {
@@ -933,15 +774,13 @@ export default function OnboardingWizardPage() {
         const ac = autocompleteRef.current;
         if (!ac) return;
         const placeObj = ac.getPlace();
-        if (!placeObj || !placeObj.geometry || !placeObj.geometry.location)
-            return;
+        if (!placeObj || !placeObj.geometry || !placeObj.geometry.location) return;
         const lat = placeObj.geometry.location.lat();
         const lng = placeObj.geometry.location.lng();
         setCoords({ lat, lng });
         setPlace(placeObj.formatted_address || placeObj.name || "");
         setLocStatus("ready");
     }
-
     // shows a subtle "resolving…" state if you want to echo it in UI later
     const [resolvingAddress, setResolvingAddress] = useState(false);
     const geocoderRef = useRef<google.maps.Geocoder | null>(null);
@@ -958,16 +797,14 @@ export default function OnboardingWizardPage() {
         try {
             // Try Google client-side geocoder first
             if (geocoderRef.current) {
-                const resp = await geocoderRef.current.geocode({
-                    location: { lat, lng },
-                });
+                const resp = await geocoderRef.current.geocode({ location: { lat, lng } });
                 const best = resp.results?.[0];
                 if (best?.formatted_address) {
                     setPlace(best.formatted_address);
                     return;
                 }
             }
-            // Fallback to your API
+            // Fallback to your API (OpenStreetMap/Nominatim or whatever you wired)
             const g = await reverseGeocode(lat, lng);
             setPlace(g.displayName || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
         } catch {
@@ -976,108 +813,21 @@ export default function OnboardingWizardPage() {
             setResolvingAddress(false);
         }
     }
-
-    // Logout confirm
+    const { signOutUser } = useAuth();
+    // inside your component:
     const [confirmOpen, setConfirmOpen] = useState(false);
     const cancelLogout = () => setConfirmOpen(false);
     const confirmLogout = async () => {
         setConfirmOpen(false);
-        try {
-            await signOutUser();
-        } catch {
-            /* ignore */
-        }
+        try { await signOutUser(); } catch { }
         router.replace("/login");
     };
-    // NEW: split DOB for nicer UI
-    const [dobYear, setDobYear] = useState<string>("");
-    const [dobMonth, setDobMonth] = useState<string>(""); // "01".."12"
-    const [dobDay, setDobDay] = useState<string>("");     // "01".."31"
-    const years = useMemo(() => {
-        const out: number[] = [];
-        for (let y = maxDOB.getFullYear(); y >= minDOB.getFullYear(); y--) {
-            out.push(y);
-        }
-        return out;
-    }, [maxDOB, minDOB]);
 
-    const months = [
-        { label: "Jan", value: "01" },
-        { label: "Feb", value: "02" },
-        { label: "Mar", value: "03" },
-        { label: "Apr", value: "04" },
-        { label: "May", value: "05" },
-        { label: "Jun", value: "06" },
-        { label: "Jul", value: "07" },
-        { label: "Aug", value: "08" },
-        { label: "Sep", value: "09" },
-        { label: "Oct", value: "10" },
-        { label: "Nov", value: "11" },
-        { label: "Dec", value: "12" },
-    ];
-
-    function daysInMonth(year: number, month: number) {
-        return new Date(year, month, 0).getDate(); // month 1..12
-    }
-
-    const days = useMemo(() => {
-        const y = parseInt(dobYear, 10);
-        const m = parseInt(dobMonth, 10);
-        if (!y || !m) return [];
-        const count = daysInMonth(y, m);
-        return Array.from({ length: count }, (_, i) =>
-            String(i + 1).padStart(2, "0")
-        );
-    }, [dobYear, dobMonth]);
-    // When user changes any part, recompute dobDate
-    useEffect(() => {
-        if (dobYear && dobMonth && dobDay) {
-            setDobDate(`${dobYear}-${dobMonth}-${dobDay}`);
-        } else {
-            setDobDate("");
-        }
-    }, [dobYear, dobMonth, dobDay]);
-
-    // If user comes back and dobDate already set, pre-fill selects
-    useEffect(() => {
-        if (!dobDate) return;
-        const [y, m, d] = dobDate.split("-");
-        setDobYear(y || "");
-        setDobMonth(m || "");
-        setDobDay(d || "");
-    }, [dobDate]);
     return (
-        <main
-            className="min-h-screen w-full"
-            style={{ backgroundColor: EKARI.sand }}
-        >
+        <main className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
             {/* Top bar: cancel/back */}
-            {/* Top bar: cancel onboarding */}
-            <div
-                className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b"
-                style={{ borderColor: EKARI.hair }}
-            >
-                <div className="mx-auto max-w-3xl px-5 h-12 flex items-center justify-between">
-                    <div
-                        className="text-xs md:text-sm font-semibold"
-                        style={{ color: EKARI.dim }}
-                    >
-                        Complete your EkariHub profile
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setConfirmOpen(true)}
-                        className="text-xs md:text-sm font-bold px-3 py-1.5 rounded-full border"
-                        style={{
-                            borderColor: EKARI.hair,
-                            color: EKARI.danger,
-                            background: "#fff",
-                        }}
-                    >
-                        Cancel onboarding
-                    </button>
-
+            <div className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b" style={{ borderColor: EKARI.hair }}>
+                <div className="mx-auto max-w-3xl px-5 h-12 flex items-center">
                     <ConfirmModal
                         open={confirmOpen}
                         title="Cancel onboarding?"
@@ -1106,20 +856,14 @@ export default function OnboardingWizardPage() {
                                         <input
                                             placeholder="First name"
                                             className="h-12 rounded-xl border px-3 bg-[#F6F7FB] outline-none"
-                                            style={{
-                                                borderColor: EKARI.hair,
-                                                color: EKARI.text,
-                                            }}
+                                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                             value={firstName}
                                             onChange={(e) => setFirstName(e.target.value)}
                                         />
                                         <input
                                             placeholder="Surname"
                                             className="h-12 rounded-xl border px-3 bg-[#F6F7FB] outline-none"
-                                            style={{
-                                                borderColor: EKARI.hair,
-                                                color: EKARI.text,
-                                            }}
+                                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                             value={surname}
                                             onChange={(e) => setSurname(e.target.value)}
                                         />
@@ -1128,11 +872,7 @@ export default function OnboardingWizardPage() {
 
                                 <Field
                                     label="Username"
-                                    helper={
-                                        checkingHandle
-                                            ? "Checking availability…"
-                                            : handleMsg || undefined
-                                    }
+                                    helper={checkingHandle ? "Checking availability…" : handleMsg || undefined}
                                 >
                                     <div
                                         className="flex items-center h-12 rounded-xl border px-3 bg-[#F6F7FB]"
@@ -1151,9 +891,7 @@ export default function OnboardingWizardPage() {
                                         ) : handle.length > 0 && handleAvailable !== null ? (
                                             <span
                                                 className="ml-2 text-sm font-bold"
-                                                style={{
-                                                    color: handleAvailable ? "#10B981" : "#EF4444",
-                                                }}
+                                                style={{ color: handleAvailable ? "#10B981" : "#EF4444" }}
                                             >
                                                 {handleAvailable ? "OK" : "X"}
                                             </span>
@@ -1161,92 +899,27 @@ export default function OnboardingWizardPage() {
                                     </div>
                                 </Field>
 
-                                <Field
-                                    label="Date of birth"
-                                    helper="You must be 18+ to join."
-                                >
-                                    {/* Main DOB controls */}
-                                    <div className="flex items-center gap-2">
-                                        <IoCalendarOutline
-                                            className="mr-1"
-                                            size={18}
-                                            color={EKARI.dim}
+                                <Field label="Date of birth" helper="You must be 18+ to join.">
+                                    <div
+                                        className="flex items-center h-12 rounded-xl border px-3 bg-[#F6F7FB]"
+                                        style={{ borderColor: EKARI.hair }}
+                                    >
+                                        <IoCalendarOutline className="mr-2" size={18} color={EKARI.dim} />
+                                        <input
+                                            type="date"
+                                            className="w-full bg-transparent outline-none text-base"
+                                            value={dobDate}
+                                            onChange={(e) => setDobDate(e.target.value)}
+                                            min={dateToStr(minDOB)}
+                                            max={dateToStr(maxDOB)}
                                         />
-
-                                        {/* Day */}
-                                        <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-sm"
-                                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                            value={dobDay}
-                                            onChange={(e) => setDobDay(e.target.value)}
-                                        >
-                                            <option value="">Day</option>
-                                            {days.map((d) => (
-                                                <option key={d} value={d}>
-                                                    {parseInt(d, 10)}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        {/* Month */}
-                                        <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-sm"
-                                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                            value={dobMonth}
-                                            onChange={(e) => setDobMonth(e.target.value)}
-                                        >
-                                            <option value="">Month</option>
-                                            {months.map((m) => (
-                                                <option key={m.value} value={m.value}>
-                                                    {m.label}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        {/* Year */}
-                                        <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-sm"
-                                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                            value={dobYear}
-                                            onChange={(e) => setDobYear(e.target.value)}
-                                        >
-                                            <option value="">Year</option>
-                                            {years.map((y) => (
-                                                <option key={y} value={y}>
-                                                    {y}
-                                                </option>
-                                            ))}
-                                        </select>
                                     </div>
-
-                                    {/* Quick decade shortcuts */}
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                        <span style={{ color: EKARI.dim }}>Quick select:</span>
-                                        {quickDecades.map((d) => (
-                                            <button
-                                                key={d.label}
-                                                type="button"
-                                                onClick={() => handleDecadeClick(d.year)}
-                                                className="rounded-full border px-2 py-1 font-bold"
-                                                style={{
-                                                    borderColor: EKARI.hair,
-                                                    background: "#fff",
-                                                    color: EKARI.text,
-                                                }}
-                                            >
-                                                {d.label}
-                                            </button>
-                                        ))}
-                                    </div>
-
                                     {!!dobDate && !isAdult && (
                                         <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
                                             You must be at least 18 years old.
                                         </div>
                                     )}
                                 </Field>
-
-
 
                                 <Field label="Gender">
                                     <GenderPills value={gender} onChange={setGender} />
@@ -1276,25 +949,14 @@ export default function OnboardingWizardPage() {
                                     Pick what you care about in agriculture.
                                 </div>
 
-                                {taxonomyLoading && (
-                                    <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
-                                        Loading interest options…
-                                    </div>
-                                )}
-                                {taxonomyError && (
-                                    <div className="mt-2 text-xs" style={{ color: EKARI.danger }}>
-                                        {taxonomyError}
-                                    </div>
-                                )}
-
                                 <Field label="">
                                     <SmartPicker
                                         label="Interests"
                                         value={areaOfInterest}
                                         onChange={setAreaOfInterest}
-                                        options={interestOptions}
+                                        options={INTERESTS}
                                         popular={[]}
-                                        groups={interestGroupsForUI}
+                                        groups={INTEREST_GROUPS}
                                         max={10}
                                         ekari={EKARI}
                                         inlineBrowse
@@ -1326,25 +988,14 @@ export default function OnboardingWizardPage() {
                                     Tell us your role(s) in the value chain.
                                 </div>
 
-                                {taxonomyLoading && (
-                                    <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
-                                        Loading role options…
-                                    </div>
-                                )}
-                                {taxonomyError && (
-                                    <div className="mt-2 text-xs" style={{ color: EKARI.danger }}>
-                                        {taxonomyError}
-                                    </div>
-                                )}
-
                                 <Field label="">
                                     <SmartPicker
                                         label="Roles"
                                         value={roles}
                                         onChange={setRoles}
-                                        options={roleOptions}
+                                        options={ROLES}
                                         popular={[]}
-                                        groups={roleGroupsForUI}
+                                        groups={ROLE_GROUPS}
                                         max={10}
                                         ekari={EKARI}
                                         inlineBrowse
@@ -1372,10 +1023,7 @@ export default function OnboardingWizardPage() {
                                 className="rounded-2xl border p-4"
                                 style={{ borderColor: EKARI.hair, background: EKARI.sand }}
                             >
-                                <div
-                                    className="text-sm mt-1"
-                                    style={{ color: EKARI.subtext }}
-                                >
+                                <div className="text-sm mt-1" style={{ color: EKARI.subtext }}>
                                     We’ll show nearby markets and services.
                                 </div>
 
@@ -1388,48 +1036,31 @@ export default function OnboardingWizardPage() {
                                     <div className="ml-2 flex-1">
                                         {locStatus === "ready" && coords ? (
                                             <>
-                                                <div
-                                                    className="font-bold"
-                                                    style={{ color: EKARI.text }}
-                                                >
+                                                <div className="font-bold" style={{ color: EKARI.text }}>
                                                     {place || "Location captured"}
                                                 </div>
-                                                <div
-                                                    className="text-xs"
-                                                    style={{ color: EKARI.subtext }}
-                                                >
+                                                <div className="text-xs" style={{ color: EKARI.subtext }}>
                                                     {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
                                                 </div>
                                             </>
                                         ) : locStatus === "denied" ? (
-                                            <div
-                                                className="font-bold"
-                                                style={{ color: EKARI.danger }}
-                                            >
+                                            <div className="font-bold" style={{ color: EKARI.danger }}>
                                                 Permission denied. You can continue without it.
                                             </div>
                                         ) : (
-                                            <div
-                                                className="font-bold"
-                                                style={{ color: EKARI.text }}
-                                            >
+                                            <div className="font-bold" style={{ color: EKARI.text }}>
                                                 Grant permission to detect your location.
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* If you want to enable the button: */}
-                                    {/* <button
-                    onClick={requestLocation}
-                    className="rounded-lg border px-3 py-2 font-extrabold"
-                    style={{
-                      background: "#fff",
-                      borderColor: EKARI.hair,
-                      color: EKARI.text,
-                    }}
-                  >
-                    {locStatus === "loading" ? "…" : "Allow"}
-                  </button> */}
+                                    {/**     <button
+                                        onClick={requestLocation}
+                                        className="rounded-lg border px-3 py-2 font-extrabold"
+                                        style={{ background: "#fff", borderColor: EKARI.hair, color: EKARI.text }}
+                                    >
+                                        {locStatus === "loading" ? "…" : "Allow"}
+                                    </button> */}
                                 </div>
 
                                 {/* Tabs: Search vs Map */}
@@ -1437,10 +1068,8 @@ export default function OnboardingWizardPage() {
                                     <button
                                         className="rounded-full px-3 py-1.5 text-sm font-bold border"
                                         style={{
-                                            borderColor:
-                                                locTab === "search" ? EKARI.forest : EKARI.hair,
-                                            background:
-                                                locTab === "search" ? EKARI.forest : "#fff",
+                                            borderColor: locTab === "search" ? EKARI.forest : EKARI.hair,
+                                            background: locTab === "search" ? EKARI.forest : "#fff",
                                             color: locTab === "search" ? "#fff" : EKARI.text,
                                         }}
                                         onClick={() => setLocTab("search")}
@@ -1450,8 +1079,7 @@ export default function OnboardingWizardPage() {
                                     <button
                                         className="rounded-full px-3 py-1.5 text-sm font-bold border"
                                         style={{
-                                            borderColor:
-                                                locTab === "map" ? EKARI.forest : EKARI.hair,
+                                            borderColor: locTab === "map" ? EKARI.forest : EKARI.hair,
                                             background: locTab === "map" ? EKARI.forest : "#fff",
                                             color: locTab === "map" ? "#fff" : EKARI.text,
                                         }}
@@ -1470,23 +1098,16 @@ export default function OnboardingWizardPage() {
                                             </div>
                                         ) : loadError ? (
                                             <div className="text-sm" style={{ color: EKARI.danger }}>
-                                                Failed to load Google API. Check your
-                                                NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
+                                                Failed to load Google API. Check your NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
                                             </div>
                                         ) : (
                                             <div className="flex items-center gap-2 w-full">
-                                                <Autocomplete
-                                                    onLoad={onAutocompleteLoad}
-                                                    onPlaceChanged={onPlaceChanged}
-                                                >
+                                                <Autocomplete onLoad={onAutocompleteLoad} onPlaceChanged={onPlaceChanged}>
                                                     <input
                                                         ref={autocompleteInputRef}
                                                         placeholder="Search an address"
                                                         className="h-12 w-full rounded-xl border px-3 bg-[#F6F7FB] outline-none"
-                                                        style={{
-                                                            borderColor: EKARI.hair,
-                                                            color: EKARI.text,
-                                                        }}
+                                                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                                     />
                                                 </Autocomplete>
                                             </div>
@@ -1503,24 +1124,18 @@ export default function OnboardingWizardPage() {
                                             </div>
                                         ) : loadError ? (
                                             <div className="text-sm" style={{ color: EKARI.danger }}>
-                                                Failed to load Google API. Check your
-                                                NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
+                                                Failed to load Google API. Check your NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
                                             </div>
                                         ) : (
-                                            <div
-                                                className="rounded-2xl overflow-hidden border"
-                                                style={{ borderColor: EKARI.hair }}
-                                            >
+                                            <div className="rounded-2xl overflow-hidden border" style={{ borderColor: EKARI.hair }}>
                                                 <GoogleMap
-                                                    mapContainerStyle={{
-                                                        width: "100%",
-                                                        height: 320,
-                                                    }}
+                                                    mapContainerStyle={{ width: "100%", height: 320 }}
                                                     center={defaultCenter}
                                                     zoom={coords ? 14 : 11}
                                                     options={{
                                                         streetViewControl: false,
                                                         fullscreenControl: false,
+                                                        // mapTypeControl: true,
                                                         zoomControl: true,
                                                     }}
                                                     onClick={async (e) => {
@@ -1529,54 +1144,37 @@ export default function OnboardingWizardPage() {
                                                         if (lat != null && lng != null) {
                                                             setCoords({ lat, lng });
                                                             setLocStatus("ready");
-                                                            await updateAddressFromCoords(lat, lng);
+                                                            await updateAddressFromCoords(lat, lng); // <-- update address here
                                                         }
                                                     }}
                                                 >
-                                                    {coords && (
-                                                        <Marker
-                                                            position={{
-                                                                lat: coords.lat,
-                                                                lng: coords.lng,
-                                                            }}
-                                                        />
-                                                    )}
+                                                    {coords && <Marker position={{ lat: coords.lat, lng: coords.lng }} />}
                                                 </GoogleMap>
                                             </div>
                                         )}
-                                        <div
-                                            className="mt-2 text-xs"
-                                            style={{ color: EKARI.dim }}
-                                        >
-                                            Tap anywhere on the map to drop a pin. You can still
-                                            edit the label below.
+                                        <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                                            Tap anywhere on the map to drop a pin. You can still edit the label below.
                                         </div>
-                                        {resolvingAddress && (
-                                            <div
-                                                className="mt-1 text-xs"
-                                                style={{ color: EKARI.dim }}
-                                            >
-                                                Resolving address…
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
+                                {/**   <Field label="Place (optional)" helper="e.g., Nakuru, Kenya">
+                                    <input
+                                        placeholder="Type your place/city or landmark"
+                                        className="h-12 rounded-xl border px-3 bg-[#F6F7FB] outline-none w-full"
+                                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                                        value={place}
+                                        onChange={(e) => setPlace(e.target.value)}
+                                    />
+                                </Field> */}
+
                                 {errorMsg && (
-                                    <div
-                                        className="mt-3 text-center font-semibold"
-                                        style={{ color: EKARI.danger }}
-                                    >
+                                    <div className="mt-3 text-center font-semibold" style={{ color: EKARI.danger }}>
                                         {errorMsg}
                                     </div>
                                 )}
 
-                                <FooterNav
-                                    onBack={onBack}
-                                    onNext={handleNext}
-                                    disableBack={false}
-                                    disableNext={false}
-                                />
+                                <FooterNav onBack={onBack} onNext={handleNext} disableBack={false} disableNext={false} />
                             </motion.div>
                         </>
                     )}
@@ -1621,30 +1219,17 @@ export default function OnboardingWizardPage() {
                                     <div className="flex gap-2">
                                         <label
                                             className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2"
-                                            style={{
-                                                background: "#fff",
-                                                borderColor: EKARI.hair,
-                                                color: EKARI.text,
-                                            }}
+                                            style={{ background: "#fff", borderColor: EKARI.hair, color: EKARI.text }}
                                         >
                                             <IoImagesOutline size={16} />
                                             <span className="font-bold">Choose photo</span>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={onPickFile}
-                                            />
+                                            <input type="file" accept="image/*" className="hidden" onChange={onPickFile} />
                                         </label>
 
                                         {/* “Take photo” on mobile browsers opens camera */}
                                         <label
                                             className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2"
-                                            style={{
-                                                background: "#fff",
-                                                borderColor: EKARI.hair,
-                                                color: EKARI.text,
-                                            }}
+                                            style={{ background: "#fff", borderColor: EKARI.hair, color: EKARI.text }}
                                         >
                                             <IoCameraOutline size={16} />
                                             <span className="font-bold">Take photo</span>
@@ -1663,22 +1248,12 @@ export default function OnboardingWizardPage() {
                                     onBack={onBack}
                                     onNext={handleNext}
                                     disableBack={false}
-                                    disableNext={
-                                        !(
-                                            !!user &&
-                                            !uploading &&
-                                            !saving &&
-                                            !authLoading
-                                        )
-                                    }
+                                    disableNext={!(!!user && !uploading && !saving && !authLoading)}
                                     nextLabel="Finish"
                                 />
 
                                 {errorMsg && (
-                                    <div
-                                        className="mt-3 text-center font-semibold"
-                                        style={{ color: EKARI.danger }}
-                                    >
+                                    <div className="mt-3 text-center font-semibold" style={{ color: EKARI.danger }}>
                                         {errorMsg}
                                     </div>
                                 )}

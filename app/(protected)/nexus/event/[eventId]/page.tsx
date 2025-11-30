@@ -33,12 +33,16 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
 export const dynamic = "force-dynamic";
 
+/* 👇 NEW: currency type */
+type CurrencyCode = "KES" | "USD";
+
 type EventItem = {
   id: string;
   title: string;
   location?: string;
   dateISO?: string;
   price?: number;
+  currency?: CurrencyCode; // 👈 NEW: stored from create form
   tags?: string[];
   category?: string;
   coverUrl?: string;
@@ -58,10 +62,34 @@ const EKARI = {
   hair: "#E5E7EB",
 };
 
+/* 👇 UPDATED: formatMoney now respects currency */
+const formatMoney = (n?: number, currency?: CurrencyCode) => {
+  if (typeof n !== "number") return "";
+
+  const cur: CurrencyCode = currency === "USD" || currency === "KES" ? currency : "KES";
+
+  if (cur === "USD") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2,
+    }).format(n);
+  }
+
+  // Default KES
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    maximumFractionDigits: 0,
+  }).format(n);
+};
+
 export default function EventDetailsPage() {
   const router = useRouter();
   const params = useParams() as Record<string, string | string[]>;
-  const eventId = Array.isArray(params?.eventId) ? params.eventId[0] : (params?.eventId as string | undefined);
+  const eventId = Array.isArray(params?.eventId)
+    ? params.eventId[0]
+    : (params?.eventId as string | undefined);
 
   const auth = getAuth();
   const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
@@ -74,13 +102,20 @@ export default function EventDetailsPage() {
   const [saved, setSaved] = useState(false);
   const [going, setGoing] = useState(false);
 
-  const [counts, setCounts] = useState<{ likes?: number; saves?: number; shares?: number; rsvps?: number }>({});
+  const [counts, setCounts] = useState<{
+    likes?: number;
+    saves?: number;
+    shares?: number;
+    rsvps?: number;
+  }>({});
   const [rsvps, setRsvps] = useState<Array<{ userId: string; photoURL?: string }>>([]);
 
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -102,7 +137,10 @@ export default function EventDetailsPage() {
 
   // Event + counts (supports stats/counts + top-level rsvps)
   useEffect(() => {
-    if (!eventId) { setLoadingEv(false); return; }
+    if (!eventId) {
+      setLoadingEv(false);
+      return;
+    }
     const unsub = onSnapshot(
       doc(db, "events", eventId),
       (snap) => {
@@ -146,11 +184,18 @@ export default function EventDetailsPage() {
     const a = onSnapshot(doc(db, "eventLikes", likeId), (s) => setLiked(s.exists()));
     const b = onSnapshot(doc(db, "eventBookmarks", likeId), (s) => setSaved(s.exists()));
     const c = onSnapshot(doc(db, "events", eventId, "rsvps", uid), (s) => setGoing(s.exists()));
-    return () => { a(); b(); c(); };
+    return () => {
+      a();
+      b();
+      c();
+    };
   }, [eventId, uid]);
 
   const requireAuth = useCallback(() => {
-    if (!uid) { router.push("/login"); return false; }
+    if (!uid) {
+      router.push("/login");
+      return false;
+    }
     return true;
   }, [router, uid]);
 
@@ -158,26 +203,44 @@ export default function EventDetailsPage() {
     if (!requireAuth() || !eventId || !uid) return;
     const likeRef = doc(db, "eventLikes", `${eventId}_${uid}`);
     if (liked) await deleteDoc(likeRef);
-    else await setDoc(likeRef, { eventId, userId: uid, photoURL: me?.photoURL ?? null, createdAt: serverTimestamp() });
+    else
+      await setDoc(likeRef, {
+        eventId,
+        userId: uid,
+        photoURL: me?.photoURL ?? null,
+        createdAt: serverTimestamp(),
+      });
   }, [eventId, uid, liked, me, requireAuth]);
 
   const toggleSave = useCallback(async () => {
     if (!requireAuth() || !eventId || !uid) return;
     const saveRef = doc(db, "eventBookmarks", `${eventId}_${uid}`);
     if (saved) await deleteDoc(saveRef);
-    else await setDoc(saveRef, { eventId, userId: uid, photoURL: me?.photoURL ?? null, createdAt: serverTimestamp() });
+    else
+      await setDoc(saveRef, {
+        eventId,
+        userId: uid,
+        photoURL: me?.photoURL ?? null,
+        createdAt: serverTimestamp(),
+      });
   }, [eventId, uid, saved, me, requireAuth]);
 
   const toggleRsvp = useCallback(async () => {
     if (!requireAuth() || !eventId || !uid) return;
     const rsvpRef = doc(db, "events", eventId, "rsvps", uid);
     if (going) await deleteDoc(rsvpRef);
-    else await setDoc(rsvpRef, { userId: uid, photoURL: me?.photoURL ?? null, createdAt: serverTimestamp() });
+    else
+      await setDoc(rsvpRef, {
+        userId: uid,
+        photoURL: me?.photoURL ?? null,
+        createdAt: serverTimestamp(),
+      });
   }, [eventId, uid, going, me, requireAuth]);
 
   const shareEvent = useCallback(async () => {
     if (!ev) return;
-    const message = `${ev.title} • ${ev.location || ""} ${ev.dateISO ? "• " + new Date(ev.dateISO).toLocaleString() : ""}`;
+    const message = `${ev.title} • ${ev.location || ""} ${ev.dateISO ? "• " + new Date(ev.dateISO).toLocaleString() : ""
+      }`;
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
       if (navigator.share) {
@@ -187,11 +250,19 @@ export default function EventDetailsPage() {
         alert("Link copied to clipboard");
       }
       if (uid && eventId) {
-        await setDoc(doc(db, "eventShares", `${eventId}_${uid}_${Date.now()}`), {
-          eventId, userId: uid, photoURL: me?.photoURL ?? null, createdAt: serverTimestamp(),
-        });
+        await setDoc(
+          doc(db, "eventShares", `${eventId}_${uid}_${Date.now()}`),
+          {
+            eventId,
+            userId: uid,
+            photoURL: me?.photoURL ?? null,
+            createdAt: serverTimestamp(),
+          }
+        );
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [ev, uid, eventId, me]);
 
   const onRegister = useCallback(() => {
@@ -206,12 +277,9 @@ export default function EventDetailsPage() {
   }, [ev?.registrationUrl]);
 
   const toMaps = (q?: string) =>
-    q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "#";
-
-  const formatMoney = (n?: number) =>
-    typeof n === "number"
-      ? new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(n)
-      : "";
+    q
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
+      : "#";
 
   return (
     <AppShell>
@@ -226,7 +294,9 @@ export default function EventDetailsPage() {
           >
             <IoArrowBack size={18} color={EKARI.text} />
           </button>
-          <div className="text-[18px] font-black" style={{ color: EKARI.text }}>Event</div>
+          <div className="text-[18px] font-black" style={{ color: EKARI.text }}>
+            Event
+          </div>
           <div className="w-10" />
         </div>
 
@@ -241,10 +311,7 @@ export default function EventDetailsPage() {
           </div>
         ) : (
           <>
-            {/* HERO / COVER
-                - Ensures good visibility across devices
-                - Uses aspect ratio that grows on larger screens
-                - Adds a subtle bottom gradient so white text is readable if you overlay later */}
+            {/* HERO / COVER */}
             <div className="relative w-full overflow-hidden rounded-none md:rounded-b-2xl">
               <div className="relative w-full aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9]">
                 <Image
@@ -277,7 +344,11 @@ export default function EventDetailsPage() {
                       <span
                         key={t}
                         className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold border"
-                        style={{ color: EKARI.text, borderColor: EKARI.hair, backgroundColor: "#F9FAFB" }}
+                        style={{
+                          color: EKARI.text,
+                          borderColor: EKARI.hair,
+                          backgroundColor: "#F9FAFB",
+                        }}
                       >
                         #{t}
                       </span>
@@ -289,16 +360,25 @@ export default function EventDetailsPage() {
                     )}
                   </div>
 
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: EKARI.text }}>
+                  <h1
+                    className="text-2xl sm:text-3xl font-black tracking-tight"
+                    style={{ color: EKARI.text }}
+                  >
                     {ev.title}
                   </h1>
 
                   {/* Meta grid */}
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {!!ev.dateISO && (
-                      <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                      <div
+                        className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                        style={{ borderColor: EKARI.hair }}
+                      >
                         <IoCalendarOutline size={18} color={EKARI.dim} />
-                        <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
+                        <div
+                          className="text-sm font-semibold"
+                          style={{ color: EKARI.text }}
+                        >
                           {new Date(ev.dateISO).toLocaleString()}
                         </div>
                       </div>
@@ -313,23 +393,39 @@ export default function EventDetailsPage() {
                         title="Open in Google Maps"
                       >
                         <IoLocationOutline size={18} color={EKARI.dim} />
-                        <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
+                        <div
+                          className="text-sm font-semibold"
+                          style={{ color: EKARI.text }}
+                        >
                           {ev.location}
                         </div>
                       </a>
                     )}
                     {typeof ev.price === "number" && (
-                      <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                      <div
+                        className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                        style={{ borderColor: EKARI.hair }}
+                      >
                         <IoCashOutline size={18} color={EKARI.dim} />
-                        <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
-                          {formatMoney(ev.price)}
+                        <div
+                          className="text-sm font-semibold"
+                          style={{ color: EKARI.text }}
+                        >
+                          {/* 👇 NOW RESPECTS SAVED CURRENCY */}
+                          {formatMoney(ev.price, ev.currency)}
                         </div>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                    <div
+                      className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                      style={{ borderColor: EKARI.hair }}
+                    >
                       <div className="flex -space-x-2">
                         {rsvps.slice(0, 6).map((u) => (
-                          <div key={u.userId} className="relative w-7 h-7 rounded-full border-2 border-white overflow-hidden">
+                          <div
+                            key={u.userId}
+                            className="relative w-7 h-7 rounded-full border-2 border-white overflow-hidden"
+                          >
                             <Image
                               src={u.photoURL || "/avatar-placeholder.png"}
                               alt="avatar"
@@ -340,11 +436,16 @@ export default function EventDetailsPage() {
                           </div>
                         ))}
                       </div>
-                      <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
+                      <div
+                        className="text-sm font-semibold"
+                        style={{ color: EKARI.text }}
+                      >
                         {counts.rsvps || 0} going
                       </div>
                       <button
-                        onClick={() => router.push(`/nexus/event/${eventId}/people`)}
+                        onClick={() =>
+                          router.push(`/nexus/event/${eventId}/people`)
+                        }
                         className="ml-auto text-xs font-extrabold px-3 py-1.5 rounded-full border hover:bg-gray-50"
                         style={{ borderColor: EKARI.hair, color: EKARI.text }}
                       >
@@ -360,8 +461,16 @@ export default function EventDetailsPage() {
                 {/* Description */}
                 {ev.description && (
                   <div className="p-4 sm:p-6">
-                    <h2 className="text-base font-black mb-2" style={{ color: EKARI.text }}>About this event</h2>
-                    <p className="leading-7 text-[15px]" style={{ color: EKARI.text }}>
+                    <h2
+                      className="text-base font-black mb-2"
+                      style={{ color: EKARI.text }}
+                    >
+                      About this event
+                    </h2>
+                    <p
+                      className="leading-7 text-[15px]"
+                      style={{ color: EKARI.text }}
+                    >
                       {ev.description}
                     </p>
                   </div>
@@ -374,10 +483,20 @@ export default function EventDetailsPage() {
                       <button
                         onClick={toggleLike}
                         className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
-                        style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}
+                        style={{
+                          borderColor: "#E5E7EB",
+                          backgroundColor: "#F8FAFC",
+                        }}
                       >
-                        {liked ? <IoHeart size={18} color="#DC2626" /> : <IoHeartOutline size={18} color={EKARI.text} />}
-                        <span className="font-extrabold text-sm" style={{ color: EKARI.text }}>
+                        {liked ? (
+                          <IoHeart size={18} color="#DC2626" />
+                        ) : (
+                          <IoHeartOutline size={18} color={EKARI.text} />
+                        )}
+                        <span
+                          className="font-extrabold text-sm"
+                          style={{ color: EKARI.text }}
+                        >
                           {counts.likes || 0}
                         </span>
                       </button>
@@ -385,10 +504,23 @@ export default function EventDetailsPage() {
                       <button
                         onClick={toggleSave}
                         className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
-                        style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}
+                        style={{
+                          borderColor: "#E5E7EB",
+                          backgroundColor: "#F8FAFC",
+                        }}
                       >
-                        {saved ? <IoBookmark size={18} color={EKARI.forest} /> : <IoBookmarkOutline size={18} color={EKARI.text} />}
-                        <span className="font-extrabold text-sm" style={{ color: EKARI.text }}>
+                        {saved ? (
+                          <IoBookmark size={18} color={EKARI.forest} />
+                        ) : (
+                          <IoBookmarkOutline
+                            size={18}
+                            color={EKARI.text}
+                          />
+                        )}
+                        <span
+                          className="font-extrabold text-sm"
+                          style={{ color: EKARI.text }}
+                        >
                           {counts.saves || 0}
                         </span>
                       </button>
@@ -396,10 +528,19 @@ export default function EventDetailsPage() {
                       <button
                         onClick={shareEvent}
                         className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
-                        style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}
+                        style={{
+                          borderColor: "#E5E7EB",
+                          backgroundColor: "#F8FAFC",
+                        }}
                       >
-                        <IoShareSocialOutline size={18} color={EKARI.text} />
-                        <span className="font-extrabold text-sm" style={{ color: EKARI.text }}>
+                        <IoShareSocialOutline
+                          size={18}
+                          color={EKARI.text}
+                        />
+                        <span
+                          className="font-extrabold text-sm"
+                          style={{ color: EKARI.text }}
+                        >
                           {counts.shares || 0}
                         </span>
                       </button>
@@ -407,10 +548,20 @@ export default function EventDetailsPage() {
                       <button
                         onClick={toggleRsvp}
                         className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-white"
-                        style={{ backgroundColor: going ? EKARI.forest : EKARI.gold }}
+                        style={{
+                          backgroundColor: going
+                            ? EKARI.forest
+                            : EKARI.gold,
+                        }}
                       >
-                        {going ? <IoCheckmarkCircle size={18} color="#fff" /> : <IoCalendar size={18} color="#fff" />}
-                        <span className="font-black text-sm">{going ? "Going" : "RSVP"}</span>
+                        {going ? (
+                          <IoCheckmarkCircle size={18} color="#fff" />
+                        ) : (
+                          <IoCalendar size={18} color="#fff" />
+                        )}
+                        <span className="font-black text-sm">
+                          {going ? "Going" : "RSVP"}
+                        </span>
                       </button>
                     </div>
 

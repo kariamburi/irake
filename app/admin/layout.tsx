@@ -34,6 +34,8 @@ const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/support-tickets", label: "Support tickets" },
     { href: "/admin/sounds", label: "Sounds library" },
     { href: "/admin/usermangement", label: "User mangement" },
+    { href: "/admin/catalog", label: "Catalog mangement" },
+    { href: "/admin/taxonomies", label: "Taxonomy" },
 ];
 
 function getAdminTitle(pathname: string): string {
@@ -50,6 +52,8 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/support-tickets")) return "Support tickets";
     if (pathname.startsWith("/admin/sounds")) return "Sounds library";
     if (pathname.startsWith("/admin/usermangement")) return "User mangement";
+    if (pathname.startsWith("/admin/catalog")) return "Catalog mangement";
+    if (pathname.startsWith("/admin/taxonomies")) return "Taxonomy";
 
     return "Admin";
 }

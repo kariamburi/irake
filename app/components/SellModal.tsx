@@ -1,12 +1,21 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import {
     collection,
     doc,
     serverTimestamp,
     setDoc,
     getFirestore,
+    onSnapshot,
+    orderBy,
+    query,
 } from "firebase/firestore";
 import {
     getStorage,
@@ -15,15 +24,8 @@ import {
     getDownloadURL,
 } from "firebase/storage";
 import { getAuth } from "firebase/auth";
-import {
-    TYPE_OPTIONS,
-    CATEGORY_OPTIONS_BY_TYPE,
-    productsFor,
-    unitsFor,
-    defaultPackFor,
-    type MarketType,
-    MARKET_CATALOG,            // 👈 NEW: pull full catalog so we can map name → category + useCase
-} from "@/utils/market_master_catalog";
+// We only keep the type from your local catalog file
+import type { MarketType } from "@/utils/market_master_catalog";
 import type { Product } from "./ProductCard";
 
 import {
@@ -46,17 +48,147 @@ const EKARI = {
     hair: "#E5E7EB",
 };
 
-const DIRECT_NAME_TYPES: MarketType[] = ["product", "animal", "lease", "tree"];
+const DIRECT_NAME_TYPES: MarketType[] = ["product", "animal", "lease", "tree", "arableLand"];
+const ARABLE_LAND_TYPE = "arableLand";
+/* ===== Types for Firestore catalog ===== */
+type CurrencyCode = "KES" | "USD";
 
-/* ===== Helpers from catalog ===== */
+const USD = (n: number) =>
+    "USD " + (n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
+
+function formatPriceForReview(raw: string, currency: CurrencyCode): string {
+    const n = Number(String(raw).replace(/[^\d.]/g, "")) || 0;
+    if (!n) return "-";
+    return currency === "USD" ? USD(n) : KES(n);
+}
+type MarketTypeDoc = {
+    id: MarketType;
+    label: string;
+    description?: string;
+    iconName?: string;
+    order?: number;
+    active?: boolean;
+};
+
+type MarketCategoryDoc = {
+    id: string;
+    typeId: MarketType;
+    name: string;
+    description?: string;
+    order?: number;
+    active?: boolean;
+};
+
+type MarketItemDoc = {
+    id: string;
+    type: MarketType;
+    category: string;
+    subCategory?: string | null;
+    name: string;
+    variety?: string | null;
+    form?: string | null;
+    useCase?: string | null;
+    typicalPackSize?: string | number | null;
+    unit?: string | null;
+    grade?: string | null;
+    extras?: Record<string, string>;
+    active?: boolean;
+};
+
+type UseMarketCatalogResult = {
+    types: MarketTypeDoc[];
+    categories: MarketCategoryDoc[];
+    items: MarketItemDoc[];
+    loading: boolean;
+    error?: string;
+};
+
+/* ===== Hook: fetch catalog from Firestore ===== */
+
+function useMarketCatalog(): UseMarketCatalogResult {
+    const [types, setTypes] = useState<MarketTypeDoc[]>([]);
+    const [categories, setCategories] = useState<MarketCategoryDoc[]>([]);
+    const [items, setItems] = useState<MarketItemDoc[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | undefined>();
+
+    useEffect(() => {
+        const db = getFirestore();
+        const qTypes = query(
+            collection(db, "market_types"),
+            orderBy("order", "asc")
+        );
+        const unsub = onSnapshot(
+            qTypes,
+            (snap) => {
+                const list: MarketTypeDoc[] = [];
+                snap.forEach((d) => list.push(d.data() as MarketTypeDoc));
+                setTypes(list.filter((t) => t.active !== false));
+            },
+            (err) => {
+                console.error("market_types error", err);
+                setError("Failed to load market types");
+            }
+        );
+        return () => unsub();
+    }, []);
+
+    useEffect(() => {
+        const db = getFirestore();
+        const qCats = query(
+            collection(db, "market_categories"),
+            orderBy("order", "asc")
+        );
+        const unsub = onSnapshot(
+            qCats,
+            (snap) => {
+                const list: MarketCategoryDoc[] = [];
+                snap.forEach((d) => list.push(d.data() as MarketCategoryDoc));
+                setCategories(list.filter((c) => c.active !== false));
+            },
+            (err) => {
+                console.error("market_categories error", err);
+                setError("Failed to load market categories");
+            }
+        );
+        return () => unsub();
+    }, []);
+
+    useEffect(() => {
+        const db = getFirestore();
+        const qItems = query(
+            collection(db, "market_items"),
+            orderBy("nameLower", "asc")
+        );
+        const unsub = onSnapshot(
+            qItems,
+            (snap) => {
+                const list: MarketItemDoc[] = [];
+                snap.forEach((d) => list.push(d.data() as MarketItemDoc));
+                setItems(list.filter((i) => i.active !== false));
+                setLoading(false);
+            },
+            (err) => {
+                console.error("market_items error", err);
+                setError("Failed to load market items");
+                setLoading(false);
+            }
+        );
+        return () => unsub();
+    }, []);
+
+    return { types, categories, items, loading, error };
+}
+
+/* ===== Helpers from catalog (Firestore-based) ===== */
 
 const norm = (s?: string | null) => (s || "").trim().toLowerCase();
 
 /** All unique names for a given type (product/animal/lease/tree) */
-function namesForType(t: MarketType): string[] {
+function namesForTypeFromItems(t: MarketType, items: MarketItemDoc[]): string[] {
     return Array.from(
         new Set(
-            MARKET_CATALOG
+            items
                 .filter((r) => r.type === t)
                 .map((r) => r.name?.trim())
                 .filter(Boolean) as string[]
@@ -65,9 +197,13 @@ function namesForType(t: MarketType): string[] {
 }
 
 /** Find the catalog row for (type, name) so we can pull category + useCase, etc */
-function findCatalogRow(type: MarketType, name: string) {
+function findCatalogRowFromItems(
+    type: MarketType,
+    name: string,
+    items: MarketItemDoc[]
+): MarketItemDoc | undefined {
     const n = norm(name);
-    return MARKET_CATALOG.find(
+    return items.find(
         (r) => r.type === type && norm(r.name) === n
     );
 }
@@ -202,7 +338,6 @@ function guessTownFromText(text: string | undefined | null, county?: string): st
 const KES = (n: number) =>
     "KSh " + (n || 0).toLocaleString("en-KE", { maximumFractionDigits: 0 });
 
-
 /* ================= Google Maps loader ================= */
 async function loadGoogleMaps(apiKey?: string): Promise<typeof google | null> {
     if (typeof window === "undefined") return null;
@@ -252,6 +387,9 @@ function MapPicker({
     const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null>(null);
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
+    const [mapReady, setMapReady] = useState(false);
+
+    // Init map ONCE
     useEffect(() => {
         let alive = true;
         (async () => {
@@ -271,26 +409,37 @@ function MapPicker({
                     fullscreenControl: false,
                 });
 
+                // Click on map to move marker
                 mapRef.current.addListener("click", (e: google.maps.MapMouseEvent) => {
                     if (!e.latLng) return;
-                    onChangeCenter({ latitude: e.latLng.lat(), longitude: e.latLng.lng() });
+                    onChangeCenter({
+                        latitude: e.latLng.lat(),
+                        longitude: e.latLng.lng(),
+                    });
                 });
+
+                setMapReady(true);
             }
         })();
+
         return () => {
             alive = false;
         };
-    }, [apiKey]); // init once
+    }, [apiKey]); // don't depend on center here
 
+    // Draw / update marker + circle once map is ready or center/radius changes
     useEffect(() => {
         const g = (window as any).google as typeof google | undefined;
-        if (!g || !mapRef.current || !center) return;
+        if (!g || !mapRef.current || !center || !mapReady) return;
 
         const latlng = new g.maps.LatLng(center.latitude, center.longitude);
         mapRef.current.setCenter(latlng);
 
         const { AdvancedMarkerElement } = (g.maps as any).marker || {};
+
+        // Marker
         if (AdvancedMarkerElement) {
+            // clear previous
             if (markerRef.current) (markerRef.current as any).map = null;
             markerRef.current = new AdvancedMarkerElement({
                 map: mapRef.current,
@@ -318,6 +467,7 @@ function MapPicker({
             });
         }
 
+        // Circle
         const meters = Math.max(0, Number(radiusKm) || 0) * 1000;
         if (!circleRef.current) {
             circleRef.current = new g.maps.Circle({
@@ -334,7 +484,7 @@ function MapPicker({
             circleRef.current.setCenter(latlng);
             circleRef.current.setRadius(meters);
         }
-    }, [center?.latitude, center?.longitude, radiusKm]);
+    }, [center?.latitude, center?.longitude, radiusKm, mapReady, onChangeCenter]);
 
     return (
         <div
@@ -348,6 +498,7 @@ function MapPicker({
         />
     );
 }
+
 
 /* ================= Location Picker Modal (Places + Map) ================= */
 function LocationPickerModal({
@@ -449,6 +600,525 @@ function LocationPickerModal({
         </div>
     );
 }
+/* ================= Land Polygon Picker Modal (for arable land) ================= */
+function LandPolygonPickerModal({
+    initialCenter,
+    initialPolygon,
+    onCancel,
+    onUse,
+}: {
+    initialCenter: { latitude: number; longitude: number };
+    initialPolygon: { lat: number; lng: number }[];
+    onCancel: () => void;
+    onUse: (payload: {
+        center: { latitude: number; longitude: number };
+        polygon: { lat: number; lng: number }[];
+    }) => void;
+}) {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const mapDivRef = React.useRef<HTMLDivElement | null>(null);
+    const mapRef = React.useRef<google.maps.Map | null>(null);
+    const polygonRef = React.useRef<google.maps.Polygon | null>(null);
+    const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+
+    const [points, setPoints] = React.useState<{ lat: number; lng: number }[]>(
+        initialPolygon || []
+    );
+    const [mapType, setMapType] = React.useState<"roadmap" | "hybrid">("roadmap");
+
+    // draw mode
+    const [drawEnabled, setDrawEnabled] = React.useState(true);
+    const drawEnabledRef = React.useRef(true);
+    React.useEffect(() => {
+        drawEnabledRef.current = drawEnabled;
+    }, [drawEnabled]);
+
+    // manual lat/lng + google link
+    const [latInput, setLatInput] = React.useState("");
+    const [lngInput, setLngInput] = React.useState("");
+    const [gmapsUrl, setGmapsUrl] = React.useState("");
+    const [showAdvanced, setShowAdvanced] = React.useState(false);
+
+    const initialCenterRef = React.useRef(initialCenter);
+
+    // helper: go to lat/lng on map, optionally drop a point
+    const panToLatLng = React.useCallback(
+        (lat: number, lng: number, addPoint: boolean = true) => {
+            if (!mapRef.current) return;
+            mapRef.current.panTo({ lat, lng });
+            mapRef.current.setZoom(17);
+            if (addPoint && drawEnabledRef.current) {
+                setPoints((prev) => [...prev, { lat, lng }]);
+            }
+        },
+        []
+    );
+
+    // Init map + click to add points
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            const g = await loadGoogleMaps(apiKey);
+            if (!alive || !g || !mapDivRef.current) return;
+
+            if (!mapRef.current) {
+                mapRef.current = new g.maps.Map(mapDivRef.current!, {
+                    center: {
+                        lat: initialCenter.latitude,
+                        lng: initialCenter.longitude,
+                    },
+                    zoom: 13,
+                    disableDefaultUI: true,
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    fullscreenControl: false,
+                    mapTypeId: g.maps.MapTypeId.ROADMAP,
+                });
+
+                mapRef.current.addListener(
+                    "click",
+                    (e: google.maps.MapMouseEvent) => {
+                        if (!e.latLng || !drawEnabledRef.current) return;
+                        const lat = e.latLng.lat();
+                        const lng = e.latLng.lng();
+                        setPoints((prev) => [...prev, { lat, lng }]);
+                    }
+                );
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [apiKey, initialCenter.latitude, initialCenter.longitude]);
+
+    // Google Places Autocomplete for search input
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            const g = await loadGoogleMaps(apiKey);
+            if (!alive || !g || !searchInputRef.current || !mapRef.current) return;
+
+            const ac = new g.maps.places.Autocomplete(searchInputRef.current, {
+                fields: ["geometry", "name", "formatted_address"],
+                types: ["geocode"],
+            });
+
+            ac.bindTo("bounds", mapRef.current);
+
+            ac.addListener("place_changed", () => {
+                const place = ac.getPlace();
+                const loc = place?.geometry?.location;
+                if (!loc) return;
+
+                mapRef.current!.panTo(loc);
+                mapRef.current!.setZoom(16);
+            });
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [apiKey]);
+
+    // React to mapType changes (MAP / SAT)
+    useEffect(() => {
+        const g = (window as any).google as typeof google | undefined;
+        if (!g || !mapRef.current) return;
+
+        mapRef.current.setMapTypeId(
+            mapType === "hybrid" ? g.maps.MapTypeId.HYBRID : g.maps.MapTypeId.ROADMAP
+        );
+    }, [mapType]);
+
+    // Update polygon when points change
+    useEffect(() => {
+        const g = (window as any).google as typeof google | undefined;
+        if (!g || !mapRef.current) return;
+
+        if (!polygonRef.current) {
+            polygonRef.current = new g.maps.Polygon({
+                map: mapRef.current,
+                paths: points,
+                strokeColor: "#10B981",
+                strokeOpacity: 0.9,
+                strokeWeight: 2,
+                fillColor: "#10B981",
+                fillOpacity: 0.18,
+            });
+        } else {
+            polygonRef.current.setPath(points);
+        }
+
+        if (points.length > 0) {
+            const bounds = new g.maps.LatLngBounds();
+            points.forEach((p) =>
+                bounds.extend(new g.maps.LatLng(p.lat, p.lng))
+            );
+            mapRef.current!.fitBounds(bounds);
+        }
+    }, [points]);
+
+    function handleUse() {
+        if (points.length < 3) {
+            alert("Tap at least three points on the map to outline the land.");
+            return;
+        }
+        // centroid
+        const sum = points.reduce(
+            (acc, p) => {
+                acc.lat += p.lat;
+                acc.lng += p.lng;
+                return acc;
+            },
+            { lat: 0, lng: 0 }
+        );
+        const centerLat = sum.lat / points.length;
+        const centerLng = sum.lng / points.length;
+
+        onUse({
+            center: { latitude: centerLat, longitude: centerLng },
+            polygon: points,
+        });
+    }
+
+    // Map controls
+    const handleZoomIn = () => {
+        if (!mapRef.current) return;
+        const cur = mapRef.current.getZoom() ?? 13;
+        mapRef.current.setZoom(cur + 1);
+    };
+
+    const handleZoomOut = () => {
+        if (!mapRef.current) return;
+        const cur = mapRef.current.getZoom() ?? 13;
+        mapRef.current.setZoom(cur - 1);
+    };
+
+    const handleRecenter = () => {
+        if (!mapRef.current) return;
+        const c = initialCenterRef.current;
+        mapRef.current.setCenter({ lat: c.latitude, lng: c.longitude });
+        mapRef.current.setZoom(13);
+    };
+
+    const handleFitPolygon = () => {
+        const g = (window as any).google as typeof google | undefined;
+        if (!g || !mapRef.current || points.length < 1) return;
+
+        const bounds = new g.maps.LatLngBounds();
+        points.forEach((p) =>
+            bounds.extend(new g.maps.LatLng(p.lat, p.lng))
+        );
+        mapRef.current.fitBounds(bounds, 32);
+    };
+
+    const toggleMapType = () => {
+        setMapType((prev) => (prev === "roadmap" ? "hybrid" : "roadmap"));
+    };
+
+    const toggleDrawMode = () => {
+        setDrawEnabled((prev) => !prev);
+    };
+
+    // Parse Google Maps URL for lat/lng
+    function parseLatLngFromGoogleUrl(url: string): { lat: number; lng: number } | null {
+        if (!url) return null;
+        try {
+            // Try query param ?q=lat,lng
+            const qMatch = url.match(/[?&]q=(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
+            if (qMatch) {
+                const lat = parseFloat(qMatch[1]);
+                const lng = parseFloat(qMatch[3]);
+                if (isFinite(lat) && isFinite(lng)) return { lat, lng };
+            }
+
+            // Try @lat,lng in path
+            const atMatch = url.match(/@(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)/);
+            if (atMatch) {
+                const lat = parseFloat(atMatch[1]);
+                const lng = parseFloat(atMatch[3]);
+                if (isFinite(lat) && isFinite(lng)) return { lat, lng };
+            }
+
+            return null;
+        } catch {
+            return null;
+        }
+    }
+
+    const handleGoToCoords = () => {
+        const lat = parseFloat(latInput);
+        const lng = parseFloat(lngInput);
+        if (!isFinite(lat) || !isFinite(lng)) {
+            alert("Enter valid numeric latitude and longitude.");
+            return;
+        }
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            alert("Latitude must be between -90 and 90, longitude between -180 and 180.");
+            return;
+        }
+        panToLatLng(lat, lng, true);
+    };
+
+    const handleUseGmapsUrl = () => {
+        const parsed = parseLatLngFromGoogleUrl(gmapsUrl.trim());
+        if (!parsed) {
+            alert("Could not find coordinates in that Google Maps link.");
+            return;
+        }
+        panToLatLng(parsed.lat, parsed.lng, true);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[60]">
+            <button
+                onClick={onCancel}
+                className="absolute inset-0 bg-black/50"
+                aria-label="Close"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 h-[95vh] md:h-[90vh] overflow-hidden flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-2">
+                    <div className="text-base font-black text-gray-900">
+                        Draw land area
+                    </div>
+                    <button
+                        onClick={onCancel}
+                        className="w-10 h-10 grid place-items-center rounded-full hover:bg-gray-50"
+                        aria-label="Close"
+                    >
+                        <IoClose size={20} />
+                    </button>
+                </div>
+
+                <p className="text-xs text-gray-600 mb-2">
+                    Tap on the map to add points around the land boundary (DRAW mode).
+                    Use at least 3 points. Switch to MOVE to pan and explore the map.
+                </p>
+
+                {/* Map section – fills almost everything */}
+                <div className="relative flex-1 min-h-[420px] rounded-xl overflow-hidden border border-gray-200">
+                    {/* Map itself */}
+                    <div ref={mapDivRef} className="absolute inset-0" />
+
+                    {/* Search bar (top center) */}
+                    <div className="absolute top-3 left-3 right-3 max-w-xl mx-auto">
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder="Search address, town, landmark…"
+                            className="w-full rounded-full bg-white/95 px-4 py-2 text-xs outline-none shadow-md border border-gray-200 placeholder:text-gray-400"
+                        />
+                    </div>
+
+                    {/* Advanced panel toggle */}
+                    <button
+                        type="button"
+                        onClick={() => setShowAdvanced((s) => !s)}
+                        className="absolute top-3 right-3 md:right-4 md:top-16 px-3 py-1.5 rounded-full bg-white/95 shadow-md border border-gray-200 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+                    >
+                        {showAdvanced ? "Hide advanced" : "Advanced (coords/link)"}
+                    </button>
+
+                    {/* Advanced floating panel */}
+                    {/* Advanced floating panel */}
+                    {showAdvanced && (
+                        <div className="z-30 absolute top-16 right-3 md:right-4 w-80 max-w-[90vw] bg-gray-100 rounded-2xl shadow-xl border border-gray-200 p-3 text-xs">
+                            {/* Header row with close button */}
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex flex-col">
+                                    <span className="text-[11px] font-semibold text-gray-700">
+                                        Advanced location tools
+                                    </span>
+                                    <span className="text-[10px] text-gray-500">
+                                        Enter exact coordinates or a Google Maps link.
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdvanced(false)}
+                                    className="w-7 h-7 grid place-items-center rounded-full hover:bg-gray-100 text-gray-500"
+                                    aria-label="Close advanced panel"
+                                >
+                                    <IoClose size={14} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                {/* Lat / Lng row */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                            Latitude
+                                        </label>
+                                        <input
+                                            value={latInput}
+                                            onChange={(e) => setLatInput(e.target.value)}
+                                            placeholder="-1.286389"
+                                            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                            Longitude
+                                        </label>
+                                        <input
+                                            value={lngInput}
+                                            onChange={(e) => setLngInput(e.target.value)}
+                                            placeholder="36.817223"
+                                            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={handleGoToCoords}
+                                        className="px-3 py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold hover:bg-gray-50"
+                                    >
+                                        Go to coords
+                                    </button>
+                                </div>
+
+                                {/* Divider */}
+                                <div className="h-px bg-gray-100" />
+
+                                {/* Google Maps link */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                        Google Maps link
+                                    </label>
+                                    <input
+                                        value={gmapsUrl}
+                                        onChange={(e) => setGmapsUrl(e.target.value)}
+                                        placeholder="Paste Google Maps location link"
+                                        className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                    <div className="flex justify-end mt-1">
+                                        <button
+                                            type="button"
+                                            onClick={handleUseGmapsUrl}
+                                            className="px-3 py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold hover:bg-gray-50"
+                                        >
+                                            Use link location
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+
+                    {/* Right-side controls (zoom / fit / type / draw) */}
+                    <div className="absolute bottom-3 right-3 flex flex-col gap-2">
+                        <button
+                            type="button"
+                            onClick={handleZoomIn}
+                            className="w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 grid place-items-center text-gray-700 hover:bg-gray-50 text-lg leading-none"
+                            title="Zoom in"
+                        >
+                            +
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleZoomOut}
+                            className="w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 grid place-items-center text-gray-700 hover:bg-gray-50 text-lg leading-none"
+                            title="Zoom out"
+                        >
+                            –
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleFitPolygon}
+                            className="w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 grid place-items-center text-[9px] font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            title="Fit to drawn area"
+                            disabled={points.length === 0}
+                        >
+                            FIT
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleRecenter}
+                            className="w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 grid place-items-center text-[9px] font-bold text-gray-700 hover:bg-gray-50"
+                            title="Recenter"
+                        >
+                            CEN
+                        </button>
+                        <button
+                            type="button"
+                            onClick={toggleMapType}
+                            className="w-9 h-9 rounded-full bg-white shadow-md border border-gray-200 grid place-items-center text-[9px] font-bold text-gray-700 hover:bg-gray-50"
+                            title="Toggle satellite"
+                        >
+                            {mapType === "roadmap" ? "SAT" : "MAP"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={toggleDrawMode}
+                            className={`w-9 h-9 rounded-full shadow-md border grid place-items-center text-[9px] font-bold ${drawEnabled
+                                ? "bg-emerald-600 border-emerald-700 text-white"
+                                : "bg-white border-gray-200 text-gray-700"
+                                } hover:bg-opacity-90`}
+                            title="Toggle drawing mode"
+                        >
+                            {drawEnabled ? "DRAW" : "MOVE"}
+                        </button>
+                    </div>
+
+                    {/* Bottom-left: points + undo/clear */}
+                    <div className="absolute bottom-3 left-3 flex items-center gap-3 bg-white/90 rounded-full px-3 py-1 shadow-md border border-gray-200 text-[11px]">
+                        <span className="font-semibold text-gray-700">
+                            Points: {points.length}
+                        </span>
+                        <div className="flex gap-1">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setPoints((prev) =>
+                                        prev.slice(0, prev.length - 1)
+                                    )
+                                }
+                                className="px-2 py-0.5 rounded-full border border-gray-200 text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={points.length === 0}
+                            >
+                                Undo
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPoints([])}
+                                className="px-2 py-0.5 rounded-full border border-gray-200 text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={points.length === 0}
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="mt-3 flex items-center justify-end gap-2">
+                    <button
+                        onClick={onCancel}
+                        className="h-10 px-4 rounded-xl border border-gray-200 hover:bg-gray-50 font-semibold"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleUse}
+                        className="h-10 px-5 rounded-xl text-white font-black hover:opacity-90"
+                        style={{ backgroundColor: EKARI.gold }}
+                    >
+                        Use this area
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+
+
 export default function SellModal({
     open,
     onClose,
@@ -458,6 +1128,62 @@ export default function SellModal({
     onClose: () => void;
     onCreated: (p: Product) => void;
 }) {
+    const { types, categories, items, loading: catalogLoading } = useMarketCatalog();
+    // Currency preference (KES / USD)
+    const [currency, setCurrency] = useState<CurrencyCode>("KES");
+    useEffect(() => {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const db = getFirestore();
+        const userRef = doc(db, "users", user.uid);
+
+        const unsub = onSnapshot(userRef, (snap) => {
+            const data = snap.data() as any | undefined;
+            const pref = data?.preferredCurrency;
+            if (pref === "KES" || pref === "USD") {
+                setCurrency(pref);
+            }
+        });
+
+        return () => unsub();
+    }, []);
+    const savePreferredCurrency = useCallback(async (next: CurrencyCode) => {
+        try {
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return; // not signed in yet, just keep local state
+
+            const db = getFirestore();
+            const userRef = doc(db, "users", user.uid);
+            await setDoc(
+                userRef,
+                { preferredCurrency: next },
+                { merge: true }
+            );
+        } catch (e) {
+            console.error("Failed to save preferred currency", e);
+        }
+    }, []);
+    const handleSetCurrency = useCallback(
+        (next: CurrencyCode) => {
+            setCurrency(next);
+            savePreferredCurrency(next);
+        },
+        [savePreferredCurrency]
+    );
+
+    // Build type options from Firestore with a fallback order
+    const fallbackTypes: MarketType[] = ["product", "animal", "tree", "lease", "service"];
+    const TYPE_OPTIONS: MarketType[] = useMemo(() => {
+        if (!types.length) return fallbackTypes;
+        const ids = types.map((t) => t.id);
+        // ensure we still include all known types even if missing in DB
+        const merged = Array.from(new Set([...ids, ...fallbackTypes]));
+        return merged as MarketType[];
+    }, [types]);
+
     // Steps: 0 Type, 1 Name (or Category+Item), 2 Pack+Unit, 3 Price/Rate, 4 Photos+Location+Review
     const [step, setStep] = useState<number>(0);
 
@@ -467,12 +1193,21 @@ export default function SellModal({
     // Step 0
     const [typeSel, setTypeSel] = useState<MarketType>("product");
 
-    // Step 1
+    // Step 1: categories for current type from Firestore
     const categoriesForType = useMemo(
-        () => CATEGORY_OPTIONS_BY_TYPE[typeSel] || [],
-        [typeSel]
+        () =>
+            categories
+                .filter((c) => c.typeId === typeSel)
+                .map((c) => c.name),
+        [categories, typeSel]
     );
-    const [category, setCategory] = useState<string>(categoriesForType[0] || "");
+    const [category, setCategory] = useState<string>("");
+
+    // Keep category initialized (mainly for service path)
+    useEffect(() => {
+        const first = categoriesForType[0] || "";
+        setCategory((prev) => (prev ? prev : first));
+    }, [categoriesForType]);
 
     // Name + use-case tips
     const [name, setName] = useState<string>("");
@@ -480,8 +1215,14 @@ export default function SellModal({
 
     // All names for this type (for autosuggest for product/animal/lease/tree)
     const allNamesForType = useMemo(
-        () => namesForType(typeSel),
-        [typeSel]
+        () => namesForTypeFromItems(typeSel, items),
+        [typeSel, items]
+    );
+
+    // Current catalog row for the selected (type, name)
+    const currentItem = useMemo(
+        () => (name ? findCatalogRowFromItems(typeSel, name, items) : undefined),
+        [typeSel, name, items]
     );
 
     // Name suggestions filtered by input
@@ -499,11 +1240,14 @@ export default function SellModal({
             .slice(0, 40);
     }, [typeSel, allNamesForType, name]);
 
-    // For service (old path), we still use category → productsFor(category)
-    const productNames = useMemo(
-        () => (category ? productsFor(typeSel, category) : []),
-        [typeSel, category]
-    );
+    // For service (old path), we now use Firestore items
+    const catalogItems = useMemo(() => {
+        if (!category) return [];
+        const list = items.filter(
+            (it) => it.type === typeSel && norm(it.category) === norm(category)
+        );
+        return Array.from(new Set(list.map((it) => it.name).filter(Boolean)));
+    }, [items, typeSel, category]);
 
     // Skip pack/unit step for lease/service (same as before)
     useEffect(() => {
@@ -516,6 +1260,18 @@ export default function SellModal({
     const [unit, setUnit] = useState<string>("");
     const [pack, setPack] = useState<string>("");
 
+    // Auto pack + unit when name changes (now from Firestore item)
+    useEffect(() => {
+        if (!name || !currentItem) return;
+        if (currentItem.typicalPackSize != null) {
+            setPack(String(currentItem.typicalPackSize));
+        }
+        if (currentItem.unit) {
+            const first = currentItem.unit.split(" ")[0];
+            setUnit(first || currentItem.unit);
+        }
+    }, [name, currentItem]);
+
     // Step 3
     const [price, setPrice] = useState<string>("");
     const [rate, setRate] = useState<string>("");
@@ -524,12 +1280,15 @@ export default function SellModal({
     // Step 4 (Location)
     const [placeText, setPlaceText] = useState<string>("");
     const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+    // NEW: polygon state for arable land
+    const [landPolygon, setLandPolygon] = useState<{ lat: number; lng: number }[]>([]);
+    const [landCenter, setLandCenter] = useState<{ latitude: number; longitude: number } | null>(null);
 
     // Nested location modal
     const [locModalOpen, setLocModalOpen] = useState(false);
     const [candidateText, setCandidateText] = useState<string>("");
     const [candidateCenter, setCandidateCenter] = useState<{ latitude: number; longitude: number } | null>(null);
-
+    const [polygonModalOpen, setPolygonModalOpen] = useState(false);
     const [saving, setSaving] = useState(false);
 
     // Reset when modal closes
@@ -552,35 +1311,12 @@ export default function SellModal({
             setLocModalOpen(false);
             setCandidateText("");
             setCandidateCenter(null);
+            // NEW reset polygon state
+            setLandPolygon([]);
+            setLandCenter(null);
+            setPolygonModalOpen(false);
         }
     }, [open]);
-
-    // Keep category initialized (mainly for service path)
-    useEffect(() => {
-        const first = categoriesForType[0] || "";
-        setCategory((prev) => (prev ? prev : first));
-    }, [categoriesForType]);
-
-    // Auto pack + unit when name changes (unchanged logic)
-    useEffect(() => {
-        if (!name) return;
-        const d: any = defaultPackFor(name);
-        if (d) {
-            setPack(String(d.size ?? ""));
-            try {
-                setUnit(d.unit.split(" ")[0] ?? "");
-            } catch {
-                setUnit(d.unit || "");
-            }
-        } else {
-            const u: any = unitsFor(name);
-            try {
-                setUnit((Array.isArray(u) ? u[0] : u).split(" ")[0] || "");
-            } catch {
-                setUnit((Array.isArray(u) ? u[0] : u) || "");
-            }
-        }
-    }, [name]);
 
     // NEW: When name changes for product/animal/lease/tree, auto-pick category and tree use-case tip
     useEffect(() => {
@@ -593,8 +1329,8 @@ export default function SellModal({
             return;
         }
 
-        const row = findCatalogRow(typeSel, name);
-        const fallbackCategory = CATEGORY_OPTIONS_BY_TYPE[typeSel]?.[0] || "";
+        const row = currentItem;
+        const fallbackCategory = categoriesForType[0] || "";
 
         if (row?.category || fallbackCategory) {
             setCategory(row?.category || fallbackCategory);
@@ -605,7 +1341,7 @@ export default function SellModal({
         } else {
             setUseCaseTip("");
         }
-    }, [name, typeSel]);
+    }, [name, typeSel, currentItem, categoriesForType]);
 
     // file picker
     const onPickFiles = useCallback(
@@ -643,65 +1379,22 @@ export default function SellModal({
         });
     }, []);
 
+    // Unit suggestions parsed from Firestore item.unit
     const unitsitems = useMemo(() => {
-        const rawunits = unitsFor(name) ?? [];
-        const out: string[] = [];
-        const asArray = Array.isArray(rawunits) ? rawunits : [rawunits];
-
-        for (const entry of asArray) {
-            if (Array.isArray(entry)) {
-                for (const v of entry) {
-                    const t = String(v)
-                        .split(" ")
-                        .map((s) => s.trim())
-                        .filter(Boolean);
-                    out.push(...t);
-                }
-            } else if (typeof entry === "string") {
-                const t = entry
-                    .split(" ")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
-                out.push(...t);
-            } else if (entry != null) {
-                out.push(String(entry).trim());
-            }
-        }
-        return Array.from(new Set(out));
-    }, [name]);
-
-    function firstString(v: unknown): string | undefined {
-        if (typeof v === "string") return v;
-        if (Array.isArray(v)) return v.find((x) => typeof x === "string") as string | undefined;
-        return undefined;
-    }
-
-    // kept for service path
-    const catalogItems = useMemo(() => {
-        const raw = productsFor(typeSel, category) ?? [];
-        const arr: any[] = Array.isArray(raw) ? raw : [raw];
-        const out: string[] = [];
-        for (const entry of arr) {
-            if (Array.isArray(entry)) {
-                for (const v of entry) {
-                    const t = String(v)
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean);
-                    out.push(...t);
-                }
-            } else if (typeof entry === "string") {
-                const t = entry
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean);
-                out.push(...t);
-            } else if (entry != null) {
-                out.push(String(entry).trim());
-            }
-        }
-        return Array.from(new Set(out));
-    }, [typeSel, category]);
+        if (!currentItem?.unit) return [];
+        return Array.from(
+            new Set(
+                currentItem.unit
+                    .split(/[\/,]/)
+                    .flatMap((chunk) =>
+                        chunk
+                            .split(" ")
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                    )
+            )
+        );
+    }, [currentItem]);
 
     const canNext = useMemo(() => {
         if (step === 0) return !!typeSel;
@@ -715,9 +1408,20 @@ export default function SellModal({
                 return !!n && n > 0;
             }
         }
-        if (step === 4) return photos.length > 0 && !!placeText.trim() && !!coords;
+
+        if (step === 4) {
+            if (photos.length === 0) return false;
+
+            // NEW: arable land uses polygon instead of point
+            if (typeSel === ARABLE_LAND_TYPE) {
+                return landPolygon.length >= 3; // at least 3 points for a polygon
+            }
+
+            return !!placeText.trim() && !!coords;
+        }
+
         return false;
-    }, [step, typeSel, category, name, price, rate, billingUnit, photos.length, placeText, coords]);
+    }, [step, typeSel, category, name, price, rate, billingUnit, photos.length, placeText, coords, landPolygon.length]);
 
     const onNext = useCallback(() => {
         if (!canNext) {
@@ -733,13 +1437,21 @@ export default function SellModal({
             }
             if (step === 4) {
                 if (photos.length === 0) return alert("Please add a photo.");
+
+                if (typeSel === ARABLE_LAND_TYPE) {
+                    if (landPolygon.length < 3) {
+                        return alert("Tap at least three points on the map to outline the land.");
+                    }
+                    return;
+                }
+
                 if (!placeText.trim()) return alert("Add a place (e.g., Westlands, Nairobi).");
                 if (!coords) return alert("Open “Add location” and pick a point or search an address.");
             }
             return;
         }
         if (step < 4) setStep(step + 1);
-    }, [step, canNext, typeSel, name, rate, billingUnit, photos.length, placeText, coords]);
+    }, [step, canNext, typeSel, name, rate, billingUnit, photos.length, placeText, coords, landPolygon.length]);
 
     const onBack = useCallback(() => {
         if (step > 0) setStep(step - 1);
@@ -826,6 +1538,7 @@ export default function SellModal({
             const base: any = {
                 name: name.trim(),
                 price: nPrice,
+                currency, // 👈 store selected currency
                 category,
                 imageUrl: urls[0],
                 imageUrls: urls,
@@ -839,6 +1552,11 @@ export default function SellModal({
                 status: "active",
                 sold: false,
             };
+            // NEW: attach polygon for arable land
+            if (typeSel === ARABLE_LAND_TYPE && landPolygon.length >= 3) {
+                base.landPolygon = landPolygon; // array of { lat, lng }
+            }
+
             if (unit?.trim()) base.unit = unit.trim();
             if (pack?.toString().trim()) base.typicalPackSize = pack;
             if (typeSel === "lease" || typeSel === "service") {
@@ -862,7 +1580,23 @@ export default function SellModal({
             setSaving(false);
             alert(e?.message || "Failed to post. Please try again.");
         }
-    }, [photos, name, category, typeSel, rate, billingUnit, price, unit, pack, coords, placeText, useCaseTip, onCreated, onClose]);
+    }, [
+        photos,
+        name,
+        category,
+        typeSel,
+        rate,
+        billingUnit,
+        price,
+        unit,
+        pack,
+        coords,
+        landPolygon,
+        placeText,
+        useCaseTip,
+        onCreated,
+        onClose,
+    ]);
 
     if (!open) return null;
 
@@ -883,7 +1617,14 @@ export default function SellModal({
             >
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
-                    <div className="text-base font-black text-gray-900">Sell on Ekari Market</div>
+                    <div className="text-base font-black text-gray-900">
+                        Sell on ekariMarket
+                        {catalogLoading && (
+                            <span className="ml-2 text-[11px] font-semibold text-gray-400">
+                                (loading catalog…)
+                            </span>
+                        )}
+                    </div>
                     <button
                         onClick={() => !saving && onClose()}
                         disabled={saving}
@@ -1016,7 +1757,7 @@ export default function SellModal({
                                 </>
                             ) : (
                                 <>
-                                    {/* Service: keep old Category + Item flow */}
+                                    {/* Service: Category + Item flow using Firestore categories/items */}
                                     <label className="text-xs font-extrabold text-gray-500">
                                         Category
                                     </label>
@@ -1045,8 +1786,8 @@ export default function SellModal({
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         placeholder={
-                                            (productsFor(typeSel, category)[0] &&
-                                                `e.g. ${productsFor(typeSel, category)[0]}`) ||
+                                            (catalogItems[0] &&
+                                                `e.g. ${catalogItems[0]}`) ||
                                             "Type or pick from catalog"
                                         }
                                         className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
@@ -1068,7 +1809,6 @@ export default function SellModal({
                             )}
                         </div>
                     )}
-
 
                     {/* Step 2: Pack & Unit (products only; still hidden for lease/service) */}
                     {step === 2 && typeSel !== "lease" && typeSel !== "service" && (
@@ -1093,7 +1833,7 @@ export default function SellModal({
                                     value={unit}
                                     onChange={(e) => setUnit(e.target.value)}
                                     placeholder={
-                                        firstString(unitsFor(name)) ??
+                                        currentItem?.unit ??
                                         "kg / bag / carton / head"
                                     }
                                     className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
@@ -1121,17 +1861,43 @@ export default function SellModal({
                             {typeSel === "lease" || typeSel === "service" ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
+
                                         <label className="text-xs font-extrabold text-gray-500">
-                                            Rate
+                                            Rate ({currency})
                                         </label>
-                                        <input
-                                            value={rate}
-                                            onChange={(e) => setRate(e.target.value)}
-                                            placeholder="e.g. 1500"
-                                            inputMode="numeric"
-                                            className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                                        />
+                                        <div className="flex items-center text-[11px] gap-1">
+                                            <span className="text-gray-500 font-semibold">Currency</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetCurrency("KES")}
+                                                className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "KES"
+                                                    ? "bg-emerald-700 text-white border-emerald-800"
+                                                    : "bg-white text-gray-700 border-gray-200"
+                                                    }`}
+                                            >
+                                                KES
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetCurrency("USD")}
+                                                className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "USD"
+                                                    ? "bg-emerald-700 text-white border-emerald-800"
+                                                    : "bg-white text-gray-700 border-gray-200"
+                                                    }`}
+                                            >
+                                                USD
+                                            </button>
+                                        </div>
                                     </div>
+                                    <input
+                                        value={rate}
+                                        onChange={(e) => setRate(e.target.value)}
+                                        placeholder={currency === "KES" ? "e.g. 1500" : "e.g. 10"}
+                                        inputMode="numeric"
+                                        className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                                    />
+
+
                                     <div>
                                         <label className="text-xs font-extrabold text-gray-500">
                                             Billing unit
@@ -1146,17 +1912,43 @@ export default function SellModal({
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="text-xs font-extrabold text-gray-500">
-                                        Price (KES)
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-extrabold text-gray-500">
+                                            Price ({currency})
+                                        </label>
+                                        <div className="flex items-center text-[11px] gap-1">
+                                            <span className="text-gray-500 font-semibold">Currency</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetCurrency("KES")}
+                                                className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "KES"
+                                                    ? "bg-emerald-700 text-white border-emerald-800"
+                                                    : "bg-white text-gray-700 border-gray-200"
+                                                    }`}
+                                            >
+                                                KES
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetCurrency("USD")}
+                                                className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "USD"
+                                                    ? "bg-emerald-700 text-white border-emerald-800"
+                                                    : "bg-white text-gray-700 border-gray-200"
+                                                    }`}
+                                            >
+                                                USD
+                                            </button>
+                                        </div>
+                                    </div>
                                     <input
                                         value={price}
                                         onChange={(e) => setPrice(e.target.value)}
-                                        placeholder="e.g. 250"
+                                        placeholder={currency === "KES" ? "e.g. 250" : "e.g. 5"}
                                         inputMode="numeric"
                                         className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
                                     />
                                 </div>
+
                             )}
                         </>
                     )}
@@ -1209,42 +2001,78 @@ export default function SellModal({
                             </div>
 
                             {/* Location */}
+                            {/* Location */}
                             <div>
                                 <label className="text-xs font-extrabold text-gray-500">
-                                    Where is the product?
+                                    {typeSel === ARABLE_LAND_TYPE ? "Where is the land?" : "Where is the product?"}
                                 </label>
 
                                 <div className="mt-2 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                    <button
-                                        onClick={() => {
-                                            setCandidateText(placeText || "");
-                                            setCandidateCenter(
-                                                coords || {
-                                                    latitude: -1.286389,
-                                                    longitude: 36.817223, // Nairobi default
-                                                }
-                                            );
-                                            setLocModalOpen(true);
-                                        }}
-                                        className="h-11 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 inline-flex items-center gap-2"
-                                    >
-                                        <IoMap size={18} />
-                                        <span className="font-semibold">Add location</span>
-                                    </button>
+                                    {typeSel === ARABLE_LAND_TYPE ? (
+                                        // NEW: polygon button for arable land
+                                        <button
+                                            onClick={() => {
+                                                setPolygonModalOpen(true);
+                                            }}
+                                            className="h-11 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 inline-flex items-center gap-2"
+                                        >
+                                            <IoMap size={18} />
+                                            <span className="font-semibold">Draw land area on map</span>
+                                        </button>
+                                    ) : (
+                                        // Existing point location picker for other types
+                                        <button
+                                            onClick={() => {
+                                                setCandidateText(placeText || "");
+                                                setCandidateCenter(
+                                                    coords || {
+                                                        latitude: -1.286389,
+                                                        longitude: 36.817223, // Nairobi default
+                                                    }
+                                                );
+                                                setLocModalOpen(true);
+                                            }}
+                                            className="h-11 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 inline-flex items-center gap-2"
+                                        >
+                                            <IoMap size={18} />
+                                            <span className="font-semibold">Add location</span>
+                                        </button>
+                                    )}
                                 </div>
 
-                                {!!coords && (
-                                    <div className="mt-1 text-xs text-gray-500">
-                                        Coords: {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
-                                    </div>
+                                {/* Info for normal point location */}
+                                {typeSel !== ARABLE_LAND_TYPE && (
+                                    <>
+                                        {!!coords && (
+                                            <div className="mt-1 text-xs text-gray-500">
+                                                Coords: {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
+                                            </div>
+                                        )}
+
+                                        {!!placeText && (
+                                            <div className="mt-1 text-xs text-gray-600">
+                                                Place: {placeText}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
 
-                                {!!placeText && (
-                                    <div className="mt-1 text-xs text-gray-600">
-                                        Place: {placeText}
+                                {/* NEW: info for polygon */}
+                                {typeSel === ARABLE_LAND_TYPE && (
+                                    <div className="mt-1 text-xs text-gray-600 space-y-1">
+                                        <div>
+                                            <span className="font-bold text-gray-500">Points:</span>{" "}
+                                            {landPolygon.length > 0 ? `${landPolygon.length} vertices set` : "No polygon drawn yet"}
+                                        </div>
+                                        {landCenter && (
+                                            <div className="text-xs text-gray-500">
+                                                Approx. center: {landCenter.latitude.toFixed(4)}, {landCenter.longitude.toFixed(4)}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
+
 
                             {/* Review */}
                             <div className="border border-gray-200 rounded-xl p-3 bg-gray-50">
@@ -1274,14 +2102,12 @@ export default function SellModal({
                                     {typeSel === "lease" || typeSel === "service" ? (
                                         <div>
                                             <span className="font-bold text-gray-500">Rate:</span>{" "}
-                                            {rate || "-"} ({billingUnit || "-"})
+                                            {rate ? `${formatPriceForReview(rate, currency)} (${billingUnit || "-"})` : "-"}
                                         </div>
                                     ) : (
                                         <div>
                                             <span className="font-bold text-gray-500">Price:</span>{" "}
-                                            {price
-                                                ? KES(Number(price.replace(/[^\d]/g, "")) || 0)
-                                                : "-"}
+                                            {formatPriceForReview(price, currency)}
                                         </div>
                                     )}
                                     <div>
@@ -1290,14 +2116,31 @@ export default function SellModal({
                                     </div>
                                     <div>
                                         <span className="font-bold text-gray-500">Location:</span>{" "}
-                                        {placeText || "-"}
+                                        {typeSel === ARABLE_LAND_TYPE ? (placeText || "Arable land parcel") : (placeText || "-")}
                                     </div>
-                                    <div>
-                                        <span className="font-bold text-gray-500">Coords:</span>{" "}
-                                        {coords
-                                            ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
-                                            : "-"}
-                                    </div>
+
+                                    {typeSel === ARABLE_LAND_TYPE ? (
+                                        <>
+                                            <div>
+                                                <span className="font-bold text-gray-500">Polygon points:</span>{" "}
+                                                {landPolygon.length > 0 ? landPolygon.length : "-"}
+                                            </div>
+                                            <div>
+                                                <span className="font-bold text-gray-500">Center:</span>{" "}
+                                                {landCenter
+                                                    ? `${landCenter.latitude.toFixed(4)}, ${landCenter.longitude.toFixed(4)}`
+                                                    : "-"}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div>
+                                            <span className="font-bold text-gray-500">Coords:</span>{" "}
+                                            {coords
+                                                ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
+                                                : "-"}
+                                        </div>
+                                    )}
+
                                 </div>
                             </div>
                         </div>
@@ -1364,6 +2207,26 @@ export default function SellModal({
                         setPlaceText(text);
                         setCoords(center);
                         setLocModalOpen(false);
+                    }}
+                />
+            )}
+            {/* NEW: Polygon picker for arable land */}
+            {polygonModalOpen && (
+                <LandPolygonPickerModal
+                    initialCenter={
+                        landCenter ||
+                        coords || {
+                            latitude: -1.286389,
+                            longitude: 36.817223,
+                        }
+                    }
+                    initialPolygon={landPolygon}
+                    onCancel={() => setPolygonModalOpen(false)}
+                    onUse={({ center, polygon }) => {
+                        setLandCenter(center);
+                        setCoords(center); // keep using coords for search / existing logic
+                        setLandPolygon(polygon);
+                        setPolygonModalOpen(false);
                     }}
                 />
             )}

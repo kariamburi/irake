@@ -1,4 +1,12 @@
 // utils/ekariTags.ts
+import {
+  Firestore,
+  collection,
+  getDocs,
+  orderBy,
+  query,
+} from "firebase/firestore";
+
 export type Stakeholder =
   | "primaryProducer"
   | "inputProvider"
@@ -15,17 +23,17 @@ export type EkariProfile = {
   areaOfInterest?: string[];
   accountType?: string;
   country?: string;
-  county?: string;          // NEW: finer locale
+  county?: string; // finer locale
 };
 
 export type BuildTrendingInput = {
   country?: string;
-  county?: string;          // NEW
+  county?: string;
   stakeholders?: Stakeholder[];
   emphasizeActions?: string[];
   profile?: EkariProfile;
   extra?: string[];
-  crops?: string[];         // NEW: bias to crop-specific pests/diseases
+  crops?: string[]; // bias to crop-specific pests/diseases
   limit?: number;
 };
 
@@ -58,10 +66,10 @@ const canonical = (raw: string) => {
 
 const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
 
-/* ----------------- PESTS & DISEASES CATALOG (examples) ----------------- */
+/* ----------------- STATIC CATALOGS (FALLBACK) ----------------- */
 const PLANT_PESTS = [
-  "fallarmyworm",          // maize
-  "tutaabsoluta",          // tomato leafminer
+  "fallarmyworm", // maize
+  "tutaabsoluta", // tomato leafminer
   "fruitflies",
   "stemborer",
   "aphids",
@@ -98,7 +106,96 @@ const CROP_LINKS: Record<string, string[]> = {
   dairy: ["mastitis"],
 };
 
-/* ----------------- TAXONOMY ----------------- */
+/** Global base tags (fallback) */
+const GLOBAL_BASE_FALLBACK = [
+  "agribusiness",
+  "agriculture",
+  "supplychain",
+  "market",
+  "marketlinkage",
+  "valuechain",
+  "price",
+  "pests",
+  "diseases",
+];
+
+/* ----------------- FIRESTORE-DRIVEN RUNTIME TAGS ----------------- */
+
+/**
+ * Flattened list of all interests (union of items in interest_groups)
+ * and roles (union of items in role_groups), coming from Firestore.
+ */
+let ALL_INTERESTS_RUNTIME: string[] = [];
+let ALL_ROLES_RUNTIME: string[] = [];
+
+/**
+ * Firestore schema we expect:
+ * collection("interest_groups") docs:
+ *   { title: string, items: string[], order: number }
+ * collection("role_groups") docs:
+ *   { title: string, items: string[], order: number }
+ */
+type GroupDoc = {
+  title?: string;
+  items?: string[];
+  order?: number;
+};
+
+/**
+ * Call this once (e.g. app start, API route init) to sync
+ * trending tags with Firestore interest_groups + role_groups.
+ *
+ * Safe to call multiple times; latest successful call wins.
+ */
+export async function initEkariTagsFromFirestore(db: Firestore) {
+  try {
+    const igSnap = await getDocs(
+      query(collection(db, "interest_groups"), orderBy("order", "asc"))
+    );
+    const rgSnap = await getDocs(
+      query(collection(db, "role_groups"), orderBy("order", "asc"))
+    );
+
+    const interests: string[] = [];
+    igSnap.forEach((docSnap) => {
+      const data = docSnap.data() as GroupDoc;
+      if (Array.isArray(data.items)) {
+        interests.push(...data.items);
+      }
+    });
+
+    const roles: string[] = [];
+    rgSnap.forEach((docSnap) => {
+      const data = docSnap.data() as GroupDoc;
+      if (Array.isArray(data.items)) {
+        roles.push(...data.items);
+      }
+    });
+
+    ALL_INTERESTS_RUNTIME = uniq(
+      interests
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => canonical(s))
+    );
+
+    ALL_ROLES_RUNTIME = uniq(
+      roles
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => canonical(s))
+    );
+  } catch (err) {
+    // If Firestore fails, we just keep runtime arrays empty
+    // and rely purely on the static taxonomy + profile.
+    console.error("initEkariTagsFromFirestore failed:", err);
+    ALL_INTERESTS_RUNTIME = [];
+    ALL_ROLES_RUNTIME = [];
+  }
+}
+
+/* ----------------- TAXONOMY (STATIC, BUT USES CATALOGS ABOVE) ----------------- */
+
 const TAXONOMY: Record<
   Stakeholder,
   {
@@ -107,9 +204,29 @@ const TAXONOMY: Record<
   }
 > = {
   primaryProducer: {
-    tags: ["farmer", "beekeeper", "horticulture", "livestock", "aquaculture", "forestry", "onfarm", "smallholder"],
+    tags: [
+      "farmer",
+      "beekeeper",
+      "horticulture",
+      "livestock",
+      "aquaculture",
+      "forestry",
+      "onfarm",
+      "smallholder",
+    ],
     actions: {
-      sellProduce: ["grains", "fruits", "vegetables", "dairy", "meat", "honey", "timber", "fish", "flowers", "marketlinkage"],
+      sellProduce: [
+        "grains",
+        "fruits",
+        "vegetables",
+        "dairy",
+        "meat",
+        "honey",
+        "timber",
+        "fish",
+        "flowers",
+        "marketlinkage",
+      ],
       buyInputs: ["seeds", "fertilizers", "agrochemicals", "feeds", "tools"],
       leaseEquipment: ["tractors", "irrigationpumps", "processingmachines"],
       hireServices: ["vets", "agronomist", "soiltesting", "logistics"],
@@ -121,23 +238,54 @@ const TAXONOMY: Record<
   },
 
   inputProvider: {
-    tags: ["inputsupplier", "equipment", "machinery", "greenhouses", "irrigationkits", "demonstrations"],
+    tags: [
+      "inputsupplier",
+      "equipment",
+      "machinery",
+      "greenhouses",
+      "irrigationkits",
+      "demonstrations",
+    ],
     actions: {
-      sellInputs: ["seeds", "feeds", "fertilizers", "chemicals", "irrigationkits", "tools", "greenhouses"],
-      leaseEquipment: ["machineryleasing", "tractorhire", "postharvestequipment"],
+      sellInputs: [
+        "seeds",
+        "feeds",
+        "fertilizers",
+        "chemicals",
+        "irrigationkits",
+        "tools",
+        "greenhouses",
+      ],
+      leaseEquipment: [
+        "machineryleasing",
+        "tractorhire",
+        "postharvestequipment",
+      ],
       afterSales: ["aftersales", "training", "demos", "fielddays"],
       bulkSupply: ["bulk", "cooperatives", "traders"],
     },
   },
 
   animalPlantHealth: {
-    tags: ["animalhealth", "planthealth", "vet", "paravet", "breeding", "agronomist", "biosecurity"],
+    tags: [
+      "animalhealth",
+      "planthealth",
+      "vet",
+      "paravet",
+      "breeding",
+      "agronomist",
+      "biosecurity",
+    ],
     actions: {
-      services: ["vetservices", "herdhealth", "flockhealth", "parasitemanagement"],
+      services: [
+        "vetservices",
+        "herdhealth",
+        "flockhealth",
+        "parasitemanagement",
+      ],
       supplies: ["vaccines", "supplements", "drugs"],
       breeding: ["ai", "breedingservices"],
       partnerships: ["livestockkeepers", "outreach"],
-      // NEW:
       pests: PLANT_PESTS,
       plantDiseases: PLANT_DISEASES,
       animalDiseases: ANIMAL_DISEASES,
@@ -146,17 +294,39 @@ const TAXONOMY: Record<
   },
 
   processorValueAdder: {
-    tags: ["valueaddition", "processor", "packaging", "coldstorage", "qualitycontrol"],
+    tags: [
+      "valueaddition",
+      "processor",
+      "packaging",
+      "coldstorage",
+      "qualitycontrol",
+    ],
     actions: {
       sourceRaw: ["sourcing", "fromfarmers", "aggregation"],
-      sellProcessed: ["flour", "dairyproducts", "juice", "honeyproducts", "edibleoils", "meatprocessing"],
+      sellProcessed: [
+        "flour",
+        "dairyproducts",
+        "juice",
+        "honeyproducts",
+        "edibleoils",
+        "meatprocessing",
+      ],
       infra: ["packaging", "coldchain", "coldrooms"],
       export: ["export", "compliance", "certification"],
     },
   },
 
   traderDistributor: {
-    tags: ["trader", "distributor", "exporter", "aggregator", "cooperative", "retailer", "onlinedistributor", "logistics"],
+    tags: [
+      "trader",
+      "distributor",
+      "exporter",
+      "aggregator",
+      "cooperative",
+      "retailer",
+      "onlinedistributor",
+      "logistics",
+    ],
     actions: {
       bulkSourcing: ["bulk", "contracts", "procurement"],
       aggregation: ["aggregation", "coopopportunities"],
@@ -166,7 +336,14 @@ const TAXONOMY: Record<
   },
 
   financeBiz: {
-    tags: ["agfinance", "sacco", "microfinance", "leasing", "insurance", "consulting"],
+    tags: [
+      "agfinance",
+      "sacco",
+      "microfinance",
+      "leasing",
+      "insurance",
+      "consulting",
+    ],
     actions: {
       credit: ["agriloans", "credit", "workingcapital"],
       risk: ["cropinsurance", "livestockinsurance", "indexinsurance"],
@@ -176,7 +353,14 @@ const TAXONOMY: Record<
   },
 
   knowledgeResearch: {
-    tags: ["research", "training", "ict", "agritech", "knowledgehub", "extension"],
+    tags: [
+      "research",
+      "training",
+      "ict",
+      "agritech",
+      "knowledgehub",
+      "extension",
+    ],
     actions: {
       programs: ["courses", "trainings", "capacitybuilding"],
       tools: ["farmapps", "digitaladvisory"],
@@ -186,20 +370,56 @@ const TAXONOMY: Record<
   },
 
   governanceStandards: {
-    tags: ["government", "regulator", "standards", "certifier", "ngo", "devpartner", "traceability"],
+    tags: [
+      "government",
+      "regulator",
+      "standards",
+      "certifier",
+      "ngo",
+      "devpartner",
+      "traceability",
+    ],
     actions: {
       licensing: ["licensing", "permits"],
-      certification: ["certification", "qualityassurance", "haccp", "organic"],
+      certification: [
+        "certification",
+        "qualityassurance",
+        "haccp",
+        "organic",
+      ],
       training: ["compliance", "foodsafety"],
       programs: ["grants", "projectsupport"],
     },
   },
 
   consumerBuyer: {
-    tags: ["consumer", "buyer", "institutionalbuyer", "exportmarket", "organic", "freshproduce", "processed"],
+    tags: [
+      "consumer",
+      "buyer",
+      "institutionalbuyer",
+      "exportmarket",
+      "organic",
+      "freshproduce",
+      "processed",
+    ],
     actions: {
-      fresh: ["fruits", "vegetables", "cereals", "dairy", "meat", "honey", "fish", "flowers"],
-      processed: ["flour", "juices", "oils", "meatproducts", "dairyproducts"],
+      fresh: [
+        "fruits",
+        "vegetables",
+        "cereals",
+        "dairy",
+        "meat",
+        "honey",
+        "fish",
+        "flowers",
+      ],
+      processed: [
+        "flour",
+        "juices",
+        "oils",
+        "meatproducts",
+        "dairyproducts",
+      ],
       bulk: ["bulkpurchase", "schools", "hotels", "hospitals", "supermarkets"],
       preferences: ["certified", "organic", "traceable"],
       export: ["exportbuyer"],
@@ -207,21 +427,7 @@ const TAXONOMY: Record<
   },
 };
 
-/** Global base tags */
-const GLOBAL_BASE = ["agribusiness", "agriculture", "supplychain", "market", "marketlinkage", "valuechain", "price", "pests", "diseases"];
-
-/* optional short county list – add the rest as needed */
-//const KENYA_COUNTIES = [
-//  "nairobi", "mombasa", "kisumu", "nakuru", "machakos", "kiambu", "kajiado", "meru", "nyeri", "transnzoia",
-//  "uasin-gishu", "narok", "laikipia", "embu", "kericho", "kakamega", "bungoma", "kilifi", "kwale"
-//].map(canonical);
-
-//function regionTags(country?: string, county?: string): string[] {
-// const out: string[] = [];
-// if (country && canonical(country) === "kenya") out.push(...KENYA_COUNTIES);
-// if (county) out.push(canonical(county));
-// return out;
-//}
+/* ----------------- HELPERS THAT USE CATALOGS ----------------- */
 
 function cropLinked(crops?: string[]) {
   if (!crops?.length) return [] as string[];
@@ -246,23 +452,33 @@ export function buildEkariTrending(input: BuildTrendingInput = {}): string[] {
     limit = 48,
   } = input;
 
+  // Start with global base + Firestore-driven global interests and roles
   let out: string[] = [
-    ...GLOBAL_BASE,
-    //...regionTags(country, county),
-    //...(profile?.country || profile?.county ? regionTags(profile?.country, profile?.county) : []),
+    ...GLOBAL_BASE_FALLBACK,
+    ...ALL_INTERESTS_RUNTIME,
+    ...ALL_ROLES_RUNTIME,
+    // region tags could be re-enabled later if needed
     ...extra,
     ...cropLinked(crops),
     ...cropLinked(profile?.areaOfInterest),
   ];
 
   const chosen: Stakeholder[] =
-    stakeholders && stakeholders.length ? stakeholders : (Object.keys(TAXONOMY) as Stakeholder[]);
+    stakeholders && stakeholders.length
+      ? stakeholders
+      : (Object.keys(TAXONOMY) as Stakeholder[]);
 
   for (const key of chosen) {
     const node = TAXONOMY[key];
     out.push(...node.tags);
-    for (const k of Object.keys(node.actions)) out.push(...node.actions[k]);
-    for (const k of emphasizeActions) if (node.actions[k]) out.push(...node.actions[k], ...node.actions[k]);
+    for (const k of Object.keys(node.actions)) {
+      out.push(...node.actions[k]);
+    }
+    for (const k of emphasizeActions) {
+      if (node.actions[k]) {
+        out.push(...node.actions[k], ...node.actions[k]); // double weight
+      }
+    }
   }
 
   if (profile?.roles?.length) out.push(...profile.roles);
@@ -275,7 +491,13 @@ export function buildEkariTrending(input: BuildTrendingInput = {}): string[] {
     counts[t] = (counts[t] || 0) + 1;
   }
 
-  const ranked = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, limit);
+  const ranked = Object.keys(counts)
+    .sort((a, b) => counts[b] - counts[a])
+    .slice(0, limit);
+
   const boosters = ["agribusiness", "market", "kenya", "export", "organic"];
-  return uniq([...boosters.filter((b) => ranked.includes(b)), ...ranked]);
+  return uniq([
+    ...boosters.filter((b) => ranked.includes(b)),
+    ...ranked,
+  ]);
 }

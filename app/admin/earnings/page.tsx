@@ -1,4 +1,4 @@
-// app/admin/wallets/page.tsx
+// app/admin/earnings/page.tsx
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
@@ -27,26 +27,33 @@ type DonationDoc = {
   deedId?: string;
   creatorId?: string;
   donorId?: string;
-  amount?: number; // minor units
+
+  // legacy / gateway-ish fields
+  amount?: number; // minor units, old style
   currency?: string;
-  creatorShare?: number; // minor units
-  platformShare?: number; // minor units
-  status?: string;
+  creatorShare?: number; // minor units (old)
+  platformShare?: number; // minor units (old)
   createdAt?: any;
+  paidAt?: any;
+
+  // canonical USD fields (from webhook)
+  grossAmountUsdMinor?: number;
+  creatorShareNetUsdMinor?: number;
+  platformShareUsdMinor?: number;
+  providerFeeUsdMinorEstimated?: number;
 };
 
 type CreatorWallet = {
   creatorId: string;
-  currency: string;
-  totalReceivedMinor: number;
-  totalPlatformMinor: number;
+  totalReceivedMinorUsd: number;
+  totalPlatformMinorUsd: number;
   donationsCount: number;
   lastDonationAt: any | null;
 };
 
-function moneyMinor(n: number, currency: string) {
+function moneyMinorUsd(n: number) {
   const major = n / 100;
-  return `${currency} ${major.toLocaleString("en-KE", {
+  return `USD ${major.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -61,7 +68,7 @@ function fmtDate(ts: any) {
   return String(ts);
 }
 
-export default function AdminWalletsPage() {
+export default function AdminEarningsPage() {
   const [donations, setDonations] = useState<DonationDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -73,7 +80,7 @@ export default function AdminWalletsPage() {
           collection(db, "donations"),
           where("status", "==", "succeeded"),
           orderBy("createdAt", "desc"),
-          limit(200) // top 200 recent; adjust as needed
+          limit(200) // last 200; adjust as needed
         );
         const snap = await getDocs(base);
         if (cancelled) return;
@@ -87,7 +94,7 @@ export default function AdminWalletsPage() {
           )
         );
       } catch (err) {
-        console.error("AdminWallets load error", err);
+        console.error("AdminEarnings load error", err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -100,57 +107,81 @@ export default function AdminWalletsPage() {
 
   const { platformTotals, creators } = useMemo(() => {
     const byCreator = new Map<string, CreatorWallet>();
-    let platformMinor = 0;
-    let platformCurrency = "KES"; // default; overridden by first record
+
+    let platformMinorUsd = 0;
     let totalCount = 0;
 
     for (const d of donations) {
-      if (!d.creatorId || !d.amount) continue;
-      const currency = (d.currency || "KES").toUpperCase();
-      const creatorShare = Number(d.creatorShare ?? Math.round(d.amount * 0.9));
-      const platformShare = Number(d.platformShare ?? d.amount - creatorShare);
+      if (!d.creatorId) continue;
 
-      // global platform
-      platformMinor += platformShare;
-      if (!platformCurrency && currency) platformCurrency = currency;
+      // 🔹 Canonical gross in USD minor
+      const grossUsd =
+        typeof d.grossAmountUsdMinor === "number"
+          ? d.grossAmountUsdMinor
+          : typeof d.amount === "number"
+            ? d.amount // fallback: treat as USD-like
+            : 0;
+
+      if (grossUsd <= 0) continue;
+
+      // 🔹 Creator share in USD minor
+      const creatorUsd =
+        typeof d.creatorShareNetUsdMinor === "number"
+          ? d.creatorShareNetUsdMinor
+          : typeof d.creatorShare === "number"
+            ? d.creatorShare
+            : Math.round(grossUsd * 0.9); // fallback 90%
+
+      // 🔹 Platform share in USD minor
+      const platformUsd =
+        typeof d.platformShareUsdMinor === "number"
+          ? d.platformShareUsdMinor
+          : typeof d.platformShare === "number"
+            ? d.platformShare
+            : grossUsd - creatorUsd;
+
+      // global sums
+      platformMinorUsd += platformUsd;
       totalCount++;
 
       // per creator
       const key = d.creatorId;
       const existing = byCreator.get(key);
+      const lastTime = d.paidAt || d.createdAt || null;
+
       if (!existing) {
         byCreator.set(key, {
           creatorId: key,
-          currency,
-          totalReceivedMinor: creatorShare,
-          totalPlatformMinor: platformShare,
+          totalReceivedMinorUsd: creatorUsd,
+          totalPlatformMinorUsd: platformUsd,
           donationsCount: 1,
-          lastDonationAt: d.createdAt ?? null,
+          lastDonationAt: lastTime,
         });
       } else {
-        existing.totalReceivedMinor += creatorShare;
-        existing.totalPlatformMinor += platformShare;
+        existing.totalReceivedMinorUsd += creatorUsd;
+        existing.totalPlatformMinorUsd += platformUsd;
         existing.donationsCount += 1;
+
+        const prev = existing.lastDonationAt;
         if (
-          !existing.lastDonationAt ||
-          (d.createdAt &&
-            d.createdAt?.toMillis &&
-            existing.lastDonationAt?.toMillis &&
-            d.createdAt.toMillis() > existing.lastDonationAt.toMillis())
+          !prev ||
+          (lastTime &&
+            lastTime?.toMillis &&
+            prev?.toMillis &&
+            lastTime.toMillis() > prev.toMillis())
         ) {
-          existing.lastDonationAt = d.createdAt ?? existing.lastDonationAt;
+          existing.lastDonationAt = lastTime;
         }
       }
     }
 
     const creatorsArr = Array.from(byCreator.values()).sort(
-      (a, b) => b.totalReceivedMinor - a.totalReceivedMinor
+      (a, b) => b.totalReceivedMinorUsd - a.totalReceivedMinorUsd
     );
 
     return {
       platformTotals: {
-        currency: platformCurrency,
-        platformMinor,
+        platformMinorUsd,
         donationsCount: totalCount,
       },
       creators: creatorsArr,
@@ -166,12 +197,12 @@ export default function AdminWalletsPage() {
             className="text-2xl md:text-3xl font-extrabold"
             style={{ color: EKARI.text }}
           >
-            Creator earnings
+            Creator earnings (USD)
           </h1>
           <p className="text-sm md:text-base" style={{ color: EKARI.dim }}>
             Overview of tip-based donations. This view aggregates the last 200
-            successful donations into per-creator “wallets” and shows ekarihub&apos;s
-            platform share.
+            successful donations into per-creator wallets, using canonical USD
+            amounts from the Paystack webhook.
           </p>
         </div>
       </div>
@@ -192,7 +223,7 @@ export default function AdminWalletsPage() {
               className="text-2xl font-extrabold"
               style={{ color: EKARI.text }}
             >
-              {platformTotals.donationsCount.toLocaleString("en-KE")}
+              {platformTotals.donationsCount.toLocaleString("en-US")}
             </div>
           )}
           <div className="mt-2 text-[11px] text-gray-500">
@@ -205,7 +236,7 @@ export default function AdminWalletsPage() {
           style={{ borderColor: EKARI.hair }}
         >
           <div className="text-xs font-semibold text-gray-500 mb-1">
-            Platform share (approx.)
+            Platform share (USD, approx.)
           </div>
           {loading ? (
             <div className="h-6 w-28 bg-gray-100 rounded animate-pulse" />
@@ -215,17 +246,14 @@ export default function AdminWalletsPage() {
               style={{ color: EKARI.forest }}
             >
               <IoCashOutline />
-              {platformTotals.platformMinor > 0
-                ? moneyMinor(
-                  platformTotals.platformMinor,
-                  platformTotals.currency || "KES"
-                )
+              {platformTotals.platformMinorUsd > 0
+                ? moneyMinorUsd(platformTotals.platformMinorUsd)
                 : "—"}
             </div>
           )}
           <div className="mt-2 text-[11px] text-gray-500">
-            Using creatorShare / platformShare fields where present; falling back
-            to 90/10 split.
+            Uses canonical creator/platform shares when present; falls back to a
+            90/10 split for older donations.
           </div>
         </div>
 
@@ -243,7 +271,7 @@ export default function AdminWalletsPage() {
               className="text-2xl font-extrabold"
               style={{ color: EKARI.text }}
             >
-              {creators.length.toLocaleString("en-KE")}
+              {creators.length.toLocaleString("en-US")}
             </div>
           )}
           <div className="mt-2 text-[11px] text-gray-500">
@@ -264,10 +292,11 @@ export default function AdminWalletsPage() {
                 className="text-sm font-extrabold"
                 style={{ color: EKARI.text }}
               >
-                Top creators by earnings
+                Top creators by earnings (USD)
               </h2>
               <p className="text-xs" style={{ color: EKARI.dim }}>
-                Aggregated from the most recent successful donations.
+                Aggregated from the most recent successful donations in USD
+                minor units.
               </p>
             </div>
           </div>
@@ -278,8 +307,12 @@ export default function AdminWalletsPage() {
             <thead>
               <tr className="bg-gray-50 text-gray-500">
                 <th className="text-left px-4 py-2 font-semibold">Creator</th>
-                <th className="text-left px-2 py-2 font-semibold">Earnings</th>
-                <th className="text-left px-2 py-2 font-semibold">Platform</th>
+                <th className="text-left px-2 py-2 font-semibold">
+                  Earnings (USD)
+                </th>
+                <th className="text-left px-2 py-2 font-semibold">
+                  Platform (USD)
+                </th>
                 <th className="text-left px-2 py-2 font-semibold">Tips</th>
                 <th className="text-left px-2 py-2 font-semibold">Last tip</th>
               </tr>
@@ -316,17 +349,17 @@ export default function AdminWalletsPage() {
                       </div>
                     </td>
                     <td className="px-2 py-2 font-extrabold text-[11px]">
-                      {c.totalReceivedMinor > 0
-                        ? moneyMinor(c.totalReceivedMinor, c.currency)
+                      {c.totalReceivedMinorUsd > 0
+                        ? moneyMinorUsd(c.totalReceivedMinorUsd)
                         : "—"}
                     </td>
                     <td className="px-2 py-2 text-[11px] text-gray-500">
-                      {c.totalPlatformMinor > 0
-                        ? moneyMinor(c.totalPlatformMinor, c.currency)
+                      {c.totalPlatformMinorUsd > 0
+                        ? moneyMinorUsd(c.totalPlatformMinorUsd)
                         : "—"}
                     </td>
                     <td className="px-2 py-2 text-[11px] text-gray-500">
-                      {c.donationsCount.toLocaleString("en-KE")}
+                      {c.donationsCount.toLocaleString("en-US")}
                     </td>
                     <td className="px-2 py-2 text-[11px] text-gray-500">
                       {fmtDate(c.lastDonationAt)}

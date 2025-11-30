@@ -6,7 +6,8 @@ import React, {
 } from "react";
 import {
   collection, query, orderBy, limit, onSnapshot, startAfter,
-  getDocs, where, DocumentData, QueryDocumentSnapshot, doc, setDoc, serverTimestamp
+  getDocs, where, DocumentData, QueryDocumentSnapshot, doc, setDoc, serverTimestamp,
+  getDoc
 } from "firebase/firestore";
 import { ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -338,7 +339,19 @@ function BannerUploader({
 /* ============================== */
 /* Event Create Form (Sheet)      */
 /* ============================== */
-function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFooter: (node: ReactNode) => void }) {
+/* ============================== */
+/* Event Create Form (Sheet)      */
+/* ============================== */
+
+type CurrencyCode = "KES" | "USD"; // 👈 NEW
+
+function EventForm({
+  onDone,
+  provideFooter,
+}: {
+  onDone: () => void;
+  provideFooter: (node: ReactNode) => void;
+}) {
   const { user } = useAuth();
   const uid = user?.uid || null;
 
@@ -353,6 +366,10 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState<EventCategory>("Workshop");
   const [price, setPrice] = useState("");
+
+  // 👇 NEW: currency state (default KES; overridden by user preference)
+  const [currency, setCurrency] = useState<CurrencyCode>("KES");
+
   const [registrationUrl, setRegistrationUrl] = useState("");
   const [description, setDescription] = useState("");
 
@@ -375,11 +392,16 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
 
   const captionTags = useMemo(() => {
     const text = `${title}\n${description}`;
-    return (text.match(/#([A-Za-z0-9_]{2,30})/g) || []).map(s => s.slice(1).toLowerCase());
+    return (
+      text.match(/#([A-Za-z0-9_]{2,30})/g) || []
+    ).map((s) => s.slice(1).toLowerCase());
   }, [title, description]);
 
   const mergedTags = useMemo(
-    () => Array.from(new Set([...eventTags.map(t => t.toLowerCase()), ...captionTags])),
+    () =>
+      Array.from(
+        new Set([...eventTags.map((t) => t.toLowerCase()), ...captionTags])
+      ),
     [eventTags, captionTags]
   );
 
@@ -388,8 +410,31 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
     const d = new Date(dateISO);
     return Number.isNaN(d.getTime())
       ? ""
-      : `${d.toLocaleDateString()} • ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      : `${d.toLocaleDateString()} • ${d.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
   }, [dateISO]);
+
+  // 👇 NEW: load preferred currency from user profile (if available)
+  useEffect(() => {
+    if (!uid) return;
+    (async () => {
+      try {
+        const uRef = doc(db, "users", uid);
+        const uSnap = await getDoc(uRef);
+        if (uSnap.exists()) {
+          const data = uSnap.data() as any;
+          const pref = data?.preferredCurrency;
+          if (pref === "USD" || pref === "KES") {
+            setCurrency(pref);
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to load preferredCurrency", e);
+      }
+    })();
+  }, [uid]);
 
   // validations
   const canNextFromBasics = useMemo(() => {
@@ -405,8 +450,14 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
   const canNextFromTags = mergedTags.length > 0;
 
   const save = useCallback(async () => {
-    if (!uid) { alert("Please sign in to create an event."); return; }
-    if (!title.trim()) { alert("Title is required"); return; }
+    if (!uid) {
+      alert("Please sign in to create an event.");
+      return;
+    }
+    if (!title.trim()) {
+      alert("Title is required");
+      return;
+    }
 
     try {
       setSaving(true);
@@ -414,12 +465,20 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
       let coverUrl: string | null = null;
 
       if (coverFile) {
-        const storageRef = sRef(storage, `events/${uid}/${refDoc.id}/cover.jpg`);
-        await uploadBytes(storageRef, coverFile, { contentType: coverFile.type || "image/jpeg" });
+        const storageRef = sRef(
+          storage,
+          `events/${uid}/${refDoc.id}/cover.jpg`
+        );
+        await uploadBytes(storageRef, coverFile, {
+          contentType: coverFile.type || "image/jpeg",
+        });
         coverUrl = await getDownloadURL(storageRef);
       }
 
-      const priceNum = price && /[0-9]/.test(price) ? Number(price.replace(/[^\d.]/g, "")) : null;
+      const priceNum =
+        price && /[0-9]/.test(price)
+          ? Number(price.replace(/[^\d.]/g, ""))
+          : null;
 
       await setDoc(refDoc, {
         title: title.trim(),
@@ -429,6 +488,7 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
         organizerId: uid,
         createdAt: serverTimestamp(),
         price: priceNum,
+        currency: priceNum ? currency : null, // 👈 NEW: store currency with price
         registrationUrl: registrationUrl || null,
         category,
         tags: mergedTags,
@@ -443,13 +503,26 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
       setSaving(false);
       alert(`Failed to create event: ${e?.message || "Try again"}`);
     }
-  }, [uid, title, dateISO, location, coverFile, price, registrationUrl, category, mergedTags, description, onDone]);
+  }, [
+    uid,
+    title,
+    dateISO,
+    location,
+    coverFile,
+    price,
+    currency,
+    registrationUrl,
+    category,
+    mergedTags,
+    description,
+    onDone,
+  ]);
 
   const totalSteps = 3;
   const nextStep: Record<Step, Step> = { 0: 1, 1: 2, 2: 2 };
   const prevStep: Record<Step, Step> = { 0: 0, 1: 0, 2: 1 };
-  const goNext = () => setStep(s => nextStep[s]);
-  const goBack = () => setStep(s => prevStep[s]);
+  const goNext = () => setStep((s) => nextStep[s]);
+  const goBack = () => setStep((s) => prevStep[s]);
 
   /** Provide sticky footer buttons based on step **/
   useEffect(() => {
@@ -515,21 +588,36 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
         </div>
       );
     }
-  }, [step, canNextFromBasics, canNextFromTags, save, goBack, goNext, onDone, saving, provideFooter]);
+  }, [
+    step,
+    canNextFromBasics,
+    canNextFromTags,
+    save,
+    goBack,
+    goNext,
+    onDone,
+    saving,
+    provideFooter,
+  ]);
 
   return (
     <div className="space-y-4">
       {/* Stepper */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-extrabold" style={{ color: EKARI.dim }}>Step</span>
-          <span className="text-xs font-black" style={{ color: EKARI.text }}>{step + 1}/{totalSteps}</span>
+          <span className="text-xs font-extrabold" style={{ color: EKARI.dim }}>
+            Step
+          </span>
+          <span className="text-xs font-black" style={{ color: EKARI.text }}>
+            {step + 1}/{totalSteps}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className={`h-2 w-2 rounded-full ${step >= i ? "bg-[--ekari-forest]" : "bg-gray-300"}`}
+              className={`h-2 w-2 rounded-full ${step >= i ? "bg-[--ekari-forest]" : "bg-gray-300"
+                }`}
               style={{ ["--ekari-forest" as any]: EKARI.forest }}
             />
           ))}
@@ -565,19 +653,39 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
           </div>
 
           {!!dateISO && (
-            <div className="flex items-center gap-2 rounded-xl border px-3 py-2 bg-[#F9FAFB]" style={{ borderColor: EKARI.hair }}>
+            <div
+              className="flex items-center gap-2 rounded-xl border px-3 py-2 bg-[#F9FAFB]"
+              style={{ borderColor: EKARI.hair }}
+            >
               <IoTimeOutline color={EKARI.dim} />
               <div className="text-sm">
-                <span className="font-bold mr-1" style={{ color: EKARI.dim }}>Selected:</span>
-                <span className="font-extrabold" style={{ color: EKARI.text }}>{dateHint}</span>
+                <span
+                  className="font-bold mr-1"
+                  style={{ color: EKARI.dim }}
+                >
+                  Selected:
+                </span>
+                <span
+                  className="font-extrabold"
+                  style={{ color: EKARI.text }}
+                >
+                  {dateHint}
+                </span>
               </div>
             </div>
           )}
 
           <div>
-            <div className="text-xs font-extrabold" style={{ color: EKARI.dim }}>Category</div>
+            <div
+              className="text-xs font-extrabold"
+              style={{ color: EKARI.dim }}
+            >
+              Category
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              {(["Workshop", "Training", "Fair", "Meetup", "Other"] as EventCategory[]).map((c) => {
+              {(
+                ["Workshop", "Training", "Fair", "Meetup", "Other"] as EventCategory[]
+              ).map((c) => {
                 const active = c === category;
                 return (
                   <button
@@ -603,7 +711,10 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
       {step === 1 && (
         /* ========== STEP 2 — TAGS (HashtagPicker) ========== */
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-extrabold" style={{ color: EKARI.text }}>
+          <div
+            className="flex items-center gap-2 text-sm font-extrabold"
+            style={{ color: EKARI.text }}
+          >
             <IoPricetagsOutline /> Select tags
           </div>
 
@@ -616,11 +727,16 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
               trending={trending}
               max={10}
               showCounter
-              placeholder={loading ? "Loading suggestions…" : "Type # to add… e.g. #maize #irrigation"}
+              placeholder={
+                loading
+                  ? "Loading suggestions…"
+                  : "Type # to add… e.g. #maize #irrigation"
+              }
             />
           </div>
           <p className="text-xs" style={{ color: EKARI.dim }}>
-            Tip: you can also type <span className="font-bold">#tags</span> in your title/description—we’ll auto-pick them.
+            Tip: you can also type <span className="font-bold">#tags</span> in
+            your title/description—we’ll auto-pick them.
           </p>
         </div>
       )}
@@ -628,14 +744,51 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
       {step === 2 && (
         /* ========== STEP 3 — DETAILS & PUBLISH ========== */
         <div className="space-y-3">
-          <input
-            placeholder="Price (optional, KSh)"
-            className="h-11 w-full rounded-xl border px-3 text-sm"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            inputMode="decimal"
-          />
+          {/* 👇 NEW: currency toggle + price */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <input
+                placeholder={
+                  currency === "KES"
+                    ? "Price (optional, KSh)"
+                    : "Price (optional, USD)"
+                }
+                className="h-11 w-full rounded-xl border px-3 text-sm"
+                style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                inputMode="decimal"
+              />
+            </div>
+
+            <div className="shrink-0">
+
+              <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 border"
+                style={{ borderColor: EKARI.hair }}
+              >
+                {(["KES", "USD"] as CurrencyCode[]).map((c) => {
+                  const active = c === currency;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCurrency(c)}
+                      className={`px-3 h-7 rounded-full text-[11px] font-bold ${active
+                        ? "bg-white shadow-sm"
+                        : "bg-transparent"
+                        }`}
+                      style={{
+                        color: active ? EKARI.forest : EKARI.dim,
+                      }}
+                    >
+                      {c === "KES" ? "KSh" : "USD"}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           <input
             placeholder="Registration link (optional)"
             className="h-11 w-full rounded-xl border px-3 text-sm"
@@ -665,6 +818,7 @@ function EventForm({ onDone, provideFooter }: { onDone: () => void; provideFoote
     </div>
   );
 }
+
 
 /* ============================== */
 /* Discussion Create Form (Sheet) */

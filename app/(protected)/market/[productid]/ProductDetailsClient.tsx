@@ -49,12 +49,12 @@ import {
     IoChevronForward,
     IoLocationOutline,
     IoCubeOutline,
-    IoLeafOutline, // 👈 for location row
+    IoLeafOutline, // for tree use-case
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
 /* ================== Types ================== */
-
+export type CurrencyCode = "KES" | "USD";
 type Review = {
     id: string;
     userId: string;
@@ -82,9 +82,12 @@ type ProductLocation = {
     longitude: number;
 };
 
+type LandPoint = { lat: number; lng: number };
+
 type ProductDoc = {
     id: string;
     name: string;
+    currency?: CurrencyCode;
     price: number;
     category?: string;
     imageUrl?: string;
@@ -103,8 +106,11 @@ type ProductDoc = {
     place?: ProductPlace;
     location?: ProductLocation;
     coords?: ProductLocation; // in case some docs used coords instead of location
-    useCase?: string;       // 👈 NEW
-    useCaseLower?: string;  // 👈 optional helper
+    useCase?: string;
+    useCaseLower?: string;
+
+    // 👇 NEW: arable land polygon
+    landPolygon?: LandPoint[];
 };
 
 // ===== Theme =====
@@ -119,14 +125,36 @@ const EKARI = {
 
 const KES = (n: number) =>
     "KSh " + (n || 0).toLocaleString("en-KE", { maximumFractionDigits: 0 });
+const USD = (n: number) =>
+    "USD " + (n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
+function formatMoney(
+    value: number | string | null | undefined,
+    currency: CurrencyCode | undefined
+): string {
+    const n =
+        typeof value === "string"
+            ? Number(value || 0)
+            : typeof value === "number"
+                ? value
+                : 0;
+
+    const safeCurrency: CurrencyCode =
+        currency === "USD" || currency === "KES" ? currency : "KES";
+
+    if (!n || n <= 0) {
+        return safeCurrency === "USD" ? "USD 0.00" : "KSh 0";
+    }
+
+    return safeCurrency === "USD" ? USD(n) : KES(n);
+}
 // Firestore helpers
 const reviewDocRef = (dbi: any, listingId: string, reviewUserId: string) =>
     doc(dbi, "marketListings", String(listingId), "reviews", String(reviewUserId));
 const voteRef = (dbi: any, listingId: string, reviewUserId: string, voterId: string) =>
     doc(dbi, "reviewVotes", `${listingId}_${reviewUserId}_${voterId}`);
 
-/* ------------- Google Maps helpers (same style as FilterModal / MapPicker) ------------- */
+/* ------------- Google Maps helpers ------------- */
 
 const NAIROBI = { latitude: -1.286389, longitude: 36.817223 };
 
@@ -161,7 +189,7 @@ function loadGoogleMaps(apiKey?: string): Promise<typeof google | null> {
 }
 
 /**
- * Read-only map preview (marker only), styled similarly to MapPicker.
+ * Read-only map preview (marker only)
  */
 function MapPreview({
     center,
@@ -175,9 +203,13 @@ function MapPreview({
     const markerRef = useRef<google.maps.Marker | null>(null);
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-    // Init map
+    const [mapType, setMapType] = useState<"roadmap" | "hybrid">("roadmap");
+    const [mapReady, setMapReady] = useState(false);
+
+    // Init map ONCE (or when center changes), not on mapType toggle
     useEffect(() => {
         let alive = true;
+
         (async () => {
             const g = await loadGoogleMaps(apiKey);
             if (!alive || !g || !mapDivRef.current) return;
@@ -194,7 +226,9 @@ function MapPreview({
                     streetViewControl: false,
                     fullscreenControl: false,
                     zoomControl: true,
+                    mapTypeId: g.maps.MapTypeId.ROADMAP,
                 });
+                setMapReady(true);
             } else {
                 mapRef.current.setCenter(
                     new g.maps.LatLng(init.latitude, init.longitude)
@@ -207,10 +241,22 @@ function MapPreview({
         };
     }, [apiKey, center?.latitude, center?.longitude]);
 
-    // Add / update marker
+    // Toggle SAT / MAP without recreating map
     useEffect(() => {
         const g = (window as any).google as typeof google | undefined;
-        if (!g || !mapRef.current || !center) return;
+        if (!g || !mapRef.current) return;
+
+        mapRef.current.setMapTypeId(
+            mapType === "hybrid"
+                ? g.maps.MapTypeId.HYBRID
+                : g.maps.MapTypeId.ROADMAP
+        );
+    }, [mapType]);
+
+    // Add / update marker once map is ready
+    useEffect(() => {
+        const g = (window as any).google as typeof google | undefined;
+        if (!g || !mapRef.current || !center || !mapReady) return;
 
         const latlng = new g.maps.LatLng(center.latitude, center.longitude);
 
@@ -223,21 +269,157 @@ function MapPreview({
         } else {
             markerRef.current.setPosition(latlng);
         }
-    }, [center?.latitude, center?.longitude]);
+    }, [center?.latitude, center?.longitude, mapReady]);
 
     return (
         <div
-            ref={mapDivRef}
+            className="relative mt-2"
             style={{
-                height,
                 borderRadius: 12,
-                marginTop: 8,
                 overflow: "hidden",
                 border: `1px solid ${EKARI.hair}`,
             }}
-        />
+        >
+            <div
+                ref={mapDivRef}
+                style={{ height }}
+            />
+
+            {/* SAT / MAP toggle */}
+            <button
+                type="button"
+                onClick={() =>
+                    setMapType((prev) => (prev === "roadmap" ? "hybrid" : "roadmap"))
+                }
+                className="absolute top-2 right-2 z-10 w-10 h-10 rounded-full bg-white/90 border border-gray-200 text-[10px] font-bold flex items-center justify-center shadow-sm hover:bg-white"
+                title="Toggle satellite view"
+            >
+                {mapType === "roadmap" ? "SAT" : "MAP"}
+            </button>
+        </div>
     );
 }
+
+
+/**
+ * NEW: Read-only map preview for arable land polygon
+ */
+function MapPolygonPreview({
+    center,
+    polygon,
+    height = 220,
+}: {
+    center: { latitude: number; longitude: number } | null;
+    polygon: LandPoint[];
+    height?: number;
+}) {
+    const mapDivRef = useRef<HTMLDivElement | null>(null);
+    const mapRef = useRef<google.maps.Map | null>(null);
+    const polygonRef = useRef<google.maps.Polygon | null>(null);
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    const [mapReady, setMapReady] = useState(false);
+    const [mapType, setMapType] = useState<"roadmap" | "hybrid">("roadmap");
+
+    // Init map
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            const g = await loadGoogleMaps(apiKey);
+            if (!alive || !g || !mapDivRef.current) return;
+
+            const fallback = NAIROBI;
+            const init = center ?? fallback;
+
+            if (!mapRef.current) {
+                mapRef.current = new g.maps.Map(mapDivRef.current, {
+                    center: { lat: init.latitude, lng: init.longitude },
+                    zoom: 13,
+                    disableDefaultUI: true,
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    fullscreenControl: false,
+                    zoomControl: true,
+                    mapTypeId:
+                        mapType === "hybrid"
+                            ? g.maps.MapTypeId.HYBRID
+                            : g.maps.MapTypeId.ROADMAP,
+                });
+            } else {
+                mapRef.current.setCenter(
+                    new g.maps.LatLng(init.latitude, init.longitude)
+                );
+            }
+
+            setMapReady(true);
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [apiKey, center?.latitude, center?.longitude, mapType]);
+
+    // Update map type when toggle changes
+    useEffect(() => {
+        const g = (window as any).google as typeof google | undefined;
+        if (!g || !mapRef.current) return;
+        mapRef.current.setMapTypeId(
+            mapType === "hybrid"
+                ? g.maps.MapTypeId.HYBRID
+                : g.maps.MapTypeId.ROADMAP
+        );
+    }, [mapType]);
+
+    // Draw / update polygon once map is ready
+    useEffect(() => {
+        const g = (window as any).google as typeof google | undefined;
+        if (!g || !mapRef.current || !mapReady || !polygon?.length) return;
+
+        if (!polygonRef.current) {
+            polygonRef.current = new g.maps.Polygon({
+                map: mapRef.current,
+                paths: polygon,
+                strokeColor: "#10B981",
+                strokeOpacity: 0.9,
+                strokeWeight: 2,
+                fillColor: "#10B981",
+                fillOpacity: 0.18,
+            });
+        } else {
+            polygonRef.current.setPath(polygon);
+        }
+
+        const bounds = new g.maps.LatLngBounds();
+        polygon.forEach((p) => bounds.extend(new g.maps.LatLng(p.lat, p.lng)));
+        mapRef.current!.fitBounds(bounds);
+    }, [polygon, mapReady]);
+
+    return (
+        <div
+            className="relative mt-2"
+            style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${EKARI.hair}` }}
+        >
+            <div
+                ref={mapDivRef}
+                style={{
+                    height,
+                }}
+            />
+
+            {/* SAT / MAP toggle */}
+            <button
+                type="button"
+                onClick={() =>
+                    setMapType((prev) => (prev === "roadmap" ? "hybrid" : "roadmap"))
+                }
+                className="absolute top-2 right-2 z-10 w-10 h-10 rounded-full bg-white/90 border border-gray-200 text-[10px] font-bold flex items-center justify-center shadow-sm hover:bg-white"
+                title="Toggle satellite view"
+            >
+                {mapType === "roadmap" ? "SAT" : "MAP"}
+            </button>
+        </div>
+    );
+}
+
 
 /* ================== Component ================== */
 
@@ -628,6 +810,8 @@ export default function ProductDetailsClient({
     const isSold = product.status === "sold" || product.sold;
     const isReserved = product.status === "reserved";
     const isTree = product.type === "tree";
+    const isLand = product.type === "arableLand"; // 👈 NEW
+
     const created =
         product.createdAt?.toDate?.() instanceof Date
             ? (product.createdAt as Timestamp).toDate()
@@ -636,6 +820,7 @@ export default function ProductDetailsClient({
     // ===== Location label + center from product (place + location) =====
     let locationLabel: string | null = null;
     let center: { latitude: number; longitude: number } | null = null;
+    const landPolygon: LandPoint[] | undefined = product.landPolygon;
 
     if (product) {
         const place = (product.place || {}) as ProductPlace;
@@ -665,7 +850,7 @@ export default function ProductDetailsClient({
 
     // ===== Render =====
     return (
-        <main className="min-h-screen w-full bg-[#F7F9F8] pb-24">
+        <main className="min-h-screen w-full">
             {/* Header (sticky) */}
             <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[color:var(--hair,#E5E7EB)] flex items-center h-14 px-4">
                 <button
@@ -681,7 +866,7 @@ export default function ProductDetailsClient({
 
             {/* Carousel */}
             <div
-                className="relative w-full max-w-3xl mx-auto mt-4 rounded-2xl overflow-hidden shadow-sm bg-gray-100"
+                className="relative w-full max-w-4xl mx-auto mt-4 rounded-2xl overflow-hidden shadow-sm bg-gray-100"
                 onMouseEnter={() => setIsPaused(true)}
                 onMouseLeave={() => setIsPaused(false)}
                 onTouchStart={onTouchStart}
@@ -781,7 +966,7 @@ export default function ProductDetailsClient({
             </div>
 
             {/* Info card */}
-            <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
+            <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
                 <h2 className="font-black text-2xl text-[color:var(--text,#0F172A)]">
                     {product.name}
                 </h2>
@@ -828,7 +1013,7 @@ export default function ProductDetailsClient({
                         {product.type === "lease" || product.type === "service"
                             ? `${product.rate ? KES(Number(product.rate)) : "-"}${product.billingUnit ? ` / ${product.billingUnit}` : ""
                             }`
-                            : KES(product.price || 0)}
+                            : formatMoney(product.price, product.currency)}
                     </span>
                     <span
                         className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-full ${isSold
@@ -868,7 +1053,7 @@ export default function ProductDetailsClient({
 
                             <div className="flex-1 min-w-0">
                                 <p className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--dim,#6B7280)]">
-                                    Location
+                                    {isLand ? "Land Parcel Location" : "Location"}
                                 </p>
                                 {locationLabel && (
                                     <p className="text-sm font-semibold text-[color:var(--text,#0F172A)] truncate">
@@ -888,13 +1073,18 @@ export default function ProductDetailsClient({
                             </div>
                         </div>
 
-                        {center && <MapPreview center={center} />}
+                        {/* For arable land with polygon -> polygon preview, otherwise marker only */}
+                        {center && landPolygon?.length && landPolygon.length >= 3 ? (
+                            <MapPolygonPreview center={center} polygon={landPolygon} />
+                        ) : center ? (
+                            <MapPreview center={center} />
+                        ) : null}
                     </div>
                 )}
             </div>
 
             {/* Seller card */}
-            <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
+            <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
                 <div className="flex items-center gap-3">
                     <Image
                         src={seller?.photoURL || "/avatar-placeholder.png"}
@@ -943,7 +1133,7 @@ export default function ProductDetailsClient({
             </div>
 
             {/* Reviews */}
-            <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
+            <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
                 <div className="flex items-center justify-between">
                     <h3 className="font-black text-[color:var(--text,#0F172A)] text-lg">
                         Reviews
