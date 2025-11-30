@@ -847,6 +847,29 @@ export default function ProductDetailsClient({
             };
         }
     }
+    const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
+    // message click
+    const handleMessageClick = (seller: any) => {
+        if (!auth.currentUser?.uid) {
+            router.replace("/login");
+            return;
+        }
+        if (auth.currentUser?.uid === seller.id) return;
+
+        const peerId = seller.id;
+        const peerName = seller.name || seller.handle || "";
+        const peerPhotoURL = seller.photoURL || "";
+        const peerHandle = seller.handle || "";
+
+        const threadId = makeThreadId(auth.currentUser?.uid, peerId);
+        const qs = new URLSearchParams();
+        qs.set("peerId", peerId);
+        if (peerName) qs.set("peerName", peerName);
+        if (peerPhotoURL) qs.set("peerPhotoURL", peerPhotoURL);
+        if (peerHandle) qs.set("peerHandle", peerHandle);
+
+        router.push(`/messages/${encodeURIComponent(threadId)}?${qs.toString()}`);
+    };
 
     // ===== Render =====
     return (
@@ -1118,6 +1141,7 @@ export default function ProductDetailsClient({
                 <div className="mt-3">
                     {!isOwner ? (
                         <button
+                            onClick={() => handleMessageClick(seller)}
                             className="w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white hover:opacity-95 transition"
                             style={{ backgroundColor: EKARI.gold }}
                         >
