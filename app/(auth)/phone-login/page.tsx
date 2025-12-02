@@ -1,7 +1,9 @@
+// app/phone-login/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { IoCallOutline, IoChevronBack } from "react-icons/io5";
@@ -34,6 +36,20 @@ export default function PhoneLoginPage() {
     const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
     const [captchaReady, setCaptchaReady] = useState(false);
 
+    // Optional: support ?next= like /login
+    const [safeNext, setSafeNext] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const sp = new URLSearchParams(window.location.search);
+        const nextParam = sp.get("next");
+        if (nextParam && nextParam.startsWith("/")) {
+            setSafeNext(nextParam);
+        } else {
+            setSafeNext(null);
+        }
+    }, []);
+
     useEffect(() => {
         (async () => {
             const bundle = await getAuthSafe();
@@ -46,6 +62,7 @@ export default function PhoneLoginPage() {
     useEffect(() => {
         if (!authBundle) return;
         if (typeof window === "undefined") return;
+
         if (window._ekariRecaptcha) {
             setCaptchaReady(true);
             return;
@@ -54,27 +71,31 @@ export default function PhoneLoginPage() {
         (async () => {
             try {
                 const { RecaptchaVerifier } = await import("firebase/auth");
-                window._ekariRecaptcha = new RecaptchaVerifier(authBundle.auth, "recaptcha-container", {
-                    size: "invisible",
-                    callback: () => { },
-                    "expired-callback": () => { },
-                });
+                window._ekariRecaptcha = new RecaptchaVerifier(
+                    authBundle.auth,
+                    "recaptcha-container",
+                    {
+                        size: "invisible",
+                        callback: () => { },
+                        "expired-callback": () => { },
+                    }
+                );
                 setCaptchaReady(true);
             } catch {
                 setCaptchaReady(false);
             }
         })();
-
         // We keep the verifier for the session to avoid double-init issues
     }, [authBundle]);
 
     // Form state
     const [phone, setPhone] = useState(""); // E.164 e.g. +2547...
-    const [code, setCode] = useState("");   // 6-digit OTP
+    const [code, setCode] = useState(""); // 6-digit OTP
     const [sending, setSending] = useState(false);
     const [verifying, setVerifying] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
-    const [confirmation, setConfirmation] = useState<import("firebase/auth").ConfirmationResult | null>(null);
+    const [confirmation, setConfirmation] =
+        useState<import("firebase/auth").ConfirmationResult | null>(null);
 
     // Resend timer
     const [countdown, setCountdown] = useState(0);
@@ -88,7 +109,7 @@ export default function PhoneLoginPage() {
     const validPhone = useMemo(() => /^\+\d{8,15}$/.test(e164), [e164]);
     const validCode = useMemo(() => /^\d{6}$/.test(code), [code]);
 
-    // Post-login route (mirror login/signup pages)
+    // Post-login route (mirror login/signup → home or /getstarted)
     useEffect(() => {
         if (authLoading || !user) return;
         let alive = true;
@@ -96,15 +117,20 @@ export default function PhoneLoginPage() {
             try {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (!alive) return;
-                router.replace(snap.exists() ? "/" : "/onboarding");
+
+                if (snap.exists()) {
+                    router.replace(safeNext || "/");
+                } else {
+                    router.replace("/getstarted");
+                }
             } catch {
-                if (alive) router.replace("/onboarding");
+                if (alive) router.replace("/getstarted");
             }
         })();
         return () => {
             alive = false;
         };
-    }, [user, authLoading, router]);
+    }, [user, authLoading, router, safeNext]);
 
     const sendCode = async () => {
         if (!authBundle || !captchaReady || !validPhone || sending) return;
@@ -122,10 +148,11 @@ export default function PhoneLoginPage() {
                     ? "Network error. Check your connection."
                     : err?.message || "Invalid phone number."
             );
-            try { window._ekariRecaptcha?.clear(); } catch { }
+            try {
+                window._ekariRecaptcha?.clear();
+            } catch { }
             window._ekariRecaptcha = undefined;
             setCaptchaReady(false);
-            // Try to re-init captcha on next render
         } finally {
             setSending(false);
         }
@@ -136,7 +163,7 @@ export default function PhoneLoginPage() {
         setErrorMsg("");
         setVerifying(true);
         try {
-            await confirmation.confirm(code); // signs the user in -> redirect happens in effect
+            await confirmation.confirm(code); // signs the user in → redirect happens in effect
         } catch (err: any) {
             setErrorMsg(
                 err?.code === "auth/invalid-verification-code"
@@ -165,217 +192,284 @@ export default function PhoneLoginPage() {
     const disableAll = authLoading || !authBundle || !captchaReady;
 
     return (
-        <main className="min-h-screen w-full flex flex-col justify-center px-5 items-center" style={{ backgroundColor: EKARI.sand }}>
-            <div className="w-full max-w-xl flex flex-col items-center gap-4">
+        <main
+            className="min-h-screen w-full flex items-center justify-center px-4 py-8"
+            style={{
+                background:
+                    "radial-gradient(circle at top left, rgba(35,63,57,0.14), transparent 50%), radial-gradient(circle at bottom right, rgba(199,146,87,0.18), #F3F4F6)",
+            }}
+        >
+            <motion.div
+                className="w-full max-w-md mx-auto"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+            >
                 {/* Invisible reCAPTCHA anchor */}
                 <div id="recaptcha-container" />
 
-                <div className="flex flex-col items-center gap-4">
-                    {/* Logo */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.96 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: "spring", stiffness: 140, damping: 14, mass: 0.6, duration: 0.28 }}
-                        className="flex flex-col items-center text-center"
+                {/* Top: logo + switch to email login */}
+                <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Image
+                            src="/ekarihub-logo.png"
+                            alt="ekarihub"
+                            width={180}
+                            height={54}
+                            priority
+                        />
+                    </div>
+                    <Link
+                        href="/login"
+                        className="text-[11px] font-semibold underline-offset-4 hover:underline"
+                        style={{ color: EKARI.dim }}
                     >
-                        <Image src="/ekarihub-logo.png" alt="ekarihub" width={320} height={86} priority />
-                        <p className="text-sm md:text-base tracking-wide">
-                            Collaborate • Innovate • Cultivate
-                        </p>
-
-                    </motion.div>
-
-                    {/* Tagline */}
-                    <motion.p
-                        className="text-center text-sm leading-5"
-                        style={{ color: "#5C6B66", maxWidth: 340 }}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.15, duration: 0.25 }}
-                    >
-                        {confirmation ? "Enter the 6-digit code we sent you" : "Verify your phone to continue"}
-                    </motion.p>
-
-                    {/* Card */}
-                    <motion.div
-                        className="w-full rounded-2xl bg-white/95 px-4 py-4 mt-2"
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2, duration: 0.26, ease: "easeOut" }}
-                    >
-                        {!confirmation ? (
-                            <>
-                                <label className="block font-extrabold mb-1" style={{ color: EKARI.text }}>
-                                    Your phone number
-                                </label>
-                                <div
-                                    className="flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
-                                    style={{ borderColor: EKARI.hair }}
-                                >
-                                    <IoCallOutline className="mr-2" size={18} color={EKARI.dim} />
-                                    <input
-                                        type="tel"
-                                        inputMode="tel"
-                                        autoComplete="tel"
-                                        placeholder="+2547XXXXXXXX"
-                                        className="w-full bg-transparent outline-none text-base"
-                                        value={phone}
-                                        onChange={(e) => setPhone(e.target.value)}
-                                        onKeyDown={(e) => e.key === "Enter" && sendCode()}
-                                        aria-label="Phone number"
-                                        disabled={disableAll || sending}
-                                    />
-                                </div>
-
-                                {!!errorMsg && (
-                                    <p className="mt-3 text-center font-semibold" style={{ color: EKARI.danger }}>
-                                        {errorMsg}
-                                    </p>
-                                )}
-
-                                <button
-                                    onClick={sendCode}
-                                    disabled={!validPhone || sending || disableAll}
-                                    className="mt-4 w-full rounded-xl overflow-hidden active:scale-[0.98] transition"
-                                >
-                                    <div
-                                        className="py-3 text-center font-extrabold text-white bg-gradient-to-br from-[#C79257] to-[#C79257]"
-                                        style={{ opacity: !validPhone || sending || disableAll ? 0.6 : 1 }}
-                                    >
-                                        {sending ? (
-                                            <span className="inline-flex items-center gap-2">
-                                                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]" />
-                                                Sending...
-                                            </span>
-                                        ) : (
-                                            "Send code"
-                                        )}
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={() => router.back()}
-                                    className="mx-auto mt-3 flex items-center gap-1 font-bold"
-                                    style={{ color: EKARI.dim }}
-                                >
-                                    <IoChevronBack size={18} />
-                                    Back
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <label className="block font-extrabold mb-1" style={{ color: EKARI.text }}>
-                                    Enter verification code
-                                </label>
-
-                                {/* OTP boxes (display only) */}
-                                <div className="mt-1 flex justify-between">
-                                    {Array.from({ length: 6 }).map((_, i) => {
-                                        const char = code[i] ?? "";
-                                        const active = i === code.length;
-                                        const base = "w-11 h-13 rounded-xl border flex items-center justify-center select-none";
-                                        return (
-                                            <div
-                                                key={i}
-                                                className={base}
-                                                style={{
-                                                    borderColor: char ? "#D1D5DB" : EKARI.hair,
-                                                    backgroundColor: char ? "#FFFFFF" : "#F6F7FB",
-                                                    boxShadow: active ? `0 0 0 1px ${EKARI.leaf} inset` : "none",
-                                                }}
-                                            >
-                                                <span className="text-[20px] font-extrabold" style={{ color: EKARI.text }}>
-                                                    {char}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Hidden input that actually captures the OTP */}
-                                <input
-                                    autoFocus
-                                    value={code}
-                                    onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))}
-                                    inputMode="numeric"
-                                    pattern="\d*"
-                                    maxLength={6}
-                                    aria-label="One-time code"
-                                    className="absolute opacity-0 pointer-events-none h-0 w-0"
-                                />
-
-                                {!!errorMsg && (
-                                    <p className="mt-3 text-center font-semibold" style={{ color: EKARI.danger }}>
-                                        {errorMsg}
-                                    </p>
-                                )}
-
-                                <button
-                                    onClick={verifyCode}
-                                    disabled={!validCode || verifying || disableAll}
-                                    className="mt-4 w-full rounded-xl overflow-hidden active:scale-[0.98] transition"
-                                >
-                                    <div
-                                        className="py-3 text-center font-extrabold text-white bg-gradient-to-br from-[#C79257] to-[#C79257]"
-                                        style={{ opacity: !validCode || verifying || disableAll ? 0.6 : 1 }}
-                                    >
-                                        {verifying ? (
-                                            <span className="inline-flex items-center gap-2">
-                                                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]" />
-                                                Verifying...
-                                            </span>
-                                        ) : (
-                                            "Verify"
-                                        )}
-                                    </div>
-                                </button>
-
-                                {/* Resend + change number */}
-                                <div className="mt-3 flex items-center justify-between">
-                                    <button
-                                        disabled={countdown > 0 || disableAll}
-                                        onClick={sendCode}
-                                        className="font-extrabold"
-                                        style={{ color: EKARI.text, opacity: countdown > 0 || disableAll ? 0.5 : 1 }}
-                                    >
-                                        Resend code{countdown > 0 ? ` (${countdown}s)` : ""}
-                                    </button>
-
-                                    <button onClick={backToNumber} className="font-bold" style={{ color: EKARI.dim }}>
-                                        Change number
-                                    </button>
-                                </div>
-                            </>
-                        )}
-
-                        <label className="mt-4 text-sm leading-5" style={{ color: EKARI.text }}>
-                            By continuing, you agree to our{" "}
-                            <a
-                                href="https://ekarihub.com/terms"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="underline font-semibold"
-                                style={{ color: EKARI.forest }}
-                            >
-                                Terms and Conditions
-                            </a>{" "}
-                            and{" "}
-                            <a
-                                href="https://ekarihub.com/privacy"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="underline font-semibold"
-                                style={{ color: EKARI.forest }}
-                            >
-                                Privacy Policy
-                            </a>
-                            .
-                        </label>
-                    </motion.div>
+                        Use email instead
+                    </Link>
                 </div>
 
-                <div className="h-2" />
-            </div>
+                {/* Card */}
+                <motion.div
+                    className="rounded-3xl bg-white/90 backdrop-blur-xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.25)] px-6 py-7 md:px-7 md:py-8 relative"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.28, ease: "easeOut" }}
+                >
+                    {/* Heading */}
+                    <div className="mb-4">
+                        <p className="inline-flex items-center gap-2 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1 text-[11px] font-medium mb-2">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            Secure phone sign-in
+                        </p>
+                        <h1
+                            className="text-xl md:text-2xl font-semibold tracking-tight"
+                            style={{ color: EKARI.text }}
+                        >
+                            {confirmation ? "Confirm your number" : "Verify your phone"}
+                        </h1>
+                        <p
+                            className="mt-1 text-xs md:text-sm leading-5"
+                            style={{ color: EKARI.dim }}
+                        >
+                            {confirmation
+                                ? "Enter the 6-digit code we’ve sent via SMS."
+                                : "Use your mobile number to access ekarihub."}
+                        </p>
+                    </div>
+
+                    {/* STEP 1: Enter phone */}
+                    {!confirmation ? (
+                        <>
+                            <label className="block text-xs font-semibold mb-1.5">
+                                <span style={{ color: EKARI.text }}>Phone number</span>
+                            </label>
+                            <div
+                                className="flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
+                                style={{ borderColor: EKARI.hair }}
+                            >
+                                <IoCallOutline
+                                    className="mr-2 flex-shrink-0"
+                                    size={18}
+                                    color={EKARI.dim}
+                                />
+                                <input
+                                    type="tel"
+                                    inputMode="tel"
+                                    autoComplete="tel"
+                                    placeholder="+2547XXXXXXXX"
+                                    className="w-full bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    onKeyDown={(e) => e.key === "Enter" && sendCode()}
+                                    aria-label="Phone number"
+                                    disabled={disableAll || sending}
+                                />
+                            </div>
+
+                            {/* Helper text */}
+                            <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                                Include your country code, e.g. <span className="font-semibold">+2547…</span>
+                            </p>
+
+                            {!!errorMsg && (
+                                <div className="mt-3 flex justify-center">
+                                    <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
+                                        {errorMsg}
+                                    </p>
+                                </div>
+                            )}
+
+                            <button
+                                onClick={sendCode}
+                                disabled={!validPhone || sending || disableAll}
+                                className="mt-4 w-full rounded-xl overflow-hidden active:scale-[0.98] transition disabled:opacity-60"
+                            >
+                                <div
+                                    className="py-3 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
+                                    style={{
+                                        opacity:
+                                            !validPhone || sending || disableAll ? 0.7 : 1,
+                                    }}
+                                >
+                                    {sending ? (
+                                        <span className="inline-flex items-center gap-2">
+                                            <span
+                                                className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]"
+                                                aria-hidden
+                                            />
+                                            Sending code...
+                                        </span>
+                                    ) : (
+                                        "Send code"
+                                    )}
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => router.back()}
+                                className="mx-auto mt-3 flex items-center gap-1 text-xs font-semibold hover:underline underline-offset-4"
+                                style={{ color: EKARI.dim }}
+                            >
+                                <IoChevronBack size={16} />
+                                Back
+                            </button>
+                        </>
+                    ) : (
+                        /* STEP 2: Enter code */
+                        <>
+                            <label className="block text-xs font-semibold mb-1.5">
+                                <span style={{ color: EKARI.text }}>Verification code</span>
+                            </label>
+
+                            {/* OTP boxes (visual only) */}
+                            <div className="mt-1 flex justify-between">
+                                {Array.from({ length: 6 }).map((_, i) => {
+                                    const char = code[i] ?? "";
+                                    const active = i === code.length;
+                                    return (
+                                        <div
+                                            key={i}
+                                            className="w-10 h-12 rounded-xl border flex items-center justify-center select-none bg-[#F6F7FB]"
+                                            style={{
+                                                borderColor: char ? "#D1D5DB" : EKARI.hair,
+                                                backgroundColor: char ? "#FFFFFF" : "#F6F7FB",
+                                                boxShadow: active
+                                                    ? `0 0 0 1px ${EKARI.leaf} inset`
+                                                    : "none",
+                                            }}
+                                        >
+                                            <span
+                                                className="text-[20px] font-extrabold"
+                                                style={{ color: EKARI.text }}
+                                            >
+                                                {char}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Hidden input that actually captures the OTP */}
+                            <input
+                                autoFocus
+                                value={code}
+                                onChange={(e) =>
+                                    setCode(
+                                        e.target.value.replace(/[^\d]/g, "").slice(0, 6)
+                                    )
+                                }
+                                inputMode="numeric"
+                                pattern="\d*"
+                                maxLength={6}
+                                aria-label="One-time code"
+                                className="absolute opacity-0 pointer-events-none h-0 w-0"
+                            />
+
+                            {!!errorMsg && (
+                                <div className="mt-3 flex justify-center">
+                                    <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
+                                        {errorMsg}
+                                    </p>
+                                </div>
+                            )}
+
+                            <button
+                                onClick={verifyCode}
+                                disabled={!validCode || verifying || disableAll}
+                                className="mt-4 w-full rounded-xl overflow-hidden active:scale-[0.98] transition disabled:opacity-60"
+                            >
+                                <div
+                                    className="py-3 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
+                                    style={{
+                                        opacity:
+                                            !validCode || verifying || disableAll ? 0.7 : 1,
+                                    }}
+                                >
+                                    {verifying ? (
+                                        <span className="inline-flex items-center gap-2">
+                                            <span
+                                                className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]"
+                                                aria-hidden
+                                            />
+                                            Verifying...
+                                        </span>
+                                    ) : (
+                                        "Verify"
+                                    )}
+                                </div>
+                            </button>
+
+                            {/* Resend + change number */}
+                            <div className="mt-3 flex items-center justify-between text-xs">
+                                <button
+                                    disabled={countdown > 0 || disableAll}
+                                    onClick={sendCode}
+                                    className="font-semibold underline-offset-4 hover:underline disabled:no-underline"
+                                    style={{
+                                        color: EKARI.text,
+                                        opacity:
+                                            countdown > 0 || disableAll ? 0.5 : 1,
+                                    }}
+                                >
+                                    Resend code{countdown > 0 ? ` (${countdown}s)` : ""}
+                                </button>
+
+                                <button
+                                    onClick={backToNumber}
+                                    className="font-semibold underline-offset-4 hover:underline"
+                                    style={{ color: EKARI.dim }}
+                                >
+                                    Change number
+                                </button>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Legal */}
+                    <p
+                        className="mt-5 text-[11px] leading-5"
+                        style={{ color: EKARI.dim }}
+                    >
+                        By continuing, you agree to our{" "}
+                        <Link
+                            href="/terms"
+                            className="underline font-semibold"
+                            style={{ color: EKARI.forest }}
+                        >
+                            Terms
+                        </Link>{" "}
+                        and{" "}
+                        <Link
+                            href="/privacy"
+                            className="underline font-semibold"
+                            style={{ color: EKARI.forest }}
+                        >
+                            Privacy Policy
+                        </Link>
+                        .
+                    </p>
+                </motion.div>
+            </motion.div>
         </main>
     );
 }

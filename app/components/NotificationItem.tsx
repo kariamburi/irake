@@ -134,13 +134,13 @@ function routeForNotification(n: Notif): string | undefined {
     }
 
     if (n.type === "follow") {
-        if (anyN.byHandle) return `/u/${anyN.byHandle}`;
-        if (anyN.byId) return `/u/${anyN.byId}`;
+        if (anyN.handle) return `${anyN.handle}`;
+        if (anyN.byId) return `${anyN.handle}`;
         return "/followers";
     }
 
     if (n.type === "comment" || n.type === "like") {
-        if (anyN.deedId) return `/deeds/${anyN.deedId}`;
+        if (anyN.deedId) return `${anyN.handle}/deed/${anyN.deedId}`;
         if (anyN.listingId) return `/market/${anyN.listingId}`;
         return "/activity";
     }

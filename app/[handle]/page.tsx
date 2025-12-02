@@ -67,7 +67,7 @@ const EKARI = {
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
 const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
-
+type VerificationStatus = "none" | "pending" | "approved" | "rejected";
 type Profile = {
   id: string;
   handle?: string;
@@ -80,6 +80,9 @@ type Profile = {
   followingCount?: number;
   likesTotal?: number;
   isAdmin?: boolean;   // 👈 add this
+  // 👇 NEW
+  verificationStatus?: VerificationStatus;
+  verificationRoleLabel?: string;
 };
 
 type MarketType =
@@ -91,6 +94,7 @@ type MarketType =
   | "equipment"
   | "tree"
   | string;
+type CurrencyCode = "KES" | "USD";
 
 type Product = {
   id: string;
@@ -110,6 +114,7 @@ type Product = {
   categoryLower?: string;
   status?: "active" | "sold" | "reserved" | "hidden";
   sold?: boolean;
+  currency?: CurrencyCode;   // 👈 NEW
 };
 
 type DeedStatus = "ready" | "processing" | "mixing" | "uploading" | "failed" | "deleted";
@@ -379,6 +384,14 @@ function useProfileByUid(uid?: string) {
             followingCount: Number(d.followingCount ?? 0),
             likesTotal: Number(d.likesTotal ?? 0),
             isAdmin: !!d.isAdmin,      // 👈 mirror for UI
+            // 👇 NEW: pull verification info
+            verificationStatus:
+              (d.verification?.status as VerificationStatus) ?? "none",
+            verificationRoleLabel:
+              d.verification?.roleLabel ||
+              d.verification?.primaryRole ||
+              d.primaryRoleLabel ||
+              undefined,
           }
           : null
       );
@@ -561,7 +574,6 @@ function usePartnerStats(ownerUid?: string, viewerUid?: string) {
 }
 
 /* ---------- header (with tabs) ---------- */
-/* ---------- header (with tabs) ---------- */
 type TabKey = "deeds" | "listings" | "events" | "discussions";
 
 function Header({
@@ -600,6 +612,9 @@ function Header({
     () => (profile.handle || "").replace(/^@/, ""),
     [profile.handle]
   );
+  const verificationStatus: VerificationStatus =
+    (profile.verificationStatus as VerificationStatus) || "none";
+  const verificationRoleLabel = profile.verificationRoleLabel;
 
   const openConnections = (tabKey: "following" | "followers" | "partners" | "mutual") => {
     if (!handleSlug) return;
@@ -659,7 +674,7 @@ function Header({
   return (
     <header className="px-4 md:px-8 pt-6 pb-4">
       {/* TOP: avatar + name + actions */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+      <div className="flex items-center justify-centereweeeeeeye8uye7hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhyeyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuiiiio]ow3,eeweebg-blacko-0o/wssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssswwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww22333XDX flex-col gap-4 md:flex-row md:items-start md:gap-6">
         {/* avatar */}
         <div className="shrink-0">
           <div className="p-1 rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39] shadow-sm">
@@ -684,9 +699,9 @@ function Header({
         </div>
 
         {/* right side */}
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 lg:mt-5 flex-1 space-y-2">
           {/* first row: name + badges + actions */}
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center justify-center flex-col gap-3 md:flex-row md:items-center md:justify-between">
             {/* name + admin badge */}
             <div className="flex flex-wrap items-center gap-2">
               <h1
@@ -715,8 +730,18 @@ function Header({
                   </span>
                 )
               )}
-            </div>
 
+              {/* verified badge */}
+              {verificationStatus === "approved" && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-extrabold text-white shadow-sm">
+                  <IoShieldCheckmarkOutline size={12} />
+                  <span>
+                    Verified
+                    {verificationRoleLabel ? ` • ${verificationRoleLabel}` : ""}
+                  </span>
+                </span>
+              )}
+            </div>
             {/* actions: owner vs visitor */}
             {isOwner ? (
               <div className="flex flex-wrap items-center gap-2">
@@ -737,6 +762,32 @@ function Header({
                   💰
                   <span>Earnings</span>
                 </Link>
+                {/* 👇 NEW: verification CTA for owner */}
+                {verificationStatus === "none" || verificationStatus === "rejected" ? (
+                  <Link
+                    href="/account/verification" // TODO: point to your actual verification flow route
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold shadow-sm hover:bg-emerald-50"
+                    style={{ borderColor: EKARI.primary, color: EKARI.primary }}
+                  >
+                    <IoShieldCheckmarkOutline size={15} />
+                    <span>
+                      {verificationStatus === "rejected"
+                        ? "Re-request verification"
+                        : "Request verification"}
+                    </span>
+                  </Link>
+                ) : null}
+
+                {verificationStatus === "pending" && (
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3.5 py-1.5 text-xs md:text-sm font-semibold text-amber-800 border border-amber-200"
+                  >
+                    <IoTimeOutline size={15} />
+                    <span>Verification pending review</span>
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2">
@@ -1107,6 +1158,21 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
     }
   };
 
+  const formatMoney = (n: number, currency: CurrencyCode = "KES") => {
+    const safe = Number.isFinite(n) ? n : 0;
+
+    try {
+      return new Intl.NumberFormat("en-KE", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      }).format(safe);
+    } catch {
+      // Fallback if currency/Intl fails
+      const prefix = currency === "USD" ? "$" : "KSh ";
+      return prefix + safe.toLocaleString("en-KE", { maximumFractionDigits: 0 });
+    }
+  };
   async function deleteFolderRecursively(folderRef: ReturnType<typeof sRef>) {
     const { items, prefixes } = await listAll(folderRef);
     await Promise.all(
@@ -1196,13 +1262,17 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
         {items.map((p) => {
           const cover = p.imageUrl || p.imageUrls?.[0];
           const numericRate = Number(String(p.rate ?? "").replace(/[^\d.]/g, ""));
+          const currency: CurrencyCode = p.currency || "KES"; // default to KES
           const priceText =
             p.type === "lease" || p.type === "service"
               ? `${Number.isFinite(numericRate) && numericRate > 0
-                ? KES(numericRate)
+                ? formatMoney(numericRate, currency)
                 : "—"
               }${p.billingUnit ? ` / ${p.billingUnit}` : ""}`
-              : KES(Number(p.price || 0));
+              : formatMoney(Number(p.price || 0), currency);
+
+
+
           const statusLabel = (p.status || (p.sold ? "sold" : "active")).replace(
             /^\w/,
             (c) => c.toUpperCase()
@@ -1848,7 +1918,7 @@ export default function HandleProfilePage() {
       {/* Processing Gate now ONLY blocks for profile owner */}
       {isOwner && <DeedProcessingGate authorUid={uid ?? null} handle={handleWithAt} />}
 
-      <div className="mx-auto w-full max-w-[1160px] px-4 md:px-8">
+      <div className="min-h-screen mx-auto w-full max-w-[1160px] px-4 md:px-8">
         {/* header with tabs */}
         {loadingProfile ? (
           <div className="p-6 animate-pulse">

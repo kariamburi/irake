@@ -28,6 +28,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { CurrencyCode } from "@/app/components/ProductCard";
+import { createPortal } from "react-dom";
 
 /* -------------------- Types & utils -------------------- */
 
@@ -316,7 +317,8 @@ export default function FilterModal({
     const [typeDocs, setTypeDocs] = useState<MarketTypeDoc[]>([]);
     const [categoryDocs, setCategoryDocs] = useState<MarketCategoryDoc[]>([]);
     const [itemDocs, setItemDocs] = useState<MarketItemDoc[]>([]);
-
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
     useEffect(() => {
         const ref = collection(db, "market_types");
         const q = query(ref, orderBy("order", "asc"));
@@ -624,7 +626,9 @@ export default function FilterModal({
         onClose,
     ]);
 
-    if (!open) return null;
+    if (!mounted || !open) return null;
+
+
 
     const chipActive = "bg-emerald-800 text-white border-emerald-800";
     const chipIdle = "bg-gray-50 text-gray-900 border-gray-200";
@@ -634,7 +638,7 @@ export default function FilterModal({
 
     const priceCurrencyLabel = currency || "KES";
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50">
             {/* backdrop */}
             <button
@@ -971,5 +975,7 @@ export default function FilterModal({
                 </div>
             </div>
         </div>
+        ,
+        document.body
     );
 }

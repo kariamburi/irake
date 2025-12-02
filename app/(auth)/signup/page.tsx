@@ -1,3 +1,4 @@
+// app/signup/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -51,9 +52,16 @@ export default function SignupPage() {
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    const isValidEmail = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
+    const isValidEmail = useMemo(
+        () => /\S+@\S+\.\S+/.test(email.trim()),
+        [email]
+    );
     const isValid = useMemo(
-        () => isValidEmail && password.length >= 6 && confirm === password && consent,
+        () =>
+            isValidEmail &&
+            password.length >= 6 &&
+            confirm === password &&
+            consent,
         [isValidEmail, password, confirm, consent]
     );
 
@@ -72,8 +80,8 @@ export default function SignupPage() {
         }
     };
 
-    // After auth state resolves: new users go to onboarding,
-    // existing users go to deeds (if user doc exists)
+    // After auth state resolves:
+    // if user doc exists → home, else → getstarted (just like login new user)
     useEffect(() => {
         if (authLoading || !user) return;
         let alive = true;
@@ -81,9 +89,9 @@ export default function SignupPage() {
             try {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (!alive) return;
-                router.replace(snap.exists() ? "/deeds" : "/onboarding");
+                router.replace(snap.exists() ? "/" : "/getstarted");
             } catch {
-                if (alive) router.replace("/onboarding");
+                if (alive) router.replace("/getstarted");
             }
         })();
         return () => {
@@ -109,52 +117,79 @@ export default function SignupPage() {
     const disableAll = loading || authLoading || !authBundle;
 
     return (
-        <main className="min-h-screen w-full flex flex-col justify-center px-5 items-center" style={{ backgroundColor: EKARI.sand }}>
-            <div className="w-full max-w-xl flex flex-col items-center gap-4">
-                {/* Logo + tag */}
-                <motion.div
-                    className="flex flex-col items-center text-center"
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", stiffness: 140, damping: 14, mass: 0.6, duration: 0.28 }}
-
-                >
-                    <Image src="/ekarihub-logo.png" alt="ekarihub" width={320} height={86} priority />
-                    <p className="text-sm md:text-base tracking-wide">
-                        Collaborate • Innovate • Cultivate
-                    </p>
-                </motion.div>
-
-                <motion.p
-                    className="text-center text-sm leading-5 mt-1 mb-1"
-                    style={{ color: EKARI.subtext, maxWidth: 340 }}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15, duration: 0.25 }}
-                >
-                    Craft an Account
-                </motion.p>
+        <main
+            className="min-h-screen w-full flex items-center justify-center px-4 py-8"
+            style={{
+                background:
+                    "radial-gradient(circle at top left, rgba(35,63,57,0.14), transparent 50%), radial-gradient(circle at bottom right, rgba(199,146,87,0.18), #F3F4F6)",
+            }}
+        >
+            <motion.div
+                className="w-full max-w-lg mx-auto"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+                {/* Top: logo + link back */}
+                <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Image
+                            src="/ekarihub-logo.png"
+                            alt="ekarihub"
+                            width={180}
+                            height={54}
+                            priority
+                        />
+                    </div>
+                    <Link
+                        href="/getstarted"
+                        className="text-[11px] font-semibold underline-offset-4 hover:underline"
+                        style={{ color: EKARI.dim }}
+                    >
+                        Back to get started
+                    </Link>
+                </div>
 
                 {/* Card */}
                 <motion.div
-                    className="w-full rounded-2xl bg-white/95 shadow-sm border border-gray-100 px-4 py-4 mt-4"
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2, duration: 0.26, ease: "easeOut" }}
+                    className="rounded-3xl bg-white/90 backdrop-blur-xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.25)] px-6 py-7 md:px-8 md:py-8"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.28, ease: "easeOut" }}
                 >
+                    {/* Heading */}
+                    <div className="mb-5 text-center md:text-left">
+                        <h1
+                            className="text-xl md:text-2xl font-semibold tracking-tight"
+                            style={{ color: EKARI.text }}
+                        >
+                            Craft your ekarihub account
+                        </h1>
+                        <p
+                            className="mt-1.5 text-xs md:text-sm leading-5"
+                            style={{ color: EKARI.subtext }}
+                        >
+                            One account for deeds, marketplace, Nexus, and more.
+                        </p>
+                    </div>
+
                     {/* Email */}
                     <label className="block">
                         <div
-                            className="mt-2 flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
+                            className="mt-1 flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
                             style={{ borderColor: EKARI.hair }}
                         >
-                            <IoMailOutline className="mr-2" size={18} color={EKARI.dim} />
+                            <IoMailOutline
+                                className="mr-2 flex-shrink-0"
+                                size={18}
+                                color={EKARI.dim}
+                            />
                             <input
                                 type="email"
                                 inputMode="email"
                                 autoComplete="email"
                                 placeholder="Email"
-                                className="w-full bg-transparent outline-none text-base"
+                                className="w-full bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 aria-label="Email"
@@ -166,15 +201,19 @@ export default function SignupPage() {
                     {/* Password */}
                     <label className="block">
                         <div
-                            className="mt-3 flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
+                            className="mt-3 flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
                             style={{ borderColor: EKARI.hair }}
                         >
-                            <IoLockClosedOutline className="mr-2" size={18} color={EKARI.dim} />
+                            <IoLockClosedOutline
+                                className="mr-2 flex-shrink-0"
+                                size={18}
+                                color={EKARI.dim}
+                            />
                             <input
                                 type={showPassword ? "text" : "password"}
                                 autoComplete="new-password"
                                 placeholder="Password"
-                                className="w-full bg-transparent outline-none text-base"
+                                className="w-full bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 aria-label="Password"
@@ -183,11 +222,15 @@ export default function SignupPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword((s) => !s)}
-                                className="ml-2 p-1"
+                                className="ml-2 p-1 rounded-full hover:bg-black/5 transition"
                                 aria-label={showPassword ? "Hide password" : "Show password"}
                                 disabled={disableAll}
                             >
-                                {showPassword ? <IoEyeOffOutline size={20} color={EKARI.dim} /> : <IoEyeOutline size={20} color={EKARI.dim} />}
+                                {showPassword ? (
+                                    <IoEyeOffOutline size={20} color={EKARI.dim} />
+                                ) : (
+                                    <IoEyeOutline size={20} color={EKARI.dim} />
+                                )}
                             </button>
                         </div>
                     </label>
@@ -195,15 +238,19 @@ export default function SignupPage() {
                     {/* Confirm Password */}
                     <label className="block">
                         <div
-                            className="mt-3 flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
+                            className="mt-3 flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
                             style={{ borderColor: EKARI.hair }}
                         >
-                            <IoShieldCheckmarkOutline className="mr-2" size={18} color={EKARI.dim} />
+                            <IoShieldCheckmarkOutline
+                                className="mr-2 flex-shrink-0"
+                                size={18}
+                                color={EKARI.dim}
+                            />
                             <input
                                 type={showPassword ? "text" : "password"}
                                 autoComplete="new-password"
                                 placeholder="Confirm password"
-                                className="w-full bg-transparent outline-none text-base"
+                                className="w-full bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
                                 value={confirm}
                                 onChange={(e) => setConfirm(e.target.value)}
                                 onKeyDown={(e) => {
@@ -216,26 +263,26 @@ export default function SignupPage() {
                     </label>
 
                     {/* Inline validation helper */}
-                    {!isValidEmail && email.length > 0 && (
-                        <p className="mt-2 text-xs" style={{ color: EKARI.dim }}>
-                            Enter a valid email address.
-                        </p>
-                    )}
-                    {password.length > 0 && password.length < 6 && (
-                        <p className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                            Password must be at least 6 characters.
-                        </p>
-                    )}
-                    {confirm.length > 0 && confirm !== password && (
-                        <p className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                            Passwords must match.
-                        </p>
-                    )}
+                    <div className="mt-2 space-y-1 text-[11px]">
+                        {!isValidEmail && email.length > 0 && (
+                            <p style={{ color: EKARI.dim }}>Enter a valid email address.</p>
+                        )}
+                        {password.length > 0 && password.length < 6 && (
+                            <p style={{ color: EKARI.dim }}>
+                                Password must be at least 6 characters.
+                            </p>
+                        )}
+                        {confirm.length > 0 && confirm !== password && (
+                            <p style={{ color: EKARI.dim }}>Passwords must match.</p>
+                        )}
+                    </div>
 
                     {!!errorMsg && (
-                        <p className="mt-3 text-center font-semibold" style={{ color: EKARI.danger }}>
-                            {errorMsg}
-                        </p>
+                        <div className="mt-3 flex justify-center">
+                            <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
+                                {errorMsg}
+                            </p>
+                        </div>
                     )}
 
                     {/* Consent */}
@@ -249,27 +296,27 @@ export default function SignupPage() {
                             style={{ accentColor: EKARI.gold }}
                             disabled={disableAll}
                         />
-                        <label htmlFor="consent" className="text-sm leading-5" style={{ color: EKARI.text }}>
-                            By crafting account, you agree to our{" "}
-                            <a
-                                href="https://ekarihub.com/terms"
-                                target="_blank"
-                                rel="noreferrer"
+                        <label
+                            htmlFor="consent"
+                            className="text-xs md:text-sm leading-5"
+                            style={{ color: EKARI.text }}
+                        >
+                            By crafting an account, you agree to our{" "}
+                            <Link
+                                href="/terms"
                                 className="underline font-semibold"
                                 style={{ color: EKARI.forest }}
                             >
-                                Terms and Conditions
-                            </a>{" "}
+                                Terms
+                            </Link>{" "}
                             and{" "}
-                            <a
-                                href="https://ekarihub.com/privacy"
-                                target="_blank"
-                                rel="noreferrer"
+                            <Link
+                                href="/privacy"
                                 className="underline font-semibold"
                                 style={{ color: EKARI.forest }}
                             >
                                 Privacy Policy
-                            </a>
+                            </Link>
                             .
                         </label>
                     </div>
@@ -278,11 +325,11 @@ export default function SignupPage() {
                     <button
                         onClick={handleSignup}
                         disabled={!isValid || disableAll}
-                        className="mt-3 w-full rounded-xl overflow-hidden active:scale-[0.98] transition"
+                        className="mt-3 w-full rounded-xl overflow-hidden active:scale-[0.98] transition disabled:opacity-60"
                     >
                         <div
-                            className="py-3 text-center font-extrabold text-white bg-gradient-to-br from-[#C79257] to-[#C79257]"
-                            style={{ opacity: !isValid || disableAll ? 0.6 : 1 }}
+                            className="py-3.5 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
+                            style={{ opacity: !isValid || disableAll ? 0.7 : 1 }}
                         >
                             {loading ? (
                                 <span className="inline-flex items-center gap-2">
@@ -290,7 +337,7 @@ export default function SignupPage() {
                                         className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]"
                                         aria-hidden
                                     />
-                                    Creating...
+                                    Crafting account...
                                 </span>
                             ) : (
                                 "Craft account"
@@ -299,16 +346,20 @@ export default function SignupPage() {
                     </button>
 
                     {/* Login link */}
-                    <div className="mt-3 flex justify-center items-center text-sm">
+                    <div className="mt-5 flex justify-center items-center text-sm">
                         <span style={{ color: EKARI.dim }}>Already a member?&nbsp;</span>
-                        <Link href="/login" className="font-extrabold" style={{ color: EKARI.text }}>
+                        <Link
+                            href="/login"
+                            className="font-semibold underline-offset-4 hover:underline"
+                            style={{ color: EKARI.forest }}
+                        >
                             Log in
                         </Link>
                     </div>
                 </motion.div>
 
-                {/* Footer links */}
-                <div className="mt-4 flex flex-wrap justify-center gap-3 text-xs text-gray-500">
+                {/* Footer mini-links (optional, kept but softer) */}
+                <div className="mt-5 flex flex-wrap justify-center gap-3 text-[11px] text-gray-500">
                     <Link href="/about">About</Link>
                     <Link href="/terms">T&amp;Cs</Link>
                     <Link href="/privacy">Privacy</Link>
@@ -317,7 +368,7 @@ export default function SignupPage() {
                     <Link href="/viip">ViIP</Link>
                     <Link href="/celebrity">Celebrity</Link>
                 </div>
-            </div>
+            </motion.div>
         </main>
     );
 }

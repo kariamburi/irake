@@ -240,19 +240,27 @@ export default function Page() {
   return (
     <AppShell>
       {/* Outer wrapper: lock to viewport & hide page scrolling */}
-      <div className="flex h-screen w-full px-0 md:px-4 lg:px-6 overflow-hidden">
+      <div className="flex h-screen w-full overflow-hidden">
         {/* Card: full-height, flex column, only middle scrolls */}
         <div
           className="
             relative mx-auto flex h-full w-full max-w-5xl flex-col
-            bg-white text-slate-900
+          
             md:rounded-2xl md:border md:border-slate-200 md:shadow-sm md:my-4
             md:h-[calc(100vh-2rem)]
             overflow-hidden
           "
         >
           {/* Header / top bar (fixed within card) */}
-          <div className="border-b border-slate-200 flex-shrink-0">
+          <div className="border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl flex-shrink-0"
+
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
+              borderColor: "rgba(15,23,42,0.18)",
+              boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
+            }}
+          >
             <div className="px-3 sm:px-4 py-3 flex items-center justify-between">
               <div className="w-8 hidden sm:block" />
 

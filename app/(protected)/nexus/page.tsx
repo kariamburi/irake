@@ -16,7 +16,8 @@ import Link from "next/link";
 import {
   IoAdd, IoChatbubblesOutline, IoChatbubbleEllipsesOutline, IoCalendarOutline,
   IoLocationOutline, IoSearch, IoCloseCircle, IoCompassOutline, IoTimeOutline,
-  IoReload, IoClose, IoImageOutline, IoPricetagsOutline
+  IoReload, IoClose, IoImageOutline, IoPricetagsOutline,
+  IoCashOutline
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import AppShell from "@/app/components/AppShell";
@@ -41,7 +42,6 @@ const EKARI = {
 type DiveTab = "events" | "discussions";
 type EventCategory = "Workshop" | "Fair" | "Training" | "Meetup" | "Other";
 type DiscCategory = "General" | "Seeds" | "Soil" | "Equipment" | "Market" | "Regulations" | "Other";
-
 type EventItem = {
   id: string;
   title: string;
@@ -50,6 +50,7 @@ type EventItem = {
   coverUrl?: string;
   createdAt?: any;
   price?: number | null;
+  currency?: CurrencyCode;
   registrationUrl?: string | null;
   category?: EventCategory;
   tags?: string[];
@@ -823,6 +824,27 @@ function EventForm({
 /* ============================== */
 /* Discussion Create Form (Sheet) */
 /* ============================== */
+const formatMoney = (n?: number, currency?: CurrencyCode) => {
+  if (typeof n !== "number") return "";
+
+  const cur: CurrencyCode = currency === "USD" || currency === "KES" ? currency : "KES";
+
+  if (cur === "USD") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2,
+    }).format(n);
+  }
+
+  // Default KES
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    maximumFractionDigits: 0,
+  }).format(n);
+};
+
 function DiscussionForm({ onDone, provideFooter }: { onDone: () => void; provideFooter: (node: ReactNode) => void }) {
   const { user } = useAuth();
   const uid = user?.uid || null;
@@ -1146,7 +1168,7 @@ export default function DivePage() {
 
   return (
     <AppShell>
-      <div className="w-full px-2 py-2">
+      <div className="min-h-screen w-full px-2 py-2">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-3">
           <div className="flex items-center gap-2">
@@ -1269,6 +1291,15 @@ export default function DivePage() {
                           {new Date(e.dateISO).toLocaleDateString()}
                         </p>
                       )}
+
+                      {e.price && (
+                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                          <IoCashOutline size={18} color={EKARI.dim} />
+
+                          {formatMoney(e.price, e.currency)}
+
+                        </p>
+                      )}
                     </div>
                   </Link>
                 ))}
@@ -1279,10 +1310,10 @@ export default function DivePage() {
                   <button
                     onClick={loadMoreEvents}
                     disabled={pagingEvents}
-                    className="px-4 py-2 rounded-lg font-bold text-white hover:opacity-90 disabled:opacity-60"
-                    style={{ backgroundColor: EKARI.gold }}
+                    className="px-4 py-2 rounded-lg border hover:opacity-90 disabled:opacity-60"
+
                   >
-                    {pagingEvents ? <BouncingBallLoader /> : "Load More"}
+                    {pagingEvents ? <BouncingBallLoader /> : "Load More..."}
                   </button>
                 </div>
               )}
@@ -1325,10 +1356,10 @@ export default function DivePage() {
                 <button
                   onClick={loadMoreDiscs}
                   disabled={pagingDiscs}
-                  className="px-4 py-2 rounded-lg font-bold text-white hover:opacity-90 disabled:opacity-60"
-                  style={{ backgroundColor: EKARI.gold }}
+                  className="px-4 py-2 rounded-lg border hover:opacity-90 disabled:opacity-60"
+
                 >
-                  {pagingDiscs ? <BouncingBallLoader /> : "Load More"}
+                  {pagingDiscs ? <BouncingBallLoader /> : "Load More..."}
                 </button>
               </div>
             )}

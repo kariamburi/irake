@@ -7,7 +7,6 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import UserAvatarMenu from "@/app/components/UserAvatarMenu";
 import LoginButton from "@/app/components/LoginButton";
-import { motion } from "framer-motion";
 
 /* Same theme */
 const EKARI = {
@@ -70,12 +69,7 @@ export default function AppShell({
     return (
         <div
             className={`min-h-screen ${className}`}
-            style={{
-                background: `
-          radial-gradient(circle at top left, ${EKARI.forest}10, transparent 55%),
-          radial-gradient(circle at bottom right, ${EKARI.gold}14, ${EKARI.bgSoft})
-        `,
-            }}
+            style={{ backgroundColor: EKARI.bg }}
         >
             {/* 🔝 Global top-right user menu (visible on ALL pages using AppShell) */}
             <div className="fixed top-0 right-3 md:right-4 py-3 z-40">
@@ -90,37 +84,15 @@ export default function AppShell({
                 )}
             </div>
 
-            <div className="mx-auto max-w-[1400px] flex pb-2 pt-2 pr-10">
+            <div className="mx-auto max-w-[1400px] flex pr-10">
                 <LeftRailCompact />
                 <LeftNavDesktop uid={uid} handle={effectiveHandle} />
 
-                {/* Center content */}
-                <main className="pl-5 flex-1 flex justify-center">
-                    <motion.div
-                        className="w-full max-w-5xl"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, ease: "easeOut" }}
-                    >
-                        <div className="rounded-3xl bg-white/80 backdrop-blur-md border border-gray-100 shadow-[0_18px_45px_rgba(0,0,0,0.06)] overflow-hidden">
-                            {children}
-                        </div>
-                    </motion.div>
+                <main className="pl-5 flex-1 w-full mt-0 flex justify-center overflow-hidden">
+                    {children}
                 </main>
 
-                {/* Right rail */}
-                {rightRail && (
-
-                    <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, delay: 0.05, ease: "easeOut" }}
-
-                    >
-                        {rightRail}
-                    </motion.div>
-
-                )}
+                {rightRail ?? null}
             </div>
         </div>
     );

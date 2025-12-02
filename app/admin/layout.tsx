@@ -8,9 +8,15 @@ import UserAvatarMenu from "@/app/components/UserAvatarMenu";
 import { IoAlertCircleOutline } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import Link from "next/link";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import Image from "next/image";
+import {
+    doc,
+    onSnapshot,
+    collection,
+    query,
+    where,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const EKARI = {
     forest: "#233F39",
@@ -31,11 +37,13 @@ const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/earnings", label: "Creator earnings" },
     { href: "/admin/wallets", label: "Creator withdrawals" },
     { href: "/admin/finance", label: "Finance Settings" },
+    { href: "/admin/verification", label: "Verification" },
     { href: "/admin/support-tickets", label: "Support tickets" },
     { href: "/admin/sounds", label: "Sounds library" },
-    { href: "/admin/usermangement", label: "User mangement" },
-    { href: "/admin/catalog", label: "Catalog mangement" },
+    { href: "/admin/usermanagement", label: "User management" },
+    { href: "/admin/catalog", label: "Catalog management" },
     { href: "/admin/taxonomies", label: "Taxonomy" },
+
 ];
 
 function getAdminTitle(pathname: string): string {
@@ -49,17 +57,24 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/earnings")) return "Creator earnings";
     if (pathname.startsWith("/admin/wallets")) return "Creator withdrawals";
     if (pathname.startsWith("/admin/finance")) return "Finance Settings";
+    if (pathname.startsWith("/admin/verification")) return "Verification";
     if (pathname.startsWith("/admin/support-tickets")) return "Support tickets";
     if (pathname.startsWith("/admin/sounds")) return "Sounds library";
-    if (pathname.startsWith("/admin/usermangement")) return "User mangement";
-    if (pathname.startsWith("/admin/catalog")) return "Catalog mangement";
+    if (pathname.startsWith("/admin/usermanagement")) return "User management";
+    if (pathname.startsWith("/admin/catalog")) return "Catalog management";
     if (pathname.startsWith("/admin/taxonomies")) return "Taxonomy";
 
     return "Admin";
 }
 
-// Left nav
-function AdminNav() {
+/* ---------- Left nav with badges ---------- */
+function AdminNav({
+    pendingVerificationCount,
+    pendingWithdrawalCount,
+}: {
+    pendingVerificationCount: number;
+    pendingWithdrawalCount: number;
+}) {
     const pathname = usePathname();
 
     return (
@@ -67,12 +82,24 @@ function AdminNav() {
             {NAV_ITEMS.map((item) => {
                 const active =
                     pathname === item.href || pathname.startsWith(item.href + "/");
+
+                let badgeCount = 0;
+                if (item.href === "/admin/verification") {
+                    badgeCount = pendingVerificationCount;
+                } else if (item.href === "/admin/wallets") {
+                    badgeCount = pendingWithdrawalCount;
+                }
+
+                const showBadge = badgeCount > 0;
+                const badgeLabel =
+                    badgeCount > 999 ? "999+" : badgeCount > 99 ? "99+" : badgeCount;
+
                 return (
                     <Link
                         key={item.href}
                         href={item.href}
                         className={[
-                            "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition",
+                            "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition justify-between",
                             active ? "shadow-sm" : "hover:bg-black/10 hover:text-white",
                         ].join(" ")}
                         style={
@@ -86,7 +113,20 @@ function AdminNav() {
                                 }
                         }
                     >
-                        <span>{item.label}</span>
+                        <span className="truncate">{item.label}</span>
+
+                        {showBadge && (
+                            <span
+                                className="ml-2 inline-flex min-w-[22px] h-[20px] items-center justify-center rounded-full text-[11px] font-extrabold px-1.5"
+                                style={{
+                                    backgroundColor: "#EF4444",
+                                    color: "#FFFFFF",
+                                    boxShadow: "0 0 0 1px rgba(0,0,0,0.25)",
+                                }}
+                            >
+                                {badgeLabel}
+                            </span>
+                        )}
                     </Link>
                 );
             })}
@@ -126,12 +166,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const uid = user?.uid;
     const profile = useUserProfile(uid);
 
+    // 🔢 counts
+    const [pendingVerificationCount, setPendingVerificationCount] = useState(0);
+    const [pendingWithdrawalCount, setPendingWithdrawalCount] = useState(0);
+
     // Client-side guard: only users with admin claim can stay here
     React.useEffect(() => {
         let cancelled = false;
 
         async function check() {
-            // build "next" so after login we go back to the SAME admin url
             const nextPath =
                 pathname && pathname.startsWith("/admin") ? pathname : "/admin/overview";
 
@@ -166,7 +209,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return () => {
             cancelled = true;
         };
-    }, [user, router, pathname]); // 👈 include pathname so it updates correctly
+    }, [user, router, pathname]);
+
+    /* 🔥 Listen for pending verification + withdrawal requests */
+    useEffect(() => {
+        if (!isAdmin) return;
+
+        // ✅ Verification: users where verification.status == "pending"
+        const verQuery = query(
+            collection(db, "users"),
+            where("verification.status", "==", "pending")
+        );
+        const unsubVer = onSnapshot(verQuery, (snap) => {
+            setPendingVerificationCount(snap.size);
+        });
+
+        // ✅ Withdrawals: withdrawalRequests where status == "pending"
+        const wdQuery = query(
+            collection(db, "withdrawalRequests"),
+            where("status", "==", "pending")
+        );
+        const unsubWd = onSnapshot(wdQuery, (snap) => {
+            setPendingWithdrawalCount(snap.size);
+        });
+
+        return () => {
+            unsubVer();
+            unsubWd();
+        };
+    }, [isAdmin]);
 
     if (checking) {
         return (
@@ -247,7 +318,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto px-3 pb-4">
-                    <AdminNav />
+                    <AdminNav
+                        pendingVerificationCount={pendingVerificationCount}
+                        pendingWithdrawalCount={pendingWithdrawalCount}
+                    />
                 </div>
             </aside>
 

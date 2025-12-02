@@ -422,18 +422,20 @@ export default function MarketPage() {
           </div>
         )}
 
-        {/* Modals */}
-        <FilterModal
-          open={filterOpen}
-          onClose={() => setFilterOpen(false)}
-          initial={filters}
-          onApply={(f: any) => {
-            setFilters(f);
-            setFilterOpen(false);
-          }}
-        />
-        <SellModal open={sellOpen} onClose={() => setSellOpen(false)} onCreated={onCreated} />
+
       </div>
+      {/* Modals */}
+      <FilterModal
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        initial={filters}
+        onApply={(f: any) => {
+          setFilters(f);
+          setFilterOpen(false);
+        }}
+      />
+
+      <SellModal open={sellOpen} onClose={() => setSellOpen(false)} onCreated={onCreated} />
     </AppShell>
   );
 }

@@ -37,7 +37,6 @@ import {
     IoMap,
     IoSearch,
 } from "react-icons/io5";
-import { createPortal } from "react-dom";
 
 /* ================= Theme ================= */
 const EKARI = {
@@ -620,8 +619,6 @@ function LandPolygonPickerModal({
     const mapDivRef = React.useRef<HTMLDivElement | null>(null);
     const mapRef = React.useRef<google.maps.Map | null>(null);
     const polygonRef = React.useRef<google.maps.Polygon | null>(null);
-    const polylineRef = React.useRef<google.maps.Polyline | null>(null); // NEW
-    const vertexMarkersRef = React.useRef<google.maps.Marker[]>([]);     // NEW
     const searchInputRef = React.useRef<HTMLInputElement | null>(null);
 
     const [points, setPoints] = React.useState<{ lat: number; lng: number }[]>(
@@ -732,28 +729,14 @@ function LandPolygonPickerModal({
         );
     }, [mapType]);
 
-    // Update polyline + polygon + vertex markers when points change
+    // Update polygon when points change
     useEffect(() => {
         const g = (window as any).google as typeof google | undefined;
         if (!g || !mapRef.current) return;
 
-        // ----- Polyline for drawing path -----
-        if (!polylineRef.current) {
-            polylineRef.current = new g.maps.Polyline({
-                map: mapRef.current,
-                path: points,
-                strokeColor: "#10B981",
-                strokeOpacity: 0.9,
-                strokeWeight: 2,
-            });
-        } else {
-            polylineRef.current.setPath(points);
-        }
-        polylineRef.current.setMap(points.length > 0 ? mapRef.current : null);
-
-        // ----- Polygon fill when we have 3+ points -----
         if (!polygonRef.current) {
             polygonRef.current = new g.maps.Polygon({
+                map: mapRef.current,
                 paths: points,
                 strokeColor: "#10B981",
                 strokeOpacity: 0.9,
@@ -764,38 +747,19 @@ function LandPolygonPickerModal({
         } else {
             polygonRef.current.setPath(points);
         }
-        polygonRef.current.setMap(points.length >= 3 ? mapRef.current : null);
-
-        // ----- Vertex markers: small green dots at each point -----
-        vertexMarkersRef.current.forEach((m) => m.setMap(null));
-        vertexMarkersRef.current = [];
 
         if (points.length > 0) {
-            points.forEach((p) => {
-                const marker = new g.maps.Marker({
-                    position: p,
-                    map: mapRef.current!,
-                    clickable: false,
-                    icon: {
-                        path: g.maps.SymbolPath.CIRCLE,
-                        fillColor: "#10B981",
-                        fillOpacity: 1,
-                        strokeColor: "#ECFDF5",
-                        strokeWeight: 2,
-                        scale: 4,
-                    },
-                });
-                vertexMarkersRef.current.push(marker);
-            });
+            const bounds = new g.maps.LatLngBounds();
+            points.forEach((p) =>
+                bounds.extend(new g.maps.LatLng(p.lat, p.lng))
+            );
+            mapRef.current!.fitBounds(bounds);
         }
-
-        // NOTE: we no longer auto-fit on every point change.
-        // Use the FIT button instead.
     }, [points]);
 
     function handleUse() {
         if (points.length < 3) {
-            alert("Click at least three points on the map to outline the land.");
+            alert("Tap at least three points on the map to outline the land.");
             return;
         }
         // centroid
@@ -927,34 +891,14 @@ function LandPolygonPickerModal({
                 </div>
 
                 <p className="text-xs text-gray-600 mb-2">
-                    {drawEnabled
-                        ? "DRAW mode: Click on the map to add points around the land boundary. Use at least 3 points."
-                        : "MOVE mode: Drag to explore the map. Switch back to DRAW to add more points."}
+                    Tap on the map to add points around the land boundary (DRAW mode).
+                    Use at least 3 points. Switch to MOVE to pan and explore the map.
                 </p>
 
                 {/* Map section – fills almost everything */}
                 <div className="relative flex-1 min-h-[420px] rounded-xl overflow-hidden border border-gray-200">
                     {/* Map itself */}
                     <div ref={mapDivRef} className="absolute inset-0" />
-
-                    {/* Mode chip (top-left) */}
-                    <div className="absolute top-3 left-3 max-w-[70%]">
-                        <div className="inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1 shadow-md border border-gray-200">
-                            <span
-                                className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${drawEnabled
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : "bg-gray-100 text-gray-600"
-                                    }`}
-                            >
-                                {drawEnabled ? "D" : "M"}
-                            </span>
-                            <span className="text-[11px] font-medium text-emerald-800">
-                                {drawEnabled
-                                    ? "DRAW: click to add points"
-                                    : "MOVE: drag map, switch to DRAW to add"}
-                            </span>
-                        </div>
-                    </div>
 
                     {/* Search bar (top center) */}
                     <div className="absolute top-3 left-3 right-3 max-w-xl mx-auto">
@@ -975,6 +919,7 @@ function LandPolygonPickerModal({
                         {showAdvanced ? "Hide advanced" : "Advanced (coords/link)"}
                     </button>
 
+                    {/* Advanced floating panel */}
                     {/* Advanced floating panel */}
                     {showAdvanced && (
                         <div className="z-30 absolute top-16 right-3 md:right-4 w-80 max-w-[90vw] bg-gray-100 rounded-2xl shadow-xl border border-gray-200 p-3 text-xs">
@@ -1062,6 +1007,7 @@ function LandPolygonPickerModal({
                             </div>
                         </div>
                     )}
+
 
                     {/* Right-side controls (zoom / fit / type / draw) */}
                     <div className="absolute bottom-3 right-3 flex flex-col gap-2">
@@ -1183,9 +1129,6 @@ export default function SellModal({
     onCreated: (p: Product) => void;
 }) {
     const { types, categories, items, loading: catalogLoading } = useMarketCatalog();
-    // 👇 avoid SSR mismatch when using document.body
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
     // Currency preference (KES / USD)
     const [currency, setCurrency] = useState<CurrencyCode>("KES");
     useEffect(() => {
@@ -1655,20 +1598,20 @@ export default function SellModal({
         onClose,
     ]);
 
-    if (!mounted || !open) return null;
+    if (!open) return null;
 
-    return createPortal(
-        <div aria-label="Sell sheet" className="fixed inset-0 z-[70] flex items-end justify-center">
-            {/* Backdrop */}
+    return (
+        <div aria-label="Sell sheet" className="fixed inset-0 z-50">
+            {/* backdrop */}
             <button
                 onClick={() => !saving && onClose()}
                 className="absolute inset-0 bg-black/40"
                 aria-label="Close"
             />
 
-            {/* Bottom sheet container */}
+            {/* sheet */}
             <div
-                className="relative w-full bg-white border-t border-gray-200 rounded-t-2xl p-4 h-[80vh] flex flex-col shadow-lg"
+                className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 h-[80vh] flex flex-col"
                 role="dialog"
                 aria-modal="true"
             >
@@ -2287,7 +2230,6 @@ export default function SellModal({
                     }}
                 />
             )}
-        </div>,
-        document.body
+        </div>
     );
 }

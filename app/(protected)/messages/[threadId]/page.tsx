@@ -824,7 +824,7 @@ export default function ThreadPage() {
         {/* COMPOSER (fixed) */}
         <div
           ref={composerRef}
-          className="fixed bottom-0 right-0 left-0 md:left-[260px] z-50 border-t bg-white"
+          className="fixed bottom-0 right-0 left-0 z-50 border-t bg-white"
           style={{
             borderColor: EKARI.hair,
             paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",

@@ -126,7 +126,7 @@ export default function SuggestionsPageClient() {
 
     return (
         <AppShell rightRail={null}>
-            <main className="min-h-screen w-full bg-gray-100">
+            <main className="min-h-screen w-full bg-white">
                 <div className="mx-auto max-w-5xl px-4 pt-5 pb-10">
                     {/* Header */}
                     <header className="mb-6">

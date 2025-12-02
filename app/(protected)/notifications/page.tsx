@@ -104,13 +104,14 @@ function routeForNotification(n: Notif): string | undefined {
   }
 
   if (n.type === "follow") {
-    if (anyN.byHandle) return `/u/${anyN.byHandle}`;
-    if (anyN.byId) return `/u/${anyN.byId}`;
+    if (anyN.byHandle) return `/${anyN.byHandle}`;
+    //if (anyN.byId) return `/u/${anyN.byId}`;
     return "/followers";
   }
 
   if (n.type === "comment" || n.type === "like") {
-    if (anyN.deedId) return `/deeds/${anyN.deedId}`;
+    alert(anyN.byHandle)
+    if (anyN.deedId) return `${anyN.byHandle}/deed/${anyN.deedId}`;
     if (anyN.listingId) return `/market/${anyN.listingId}`;
     return "/activity";
   }

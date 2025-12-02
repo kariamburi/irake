@@ -1,3 +1,4 @@
+// app/onboarding/page.tsx
 "use client";
 
 import React, {
@@ -17,7 +18,6 @@ import {
     IoMaleOutline,
     IoFemaleOutline,
     IoPersonOutline,
-    IoClose,
 } from "react-icons/io5";
 import {
     GoogleMap,
@@ -103,7 +103,10 @@ function Field({
 }) {
     return (
         <div className={`mt-4 ${className}`}>
-            <div className="text-[13px] font-extrabold" style={{ color: EKARI.text }}>
+            <div
+                className="text-[13px] font-extrabold"
+                style={{ color: EKARI.text }}
+            >
                 {label}
             </div>
             <div className="mt-1.5">{children}</div>
@@ -133,7 +136,7 @@ function GenderPills({
             { key: "other", label: "Other", Icon: IoPersonOutline },
         ];
     return (
-        <div role="radiogroup" className="flex gap-2">
+        <div role="radiogroup" className="flex flex-wrap gap-2">
             {items.map(({ key, label, Icon }) => {
                 const active = value === key;
                 return (
@@ -142,10 +145,13 @@ function GenderPills({
                         role="radio"
                         aria-checked={active}
                         onClick={() => onChange(key)}
-                        className="flex items-center rounded-full border px-4 py-2"
+                        className="flex items-center rounded-full border px-4 py-2 text-sm"
                         style={{
                             borderColor: active ? EKARI.forest : EKARI.hair,
                             background: active ? EKARI.forest : "#fff",
+                            boxShadow: active
+                                ? "0 8px 18px rgba(0,0,0,0.1)"
+                                : "none",
                         }}
                     >
                         <Icon size={16} color={active ? "#fff" : EKARI.dim} />
@@ -319,11 +325,14 @@ function SmartPicker({
                         onClick={() => setOpenModal(false)}
                     />
                     <div
-                        className="absolute left-1/2 top-1/2 w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-white p-4"
+                        className="absolute left-1/2 top-1/2 w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-white p-4 shadow-xl"
                         style={{ borderColor: ekari.hair }}
                     >
                         <div className="flex items-center justify-between">
-                            <div className="font-extrabold" style={{ color: ekari.text }}>
+                            <div
+                                className="font-extrabold"
+                                style={{ color: ekari.text }}
+                            >
                                 {label}
                             </div>
                             <button
@@ -386,10 +395,14 @@ export default function OnboardingWizardPage() {
     const [gender, setGender] = useState<Gender | null>(null);
 
     const [checkingHandle, setCheckingHandle] = useState(false);
-    const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
+    const [handleAvailable, setHandleAvailable] = useState<boolean | null>(
+        null
+    );
     const [handleMsg, setHandleMsg] = useState<string | null>(null);
     const [handleReason, setHandleReason] = useState<string | null>(null);
-    const handleCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(
+        null
+    );
     const abortRef = useRef<AbortController | null>(null);
 
     const today = new Date();
@@ -403,7 +416,7 @@ export default function OnboardingWizardPage() {
     const isAdult = useMemo(() => {
         if (!dobDate) return false;
         return new Date(dobDate) <= maxDOB;
-    }, [dobDate]);
+    }, [dobDate, maxDOB]);
     const quickDecades = [
         { label: "1960s", year: 1965 },
         { label: "1970s", year: 1975 },
@@ -412,23 +425,6 @@ export default function OnboardingWizardPage() {
         { label: "2000s", year: 2005 },
     ];
 
-    function handleDecadeClick(targetYear: number) {
-        // Only apply if within allowed range (18+ and >= 1900)
-        if (!years.includes(targetYear)) return;
-
-        const yStr = String(targetYear);
-        setDobYear(yStr);
-
-        // Keep month/day if possible; adjust day if it overflows that month
-        if (dobMonth) {
-            const maxDay = daysInMonth(targetYear, parseInt(dobMonth, 10));
-            const currentDay = parseInt(dobDay || "0", 10);
-
-            if (!currentDay || currentDay > maxDay) {
-                setDobDay(String(Math.min(currentDay || 1, maxDay)).padStart(2, "0"));
-            }
-        }
-    }
     // Step 2 & 3 selections
     const [areaOfInterest, setAreaOfInterest] = useState<string[]>([]);
     const [roles, setRoles] = useState<string[]>([]);
@@ -647,7 +643,6 @@ export default function OnboardingWizardPage() {
     const canNext2 = areaOfInterest.length > 0;
     const canNext3 = roles.length > 0;
 
-
     /* ---------- Photo ---------- */
     function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
         const f = e.target.files?.[0] || null;
@@ -682,11 +677,11 @@ export default function OnboardingWizardPage() {
         nextLabel?: string;
     }) {
         return (
-            <div className="mt-4 flex gap-3">
+            <div className="mt-5 flex gap-3">
                 <button
                     onClick={onBack}
                     disabled={disableBack}
-                    className="w-1/2 rounded-xl py-3 font-extrabold border"
+                    className="w-1/2 rounded-xl py-3 text-sm font-extrabold border"
                     style={{
                         background: "#fff",
                         borderColor: EKARI.hair,
@@ -699,9 +694,10 @@ export default function OnboardingWizardPage() {
                 <button
                     onClick={onNext}
                     disabled={disableNext}
-                    className="w-1/2 rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
+                    className="w-1/2 rounded-xl py-3 text-sm font-extrabold text-white active:scale-[0.98] transition"
                     style={{
-                        background: EKARI.gold,
+                        background:
+                            "linear-gradient(135deg, #C79257, #fbbf77)",
                         opacity: disableNext ? 0.6 : 1,
                     }}
                 >
@@ -851,7 +847,9 @@ export default function OnboardingWizardPage() {
 
                 // Interests / Roles + lowercase for indexing
                 areaOfInterest: interestsArr,
-                areaOfInterestLower: interestsArr.map((s) => s.toLowerCase()),
+                areaOfInterestLower: interestsArr.map((s) =>
+                    s.toLowerCase()
+                ),
                 roles: rolesArr,
                 rolesLower: rolesArr.map((s) => s.toLowerCase()),
 
@@ -881,12 +879,14 @@ export default function OnboardingWizardPage() {
         }
     }
 
-    /* ---------- Step header (no chevron; only title + step pills) ---------- */
+    /* ---------- Step header (centered title + pill progress) ---------- */
     function StepHeader({ title }: { title: string }) {
         return (
-            <div className="mt-1 mb-2 flex items-center justify-between">
-                <div className="p-1 rounded-md" />
-                <div className="font-black text-lg" style={{ color: EKARI.text }}>
+            <div className="mb-3 flex items-center justify-between">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: EKARI.dim }}>
+                    Onboarding
+                </div>
+                <div className="font-black text-base md:text-lg" style={{ color: EKARI.text }}>
                     {title}
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -895,7 +895,7 @@ export default function OnboardingWizardPage() {
                             key={i}
                             className="h-1.5 rounded-full"
                             style={{
-                                width: step === i ? 28 : 14,
+                                width: step === i ? 26 : 12,
                                 background: step >= i ? EKARI.gold : "#E5E7EB",
                                 transition: "width .2s",
                             }}
@@ -916,7 +916,7 @@ export default function OnboardingWizardPage() {
         () =>
             coords
                 ? { lat: coords.lat, lng: coords.lng }
-                : { lat: -1.286389, lng: 36.817223 }, // Nairobi CBD default
+                : { lat: -1.286389, lng: 36.817223 }, // Nairobi default
         [coords]
     );
 
@@ -989,10 +989,12 @@ export default function OnboardingWizardPage() {
         }
         router.replace("/login");
     };
+
     // NEW: split DOB for nicer UI
     const [dobYear, setDobYear] = useState<string>("");
     const [dobMonth, setDobMonth] = useState<string>(""); // "01".."12"
-    const [dobDay, setDobDay] = useState<string>("");     // "01".."31"
+    const [dobDay, setDobDay] = useState<string>(""); // "01".."31"
+
     const years = useMemo(() => {
         const out: number[] = [];
         for (let y = maxDOB.getFullYear(); y >= minDOB.getFullYear(); y--) {
@@ -1029,6 +1031,23 @@ export default function OnboardingWizardPage() {
             String(i + 1).padStart(2, "0")
         );
     }, [dobYear, dobMonth]);
+
+    function handleDecadeClick(targetYear: number) {
+        if (!years.includes(targetYear)) return;
+
+        const yStr = String(targetYear);
+        setDobYear(yStr);
+
+        if (dobMonth) {
+            const maxDay = daysInMonth(targetYear, parseInt(dobMonth, 10));
+            const currentDay = parseInt(dobDay || "0", 10);
+
+            if (!currentDay || currentDay > maxDay) {
+                setDobDay(String(Math.min(currentDay || 1, maxDay)).padStart(2, "0"));
+            }
+        }
+    }
+
     // When user changes any part, recompute dobDate
     useEffect(() => {
         if (dobYear && dobMonth && dobDay) {
@@ -1046,29 +1065,32 @@ export default function OnboardingWizardPage() {
         setDobMonth(m || "");
         setDobDay(d || "");
     }, [dobDate]);
+
     return (
         <main
             className="min-h-screen w-full"
-            style={{ backgroundColor: EKARI.sand }}
+            style={{
+                background:
+                    "radial-gradient(circle at top left, rgba(35,63,57,0.12), transparent 55%), radial-gradient(circle at bottom right, rgba(199,146,87,0.16), #F3F4F6)",
+            }}
         >
-            {/* Top bar: cancel/back */}
             {/* Top bar: cancel onboarding */}
-            <div
-                className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b"
-                style={{ borderColor: EKARI.hair }}
-            >
+            <div className="sticky top-0 z-30 bg-white/70 backdrop-blur border-b" style={{ borderColor: EKARI.hair }}>
                 <div className="mx-auto max-w-3xl px-5 h-12 flex items-center justify-between">
-                    <div
-                        className="text-xs md:text-sm font-semibold"
-                        style={{ color: EKARI.dim }}
-                    >
-                        Complete your EkariHub profile
+                    <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <span
+                            className="text-xs md:text-sm font-semibold"
+                            style={{ color: EKARI.dim }}
+                        >
+                            Craft your Ekarihub profile
+                        </span>
                     </div>
 
                     <button
                         type="button"
                         onClick={() => setConfirmOpen(true)}
-                        className="text-xs md:text-sm font-bold px-3 py-1.5 rounded-full border"
+                        className="text-xs md:text-sm font-bold px-3 py-1.5 rounded-full border hover:bg-red-50 transition"
                         style={{
                             borderColor: EKARI.hair,
                             color: EKARI.danger,
@@ -1081,7 +1103,7 @@ export default function OnboardingWizardPage() {
                     <ConfirmModal
                         open={confirmOpen}
                         title="Cancel onboarding?"
-                        message="You’ll be signed out and taken to the login page."
+                        message="You’ll be signed out and taken back to login."
                         confirmText="Yes, log me out"
                         cancelText="No, stay here"
                         onConfirm={confirmLogout}
@@ -1089,23 +1111,32 @@ export default function OnboardingWizardPage() {
                     />
                 </div>
             </div>
-            <div className="mx-auto max-w-3xl px-5 pt-6 pb-6">
-                <div className="mt-0">
+
+            <div className="mx-auto max-w-3xl px-5 pt-6 pb-10">
+                <motion.div
+                    className="rounded-3xl bg-white/90 backdrop-blur-xl border border-white/70 shadow-[0_22px_70px_rgba(15,23,42,0.3)] px-4 py-5 md:px-6 md:py-7"
+                    initial={{ opacity: 0, y: 10, scale: 0.99 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.28, ease: "easeOut" }}
+                >
                     {/* STEP 1 — Create profile */}
                     {step === 1 && (
                         <>
                             <StepHeader title="Create your profile" />
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
+                                initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border p-4"
-                                style={{ borderColor: EKARI.hair, background: EKARI.sand }}
+                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
+                                style={{
+                                    borderColor: EKARI.hair,
+                                    background: "#F9FAFB",
+                                }}
                             >
                                 <Field label="Name">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         <input
                                             placeholder="First name"
-                                            className="h-12 rounded-xl border px-3 bg-[#F6F7FB] outline-none"
+                                            className="h-11 rounded-xl border px-3 bg-[#F6F7FB] outline-none text-sm"
                                             style={{
                                                 borderColor: EKARI.hair,
                                                 color: EKARI.text,
@@ -1115,7 +1146,7 @@ export default function OnboardingWizardPage() {
                                         />
                                         <input
                                             placeholder="Surname"
-                                            className="h-12 rounded-xl border px-3 bg-[#F6F7FB] outline-none"
+                                            className="h-11 rounded-xl border px-3 bg-[#F6F7FB] outline-none text-sm"
                                             style={{
                                                 borderColor: EKARI.hair,
                                                 color: EKARI.text,
@@ -1135,22 +1166,22 @@ export default function OnboardingWizardPage() {
                                     }
                                 >
                                     <div
-                                        className="flex items-center h-12 rounded-xl border px-3 bg-[#F6F7FB]"
+                                        className="flex items-center h-11 rounded-xl border px-3 bg-[#F6F7FB]"
                                         style={{ borderColor: EKARI.hair }}
                                     >
                                         <input
                                             placeholder="@handle"
-                                            className="w-full bg-transparent outline-none text-base"
+                                            className="w-full bg-transparent outline-none text-sm"
                                             style={{ color: EKARI.text }}
                                             value={handle}
                                             onChange={(e) => onChangeHandle(e.target.value)}
                                             autoCapitalize="none"
                                         />
                                         {checkingHandle ? (
-                                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                                            <span className="ml-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
                                         ) : handle.length > 0 && handleAvailable !== null ? (
                                             <span
-                                                className="ml-2 text-sm font-bold"
+                                                className="ml-2 text-xs font-bold"
                                                 style={{
                                                     color: handleAvailable ? "#10B981" : "#EF4444",
                                                 }}
@@ -1165,17 +1196,15 @@ export default function OnboardingWizardPage() {
                                     label="Date of birth"
                                     helper="You must be 18+ to join."
                                 >
-                                    {/* Main DOB controls */}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <IoCalendarOutline
                                             className="mr-1"
                                             size={18}
                                             color={EKARI.dim}
                                         />
 
-                                        {/* Day */}
                                         <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-sm"
+                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-xs md:text-sm"
                                             style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                             value={dobDay}
                                             onChange={(e) => setDobDay(e.target.value)}
@@ -1188,9 +1217,8 @@ export default function OnboardingWizardPage() {
                                             ))}
                                         </select>
 
-                                        {/* Month */}
                                         <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-sm"
+                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-xs md:text-sm"
                                             style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                             value={dobMonth}
                                             onChange={(e) => setDobMonth(e.target.value)}
@@ -1203,9 +1231,8 @@ export default function OnboardingWizardPage() {
                                             ))}
                                         </select>
 
-                                        {/* Year */}
                                         <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-sm"
+                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-xs md:text-sm"
                                             style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                             value={dobYear}
                                             onChange={(e) => setDobYear(e.target.value)}
@@ -1219,15 +1246,14 @@ export default function OnboardingWizardPage() {
                                         </select>
                                     </div>
 
-                                    {/* Quick decade shortcuts */}
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
                                         <span style={{ color: EKARI.dim }}>Quick select:</span>
                                         {quickDecades.map((d) => (
                                             <button
                                                 key={d.label}
                                                 type="button"
                                                 onClick={() => handleDecadeClick(d.year)}
-                                                className="rounded-full border px-2 py-1 font-bold"
+                                                className="rounded-full border px-2 py-1 font-semibold"
                                                 style={{
                                                     borderColor: EKARI.hair,
                                                     background: "#fff",
@@ -1240,13 +1266,14 @@ export default function OnboardingWizardPage() {
                                     </div>
 
                                     {!!dobDate && !isAdult && (
-                                        <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                                        <div
+                                            className="mt-1 text-xs"
+                                            style={{ color: EKARI.dim }}
+                                        >
                                             You must be at least 18 years old.
                                         </div>
                                     )}
                                 </Field>
-
-
 
                                 <Field label="Gender">
                                     <GenderPills value={gender} onChange={setGender} />
@@ -1267,22 +1294,34 @@ export default function OnboardingWizardPage() {
                         <>
                             <StepHeader title="Choose your interests" />
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
+                                initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border p-4"
-                                style={{ borderColor: EKARI.hair, background: EKARI.sand }}
+                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
+                                style={{
+                                    borderColor: EKARI.hair,
+                                    background: "#F9FAFB",
+                                }}
                             >
-                                <div className="text-base" style={{ color: EKARI.forest }}>
+                                <div
+                                    className="text-sm md:text-base"
+                                    style={{ color: EKARI.forest }}
+                                >
                                     Pick what you care about in agriculture.
                                 </div>
 
                                 {taxonomyLoading && (
-                                    <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                                    <div
+                                        className="mt-2 text-xs"
+                                        style={{ color: EKARI.dim }}
+                                    >
                                         Loading interest options…
                                     </div>
                                 )}
                                 {taxonomyError && (
-                                    <div className="mt-2 text-xs" style={{ color: EKARI.danger }}>
+                                    <div
+                                        className="mt-2 text-xs"
+                                        style={{ color: EKARI.danger }}
+                                    >
                                         {taxonomyError}
                                     </div>
                                 )}
@@ -1317,22 +1356,34 @@ export default function OnboardingWizardPage() {
                         <>
                             <StepHeader title="What do you do?" />
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
+                                initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border p-4"
-                                style={{ borderColor: EKARI.hair, background: EKARI.sand }}
+                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
+                                style={{
+                                    borderColor: EKARI.hair,
+                                    background: "#F9FAFB",
+                                }}
                             >
-                                <div className="text-base" style={{ color: EKARI.forest }}>
+                                <div
+                                    className="text-sm md:text-base"
+                                    style={{ color: EKARI.forest }}
+                                >
                                     Tell us your role(s) in the value chain.
                                 </div>
 
                                 {taxonomyLoading && (
-                                    <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                                    <div
+                                        className="mt-2 text-xs"
+                                        style={{ color: EKARI.dim }}
+                                    >
                                         Loading role options…
                                     </div>
                                 )}
                                 {taxonomyError && (
-                                    <div className="mt-2 text-xs" style={{ color: EKARI.danger }}>
+                                    <div
+                                        className="mt-2 text-xs"
+                                        style={{ color: EKARI.danger }}
+                                    >
                                         {taxonomyError}
                                     </div>
                                 )}
@@ -1362,26 +1413,29 @@ export default function OnboardingWizardPage() {
                         </>
                     )}
 
-                    {/* STEP 4 — Location (Search OR Map) */}
+                    {/* STEP 4 — Location */}
                     {step === 4 && (
                         <>
                             <StepHeader title="Location" />
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
+                                initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border p-4"
-                                style={{ borderColor: EKARI.hair, background: EKARI.sand }}
+                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
+                                style={{
+                                    borderColor: EKARI.hair,
+                                    background: "#F9FAFB",
+                                }}
                             >
                                 <div
-                                    className="text-sm mt-1"
+                                    className="text-sm"
                                     style={{ color: EKARI.subtext }}
                                 >
                                     We’ll show nearby markets and services.
                                 </div>
 
-                                {/* Allow device (browser) location quick pick */}
+                                {/* Device location summary */}
                                 <div
-                                    className="mt-3 flex items-center rounded-xl border p-3"
+                                    className="mt-3 flex items-center rounded-xl border p-3 bg-white"
                                     style={{ borderColor: EKARI.hair }}
                                 >
                                     <IoLocationOutline size={18} color={EKARI.dim} />
@@ -1389,7 +1443,7 @@ export default function OnboardingWizardPage() {
                                         {locStatus === "ready" && coords ? (
                                             <>
                                                 <div
-                                                    className="font-bold"
+                                                    className="font-bold text-sm"
                                                     style={{ color: EKARI.text }}
                                                 >
                                                     {place || "Location captured"}
@@ -1403,39 +1457,26 @@ export default function OnboardingWizardPage() {
                                             </>
                                         ) : locStatus === "denied" ? (
                                             <div
-                                                className="font-bold"
+                                                className="font-bold text-sm"
                                                 style={{ color: EKARI.danger }}
                                             >
                                                 Permission denied. You can continue without it.
                                             </div>
                                         ) : (
                                             <div
-                                                className="font-bold"
+                                                className="font-bold text-sm"
                                                 style={{ color: EKARI.text }}
                                             >
-                                                Grant permission to detect your location.
+                                                Detect your location for smarter suggestions.
                                             </div>
                                         )}
                                     </div>
-
-                                    {/* If you want to enable the button: */}
-                                    {/* <button
-                    onClick={requestLocation}
-                    className="rounded-lg border px-3 py-2 font-extrabold"
-                    style={{
-                      background: "#fff",
-                      borderColor: EKARI.hair,
-                      color: EKARI.text,
-                    }}
-                  >
-                    {locStatus === "loading" ? "…" : "Allow"}
-                  </button> */}
                                 </div>
 
                                 {/* Tabs: Search vs Map */}
                                 <div className="mt-4 flex gap-2">
                                     <button
-                                        className="rounded-full px-3 py-1.5 text-sm font-bold border"
+                                        className="rounded-full px-3 py-1.5 text-xs md:text-sm font-bold border"
                                         style={{
                                             borderColor:
                                                 locTab === "search" ? EKARI.forest : EKARI.hair,
@@ -1448,7 +1489,7 @@ export default function OnboardingWizardPage() {
                                         Search by address
                                     </button>
                                     <button
-                                        className="rounded-full px-3 py-1.5 text-sm font-bold border"
+                                        className="rounded-full px-3 py-1.5 text-xs md:text-sm font-bold border"
                                         style={{
                                             borderColor:
                                                 locTab === "map" ? EKARI.forest : EKARI.hair,
@@ -1465,11 +1506,17 @@ export default function OnboardingWizardPage() {
                                 {locTab === "search" && (
                                     <div className="mt-3 w-full">
                                         {!isLoaded ? (
-                                            <div className="text-sm" style={{ color: EKARI.dim }}>
+                                            <div
+                                                className="text-sm"
+                                                style={{ color: EKARI.dim }}
+                                            >
                                                 Loading Google Places…
                                             </div>
                                         ) : loadError ? (
-                                            <div className="text-sm" style={{ color: EKARI.danger }}>
+                                            <div
+                                                className="text-sm"
+                                                style={{ color: EKARI.danger }}
+                                            >
                                                 Failed to load Google API. Check your
                                                 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
                                             </div>
@@ -1482,7 +1529,7 @@ export default function OnboardingWizardPage() {
                                                     <input
                                                         ref={autocompleteInputRef}
                                                         placeholder="Search an address"
-                                                        className="h-12 w-full rounded-xl border px-3 bg-[#F6F7FB] outline-none"
+                                                        className="h-11 w-full rounded-xl border px-3 bg-[#F6F7FB] outline-none text-sm"
                                                         style={{
                                                             borderColor: EKARI.hair,
                                                             color: EKARI.text,
@@ -1498,17 +1545,23 @@ export default function OnboardingWizardPage() {
                                 {locTab === "map" && (
                                     <div className="mt-3">
                                         {!isLoaded ? (
-                                            <div className="text-sm" style={{ color: EKARI.dim }}>
+                                            <div
+                                                className="text-sm"
+                                                style={{ color: EKARI.dim }}
+                                            >
                                                 Loading Google Map…
                                             </div>
                                         ) : loadError ? (
-                                            <div className="text-sm" style={{ color: EKARI.danger }}>
+                                            <div
+                                                className="text-sm"
+                                                style={{ color: EKARI.danger }}
+                                            >
                                                 Failed to load Google API. Check your
                                                 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
                                             </div>
                                         ) : (
                                             <div
-                                                className="rounded-2xl overflow-hidden border"
+                                                className="rounded-2xl overflow-hidden border bg-white"
                                                 style={{ borderColor: EKARI.hair }}
                                             >
                                                 <GoogleMap
@@ -1548,8 +1601,8 @@ export default function OnboardingWizardPage() {
                                             className="mt-2 text-xs"
                                             style={{ color: EKARI.dim }}
                                         >
-                                            Tap anywhere on the map to drop a pin. You can still
-                                            edit the label below.
+                                            Tap anywhere on the map to drop a pin. We’ll try to
+                                            label it automatically.
                                         </div>
                                         {resolvingAddress && (
                                             <div
@@ -1586,41 +1639,53 @@ export default function OnboardingWizardPage() {
                         <>
                             <StepHeader title="Profile photo" />
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
+                                initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border p-4"
-                                style={{ borderColor: EKARI.hair, background: EKARI.sand }}
+                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
+                                style={{
+                                    borderColor: EKARI.hair,
+                                    background: "#F9FAFB",
+                                }}
                             >
-                                <div className="text-sm" style={{ color: EKARI.subtext }}>
-                                    Show your face or your farm brand.
+                                <div
+                                    className="text-sm"
+                                    style={{ color: EKARI.subtext }}
+                                >
+                                    Show your face or your farm/brand logo.
                                 </div>
 
-                                <div className="mt-3 flex flex-col items-center gap-3">
+                                <div className="mt-4 flex flex-col items-center gap-3">
                                     <div
                                         className="flex items-center justify-center overflow-hidden"
                                         style={{
                                             width: 128,
                                             height: 128,
                                             borderRadius: 999,
-                                            background: "#F6F7FB",
-                                            border: `1px solid ${EKARI.hair}`,
+                                            background:
+                                                "conic-gradient(from 140deg, #C79257, #233F39, #C79257)",
+                                            padding: 3,
                                         }}
                                     >
-                                        {previewUrl ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                                src={previewUrl}
-                                                alt="avatar preview"
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <IoPersonCircleOutline size={96} color={EKARI.dim} />
-                                        )}
+                                        <div
+                                            className="w-full h-full rounded-full bg-[#F6F7FB] flex items-center justify-center border"
+                                            style={{ borderColor: EKARI.hair }}
+                                        >
+                                            {previewUrl ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                    src={previewUrl}
+                                                    alt="avatar preview"
+                                                    className="w-full h-full object-cover rounded-full"
+                                                />
+                                            ) : (
+                                                <IoPersonCircleOutline size={96} color={EKARI.dim} />
+                                            )}
+                                        </div>
                                     </div>
 
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap justify-center gap-2">
                                         <label
-                                            className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2"
+                                            className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2 text-xs md:text-sm font-bold"
                                             style={{
                                                 background: "#fff",
                                                 borderColor: EKARI.hair,
@@ -1628,7 +1693,7 @@ export default function OnboardingWizardPage() {
                                             }}
                                         >
                                             <IoImagesOutline size={16} />
-                                            <span className="font-bold">Choose photo</span>
+                                            <span>Choose photo</span>
                                             <input
                                                 type="file"
                                                 accept="image/*"
@@ -1637,9 +1702,8 @@ export default function OnboardingWizardPage() {
                                             />
                                         </label>
 
-                                        {/* “Take photo” on mobile browsers opens camera */}
                                         <label
-                                            className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2"
+                                            className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2 text-xs md:text-sm font-bold"
                                             style={{
                                                 background: "#fff",
                                                 borderColor: EKARI.hair,
@@ -1647,7 +1711,7 @@ export default function OnboardingWizardPage() {
                                             }}
                                         >
                                             <IoCameraOutline size={16} />
-                                            <span className="font-bold">Take photo</span>
+                                            <span>Take photo</span>
                                             <input
                                                 type="file"
                                                 accept="image/*"
@@ -1671,7 +1735,7 @@ export default function OnboardingWizardPage() {
                                             !authLoading
                                         )
                                     }
-                                    nextLabel="Finish"
+                                    nextLabel={saving ? "Finishing…" : "Finish"}
                                 />
 
                                 {errorMsg && (
@@ -1685,9 +1749,7 @@ export default function OnboardingWizardPage() {
                             </motion.div>
                         </>
                     )}
-                </div>
-
-                <div className="h-6" />
+                </motion.div>
             </div>
         </main>
     );

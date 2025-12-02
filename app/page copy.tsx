@@ -674,28 +674,28 @@ function cn(...xs: (string | false | null | undefined)[]) {
 }
 
 /* ---------- Skeleton ---------- */
-/* ---------- Skeleton (same size as VideoCard) ---------- */
-function SkeletonCard({
-  railOpen,
-  tabOffsetPx = 0,
-}: {
-  railOpen: boolean;
-  tabOffsetPx?: number;
-}) {
-  const { w: cardW, h: cardH } = useDeedBox(railOpen, tabOffsetPx);
-
+function SkeletonCard() {
   return (
-    <div className="relative mt-1 mb-1">
-      <article
-        className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_22px_60px_rgba(0,0,0,.12)]"
-        style={{ width: cardW, height: cardH, top: tabOffsetPx - 5 }}
-      >
-        <div className="h-full w-full bg-white" />
+    <div className="h-[100svh] w-full flex items-center justify-center snap-start">
+      <article className="relative overflow-hidden rounded-2xl border bg-black shadow-[0_8px_30px_rgba(0,0,0,.12)] aspect-[9/16] max-h-[98vh] sm:max-h-[92vh]">
+        <div className="h-full w-full">
+          <div className="h-full w-full animate-pulse bg-[rgb(24,24,24)]" />
+        </div>
+        <div className="absolute right-3 bottom-3 md:right-20 z-10 flex gap-2 md:flex-col">
+          <div className="h-10 w-10 rounded-full bg-white/10 animate-pulse" />
+          <div className="h-3 w-8 rounded bg-white/10 animate-pulse md:self-center" />
+        </div>
+        <div className="absolute left-0 right-0 bottom-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-white/10 animate-pulse" />
+            <div className="h-3 w-24 rounded bg-white/10 animate-pulse" />
+          </div>
+          <div className="mt-2 h-3 w-40 rounded bg-white/10 animate-pulse" />
+        </div>
       </article>
     </div>
   );
 }
-
 
 /* ---------- VideoCard (unchanged UI; only data source varies) ---------- */
 function VideoCard({
@@ -715,11 +715,12 @@ function VideoCard({
   onFirstFrame?: () => void;
   onOpenComments: (deedId: string) => void;
   railOpen: boolean;
-  tabOffsetPx?: number;
+  tabOffsetPx?: number; // ⬅️ new
   dataSaverOn?: boolean;
   hlsMaxHeight?: number;
 }) {
-  const { w: cardW, h: cardH } = useDeedBox(railOpen, tabOffsetPx);
+  //const { w: cardW, h: cardH } = useDeedBox(railOpen);
+  const { w: cardW, h: cardH } = useDeedBox(railOpen, tabOffsetPx); // ⬅️ pass offset
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const { muted, toggleMute, registerVideo, unregisterVideo } = useGlobalMute();
   const router = useRouter();
@@ -728,15 +729,13 @@ function VideoCard({
   const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
   const firstFrameFiredRef = useRef(false);
 
+
   const { liked, count: likeCount, toggle: toggleLike } = useLikes(item.id, uid);
   const commentsCount = useCommentsCount(item.id);
   const { saved, toggle: toggleSave } = useBookmarks(item.id, uid);
   const totalBookmarks = useBookmarkTotalFromDeed(item.id);
   const totalShares = useShareTotalFromDeed(item.id);
-  const { following, followersCount, toggle: toggleFollow } = useFollowAuthor(
-    item.authorId,
-    uid
-  );
+  const { following, followersCount, toggle: toggleFollow } = useFollowAuthor(item.authorId, uid);
   const [donateOpen, setDonateOpen] = useState(false);
 
   const canSupport = !!item.authorId && uid !== item.authorId;
@@ -753,11 +752,7 @@ function VideoCard({
     const url = `${location.origin}/deed/${item.id}`;
     try {
       if (navigator.share) {
-        await navigator.share({
-          title: item.text || "EkariHub",
-          text: item.text || "",
-          url,
-        });
+        await navigator.share({ title: item.text || "EkariHub", text: item.text || "", url });
       } else {
         await navigator.clipboard.writeText(url);
         alert("Link copied!");
@@ -801,8 +796,9 @@ function VideoCard({
     await toggleFollow();
   };
 
-  const handleToPath = (h?: string) =>
-    h ? `/${encodeURIComponent(h.startsWith("@") ? h : `@${h}`)}` : null;
+  const handleToPath = (h?: string) => (h ? `/${encodeURIComponent(h.startsWith("@") ? h : `@${h}`)}` : null);
+
+
 
   const onViewProfileClick = () => {
     const handle = authorProfile?.handle || item.authorUsername;
@@ -820,9 +816,7 @@ function VideoCard({
   const handleVideoReady = () => {
     const v = videoRef.current;
     if (v && (v as any).videoWidth && (v as any).videoHeight) {
-      setFitMode(
-        (v as any).videoWidth > (v as any).videoHeight ? "contain" : "cover"
-      );
+      setFitMode((v as any).videoWidth > (v as any).videoHeight ? "contain" : "cover");
     }
     setMediaReady(true);
     fireFirstFrameOnce();
@@ -831,20 +825,13 @@ function VideoCard({
   const handleImageReady: React.ReactEventHandler<HTMLImageElement> = (e) => {
     const img = e.currentTarget;
     if (img.naturalWidth && img.naturalHeight) {
-      setFitMode(
-        img.naturalWidth > img.naturalHeight ? "contain" : "cover"
-      );
+      setFitMode(img.naturalWidth > img.naturalHeight ? "contain" : "cover");
     }
     setMediaReady(true);
     fireFirstFrameOnce();
   };
 
-  useAutoPlay(videoRef, {
-    root: scrollRootRef,
-    threshold: 0.35,
-    rootMargin: "-30% 0px -30% 0px",
-    initialMuted: muted,
-  });
+  useAutoPlay(videoRef, { root: scrollRootRef, threshold: 0.35, rootMargin: "-30% 0px -30% 0px", initialMuted: muted });
   useHls(videoRef, item.mediaUrl || undefined, { maxHeight: hlsMaxHeight });
 
   useEffect(() => {
@@ -864,14 +851,20 @@ function VideoCard({
     authorProfile?.photoURL ||
     item.authorPhotoURL ||
     "/avatar-placeholder.png";
-
+  // --- Sound display (library vs original) ---
+  // --- Sound display (library vs original) ---
   const music = item.music;
-  const isLibrarySound = music?.source === "library" && !!music?.coverUrl;
+
+  const isLibrarySound =
+    music?.source === "library" && !!music?.coverUrl;
+
   const soundLabel = isLibrarySound
     ? music?.title || "Library sound"
     : "Original sound";
-  const soundAvatar = isLibrarySound ? (music?.coverUrl as string) : avatar;
 
+  const soundAvatar = isLibrarySound
+    ? (music?.coverUrl as string)
+    : avatar;
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
     const v = videoRef.current;
@@ -898,13 +891,7 @@ function VideoCard({
   return (
     <div className="relative mt-1 mb-1">
       <article
-        className={cn(
-          "group relative overflow-hidden rounded-[28px]",
-          "shadow-[0_22px_60px_rgba(0,0,0,.65)]",
-          "bg-gradient-to-b from-[#0B1513] via-black to-black",
-          "transition-transform duration-300 ease-out",
-          "md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]"
-        )}
+        className="group relative overflow-hidden rounded-2xl border shadow-[0_8px_30px_rgba(0,0,0,.12)]"
         style={{ top: tabOffsetPx - 5, width: cardW, height: cardH }}
       >
         {/* Loader overlay until mediaReady */}
@@ -913,17 +900,14 @@ function VideoCard({
             <BouncingBallLoader />
           </div>
         )}
-
         {/* Top overlay controls */}
         {item.mediaType === "video" && (
           <>
-            <div className="absolute left-3 top-3 z-20 flex items-center gap-2">
+            <div className="absolute left-2 top-2 z-20 flex items-center gap-2">
               <button
                 onClick={toggleMute}
-                aria-label={
-                  muted ? "Unmute video (global)" : "Mute video (global)"
-                }
-                className="rounded-full bg-black/40 text-white p-2 hover:bg-black/70 backdrop-blur-sm border border-white/20"
+                aria-label={muted ? "Unmute video (global)" : "Mute video (global)"}
+                className="rounded-full bg-black/40 text-white p-2 hover:bg-black/70"
               >
                 {muted ? <IoVolumeMute size={18} /> : <IoVolumeHigh size={18} />}
               </button>
@@ -931,19 +915,18 @@ function VideoCard({
             <button
               onClick={togglePlay}
               aria-label={playing ? "Pause video" : "Play video"}
-              className={cn(
+              className={[
                 "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20",
                 "rounded-full bg-black/40 text-white p-4 md:p-5 shadow-lg hover:bg-black/75",
-                "backdrop-blur-sm transition-opacity duration-200",
-                playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
-              )}
+                "backdrop-blur-sm transition-opacity",
+                playing ? "opacity-0 group-hover:opacity-100" : "opacity-100",
+              ].join(" ")}
             >
               {playing ? <IoPause size={28} /> : <IoPlay size={28} />}
             </button>
           </>
         )}
 
-        {/* Media */}
         <div className="w-full h-full flex items-center justify-center bg-black">
           {item.mediaType === "video" && item.mediaUrl ? (
             <video
@@ -953,10 +936,7 @@ function VideoCard({
               loop
               controlsList="nodownload noremoteplayback"
               preload={dataSaverOn ? "metadata" : "auto"}
-              className={cn(
-                "max-h-full max-w-full",
-                fitMode === "contain" ? "object-contain" : "object-cover"
-              )}
+              className={["max-h-full max-w-full", "object-cover"].join(" ")}
               onClick={togglePlay}
               onLoadedMetadata={handleVideoReady}
               onLoadedData={handleVideoReady}
@@ -967,61 +947,40 @@ function VideoCard({
             <img
               src={item.mediaUrl}
               alt={item.text || "photo"}
-              className={cn(
-                "max-h-full max-w-full",
-                fitMode === "contain" ? "object-contain" : "object-cover"
-              )}
+              className={["max-h-full max-w-full", "object-cover"].join(" ")}
               onLoad={handleImageReady}
             />
           ) : (
-            <div className="h-full w-full flex items-center justify-center text-white/90">
-              No media
-            </div>
+            <div className="h-full w-full flex items-center justify-center text-white/90">No media</div>
           )}
         </div>
 
         {/* Bottom gradient + author/caption */}
         <div
-          className={cn(
+          className={[
             "absolute left-0 right-0 bottom-0 p-3 sm:p-4",
-            "bg-gradient-to-t from-black/80 via-black/40 to-transparent",
+            "bg-gradient-to-t from-black/70 to-black/0",
             "transition-opacity duration-200",
-            mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
+            mediaReady ? "opacity-100" : "opacity-0 pointer-events-none",
+          ].join(" ")}
         >
           <div className="flex items-center gap-2 mb-1">
             <div
               onClick={onViewProfileClick}
               className={cn(
-                "relative h-9 w-9 rounded-full overflow-hidden bg-gray-200 shrink-0",
-                (authorProfile?.handle || item.authorUsername)
-                  ? "cursor-pointer"
-                  : "cursor-default"
+                "h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0",
+                (authorProfile?.handle || item.authorUsername) ? "cursor-pointer" : "cursor-default"
               )}
               aria-label={
                 authorProfile?.handle || item.authorUsername
-                  ? `Open ${authorProfile?.handle || item.authorUsername
-                  } profile`
+                  ? `Open ${(authorProfile?.handle || item.authorUsername)} profile`
                   : undefined
               }
             >
-              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#C79257] via-transparent to-[#233F39] opacity-70" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={avatar}
-                alt={
-                  authorProfile?.handle ||
-                  item.authorUsername ||
-                  item.authorId ||
-                  "author"
-                }
-                className="relative h-full w-full object-cover border border-white/30 rounded-full"
-              />
+              <img src={avatar} alt={authorProfile?.handle || item.authorUsername || item.authorId || "author"} className="h-full w-full object-cover" />
             </div>
-            <div
-              onClick={onViewProfileClick}
-              className="cursor-pointer min-w-0 flex flex-col"
-            >
+            <div onClick={() => onViewProfileClick()} className="cursor-pointer min-w-0">
               <div className="text-white/95 font-bold text-sm truncate">
                 {authorProfile?.handle
                   ? authorProfile.handle
@@ -1031,18 +990,17 @@ function VideoCard({
               </div>
               <div
                 className="items-center text-white/70 text-[11px]"
-                title={`${followersCount} Follower${followersCount === 1 ? "" : "s"
-                  }`}
+                title={`${followersCount} Follower${followersCount === 1 ? "" : "s"}`}
               >
-                {formatCount(followersCount)} Follower
-                {followersCount === 1 ? "" : "s"}
+                {formatCount(followersCount)} Follower{followersCount === 1 ? "" : "s"}
               </div>
             </div>
 
             {showFollow && (
               <button
                 onClick={onFollowClick}
-                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-[#0F172A] bg-[#FDE68A] hover:bg-[#FCD34D] shadow-sm"
+                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-white hover:opacity-90"
+                style={{ backgroundColor: EKARI.primary }}
                 aria-label="Follow"
                 title="Follow"
               >
@@ -1050,29 +1008,24 @@ function VideoCard({
               </button>
             )}
           </div>
-
-          {!!item.text && (
-            <p className="text-white/95 text-sm leading-5 line-clamp-3">
-              {item.text}
-            </p>
-          )}
+          {!!item.text && <p className="text-white/95 text-sm leading-5 line-clamp-3">{item.text}</p>}
 
           {/* Sound row */}
-          <div className="mt-2 flex items-center gap-2">
-            {isLibrarySound && (
-              <div className="h-5 w-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0 border border-white/30">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={soundAvatar}
-                  alt={soundLabel}
-                  className="h-full w-full object-cover"
-                />
-              </div>
+          <div className="mt-1 flex items-center gap-2">
+            {isLibrarySound && (<div className="h-5 w-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={soundAvatar}
+                alt={soundLabel}
+                className="h-full w-full object-cover"
+              />
+            </div>
             )}
             <div className="flex items-center gap-1 text-[11px] text-white/85 min-w-0">
               <IoMusicalNotesOutline className="flex-shrink-0" size={14} />
               <span className="truncate max-w-[180px] sm:max-w-[220px]">
                 {soundLabel}
+
               </span>
               {!isLibrarySound && (
                 <span className="hidden sm:inline opacity-80">
@@ -1085,100 +1038,98 @@ function VideoCard({
       </article>
 
       {/* Action rail */}
+      {/* Action rail */}
       <div
-        className={cn(
+        className={[
           "absolute z-10 flex flex-col items-center gap-1.5",
           "right-3 top-1/2 -translate-y-1/2",
           "md:right-[-72px]",
           "transition-opacity duration-200",
-          mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
+          mediaReady ? "opacity-100" : "opacity-0 pointer-events-none",
+        ].join(" ")}
       >
         {/* support */}
         {canSupport && (
           <>
             <button
-              aria-label="Uplift this deed"
-              title="Uplift this deed"
+              aria-label="Support this deed"
+              title="Support this deed"
               onClick={onSupportClick}
-              className={cn(
+              className={[
                 "h-11 w-11 md:h-12 md:w-12",
                 "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-                "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-              )}
+                "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+              ].join(" ")}
             >
               💰
             </button>
-            <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">
+            <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
               Uplift
             </div>
           </>
         )}
+
+
+
 
         {/* Like */}
         <button
           aria-label="Like"
           aria-pressed={liked}
           onClick={onLikeClick}
-          className={cn(
+          className={[
             "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
             "h-11 w-11 md:h-12 md:w-12",
-            "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-          )}
+            "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+          ].join(" ")}
         >
           <IoHeart
             size={22}
             className="transition-colors"
-            style={{
-              color: likeCount ? THEME.forest : THEME.gold,
-            }}
+            style={{ color: likeCount ? THEME.forest : THEME.gold }}
           />
         </button>
-        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">
+        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
           {formatCount(likeCount)}
         </div>
 
         {/* Comments */}
         <button
           aria-label="Comments"
-          onClick={onCommentsClick}
-          className={cn(
+          onClick={onCommentsClick} // ⬅️ use auth-gated handler
+          className={[
             "h-11 w-11 md:h-12 md:w-12",
             "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-            "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-          )}
+            "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+          ].join(" ")}
         >
           <IoChatbubble
             size={22}
             className="transition-colors"
-            style={{
-              color: commentsCount ? THEME.forest : THEME.gold,
-            }}
+            style={{ color: commentsCount ? THEME.forest : THEME.gold }}
           />
         </button>
-        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">
-          {formatCount(commentsCount)}
+        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
+          {formatCount(commentsCount)} {/* ⬅️ use hook value, no hook call here */}
         </div>
 
         {/* Save */}
         <button
           aria-label="Save"
           onClick={onSaveClick}
-          className={cn(
+          className={[
             "h-11 w-11 md:h-12 md:w-12",
             "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-            "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-          )}
+            "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+          ].join(" ")}
         >
           <IoBookmark
             size={22}
             className="transition-colors"
-            style={{
-              color: totalBookmarks ? THEME.forest : THEME.gold,
-            }}
+            style={{ color: totalBookmarks ? THEME.forest : THEME.gold }}
           />
         </button>
-        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">
+        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
           {formatCount(totalBookmarks)}
         </div>
 
@@ -1186,25 +1137,22 @@ function VideoCard({
         <button
           aria-label="Share"
           onClick={onShare}
-          className={cn(
+          className={[
             "h-11 w-11 md:h-12 md:w-12",
             "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-            "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-          )}
+            "bg-black/30 md:bg-white backdrop-blur-sm border border-white/20 md:border-gray-200",
+          ].join(" ")}
         >
           <IoArrowRedo
             size={22}
             className="transition-colors"
-            style={{
-              color: totalShares ? THEME.forest : THEME.gold,
-            }}
+            style={{ color: totalShares ? THEME.forest : THEME.gold }}
           />
         </button>
-        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">
+        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-800">
           {formatCount(totalShares)}
         </div>
       </div>
-
       <DonateDialogWeb
         open={donateOpen}
         onClose={() => setDonateOpen(false)}
@@ -1212,10 +1160,10 @@ function VideoCard({
         creatorId={item.authorId}
         creatorName={item.authorUsername}
       />
+
     </div>
   );
 }
-
 
 /* ---------- Card sizing ---------- */
 const CARD_ASPECT = 9 / 16;
@@ -1393,8 +1341,9 @@ function ChannelTabs({
   const router = useRouter();
 
   return (
-    <div className="relative h-full flex items-center">
-      <div className="mx-auto w-full px-3 flex items-center justify-center">
+    <div className="relative">
+      {/* TABS + EXPLORE + SEARCH + DATA SAVER */}
+      <div className="mx-auto z-60 w-full px-3 h-full flex items-center">
         <div
           className={cn(
             "flex w-full justify-center items-center gap-2",
@@ -1402,43 +1351,36 @@ function ChannelTabs({
             commentsId ? "lg:mr-0" : "lg:mr-[100px]"
           )}
         >
-          {/* Tabs pill group */}
-          <div className="inline-flex items-center gap-1 rounded-full bg-white/80 border border-gray-200 shadow-sm px-1 py-1 backdrop-blur-md">
-            {TABS.map((k) => {
-              const isActive = active === k;
-              return (
-                <button
-                  key={k}
-                  onClick={() => onChange(k)}
-                  className={cn(
-                    "relative px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[60px] lg:w-[96px]",
-                    "rounded-full font-semibold flex-shrink-0 flex items-center justify-center transition",
-                    isActive
-                      ? "bg-[#233F39] text-white shadow-sm"
-                      : "text-gray-700 hover:bg-gray-50"
-                  )}
-                >
-                  <span className="relative z-10">{LABEL[k]}</span>
-                </button>
-              );
-            })}
-          </div>
+          {/* Tabs */}
+          {TABS.map((k) => (
+            <button
+              key={k}
+              onClick={() => onChange(k)}
+              className={cn(
+                "px-3 py-1.5 text-xs lg:text-sm w-[70px] lg:w-[90px] rounded-full text-sm font-bold border transition flex-shrink-0",
+                active === k
+                  ? "bg-[#233F39] text-white border-[#233F39]"
+                  : "bg-white text-gray-800 border-gray-200 hover:bg-gray-50"
+              )}
+            >
+              {LABEL[k]}
+            </button>
+          ))}
 
           {/* Dive In */}
           <button
             onClick={() => router.push("/dive")}
-            className="flex px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[85px] lg:w-[100px] gap-2 rounded-full items-center justify-center font-semibold border transition
-                       bg-white/90 text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0 shadow-sm"
+            className="flex px-3 py-1.5 text-xs lg:text-sm w-[90px] lg:w-[100px] gap-2 rounded-full items-center justify-center font-bold border transition
+                       bg-white text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0"
           >
-            <IoTelescopeOutline />
-            <span>Dive In</span>
+            <IoTelescopeOutline /> Dive In
           </button>
 
-          {/* Search (desktop) */}
+          {/* Search */}
           <button
             onClick={() => router.push("/search")}
-            className="hidden lg:inline-flex items-center justify-center rounded-full border border-gray-200 bg-white/90 hover:bg-gray-50 shadow-sm p-2 flex-shrink-0"
-            aria-label="Search"
+            className="p-2 hidden lg:inline hover:bg-gray-100 rounded-full text-sm font-bold border transition
+                       bg-white text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0"
           >
             <IoSearch />
           </button>
@@ -1449,10 +1391,10 @@ function ChannelTabs({
             onClick={onToggleDataSaver}
             disabled={!uid}
             className={cn(
-              "ml-1 flex items-center gap-1 px-1.5 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm bg-white/90",
+              "ml-1 flex items-center gap-1 px-3 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0",
               dataSaverOn
-                ? "text-emerald-700 border-emerald-200"
-                : "text-gray-700 border-gray-200 hover:bg-gray-50"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
             )}
             title={
               dataSaverOn
@@ -1471,7 +1413,6 @@ function ChannelTabs({
     </div>
   );
 }
-
 
 
 function useChannelFeed(tab: TabKey, uid?: string) {
@@ -1632,8 +1573,8 @@ function FeedShell() {
   const atTop = index <= 0;
   const atEnd = index >= Math.max(0, items.length - 1);
 
-  const railOffsetLg = "lg:right-[0px]";
-  const railOffsetXl = "xl:right-[0px]";
+  const railOffsetLg = "lg:right-[400px]";
+  const railOffsetXl = "xl:right-[440px]";
 
   const goUpload = () => {
     if (!uid) router.push("/getstarted?next=/studio/upload");
@@ -1670,53 +1611,26 @@ function FeedShell() {
           }}
         >
           {/* Sticky translucent bar */}
-
           <div
-            className="sticky p-0 top-0 z-30 w-full"
-          // style={{ height: TAB_BAR_H }}
+            className="sticky  p-2 top-0 z-30 w-full border-b backdrop-blur-md supports-[backdrop-filter]:backdrop-blur-md"
+            style={{
+              height: TAB_BAR_H,
+              background:
+                "#FFFFFF",
+              borderColor: "rgba(229,231,235,0.4)", // soft hairline
+            }}
           >
-            <div
-              className="h-full w-full p-1 border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
-                borderColor: "rgba(15,23,42,0.18)",
-                boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
-              }}
-            >
-              <ChannelTabs
-                uid={uid}
-                profile={profile}
-                commentsId={commentsId ?? ""}
-                railOffsetLg={railOffsetLg}
-                railOffsetXl={railOffsetXl}
-                active={tab}
-                onChange={changeTab}
-                dataSaverOn={dataSaverOn}
-                userDataSaver={userDataSaver}
-                onToggleDataSaver={toggleUserDataSaver}
-              />
-              <TopLoader active={showTopLoader} color="#FDE68A" />
-            </div>
-          </div>
 
-          {showTopLoader && items.length === 0 && (
-            <div
-              data-snap-item="1"
-              className={[
-                "w-full flex items-center justify-center snap-start transition-[right] duration-200",
-                commentsId ? "lg:mr-0" : "lg:mr-[100px]",
-              ].join(" ")}
-              style={{ height: `100svh`, scrollSnapStop: "always" }}
-            >
-              <SkeletonCard railOpen={!!commentsId} tabOffsetPx={TAB_BAR_H} />
-            </div>
-          )}
+            <ChannelTabs uid={uid} profile={profile} commentsId={commentsId ?? ""} railOffsetLg={railOffsetLg} railOffsetXl={railOffsetXl} active={tab} onChange={changeTab} dataSaverOn={dataSaverOn}              // 👈 NEW
+              userDataSaver={userDataSaver}
+              onToggleDataSaver={toggleUserDataSaver} />
+            <TopLoader active={showTopLoader} color="#233F39" />
+          </div>
+          {loading && <SkeletonCard />}
 
           {!loading && items.length === 0 && (
             <div className="py-10 text-sm text-white/80">No deeds yet.</div>
           )}
-
 
           {items.map((item) => (
             <div

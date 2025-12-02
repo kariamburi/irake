@@ -450,10 +450,10 @@ export default function SearchPageClient() {
 
     return (
         <AppShell>
-            <main className="min-h-screen w-full bg-gray-50">
+            <main className="min-h-screen w-full bg-white">
                 {/* Header */}
                 <header
-                    className="sticky top-0 z-30 border-b bg-gradient-to-br from-white to-gray-50/70 backdrop-blur"
+                    className="sticky w-full top-0 z-30 border-b bg-gradient-to-br from-white to-gray-50/70 backdrop-blur"
                     style={{ borderColor: BRAND.line }}
                 >
                     <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
@@ -542,20 +542,13 @@ export default function SearchPageClient() {
                                 );
                             })}
 
-                            {/* Underline indicator */}
-                            <div
-                                className="pointer-events-none absolute -bottom-0.5 h-0.5 w-7 rounded-full bg-emerald-900 transition-transform duration-200"
-                                style={{
-                                    transform: `translateX(${tabIndex * TAB_WIDTH + (TAB_WIDTH - 28) / 2
-                                        }px)`,
-                                }}
-                            />
+
                         </div>
                     </div>
                 </header>
 
                 {/* Body */}
-                <section className="mx-auto w-full max-w-3xl px-4 pb-10 pt-4">
+                <section className="w-full max-w-3xl px-4 pb-10 pt-4">
                     {showDefault ? (
                         <div className="space-y-6">
                             {/* Intro */}

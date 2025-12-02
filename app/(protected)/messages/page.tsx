@@ -347,7 +347,7 @@ export default function MessagesPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+      <div className="p-1 min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
         {/* Sticky header */}
         <div
           className="sticky top-0 z-20 backdrop-blur border-b"

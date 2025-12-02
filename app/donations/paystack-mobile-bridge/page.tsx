@@ -10,7 +10,7 @@ export default function PaystackMobileBridgePage() {
       fallback={
         <main className="min-h-screen w-full flex items-center justify-center bg-gray-100 px-4">
           <p className="text-sm text-gray-500">
-            Preparing ekariHub mobile bridge…
+            Preparing ekarihub mobile bridge…
           </p>
         </main>
       }

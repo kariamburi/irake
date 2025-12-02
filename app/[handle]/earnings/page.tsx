@@ -731,7 +731,7 @@ export default function EarningsPage() {
   return (
     <AppShell>
       <main
-        className="min-h-screen w-full px-4 py-6"
+        className="min-h-screen bg-white w-full px-4 py-6"
         style={{ backgroundColor: EKARI.sand }}
       >
         <div className="flex w-full flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm backdrop-blur">
