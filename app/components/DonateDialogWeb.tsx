@@ -335,7 +335,7 @@ export function DonateDialogWeb({
                             <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
                                 <span>
                                     About {creatorShare}% goes directly to the creator and{" "}
-                                    {platformShare}% helps run ekariHub.
+                                    {platformShare}% helps run ekarihub.
                                 </span>
                                 <span
                                     className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-500 cursor-help"
@@ -418,7 +418,7 @@ export function DonateDialogWeb({
                                 </>
                             ) : (
                                 <p className="text-[11px] text-gray-600">
-                                    Sign in to donate from your ekariHub wallet.
+                                    Sign in to donate from your ekarihub wallet.
                                 </p>
                             )}
                         </div>
@@ -479,7 +479,7 @@ export function DonateDialogWeb({
                                 <span>
                                     {payMethod === "wallet"
                                         ? "Uplift from wallet"
-                                        : `Continue ${symbol} ${selectedAmount ?? ""}`}
+                                        : `Continue* ${symbol}.${selectedAmount ?? ""}`}
                                 </span>
                             </>
                         )}

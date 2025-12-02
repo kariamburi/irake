@@ -14,7 +14,7 @@ export const EXECUTIVES: Exec[] = [
     {
         slug: "stephen-ndulah",
         name: "Stephen Ndulah Wafullah",
-        title: "Founder & Chief Executive Officer, Ekarihub",
+        title: "Founder & Chief Executive Officer, ekarihub",
         passport: "/executives/ceo_passport.jpg",
         photo: "/executives/ceo.jpg",
         short:
@@ -35,8 +35,8 @@ export const EXECUTIVES: Exec[] = [
     },
     {
         slug: "emily-auma-okech",
-        name: "Emily Auma",
-        title: "Head of Marketing, Ekarihub",
+        name: "Emily Okech",
+        title: "Head of Marketing, ekarihub",
         passport: "/executives/exec-emily_passport.jpeg",
         photo: "/executives/exec-emily.jpeg",
         short:
@@ -50,7 +50,7 @@ export const EXECUTIVES: Exec[] = [
         ],
         links: [
             { label: "Email", href: "mailto:emily@ekarihub.com" },
-            { label: "LinkedIn", href: "https://www.linkedin.com/in/AumaOkech" }
+            { label: "LinkedIn", href: "https://www.linkedin.com/in/emilyokech" }
         ]
     }
 ];
