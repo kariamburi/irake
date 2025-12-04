@@ -66,7 +66,7 @@ const PAGE_SIZE = 20;
 
 /* ---------- API helpers ---------- */
 async function deleteMuxAsset(assetId: string) {
-    const res = await fetch(`/api/mux/delete?assetId=${encodeURIComponent(assetId)}`, {
+    const res = await fetch(`https://us-central1-ekarihub-aed5a.cloudfunctions.net/muxDeleteAsset?assetId=${encodeURIComponent(assetId)}`, {
         method: "DELETE",
     });
     if (!res.ok) throw new Error(`Mux delete failed: ${await res.text()}`);

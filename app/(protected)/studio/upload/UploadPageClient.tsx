@@ -440,7 +440,7 @@ export default function UploadPage() {
     }
 
     // Enforce 90s cap for videos
-    const MAX_VIDEO_SEC = 90; // <— ensure this matches your top-level const
+    const MAX_VIDEO_SEC = 90;
     const isVideo = mediaKind === "video";
     const isImage = mediaKind === "image";
     if (isVideo && durationSec && durationSec > MAX_VIDEO_SEC) {
@@ -478,19 +478,17 @@ export default function UploadPage() {
       if (!resolvedMusicUrl && musicSource === "uploaded" && localSoundFile) {
         const soundPath = `deeds/${uid}/${crypto.randomUUID()}/sound/${localSoundFile.name}`;
         const up = await uploadFileResumable(localSoundFile, soundPath, setProgress);
-        resolvedMusicUrl = up.downloadURL; // http(s) is fine for CF fetch
+        resolvedMusicUrl = up.downloadURL;
       }
     } catch (e) {
       console.error("Audio upload failed", e);
     }
 
-    // decide mixing
     const willServerMix = needsServerMix && (musicTitle || resolvedMusicUrl);
 
     let deedRef: ReturnType<typeof doc> | null = null;
 
     try {
-      // Use existing doc when editing; reserve a new one only when creating
       deedRef = isEditing
         ? doc(db, "deeds", editDeedId!)
         : doc(collection(db, "deeds"));
@@ -517,30 +515,40 @@ export default function UploadPage() {
       // VIDEO: Server-mix path
       // =========================
       if (isVideo && file && durationSec && willServerMix) {
-        // 1) upload raw video to Storage (gs://)
-        const rawUp = await uploadResumable(file, `deeds/${uid}/${deedId}/raw.mp4`, setProgress);
+        const rawUp = await uploadResumable(
+          file,
+          `deeds/${uid}/${deedId}/raw.mp4`,
+          setProgress
+        );
 
-        // 2) thumbnail
+        // thumbnail
         let thumbUrl: string | undefined = undefined;
         if (thumbDataUrl) {
           const tBlob = dataUrlToBlob(thumbDataUrl);
-          const tu = await uploadResumable(tBlob, `deeds/${uid}/${deedId}/thumb.jpg`, setProgress);
+          const tu = await uploadResumable(
+            tBlob,
+            `deeds/${uid}/${deedId}/thumb.jpg`,
+            setProgress
+          );
           thumbUrl = tu.downloadURL;
         } else if (file) {
           try {
             const tDataUrl = await generateThumbAtWeb(file, coverMs ?? 800);
             if (tDataUrl) {
               const tBlob = dataUrlToBlob(tDataUrl);
-              const tu = await uploadResumable(tBlob, `deeds/${uid}/${deedId}/thumb.jpg`, setProgress);
+              const tu = await uploadResumable(
+                tBlob,
+                `deeds/${uid}/${deedId}/thumb.jpg`,
+                setProgress
+              );
               thumbUrl = tu.downloadURL;
             }
           } catch { }
         }
 
-        // 3) Firestore payload to trigger mixing
         const media = [
           pruneUndefined({
-            url: rawUp.gsUrl, // gs:// for Cloud Function
+            url: rawUp.gsUrl,
             width: videoWH.width,
             height: videoWH.height,
             durationSec,
@@ -592,7 +600,7 @@ export default function UploadPage() {
             loop: loopMusic,
           }),
 
-          status: "mixing",
+          status: "mixing",                      // ✅ server-mix trigger
           updatedAt: serverTimestamp(),
         });
 
@@ -603,13 +611,17 @@ export default function UploadPage() {
       // IMAGE: direct photo or photo->video mix
       // =========================
       if (isImage && file) {
-        const imgUp = await uploadResumable(file, `deeds/${uid}/${deedRef!.id}/image.jpg`, setProgress);
+        const imgUp = await uploadResumable(
+          file,
+          `deeds/${uid}/${deedRef!.id}/image.jpg`,
+          setProgress
+        );
         const willPhotoServerMix = needsServerMix && (musicTitle || resolvedMusicUrl);
 
         const media = [
           pruneUndefined({
-            url: willPhotoServerMix ? imgUp.gsUrl : imgUp.downloadURL, // gs:// if we’re going to mix
-            width: videoWH.width, // reusing videoWH for image dims in your UI; adjust if you track imageWH
+            url: willPhotoServerMix ? imgUp.gsUrl : imgUp.downloadURL,
+            width: videoWH.width,
             height: videoWH.height,
             thumbUrl: imgUp.downloadURL,
             kind: "image" as const,
@@ -657,17 +669,16 @@ export default function UploadPage() {
             })
             : pruneUndefined({ needsServerMix: false }),
 
-          status: willPhotoServerMix ? "mixing" : "processing",
+          status: willPhotoServerMix ? "mixing" : "ready",  // ⭐ CHANGED
           updatedAt: serverTimestamp(),
         });
 
         await updateDoc(deedRef!, payload);
 
-        // Early exit for images so we don’t hit the Mux path below
+        // Early exit for images
         if (typeof window !== "undefined") localStorage.removeItem(DRAFT_KEY);
         setProgress(100);
-        const pathKind = "photo";
-        router.push(`/${userProfile?.handle ?? "me"}/${pathKind}/${deedRef!.id}`);
+        router.push(`/${userProfile?.handle ?? "me"}/photo/${deedRef!.id}`);
         return;
       }
 
@@ -675,19 +686,35 @@ export default function UploadPage() {
       // VIDEO: NO MIX — direct Mux
       // =========================
       if (isVideo && file && durationSec && !willServerMix) {
-        const { createMuxDirectUpload, uploadVideoToMux } = await import("@/utils/muxUpload");
+        const { createMuxDirectUpload, uploadVideoToMux } = await import(
+          "@/utils/muxUpload"
+        );
+
         const { uploadUrl, uploadId } = await createMuxDirectUpload({
           passthrough: { deedId, uid },
         });
-        await updateDoc(deedRef, { muxUploadId: uploadId, updatedAt: serverTimestamp() });
+
+        // if Mux fails to return a URL, bail out cleanly
+        if (!uploadUrl || typeof uploadUrl !== "string") {
+          console.error("❌ Mux uploadUrl missing:", uploadUrl);
+          throw new Error("Failed to generate upload link. Please try again.");
+        }
+
+        await updateDoc(deedRef, {
+          muxUploadId: uploadId,
+          updatedAt: serverTimestamp(),
+        });
 
         await uploadVideoToMux({ file, uploadUrl, onProgress: setProgress });
 
-        // thumbnail (optional)
         let thumbUrl: string | undefined;
         if (thumbDataUrl) {
           const tBlob = dataUrlToBlob(thumbDataUrl);
-          const tu = await uploadResumable(tBlob, `deeds/${uid}/${deedId}/thumb.jpg`, setProgress);
+          const tu = await uploadResumable(
+            tBlob,
+            `deeds/${uid}/${deedId}/thumb.jpg`,
+            setProgress
+          );
           thumbUrl = tu.downloadURL;
         }
 
@@ -739,7 +766,9 @@ export default function UploadPage() {
             keepMic,
           }),
 
-          status: "processing",
+          // ⭐ IMPORTANT: do NOT set status here.
+          // Placeholder doc already has "uploading" / "processing".
+          // Mux webhook will flip to "ready".
           updatedAt: serverTimestamp(),
         });
 
@@ -749,11 +778,9 @@ export default function UploadPage() {
       // cleanup + navigate
       if (typeof window !== "undefined") localStorage.removeItem(DRAFT_KEY);
       if (typeof window !== "undefined") {
-        sessionStorage.setItem("pendingDeedId", deedId);
+        sessionStorage.setItem("pendingDeedId", deedRef!.id);
       }
       setProgress(100);
-
-      // const pathKind = isImage ? "photo" : "video";
       router.push(`/${userProfile?.handle}`);
     } catch (e: any) {
       console.error(e);

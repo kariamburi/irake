@@ -78,8 +78,7 @@ export default function OnboardingPage() {
                                 Welcome to ekarihub
                             </h1>
                             <p className="mt-2 text-sm text-emerald-100 leading-relaxed">
-                                Collaborate with farmers, creators and communities. Share
-                                deeds, uplift others, and cultivate new opportunities together.
+                                Collaborate, Cultivate & Innovate — merging technology, community, and sustainability to redefine how agribusiness, eco-creators, and green living communities connect, trade, learn, and thrive.
                             </p>
                         </div>
 
@@ -91,8 +90,7 @@ export default function OnboardingPage() {
                                 <div>
                                     <div className="font-semibold">Share your deeds</div>
                                     <div className="text-emerald-100/80">
-                                        Post, track and celebrate meaningful actions on the land
-                                        and in your community.
+                                        Post, track, and celebrate meaningful actions across farms, markets, and communities
                                     </div>
                                 </div>
                             </div>
@@ -103,8 +101,7 @@ export default function OnboardingPage() {
                                 <div>
                                     <div className="font-semibold">Support and uplift</div>
                                     <div className="text-emerald-100/80">
-                                        Discover causes to support, and build long-term value
-                                        with people you trust.
+                                        Showcase your agribusiness journey, attract backers, and grow sustainable impact with a community that cares.
                                     </div>
                                 </div>
                             </div>
@@ -115,14 +112,14 @@ export default function OnboardingPage() {
                                 <div>
                                     <div className="font-semibold">Stay rooted</div>
                                     <div className="text-emerald-100/80">
-                                        Tailored for agribusinesses, farmers, cooperatives and processors - with your data protected.
+                                        Tailored for farmers, agripreneurs, eco-creators, wildlife enthusiasts and green explorers, while keeping your data safe and private.
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div className="mt-6 text-[12px] text-emerald-100/80">
-                            Join in, explore, and make your impact visible.
+                            Join in, dive deep, and let your impact shine.
                         </div>
                     </div>
 
@@ -143,8 +140,7 @@ export default function OnboardingPage() {
                                 className="text-sm leading-5"
                                 style={{ color: EKARI.subtext }}
                             >
-                                Choose how you&apos;d like to begin. You can create an account,
-                                log in, or just explore the deeds feed first.
+                                Begin your ekarihub experience your way — sign up, log in, or browse the Deeds Feed to get inspired.
                             </p>
 
                             {/* Sign Up */}
@@ -156,7 +152,7 @@ export default function OnboardingPage() {
                                         "linear-gradient(135deg, #C79257, #fbbf77)",
                                 }}
                             >
-                                Create a new account
+                                Craft a new account
                             </button>
 
                             {/* Log In */}
@@ -186,8 +182,7 @@ export default function OnboardingPage() {
                             <span className="font-semibold" style={{ color: EKARI.text }}>
                                 Built for trust:
                             </span>{" "}
-                            Your profile helps people know who they&apos;re supporting -
-                            whether you&apos;re a farmer, a creator, or part of a SACCO.
+                            your profile tells your story and purpose, connecting you with supporters who believe in your mission, wherever you are.
                         </div>
 
                         {/* Legal */}

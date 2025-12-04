@@ -104,14 +104,7 @@ export default function StudioShell({
                     {/* Spacer */}
                     <div className="flex-1" />
 
-                    {/* CTA */}
-                    <Link
-                        href={ctaHref}
-                        className="rounded-lg px-3 py-2 text-xs font-bold text-white"
-                        style={{ backgroundColor: EKARI.gold }}
-                    >
-                        {ctaLabel}
-                    </Link>
+
                 </div>
             </header>
 

@@ -1,4 +1,3 @@
-// app/admin/verification/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -14,6 +13,7 @@ import {
   serverTimestamp,
   QuerySnapshot,
   DocumentData,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -26,7 +26,10 @@ import {
   IoAlertCircleOutline,
   IoDocumentTextOutline,
   IoInformationCircleOutline,
+  IoIdCardOutline,
+  IoCameraOutline,
 } from "react-icons/io5";
+import { deleteObject, ref as sRef, getStorage } from "firebase/storage";
 
 const EKARI = {
   forest: "#233F39",
@@ -39,6 +42,7 @@ const EKARI = {
 };
 
 type VerificationStatus = "none" | "pending" | "approved" | "rejected";
+type VerificationType = "individual" | "business" | "company";
 
 type UserVerificationRow = {
   uid: string;
@@ -46,8 +50,10 @@ type UserVerificationRow = {
   name?: string;
   email?: string;
   phone?: string;
+
   // from verification subobject
   status: VerificationStatus;
+  verificationType?: VerificationType;
   roleLabel?: string;
   notes?: string;
   evidenceUrls?: string[];
@@ -56,7 +62,59 @@ type UserVerificationRow = {
   reviewerId?: string | null;
   rejectionReason?: string | null;
   paystackReference?: string | null;
+
+  // ⭐ KYC images
+  nationalIdFrontUrl?: string | null;
+  nationalIdBackUrl?: string | null;
+  selfieUrl?: string | null;
+
+  // ⭐ Business / Company
+  organizationName?: string | null;
 };
+
+// small helper to detect images vs PDFs/others
+function isImageUrl(url: string | undefined | null) {
+  if (!url) return false;
+  return /\.(jpe?g|png|webp|gif|heic|heif)(\?|#|$)/i.test(url);
+}
+
+function getVerificationTypeLabel(t?: VerificationType) {
+  if (!t || t === "individual") return "Individual";
+  if (t === "business") return "Business";
+  return "Company";
+}
+
+// helper: build UserVerificationRow from a user doc snapshot
+function buildRowFromDoc(docSnap: any): UserVerificationRow {
+  const d = docSnap.data() as any;
+  const v = d.verification || {};
+
+  const row: UserVerificationRow = {
+    uid: docSnap.id,
+    handle: d.handle,
+    name: d.name,
+    email: d.email,
+    phone: d.phone,
+    status: (v.status as VerificationStatus) || "none",
+    verificationType: (v.verificationType as VerificationType) || "individual",
+    roleLabel: v.roleLabel || "",
+    notes: v.notes || "",
+    evidenceUrls: Array.isArray(v.evidenceUrls) ? v.evidenceUrls : [],
+    requestedAt: v.requestedAt,
+    reviewedAt: v.reviewedAt,
+    reviewerId: v.reviewerId ?? null,
+    rejectionReason: v.rejectionReason ?? null,
+    paystackReference: v.paystackReference ?? null,
+    // ⭐ KYC images
+    nationalIdFrontUrl: v.nationalIdFrontUrl ?? null,
+    nationalIdBackUrl: v.nationalIdBackUrl ?? null,
+    selfieUrl: v.selfieUrl ?? null,
+    // ⭐ business/company data
+    organizationName: v.organizationName ?? null,
+  };
+
+  return row;
+}
 
 export default function AdminVerificationPage() {
   const { user } = useAuth();
@@ -73,6 +131,12 @@ export default function AdminVerificationPage() {
   const [busyActionUid, setBusyActionUid] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
+
+  // ⭐ Verified lookup states
+  const [lookupTerm, setLookupTerm] = useState("");
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupRow, setLookupRow] = useState<UserVerificationRow | null>(null);
 
   // ---- Check admin claim ----
   useEffect(() => {
@@ -127,27 +191,7 @@ export default function AdminVerificationPage() {
       (snap: QuerySnapshot<DocumentData>) => {
         const next: UserVerificationRow[] = [];
         snap.forEach((docSnap) => {
-          const d = docSnap.data() as any;
-          const v = d.verification || {};
-
-          const row: UserVerificationRow = {
-            uid: docSnap.id,
-            handle: d.handle,
-            name: d.name,
-            email: d.email,
-            phone: d.phone,
-            status: (v.status as VerificationStatus) || "pending",
-            roleLabel: v.roleLabel || "",
-            notes: v.notes || "",
-            evidenceUrls: Array.isArray(v.evidenceUrls) ? v.evidenceUrls : [],
-            requestedAt: v.requestedAt,
-            reviewedAt: v.reviewedAt,
-            reviewerId: v.reviewerId ?? null,
-            rejectionReason: v.rejectionReason ?? null,
-            paystackReference: v.paystackReference ?? null,
-          };
-
-          next.push(row);
+          next.push(buildRowFromDoc(docSnap));
         });
         setRows(next);
         setLoading(false);
@@ -188,14 +232,35 @@ export default function AdminVerificationPage() {
         r.email || "",
         r.roleLabel || "",
         r.notes || "",
+        r.organizationName || "",
+        getVerificationTypeLabel(r.verificationType),
       ];
       return fields.some((f) => f.toLowerCase().includes(q));
     });
   }, [rows, search]);
 
+  // ⭐ Active row in the detail panel:
+  //    - if we have a lookupRow (verified lookup), show that
+  //    - otherwise show selected pending request
+  const activeRow = lookupRow || selectedRow;
+  const activeIsVerifiedLookup = !!lookupRow;
+
+  const activeStatus = activeRow?.status;
+  const isPendingActive = activeStatus === "pending";
+  const isApprovedActive = activeStatus === "approved";
+
   // ---- Approve ----
   const handleApprove = async (row: UserVerificationRow) => {
     if (!user || !isAdmin) return;
+
+    // optional safety: warn if any KYC image missing
+    if (!row.nationalIdFrontUrl || !row.nationalIdBackUrl || !row.selfieUrl) {
+      const proceed = window.confirm(
+        "Some required identity images (ID front/back or selfie) are missing. Approve anyway?"
+      );
+      if (!proceed) return;
+    }
+
     const label = row.handle || row.name || row.uid;
     const ok = window.confirm(`Approve verification for ${label}?`);
     if (!ok) return;
@@ -208,8 +273,13 @@ export default function AdminVerificationPage() {
         "verification.reviewedAt": serverTimestamp(),
         "verification.reviewerId": user.uid,
         "verification.rejectionReason": null,
+        // NOTE: we do NOT touch verificationType, organizationName, etc. here
       });
       setRejectReason("");
+      // If this row was a lookup row, refresh its local status
+      if (lookupRow && lookupRow.uid === row.uid) {
+        setLookupRow({ ...lookupRow, status: "approved" });
+      }
     } catch (err: any) {
       console.error("Approve failed", err);
       alert(err?.message || "Failed to approve verification.");
@@ -239,11 +309,140 @@ export default function AdminVerificationPage() {
         "verification.rejectionReason": rejectReason.trim(),
       });
       setRejectReason("");
+
+      if (lookupRow && lookupRow.uid === row.uid) {
+        setLookupRow({
+          ...lookupRow,
+          status: "rejected",
+          rejectionReason: rejectReason.trim(),
+        });
+      }
     } catch (err: any) {
       console.error("Reject failed", err);
       alert(err?.message || "Failed to reject verification.");
     } finally {
       setBusyActionUid(null);
+    }
+  };
+
+  // ⭐ Revoke verification (for approved users)
+  const handleRevoke = async (row: UserVerificationRow) => {
+    if (!user || !isAdmin) return;
+    const label = row.handle || row.name || row.uid;
+    const ok = window.confirm(
+      `Revoke verification for ${label}?\n\nThis will remove their verified badge and delete all stored KYC documents.`
+    );
+    if (!ok) return;
+
+    setBusyActionUid(row.uid);
+    try {
+      const ref = doc(db, "users", row.uid);
+
+      // 1) Delete all associated files from Storage (best-effort)
+      const urlsToDelete: (string | null | undefined)[] = [
+        row.nationalIdFrontUrl,
+        row.nationalIdBackUrl,
+        row.selfieUrl,
+        ...(row.evidenceUrls || []),
+      ];
+
+      // Delete in parallel, but ignore individual failures
+      await Promise.all(urlsToDelete.map((u) => deleteFileIfPossible(u)));
+
+      // 2) Clear verification status + URLs in Firestore
+      await updateDoc(ref, {
+        "verification.status": "none",
+        "verification.reviewedAt": serverTimestamp(),
+        "verification.reviewerId": user.uid,
+        "verification.rejectionReason": null,
+        "verification.nationalIdFrontUrl": null,
+        "verification.nationalIdBackUrl": null,
+        "verification.selfieUrl": null,
+        "verification.evidenceUrls": [],
+      });
+
+      // 3) Update local state for active lookup row if needed
+      if (lookupRow && lookupRow.uid === row.uid) {
+        setLookupRow({
+          ...lookupRow,
+          status: "none",
+          nationalIdFrontUrl: null,
+          nationalIdBackUrl: null,
+          selfieUrl: null,
+          evidenceUrls: [],
+        });
+      }
+
+      alert("Verification revoked and documents deleted.");
+    } catch (err: any) {
+      console.error("Revoke failed", err);
+      alert(err?.message || "Failed to revoke verification.");
+    } finally {
+      setBusyActionUid(null);
+    }
+  };
+
+  async function deleteFileIfPossible(url?: string | null) {
+    if (!url) return;
+    try {
+      const storage = getStorage();
+      // ref can accept a gs:// or https download URL
+      const fileRef = sRef(storage, url);
+      await deleteObject(fileRef);
+    } catch (err) {
+      console.warn("Failed to delete storage file:", url, err);
+    }
+  }
+
+  // ⭐ Lookup verified user by handle OR email
+  const handleLookupVerified = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setLookupError(null);
+    setLookupRow(null);
+
+    const term = lookupTerm.trim();
+    if (!term) {
+      setLookupError("Enter a handle or email first.");
+      return;
+    }
+
+    setLookupBusy(true);
+    try {
+      const usersCol = collection(db, "users");
+
+      // 1) exact handle match
+      let snap = await getDocs(query(usersCol, where("handle", "==", term)));
+
+      // 2) if not found, try email match
+      if (snap.empty) {
+        snap = await getDocs(query(usersCol, where("email", "==", term)));
+      }
+
+      if (snap.empty) {
+        setLookupError("No user found with that handle or email.");
+        return;
+      }
+
+      const docSnap = snap.docs[0];
+      const row = buildRowFromDoc(docSnap);
+
+      if (row.status !== "approved") {
+        setLookupError(
+          `User found, but not currently verified (status: ${row.status || "none"}).`
+        );
+        setLookupRow(row); // optional: still show their data
+        return;
+      }
+
+      // We have a verified user 🎉
+      setLookupRow(row);
+      setSelectedUid(null); // unselect any pending row
+      setRejectReason("");
+    } catch (err: any) {
+      console.error("Lookup failed", err);
+      setLookupError(err?.message || "Lookup failed. Try again.");
+    } finally {
+      setLookupBusy(false);
     }
   };
 
@@ -259,8 +458,15 @@ export default function AdminVerificationPage() {
   if (!user || !isAdmin) {
     return (
       <div className="max-w-xl mx-auto p-6 mt-10 rounded-3xl border bg-white/80 shadow-sm text-center">
-        <IoAlertCircleOutline className="mx-auto mb-3" size={30} color="#dc2626" />
-        <h1 className="text-lg font-extrabold mb-1" style={{ color: EKARI.ink }}>
+        <IoAlertCircleOutline
+          className="mx-auto mb-3"
+          size={30}
+          color="#dc2626"
+        />
+        <h1
+          className="text-lg font-extrabold mb-1"
+          style={{ color: EKARI.ink }}
+        >
           Admin access required
         </h1>
         <p className="text-sm mb-4" style={{ color: EKARI.dim }}>
@@ -279,50 +485,105 @@ export default function AdminVerificationPage() {
   return (
     <div className="flex flex-col gap-4 md:gap-6">
       {/* Header */}
-      <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1
-            className="text-lg md:text-xl font-extrabold flex items-center gap-2"
-            style={{ color: EKARI.ink }}
-          >
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
-              <IoShieldCheckmarkOutline className="text-emerald-700" />
-            </span>
-            Profile verification review
-          </h1>
-          <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-            Review documents submitted by members (vets, agronomists, trainers, etc.)
-            and approve or reject their profile verification.
-          </p>
-        </div>
+      <header className="flex flex-col gap-3 md:gap-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1
+              className="text-lg md:text-xl font-extrabold flex items-center gap-2"
+              style={{ color: EKARI.ink }}
+            >
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
+                <IoShieldCheckmarkOutline className="text-emerald-700" />
+              </span>
+              Profile verification review
+            </h1>
+            <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
+              Review identity images and documents submitted by members and
+              approve or reject their verification (Individual, Business or
+              Company). You can also look up a verified member and revoke
+              their verification if needed.
+            </p>
+          </div>
 
-        <div className="mt-2 md:mt-0 flex items-center gap-3">
-          <div className="relative">
-            <IoSearch
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={16}
-            />
-            <input
-              type="text"
-              placeholder="Search by handle, name, email…"
-              className="pl-8 pr-3 py-1.5 rounded-full border text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              style={{ borderColor: EKARI.hair, color: EKARI.ink }}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          {/* Search within pending list */}
+          <div className="mt-2 md:mt-0 flex items-center gap-3">
+            <div className="relative">
+              <IoSearch
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={16}
+              />
+              <input
+                type="text"
+                placeholder="Filter pending by handle, name, email, org…"
+                className="pl-8 pr-3 py-1.5 rounded-full border text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                style={{ borderColor: EKARI.hair, color: EKARI.ink }}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </div>
         </div>
+
+        {/* ⭐ Verified member lookup */}
+        <div className="rounded-3xl border bg-white/90 px-3 py-3 md:px-4 md:py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
+            <span className="font-semibold text-emerald-800">
+              Quick lookup of verified member
+            </span>{" "}
+            – search by @handle or email to view their KYC documents again and
+            revoke verification if necessary.
+          </div>
+          <form
+            onSubmit={handleLookupVerified}
+            className="flex flex-col sm:flex-row gap-2 sm:items-center"
+          >
+            <div className="relative flex-1 min-w-[220px]">
+              <IoSearch
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={16}
+              />
+              <input
+                type="text"
+                placeholder="e.g. @ekari_user or user@example.com"
+                className="pl-8 pr-3 py-1.5 rounded-full border text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full"
+                style={{ borderColor: EKARI.hair, color: EKARI.ink }}
+                value={lookupTerm}
+                onChange={(e) => {
+                  setLookupTerm(e.target.value);
+                  setLookupError(null);
+                  // if clearing search, also clear lookup row
+                  if (!e.target.value.trim()) {
+                    setLookupRow(null);
+                  }
+                }}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={lookupBusy}
+              className="inline-flex items-center justify-center rounded-full px-4 py-1.5 text-xs md:text-sm font-semibold bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-60"
+            >
+              {lookupBusy ? "Searching…" : "Search verified"}
+            </button>
+          </form>
+        </div>
+        {lookupError && (
+          <p className="text-xs text-rose-600 pl-1">{lookupError}</p>
+        )}
       </header>
 
       {/* Main layout: left list, right detail */}
       <div className="grid gap-4 md:grid-cols-[minmax(0,1.8fr)_minmax(0,2.2fr)]">
-        {/* LEFT: list of requests */}
+        {/* LEFT: list of pending requests */}
         <section
           className="rounded-3xl bg-white/80 border shadow-sm p-3 md:p-4 flex flex-col"
           style={{ borderColor: EKARI.hair }}
         >
           <div className="flex items-center justify-between mb-3">
-            <div className="text-xs md:text-sm font-semibold" style={{ color: EKARI.dim }}>
+            <div
+              className="text-xs md:text-sm font-semibold"
+              style={{ color: EKARI.dim }}
+            >
               Pending requests:{" "}
               <span className="font-bold text-emerald-700">
                 {rows.length}
@@ -331,26 +592,36 @@ export default function AdminVerificationPage() {
           </div>
 
           {loading ? (
-            <div className="py-10 text-center text-sm" style={{ color: EKARI.dim }}>
+            <div
+              className="py-10 text-center text-sm"
+              style={{ color: EKARI.dim }}
+            >
               Loading verification requests…
             </div>
           ) : filteredRows.length === 0 ? (
-            <div className="py-10 text-center text-sm" style={{ color: EKARI.dim }}>
+            <div
+              className="py-10 text-center text-sm"
+              style={{ color: EKARI.dim }}
+            >
               No pending verification requests.
             </div>
           ) : (
             <div className="flex flex-col divide-y divide-gray-100 max-h-[540px] overflow-auto">
               {filteredRows.map((r) => {
-                const isSelected = r.uid === selectedUid;
+                const isSelected = !lookupRow && r.uid === selectedUid;
                 const requested = r.requestedAt?.toDate
                   ? r.requestedAt.toDate().toLocaleString()
                   : "";
+                const typeLabel = getVerificationTypeLabel(r.verificationType);
+                const isIndividual =
+                  !r.verificationType || r.verificationType === "individual";
 
                 return (
                   <button
                     key={r.uid}
                     type="button"
                     onClick={() => {
+                      setLookupRow(null); // if we click a pending request, clear lookup
                       setSelectedUid(r.uid);
                       setRejectReason("");
                     }}
@@ -372,14 +643,27 @@ export default function AdminVerificationPage() {
                             {r.name}
                           </div>
                         )}
+                        {r.organizationName && !isIndividual && (
+                          <div className="text-[11px] text-emerald-800 truncate">
+                            Org: {r.organizationName}
+                          </div>
+                        )}
                       </div>
-                      <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800"
-                        title="Verification status"
-                      >
-                        <IoTimeOutline size={12} />
-                        Pending
-                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-50 text-slate-700 border"
+                          style={{ borderColor: EKARI.hair }}
+                        >
+                          {typeLabel}
+                        </span>
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800"
+                          title="Verification status"
+                        >
+                          <IoTimeOutline size={12} />
+                          Pending
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -408,16 +692,17 @@ export default function AdminVerificationPage() {
           )}
         </section>
 
-        {/* RIGHT: detail of selected request */}
+        {/* RIGHT: detail of selected request OR looked-up verified member */}
         <section
           className="rounded-3xl bg-white/80 border shadow-sm p-3 md:p-4 flex flex-col"
           style={{ borderColor: EKARI.hair }}
         >
-          {!selectedRow ? (
+          {!activeRow ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center text-sm gap-2">
               <IoShieldCheckmarkOutline className="text-gray-300" size={32} />
               <p style={{ color: EKARI.dim }}>
-                Select a request on the left to review documents and approve or reject.
+                Select a pending request on the left, or search for a verified
+                member above to view their documents.
               </p>
             </div>
           ) : (
@@ -425,80 +710,288 @@ export default function AdminVerificationPage() {
               {/* Header info */}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h2
                       className="text-sm md:text-base font-extrabold truncate"
                       style={{ color: EKARI.ink }}
                     >
-                      {selectedRow.handle || selectedRow.name || selectedRow.uid}
+                      {activeRow.handle ||
+                        activeRow.name ||
+                        activeRow.uid}
                     </h2>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800">
-                      <IoTimeOutline size={12} />
-                      Pending review
-                    </span>
+
+                    {/* Badge depending on status + source */}
+                    {isPendingActive && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800">
+                        <IoTimeOutline size={12} />
+                        Pending review
+                      </span>
+                    )}
+                    {isApprovedActive && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800">
+                        <IoShieldCheckmarkOutline size={12} />
+                        Verified member
+                      </span>
+                    )}
+                    {!isPendingActive && !isApprovedActive && activeStatus && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-50 text-slate-700">
+                        Status: {activeStatus}
+                      </span>
+                    )}
+
+                    {activeIsVerifiedLookup && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-indigo-50 text-indigo-700">
+                        Lookup result
+                      </span>
+                    )}
                   </div>
-                  {selectedRow.email && (
+                  {activeRow.email && (
                     <div className="text-[11px] text-gray-500 truncate">
-                      {selectedRow.email}
+                      {activeRow.email}
                     </div>
                   )}
-                  {selectedRow.roleLabel && (
-                    <div className="mt-1 text-[12px] font-semibold text-emerald-800">
-                      Role: {selectedRow.roleLabel}
-                    </div>
-                  )}
+
+                  {/* Type + organization */}
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 border"
+                      style={{ borderColor: EKARI.hair, color: EKARI.ink }}
+                    >
+                      {getVerificationTypeLabel(activeRow.verificationType)}
+                    </span>
+                    {activeRow.organizationName &&
+                      activeRow.verificationType !== "individual" && (
+                        <span className="text-[11px] font-semibold text-emerald-800">
+                          {activeRow.organizationName}
+                        </span>
+                      )}
+                    {activeRow.roleLabel && (
+                      <span className="text-[11px] font-semibold text-emerald-800">
+                        Role: {activeRow.roleLabel}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {selectedRow.paystackReference && (
+                {activeRow.paystackReference && (
                   <div className="flex flex-col items-end gap-1 text-[11px] text-slate-600">
                     <span className="font-semibold flex items-center gap-1">
                       <IoInformationCircleOutline size={12} />
                       Paystack ref
                     </span>
                     <span className="font-mono break-all">
-                      {selectedRow.paystackReference}
+                      {activeRow.paystackReference}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Documents */}
+              {/* ⭐ Identity images: ID front, ID back, selfie */}
               <div className="mb-4">
                 <h3
                   className="text-xs font-bold mb-2 flex items-center gap-1"
                   style={{ color: EKARI.ink }}
                 >
-                  <IoDocumentTextOutline className="text-gray-500" size={14} />
-                  Submitted documents
+                  <IoIdCardOutline className="text-gray-500" size={14} />
+                  Identity images (required)
                 </h3>
 
-                {selectedRow.evidenceUrls && selectedRow.evidenceUrls.length > 0 ? (
-                  <ul className="space-y-1.5 max-h-40 overflow-auto pr-1">
-                    {selectedRow.evidenceUrls.map((url, idx) => (
-                      <li key={idx}>
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:underline break-all"
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* ID front */}
+                  <div className="rounded-xl border bg-slate-50 p-2 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-slate-700">
+                        ID – front
+                      </span>
+                      {!activeRow.nationalIdFrontUrl && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-rose-700">
+                          <IoAlertCircleOutline size={11} />
+                          Missing
+                        </span>
+                      )}
+                    </div>
+                    {activeRow.nationalIdFrontUrl ? (
+                      <a
+                        href={activeRow.nationalIdFrontUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block overflow-hidden rounded-lg border bg-white hover:opacity-90"
+                        style={{ borderColor: EKARI.hair }}
+                      >
+                        <img
+                          src={activeRow.nationalIdFrontUrl}
+                          alt="National ID front"
+                          className="w-full h-32 object-cover"
+                        />
+                      </a>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-[11px] text-slate-400 border border-dashed rounded-lg py-6">
+                        No image
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ID back */}
+                  <div className="rounded-xl border bg-slate-50 p-2 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-slate-700">
+                        ID – back
+                      </span>
+                      {!activeRow.nationalIdBackUrl && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-rose-700">
+                          <IoAlertCircleOutline size={11} />
+                          Missing
+                        </span>
+                      )}
+                    </div>
+                    {activeRow.nationalIdBackUrl ? (
+                      <a
+                        href={activeRow.nationalIdBackUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block overflow-hidden rounded-lg border bg-white hover:opacity-90"
+                        style={{ borderColor: EKARI.hair }}
+                      >
+                        <img
+                          src={activeRow.nationalIdBackUrl}
+                          alt="National ID back"
+                          className="w-full h-32 object-cover"
+                        />
+                      </a>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-[11px] text-slate-400 border border-dashed rounded-lg py-6">
+                        No image
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selfie */}
+                  <div className="rounded-xl border bg-slate-50 p-2 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
+                        <IoCameraOutline size={13} />
+                        Selfie
+                      </span>
+                      {!activeRow.selfieUrl && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-rose-700">
+                          <IoAlertCircleOutline size={11} />
+                          Missing
+                        </span>
+                      )}
+                    </div>
+                    {activeRow.selfieUrl ? (
+                      <a
+                        href={activeRow.selfieUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center py-3"
+                      >
+                        <div className="h-24 w-24 rounded-full overflow-hidden border-2 border-emerald-500 shadow-sm">
+                          <img
+                            src={activeRow.selfieUrl}
+                            alt="Selfie"
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      </a>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-[11px] text-slate-400 border border-dashed rounded-lg py-6">
+                        No image
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Documents (certificates & licences) */}
+              <div className="mb-4">
+                <h3
+                  className="text-xs font-bold mb-2 flex items-center gap-1"
+                  style={{ color: EKARI.ink }}
+                >
+                  <IoDocumentTextOutline
+                    className="text-gray-500"
+                    size={14}
+                  />
+                  Submitted documents (certificates & licences)
+                </h3>
+
+                {activeRow.evidenceUrls &&
+                  activeRow.evidenceUrls.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                    {activeRow.evidenceUrls.map((url, idx) => {
+                      const isImg = isImageUrl(url);
+                      if (isImg) {
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-3 rounded-xl border bg-slate-50 p-2"
+                            style={{ borderColor: EKARI.hair }}
+                          >
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block h-14 w-20 rounded-lg overflow-hidden border bg-white hover:opacity-90"
+                              style={{ borderColor: EKARI.hair }}
+                            >
+                              <img
+                                src={url}
+                                alt={`Document image ${idx + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                            </a>
+                            <div className="flex-1">
+                              <div className="text-[11px] font-semibold text-slate-700">
+                                Image document {idx + 1}
+                              </div>
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-emerald-700 underline break-all"
+                              >
+                                Open full image
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // Non-image: PDF or other type
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 rounded-xl border bg-slate-50 px-2 py-2"
+                          style={{ borderColor: EKARI.hair }}
                         >
-                          <span className="inline-block h-4 w-4 rounded bg-emerald-50 grid place-items-center">
-                            <IoDocumentTextOutline size={10} />
+                          <span className="inline-block h-6 w-6 rounded bg-emerald-50 grid place-items-center">
+                            <IoDocumentTextOutline
+                              size={12}
+                              className="text-emerald-700"
+                            />
                           </span>
-                          <span>Document {idx + 1}</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-emerald-700 underline break-all"
+                          >
+                            Document {idx + 1}
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <p className="text-[11px] text-gray-500">
-                    No documents uploaded for this request.
+                    No extra documents uploaded for this request.
                   </p>
                 )}
               </div>
 
               {/* Notes */}
-              {selectedRow.notes && (
+              {activeRow.notes && (
                 <div className="mb-4">
                   <h3
                     className="text-xs font-bold mb-1"
@@ -507,66 +1000,95 @@ export default function AdminVerificationPage() {
                     Member notes
                   </h3>
                   <p className="text-[12px] text-gray-700 whitespace-pre-wrap">
-                    {selectedRow.notes}
+                    {activeRow.notes}
                   </p>
                 </div>
               )}
 
-              {/* Reject reason input */}
-              <div className="mb-4">
-                <h3
-                  className="text-xs font-bold mb-1 flex items-center gap-1"
-                  style={{ color: EKARI.ink }}
-                >
-                  <IoCloseCircleOutline className="text-rose-500" size={14} />
-                  Rejection reason (optional, but required when rejecting)
-                </h3>
-                <textarea
-                  className="w-full rounded-xl border px-3 py-2 text-[12px] resize-none focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
-                  rows={3}
-                  style={{ borderColor: EKARI.hair, color: EKARI.ink }}
-                  placeholder="Short explanation that will be visible to the member, e.g. 'Certificate expired', 'Name mismatch on license', etc."
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                />
-              </div>
+              {/* Reject reason input – only relevant when we can reject (pending) */}
+              {isPendingActive && (
+                <div className="mb-4">
+                  <h3
+                    className="text-xs font-bold mb-1 flex items-center gap-1"
+                    style={{ color: EKARI.ink }}
+                  >
+                    <IoCloseCircleOutline
+                      className="text-rose-500"
+                      size={14}
+                    />
+                    Rejection reason (optional, but required when rejecting)
+                  </h3>
+                  <textarea
+                    className="w-full rounded-xl border px-3 py-2 text-[12px] resize-none focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                    rows={3}
+                    style={{ borderColor: EKARI.hair, color: EKARI.ink }}
+                    placeholder="Short explanation that will be visible to the member, e.g. 'ID photo not clear', 'Selfie missing', 'Certificate expired', etc."
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                  />
+                </div>
+              )}
 
               {/* Action buttons */}
               <div
                 className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t pt-3"
                 style={{ borderColor: EKARI.hair }}
               >
-                <button
-                  type="button"
-                  onClick={() => selectedRow && handleReject(selectedRow)}
-                  disabled={busyActionUid === selectedRow.uid}
-                  className="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-[12px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-60"
-                >
-                  {busyActionUid === selectedRow.uid ? (
-                    "Working…"
-                  ) : (
-                    <>
-                      <IoCloseCircleOutline size={14} />
-                      Reject
-                    </>
-                  )}
-                </button>
+                {/* Pending: Reject + Approve */}
+                {isPendingActive && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => activeRow && handleReject(activeRow)}
+                      disabled={busyActionUid === activeRow.uid}
+                      className="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-[12px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-60"
+                    >
+                      {busyActionUid === activeRow.uid ? (
+                        "Working…"
+                      ) : (
+                        <>
+                          <IoCloseCircleOutline size={14} />
+                          Reject
+                        </>
+                      )}
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => selectedRow && handleApprove(selectedRow)}
-                  disabled={busyActionUid === selectedRow.uid}
-                  className="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-[12px] font-semibold bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-60"
-                >
-                  {busyActionUid === selectedRow.uid ? (
-                    "Working…"
-                  ) : (
-                    <>
-                      <IoCheckmarkCircleOutline size={14} />
-                      Approve & mark verified
-                    </>
-                  )}
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => activeRow && handleApprove(activeRow)}
+                      disabled={busyActionUid === activeRow.uid}
+                      className="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-[12px] font-semibold bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-60"
+                    >
+                      {busyActionUid === activeRow.uid ? (
+                        "Working…"
+                      ) : (
+                        <>
+                          <IoCheckmarkCircleOutline size={14} />
+                          Approve & mark verified
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {/* Approved: Revoke button */}
+                {isApprovedActive && (
+                  <button
+                    type="button"
+                    onClick={() => activeRow && handleRevoke(activeRow)}
+                    disabled={busyActionUid === activeRow.uid}
+                    className="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-[12px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-60"
+                  >
+                    {busyActionUid === activeRow.uid ? (
+                      "Working…"
+                    ) : (
+                      <>
+                        <IoCloseCircleOutline size={14} />
+                        Revoke verification
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </>
           )}

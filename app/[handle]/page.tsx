@@ -48,6 +48,7 @@ import {
   IoClose,
   IoPencilOutline,
   IoShieldCheckmarkOutline,
+  IoStarOutline,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -55,6 +56,7 @@ import DotsLoader from "../components/DotsLoader";
 import { SmartImage } from "../components/SmartImage";
 import SmartAvatar from "../components/SmartAvatar";
 import { deleteObject, getStorage, listAll, ref as sRef } from "firebase/storage";
+import SellerReviewsSection from "../components/SellerReviewsSection";
 
 const EKARI = {
   forest: "#233F39",
@@ -68,6 +70,8 @@ const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
 const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
 type VerificationStatus = "none" | "pending" | "approved" | "rejected";
+// 👇 add this
+type VerificationType = "individual" | "business" | "company";
 type Profile = {
   id: string;
   handle?: string;
@@ -83,6 +87,12 @@ type Profile = {
   // 👇 NEW
   verificationStatus?: VerificationStatus;
   verificationRoleLabel?: string;
+  // ⭐ NEW
+  verificationType?: VerificationType;
+  verificationOrganizationName?: string;
+  // ⭐ optional seller review stats
+  sellerReviewAvg?: number;
+  sellerReviewCount?: number;
 };
 
 type MarketType =
@@ -115,6 +125,7 @@ type Product = {
   status?: "active" | "sold" | "reserved" | "hidden";
   sold?: boolean;
   currency?: CurrencyCode;   // 👈 NEW
+
 };
 
 type DeedStatus = "ready" | "processing" | "mixing" | "uploading" | "failed" | "deleted";
@@ -392,8 +403,25 @@ function useProfileByUid(uid?: string) {
               d.verification?.primaryRole ||
               d.primaryRoleLabel ||
               undefined,
+            // ⭐ NEW: type + org name
+            verificationType:
+              (d.verification?.verificationType as VerificationType) ??
+              "individual",
+            verificationOrganizationName:
+              d.verification?.organizationName || undefined,
+
+            // ⭐ NEW: seller review stats (optional)
+            sellerReviewAvg:
+              typeof d.sellerReviewStats?.avgRating === "number"
+                ? d.sellerReviewStats.avgRating
+                : undefined,
+            sellerReviewCount:
+              typeof d.sellerReviewStats?.reviewsCount === "number"
+                ? d.sellerReviewStats.reviewsCount
+                : undefined,
           }
           : null
+
       );
       setLoading(false);
     });
@@ -574,7 +602,7 @@ function usePartnerStats(ownerUid?: string, viewerUid?: string) {
 }
 
 /* ---------- header (with tabs) ---------- */
-type TabKey = "deeds" | "listings" | "events" | "discussions";
+type TabKey = "deeds" | "listings" | "events" | "discussions" | "reviews";
 
 function Header({
   profile,
@@ -590,6 +618,7 @@ function Header({
   mutualPartners,
   viewerUid,
   showAdminBadge,
+  reviewsSummary,
 }: {
   profile: Profile;
   isOwner: boolean;
@@ -604,19 +633,59 @@ function Header({
   mutualPartners: number;
   viewerUid?: string | null;
   showAdminBadge?: boolean;
+  reviewsSummary?: { rating: number; count: number };
 }) {
   const followers = profile?.followersCount ?? 0;
   const following = profile?.followingCount ?? 0;
   const router = useRouter();
+
   const handleSlug = React.useMemo(
     () => (profile.handle || "").replace(/^@/, ""),
     [profile.handle]
   );
+
   const verificationStatus: VerificationStatus =
     (profile.verificationStatus as VerificationStatus) || "none";
   const verificationRoleLabel = profile.verificationRoleLabel;
 
-  const openConnections = (tabKey: "following" | "followers" | "partners" | "mutual") => {
+  const verificationType: VerificationType =
+    (profile.verificationType as VerificationType) || "individual";
+  const verificationOrgName = profile.verificationOrganizationName;
+
+  // ⭐ Compute the final badge text: "Verified Business • Greenfields Vet Clinic"
+  const verificationBadgeText = React.useMemo(() => {
+    if (verificationStatus !== "approved") return null;
+
+    const base =
+      verificationType === "business"
+        ? "Verified Business"
+        : verificationType === "company"
+          ? "Verified Company"
+          : "Verified";
+
+    const detail =
+      verificationType === "individual"
+        ? verificationRoleLabel
+        : verificationOrgName || verificationRoleLabel;
+
+    return detail ? `${base} • ${detail}` : base;
+  }, [
+    verificationStatus,
+    verificationType,
+    verificationRoleLabel,
+    verificationOrgName,
+  ]);
+
+
+  const reviewsText =
+    reviewsSummary && reviewsSummary.count > 0
+      ? `${reviewsSummary.rating.toFixed(1)} (${reviewsSummary.count} review${reviewsSummary.count === 1 ? "" : "s"
+      })`
+      : "Reviews";
+
+  const openConnections = (
+    tabKey: "following" | "followers" | "partners" | "mutual"
+  ) => {
     if (!handleSlug) return;
     router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=${tabKey}`);
   };
@@ -642,7 +711,11 @@ function Header({
             : "border-transparent text-slate-500 hover:text-slate-800"
         )}
       >
-        {icon && <span className={active ? "text-slate-900" : "text-slate-500"}>{icon}</span>}
+        {icon && (
+          <span className={active ? "text-slate-900" : "text-slate-500"}>
+            {icon}
+          </span>
+        )}
         <span>{label}</span>
       </button>
     );
@@ -672,15 +745,15 @@ function Header({
   };
 
   return (
-    <header className="px-4 md:px-8 pt-6 pb-4">
-      {/* TOP: avatar + name + actions */}
-      <div className="flex items-center justify-centereweeeeeeye8uye7hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhyeyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuiiiio]ow3,eeweebg-blacko-0o/wssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssswwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww22333XDX flex-col gap-4 md:flex-row md:items-start md:gap-6">
-        {/* avatar */}
+    <header className="px-4 md:px-8 pt-6 pb-5">
+      {/* TOP: avatar + right column */}
+      <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-6">
+        {/* avatar with ekari ring */}
         <div className="shrink-0">
-          <div className="p-1 rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39] shadow-sm">
-            <div className="p-1 rounded-full bg-white">
+          <div className="p-[3px] rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39] shadow-sm">
+            <div className="rounded-full bg-white p-[3px]">
               <div
-                className="h-26 w-26 relative rounded-full overflow-hidden"
+                className="relative rounded-full overflow-hidden"
                 style={{ height: 104, width: 104 }}
               >
                 <SmartAvatar
@@ -692,29 +765,70 @@ function Header({
               </div>
             </div>
           </div>
-
-
-
-
         </div>
 
         {/* right side */}
-        <div className="min-w-0 lg:mt-5 flex-1 space-y-2">
-          {/* first row: name + badges + actions */}
-          <div className="flex items-center justify-center flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            {/* name + admin badge */}
-            <div className="flex flex-wrap items-center gap-2">
-              <h1
-                className="truncate text-xl md:text-2xl font-black"
-                style={{ color: EKARI.text }}
-              >
-                {profile.handle ? profile.handle : "Profile"}
-              </h1>
+        <div className="min-w-0 flex-1 lg:mt-3 space-y-3">
+          {/* row 1: name/handle + badges + actions (split into two columns) */}
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            {/* left: handle, name, badges */}
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1
+                  className="truncate text-xl md:text-2xl font-black"
+                  style={{ color: EKARI.text }}
+                >
+                  {profile.handle || "Profile"}
+                </h1>
+              </div>
 
+              {profile.name && (
+                <div className="text-sm font-semibold text-slate-600 truncate">
+                  {profile.name}
+                </div>
+              )}
+              {(verificationType === "business" || verificationType === "company") &&
+                verificationOrgName && (
+                  <div className="text-xs font-semibold text-gray-600 truncate">
+                    {verificationOrgName}
+                  </div>
+                )}
+              {/* badges row */}
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+
+
+                {/* verified badge */}
+                {/* verified badge – shows type + org */}
+                {verificationBadgeText && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-extrabold text-white shadow-sm">
+                    <IoShieldCheckmarkOutline size={12} />
+                    <span>{verificationBadgeText}</span>
+                  </span>
+                )}
+
+
+                {/* ⭐ Reviews pill */}
+                <button
+                  type="button"
+                  onClick={() => onTabChange("reviews")}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-extrabold bg-amber-50/60 hover:bg-amber-100"
+                  style={{
+                    borderColor: EKARI.primary,
+                    color: EKARI.primary,
+                  }}
+                >
+                  <IoStarOutline size={13} />
+                  <span>{reviewsText}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* right: actions (stacked nicely on mobile) */}
+            <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
               {/* admin badge */}
-              {profile.isAdmin && (
-                showAdminBadge ? (
-                  // owner viewing own admin profile → dark "Admin" chip linking to dashboard
+
+              {profile.isAdmin &&
+                (showAdminBadge ? (
                   <Link
                     href="/admin/overview"
                     className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-extrabold text-white shadow-sm hover:bg-slate-800"
@@ -723,112 +837,104 @@ function Header({
                     <span>Admin</span>
                   </Link>
                 ) : (
-                  // public admin chip
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-extrabold text-emerald-800">
                     <IoShieldCheckmarkOutline size={12} />
                     <span>ekari Admin</span>
                   </span>
-                )
-              )}
-
-              {/* verified badge */}
-              {verificationStatus === "approved" && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-extrabold text-white shadow-sm">
-                  <IoShieldCheckmarkOutline size={12} />
-                  <span>
-                    Verified
-                    {verificationRoleLabel ? ` • ${verificationRoleLabel}` : ""}
-                  </span>
-                </span>
-              )}
-            </div>
-            {/* actions: owner vs visitor */}
-            {isOwner ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={`/${handleSlug}/edit`}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold shadow-sm-sm hover:bg-slate-50"
-                  style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                >
-                  <IoPencilOutline size={15} />
-                  <span>Edit profile</span>
-                </Link>
-
-                <Link
-                  href={`/${handleSlug}/earnings`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-transparent px-3.5 py-1.5 text-xs md:text-sm font-semibold shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: EKARI.forest, color: EKARI.bg }}
-                >
-                  💰
-                  <span>Earnings</span>
-                </Link>
-                {/* 👇 NEW: verification CTA for owner */}
-                {verificationStatus === "none" || verificationStatus === "rejected" ? (
+                ))
+              }
+              {isOwner ? (
+                <>
                   <Link
-                    href="/account/verification" // TODO: point to your actual verification flow route
-                    className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold shadow-sm hover:bg-emerald-50"
-                    style={{ borderColor: EKARI.primary, color: EKARI.primary }}
+                    href={`/${handleSlug}/edit`}
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold hover:bg-slate-50"
+                    style={{ borderColor: EKARI.hair, color: EKARI.text }}
                   >
-                    <IoShieldCheckmarkOutline size={15} />
-                    <span>
-                      {verificationStatus === "rejected"
-                        ? "Re-request verification"
-                        : "Request verification"}
-                    </span>
+                    <IoPencilOutline size={15} />
+                    <span>Edit profile</span>
                   </Link>
-                ) : null}
 
-                {verificationStatus === "pending" && (
+                  <Link
+                    href={`/${handleSlug}/earnings`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-transparent px-3.5 py-1.5 text-xs md:text-sm font-semibold shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: EKARI.forest, color: EKARI.bg }}
+                  >
+                    💰
+                    <span>Earnings</span>
+                  </Link>
+
+                  {/* verification CTA for owner */}
+                  {verificationStatus === "none" ||
+                    verificationStatus === "rejected" ? (
+                    <Link
+                      href="/account/verification"
+                      className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold shadow-sm hover:bg-emerald-50"
+                      style={{
+                        borderColor: EKARI.primary,
+                        color: EKARI.primary,
+                      }}
+                    >
+                      <IoShieldCheckmarkOutline size={15} />
+                      <span>
+                        {verificationStatus === "rejected"
+                          ? "Re-request verification"
+                          : "Request verification"}
+                      </span>
+                    </Link>
+                  ) : null}
+
+                  {verificationStatus === "pending" && (
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3.5 py-1.5 text-xs md:text-sm font-semibold text-amber-800 border border-amber-200"
+                    >
+                      <IoTimeOutline size={15} />
+                      <span>Verification pending review</span>
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* follow button */}
+                  {!hasUser ? (
+                    <button
+                      onClick={() => onRequireAuth?.()}
+                      className="inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs md:text-sm font-semibold text-white shadow-sm hover:shadow-md"
+                      style={{ backgroundColor: EKARI.primary }}
+                    >
+                      Follow
+                    </button>
+                  ) : followState.isFollowing === null ? null : (
+                    <button
+                      onClick={followState.toggle}
+                      className={cn(
+                        "inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs md:text-sm font-semibold transition",
+                        followState.isFollowing
+                          ? "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                          : "bg-emerald-700 text-white shadow-sm hover:shadow-md"
+                      )}
+                    >
+                      {followState.isFollowing ? "Following" : "Follow"}
+                    </button>
+                  )}
+
+                  {/* message */}
                   <button
                     type="button"
-                    disabled
-                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3.5 py-1.5 text-xs md:text-sm font-semibold text-amber-800 border border-amber-200"
+                    onClick={handleMessageClick}
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold hover:bg-slate-50"
+                    style={{ borderColor: EKARI.hair, color: EKARI.text }}
                   >
-                    <IoTimeOutline size={15} />
-                    <span>Verification pending review</span>
+                    <IoChatbubblesOutline size={16} />
+                    <span>Message</span>
                   </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                {/* follow */}
-                {!hasUser ? (
-                  <button
-                    onClick={() => onRequireAuth?.()}
-                    className="inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs md:text-sm font-semibold text-white shadow-sm hover:shadow-md"
-                    style={{ backgroundColor: EKARI.primary }}
-                  >
-                    Follow
-                  </button>
-                ) : followState.isFollowing === null ? null : (
-                  <button
-                    onClick={followState.toggle}
-                    className={cn(
-                      "inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs md:text-sm font-semibold transition",
-                      followState.isFollowing
-                        ? "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
-                        : "bg-emerald-700 text-white shadow-sm hover:shadow-md"
-                    )}
-                  >
-                    {followState.isFollowing ? "Following" : "Follow"}
-                  </button>
-                )}
-
-                {/* message */}
-                <button
-                  type="button"
-                  onClick={handleMessageClick}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs md:text-sm font-semibold hover:bg-slate-50"
-                  style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                >
-                  <IoChatbubblesOutline size={16} />
-                  <span>Message</span>
-                </button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
 
-          {/* stats row */}
+          {/* row 2: stats */}
           <div className="mt-1 flex flex-wrap items-center gap-5 text-[13px]">
             <button
               type="button"
@@ -856,23 +962,20 @@ function Header({
               onClick={() => openConnections("mutual")}
               className="inline-flex items-baseline gap-1 hover:opacity-80"
             >
-              <Stat label="Mutual Partners" value={nfmt(mutualPartners || 0)} />
+              <Stat
+                label="Mutual Partners"
+                value={nfmt(mutualPartners || 0)}
+              />
             </button>
           </div>
 
-          {/* name + bio */}
-          {profile.name && (
-            <div className="mt-1 text-sm font-semibold" style={{ color: EKARI.text }}>
-              {profile.name}
-            </div>
-          )}
+          {/* row 3: bio + contacts */}
           {profile.bio && (
             <p className="mt-0.5 text-sm leading-5 text-slate-800">
               {profile.bio}
             </p>
           )}
 
-          {/* contacts */}
           {canSeeContacts && (
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
               {profile.phone && (
@@ -929,18 +1032,32 @@ function Header({
       <div className="mt-6 border-t" style={{ borderColor: EKARI.hair }}>
         <nav className="flex flex-wrap gap-6 px-1 pt-3 text-sm font-bold">
           <TabBtn k="deeds" label="Deeds" icon={<IoFilmOutline size={16} />} />
-          <TabBtn k="listings" label="Listings" icon={<IoListOutline size={16} />} />
-          <TabBtn k="events" label="Events" icon={<IoCalendarOutline size={16} />} />
+          <TabBtn
+            k="listings"
+            label="Listings"
+            icon={<IoListOutline size={16} />}
+          />
+          <TabBtn
+            k="events"
+            label="Events"
+            icon={<IoCalendarOutline size={16} />}
+          />
           <TabBtn
             k="discussions"
             label="Discussions"
             icon={<IoChatbubblesOutline size={16} />}
+          />
+          <TabBtn
+            k="reviews"
+            label="Reviews"
+            icon={<IoStarOutline size={16} />}
           />
         </nav>
       </div>
     </header>
   );
 }
+
 
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -1898,7 +2015,15 @@ export default function HandleProfilePage() {
   const mutual = useMutualFollow(user?.uid, uid ?? undefined);
   const canSeeContacts = isOwner || (!!user && mutual);
   const { partners, mutualPartners } = usePartnerStats(uid ?? undefined, user?.uid);
-
+  const reviewsSummary =
+    profile &&
+      typeof profile.sellerReviewAvg === "number" &&
+      (profile.sellerReviewCount ?? 0) > 0
+      ? {
+        rating: profile.sellerReviewAvg,
+        count: profile.sellerReviewCount as number,
+      }
+      : undefined;
   const requireAuth = React.useCallback(() => {
     if (user) return true;
     try {
@@ -1940,6 +2065,7 @@ export default function HandleProfilePage() {
             mutualPartners={mutualPartners}
             viewerUid={user?.uid || null}   // 👈 pass viewer uid
             showAdminBadge={viewerIsAdmin && isOwner}
+            reviewsSummary={reviewsSummary}   // ⭐ NEW
           />
         ) : (
           <div
@@ -1965,9 +2091,10 @@ export default function HandleProfilePage() {
             <VideosGrid items={items} handle={handleWithAt} isOwner={isOwner} />
           ))}
 
-        {tab === "listings" && uid && (
+        {tab === "listings" && uid && (<>
+
           <OwnerListingsGrid uid={uid} isOwner={isOwner} />
-        )}
+        </>)}
 
         {tab === "events" && uid && (
           <ProfileEvents uid={uid} isOwner={isOwner} />
@@ -1975,6 +2102,11 @@ export default function HandleProfilePage() {
 
         {tab === "discussions" && uid && (
           <ProfileDiscussions uid={uid} isOwner={isOwner} />
+        )}
+        {tab === "reviews" && uid && (
+          <div className="px-3 md:px-6 pb-12">
+            <SellerReviewsSection sellerId={profile?.id ?? ""} />
+          </div>
         )}
       </div>
     </AppShell>

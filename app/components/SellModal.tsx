@@ -51,6 +51,7 @@ const EKARI = {
 
 const DIRECT_NAME_TYPES: MarketType[] = ["product", "animal", "lease", "tree", "arableLand"];
 const ARABLE_LAND_TYPE = "arableLand";
+type VerificationStatus = "none" | "pending" | "approved" | "rejected";
 /* ===== Types for Firestore catalog ===== */
 type CurrencyCode = "KES" | "USD";
 
@@ -620,18 +621,26 @@ function LandPolygonPickerModal({
     const mapDivRef = React.useRef<HTMLDivElement | null>(null);
     const mapRef = React.useRef<google.maps.Map | null>(null);
     const polygonRef = React.useRef<google.maps.Polygon | null>(null);
-    const polylineRef = React.useRef<google.maps.Polyline | null>(null); // NEW
-    const vertexMarkersRef = React.useRef<google.maps.Marker[]>([]);     // NEW
+    const polylineRef = React.useRef<google.maps.Polyline | null>(null);
+
+    const vertexMarkersRef = React.useRef<google.maps.Marker[]>([]);
+    const centerMarkerRef = React.useRef<google.maps.Marker | null>(null); // 👈 center marker
     const searchInputRef = React.useRef<HTMLInputElement | null>(null);
 
     const [points, setPoints] = React.useState<{ lat: number; lng: number }[]>(
         initialPolygon || []
     );
-    const [mapType, setMapType] = React.useState<"roadmap" | "hybrid">("roadmap");
+    const [mapType, setMapType] = React.useState<"roadmap" | "hybrid">("hybrid");
 
-    // draw mode
-    const [drawEnabled, setDrawEnabled] = React.useState(true);
-    const drawEnabledRef = React.useRef(true);
+    // Keep a ref of points for map listeners
+    const pointsRef = React.useRef(points);
+    React.useEffect(() => {
+        pointsRef.current = points;
+    }, [points]);
+
+    // Drawing is OFF by default
+    const [drawEnabled, setDrawEnabled] = React.useState(false);
+    const drawEnabledRef = React.useRef(false);
     React.useEffect(() => {
         drawEnabledRef.current = drawEnabled;
     }, [drawEnabled]);
@@ -644,40 +653,80 @@ function LandPolygonPickerModal({
 
     const initialCenterRef = React.useRef(initialCenter);
 
-    // helper: go to lat/lng on map, optionally drop a point
+    // helper: go to lat/lng on map, optionally drop a boundary point
     const panToLatLng = React.useCallback(
         (lat: number, lng: number, addPoint: boolean = true) => {
             if (!mapRef.current) return;
-            mapRef.current.panTo({ lat, lng });
+            const pos = { lat, lng };
+
+            mapRef.current.panTo(pos);
             mapRef.current.setZoom(17);
+
+            // 👇 update center marker
+            if (centerMarkerRef.current) {
+                centerMarkerRef.current.setPosition(pos);
+                centerMarkerRef.current.setMap(mapRef.current);
+            }
+
             if (addPoint && drawEnabledRef.current) {
-                setPoints((prev) => [...prev, { lat, lng }]);
+                setPoints((prev) => [...prev, pos]);
             }
         },
         []
     );
 
-    // Init map + click to add points
-    useEffect(() => {
+    // Init map + click to add points + smooth mousemove rubber band
+    React.useEffect(() => {
         let alive = true;
         (async () => {
             const g = await loadGoogleMaps(apiKey);
             if (!alive || !g || !mapDivRef.current) return;
 
             if (!mapRef.current) {
+                const centerPos = {
+                    lat: initialCenter.latitude,
+                    lng: initialCenter.longitude,
+                };
+
                 mapRef.current = new g.maps.Map(mapDivRef.current!, {
-                    center: {
-                        lat: initialCenter.latitude,
-                        lng: initialCenter.longitude,
-                    },
+                    center: centerPos,
                     zoom: 13,
                     disableDefaultUI: true,
                     mapTypeControl: false,
                     streetViewControl: false,
                     fullscreenControl: false,
-                    mapTypeId: g.maps.MapTypeId.ROADMAP,
+                    mapTypeId: g.maps.MapTypeId.HYBRID,
+                    draggableCursor: "grab",
+                    draggingCursor: "grabbing",
                 });
 
+                // 👇 create center marker at initial center
+                // 👇 create draggable center marker at initial center
+                centerMarkerRef.current = new g.maps.Marker({
+                    position: centerPos,
+                    map: mapRef.current,
+                    clickable: true,
+                    draggable: true,
+                });
+
+                // When marker is dragged, recenter map + update inputs (no polygon point)
+                g.maps.event.addListener(centerMarkerRef.current, "dragend", () => {
+                    const pos = centerMarkerRef.current!.getPosition();
+                    if (!pos || !mapRef.current) return;
+
+                    const lat = pos.lat();
+                    const lng = pos.lng();
+
+                    // center map there
+                    mapRef.current.panTo({ lat, lng });
+
+                    // update manual coord inputs so user can see the exact numbers
+                    setLatInput(lat.toFixed(6));
+                    setLngInput(lng.toFixed(6));
+                });
+
+
+                // CLICK: add vertex when in DRAW mode
                 mapRef.current.addListener(
                     "click",
                     (e: google.maps.MapMouseEvent) => {
@@ -687,6 +736,31 @@ function LandPolygonPickerModal({
                         setPoints((prev) => [...prev, { lat, lng }]);
                     }
                 );
+
+                // MOUSEMOVE rubber-band segment in DRAW mode
+                mapRef.current.addListener(
+                    "mousemove",
+                    (e: google.maps.MapMouseEvent) => {
+                        if (!e.latLng) return;
+                        if (!drawEnabledRef.current) return;
+                        if (!polylineRef.current) return;
+                        const current = pointsRef.current;
+                        if (!current.length) return;
+
+                        const tempPath = [
+                            ...current,
+                            { lat: e.latLng.lat(), lng: e.latLng.lng() },
+                        ];
+                        polylineRef.current.setPath(tempPath);
+                    }
+                );
+
+                // When mouse leaves map, revert polyline to real points
+                mapRef.current.addListener("mouseout", () => {
+                    if (!polylineRef.current) return;
+                    const current = pointsRef.current;
+                    polylineRef.current.setPath(current);
+                });
             }
         })();
         return () => {
@@ -694,8 +768,26 @@ function LandPolygonPickerModal({
         };
     }, [apiKey, initialCenter.latitude, initialCenter.longitude]);
 
+    // Update cursors when DRAW/MOVE changes
+    React.useEffect(() => {
+        const g = (window as any).google as typeof google | undefined;
+        if (!g || !mapRef.current) return;
+
+        if (drawEnabled) {
+            mapRef.current.setOptions({
+                draggableCursor: "crosshair",
+                draggingCursor: "crosshair",
+            });
+        } else {
+            mapRef.current.setOptions({
+                draggableCursor: "grab",
+                draggingCursor: "grabbing",
+            });
+        }
+    }, [drawEnabled]);
+
     // Google Places Autocomplete for search input
-    useEffect(() => {
+    React.useEffect(() => {
         let alive = true;
         (async () => {
             const g = await loadGoogleMaps(apiKey);
@@ -713,8 +805,16 @@ function LandPolygonPickerModal({
                 const loc = place?.geometry?.location;
                 if (!loc) return;
 
-                mapRef.current!.panTo(loc);
+                const pos = { lat: loc.lat(), lng: loc.lng() };
+
+                mapRef.current!.panTo(pos);
                 mapRef.current!.setZoom(16);
+
+                // 👇 move center marker to searched place
+                if (centerMarkerRef.current) {
+                    centerMarkerRef.current.setPosition(pos);
+                    centerMarkerRef.current.setMap(mapRef.current!);
+                }
             });
         })();
         return () => {
@@ -723,7 +823,7 @@ function LandPolygonPickerModal({
     }, [apiKey]);
 
     // React to mapType changes (MAP / SAT)
-    useEffect(() => {
+    React.useEffect(() => {
         const g = (window as any).google as typeof google | undefined;
         if (!g || !mapRef.current) return;
 
@@ -733,11 +833,11 @@ function LandPolygonPickerModal({
     }, [mapType]);
 
     // Update polyline + polygon + vertex markers when points change
-    useEffect(() => {
+    React.useEffect(() => {
         const g = (window as any).google as typeof google | undefined;
         if (!g || !mapRef.current) return;
 
-        // ----- Polyline for drawing path -----
+        // Polyline for drawing path
         if (!polylineRef.current) {
             polylineRef.current = new g.maps.Polyline({
                 map: mapRef.current,
@@ -745,13 +845,14 @@ function LandPolygonPickerModal({
                 strokeColor: "#10B981",
                 strokeOpacity: 0.9,
                 strokeWeight: 2,
+                clickable: false,
             });
         } else {
             polylineRef.current.setPath(points);
         }
         polylineRef.current.setMap(points.length > 0 ? mapRef.current : null);
 
-        // ----- Polygon fill when we have 3+ points -----
+        // Polygon fill when we have 3+ points
         if (!polygonRef.current) {
             polygonRef.current = new g.maps.Polygon({
                 paths: points,
@@ -760,13 +861,14 @@ function LandPolygonPickerModal({
                 strokeWeight: 2,
                 fillColor: "#10B981",
                 fillOpacity: 0.18,
+                clickable: false,
             });
         } else {
             polygonRef.current.setPath(points);
         }
         polygonRef.current.setMap(points.length >= 3 ? mapRef.current : null);
 
-        // ----- Vertex markers: small green dots at each point -----
+        // Vertex markers
         vertexMarkersRef.current.forEach((m) => m.setMap(null));
         vertexMarkersRef.current = [];
 
@@ -788,9 +890,6 @@ function LandPolygonPickerModal({
                 vertexMarkersRef.current.push(marker);
             });
         }
-
-        // NOTE: we no longer auto-fit on every point change.
-        // Use the FIT button instead.
     }, [points]);
 
     function handleUse() {
@@ -798,7 +897,6 @@ function LandPolygonPickerModal({
             alert("Click at least three points on the map to outline the land.");
             return;
         }
-        // centroid
         const sum = points.reduce(
             (acc, p) => {
                 acc.lat += p.lat;
@@ -832,8 +930,16 @@ function LandPolygonPickerModal({
     const handleRecenter = () => {
         if (!mapRef.current) return;
         const c = initialCenterRef.current;
-        mapRef.current.setCenter({ lat: c.latitude, lng: c.longitude });
+        const pos = { lat: c.latitude, lng: c.longitude };
+
+        mapRef.current.setCenter(pos);
         mapRef.current.setZoom(13);
+
+        // 👇 reset center marker to initial center
+        if (centerMarkerRef.current) {
+            centerMarkerRef.current.setPosition(pos);
+            centerMarkerRef.current.setMap(mapRef.current);
+        }
     };
 
     const handleFitPolygon = () => {
@@ -851,30 +957,22 @@ function LandPolygonPickerModal({
         setMapType((prev) => (prev === "roadmap" ? "hybrid" : "roadmap"));
     };
 
-    const toggleDrawMode = () => {
-        setDrawEnabled((prev) => !prev);
-    };
-
     // Parse Google Maps URL for lat/lng
     function parseLatLngFromGoogleUrl(url: string): { lat: number; lng: number } | null {
         if (!url) return null;
         try {
-            // Try query param ?q=lat,lng
             const qMatch = url.match(/[?&]q=(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)/);
             if (qMatch) {
                 const lat = parseFloat(qMatch[1]);
                 const lng = parseFloat(qMatch[3]);
                 if (isFinite(lat) && isFinite(lng)) return { lat, lng };
             }
-
-            // Try @lat,lng in path
             const atMatch = url.match(/@(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)/);
             if (atMatch) {
                 const lat = parseFloat(atMatch[1]);
                 const lng = parseFloat(atMatch[3]);
                 if (isFinite(lat) && isFinite(lng)) return { lat, lng };
             }
-
             return null;
         } catch {
             return null;
@@ -906,79 +1004,92 @@ function LandPolygonPickerModal({
 
     return (
         <div className="fixed inset-0 z-[60]">
+            {/* Backdrop */}
             <button
                 onClick={onCancel}
                 className="absolute inset-0 bg-black/50"
                 aria-label="Close"
             />
-            <div className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 h-[95vh] md:h-[90vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-2">
-                    <div className="text-base font-black text-gray-900">
-                        Draw land area
-                    </div>
-                    <button
-                        onClick={onCancel}
-                        className="w-10 h-10 grid place-items-center rounded-full hover:bg-gray-50"
-                        aria-label="Close"
-                    >
-                        <IoClose size={20} />
-                    </button>
-                </div>
 
-                <p className="text-xs text-gray-600 mb-2">
-                    {drawEnabled
-                        ? "DRAW mode: Click on the map to add points around the land boundary. Use at least 3 points."
-                        : "MOVE mode: Drag to explore the map. Switch back to DRAW to add more points."}
-                </p>
-
-                {/* Map section – fills almost everything */}
-                <div className="relative flex-1 min-h-[420px] rounded-xl overflow-hidden border border-gray-200">
-                    {/* Map itself */}
+            {/* Fullscreen map */}
+            <div className="absolute inset-0">
+                <div className="relative w-full h-full">
+                    {/* Map */}
                     <div ref={mapDivRef} className="absolute inset-0" />
 
-                    {/* Mode chip (top-left) */}
-                    <div className="absolute top-3 left-3 max-w-[70%]">
-                        <div className="inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1 shadow-md border border-gray-200">
-                            <span
-                                className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${drawEnabled
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : "bg-gray-100 text-gray-600"
-                                    }`}
-                            >
-                                {drawEnabled ? "D" : "M"}
-                            </span>
-                            <span className="text-[11px] font-medium text-emerald-800">
+                    {/* ===== TOP BAR ===== */}
+                    <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-3">
+                        {/* Left: title + description + search */}
+                        <div className="px-3 py-2 rounded-2xl bg-white/95 shadow-md border border-gray-200 max-w-[60%]">
+                            <div className="text-[13px] font-black text-gray-900">
+                                Draw land area
+                            </div>
+                            <p className="text-[11px] text-gray-600">
                                 {drawEnabled
-                                    ? "DRAW: click to add points"
-                                    : "MOVE: drag map, switch to DRAW to add"}
-                            </span>
+                                    ? "DRAW is ON: Click on the map to add points around the land boundary."
+                                    : "DRAW is OFF: Drag the map to explore. Turn ON draw mode to start adding points."}
+                            </p>
+                            {/* Search input aligned at top with other controls */}
+                            <div className="mt-2">
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    placeholder="Search address, town, landmark…"
+                                    className="w-full rounded-full bg-white px-3 py-1.5 text-[11px] outline-none shadow border border-gray-200 placeholder:text-gray-400"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Right: draw mode + advanced + close */}
+                        <div className="flex flex-col items-end gap-2">
+                            {/* Draw mode pill */}
+                            <button
+                                type="button"
+                                onClick={() => setDrawEnabled((prev) => !prev)}
+                                className="inline-flex items-center gap-2 rounded-full bg-white/95 shadow-md border border-gray-200 px-3 py-1.5"
+                            >
+                                <span
+                                    className={`text-[11px] font-semibold ${drawEnabled ? "text-emerald-700" : "text-gray-700"
+                                        }`}
+                                >
+                                    {drawEnabled ? "Draw mode: ON" : "Draw mode: OFF"}
+                                </span>
+                                <span
+                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${drawEnabled ? "bg-emerald-500" : "bg-gray-300"
+                                        }`}
+                                    role="switch"
+                                    aria-checked={drawEnabled}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${drawEnabled ? "translate-x-4" : "translate-x-0.5"
+                                            }`}
+                                    />
+                                </span>
+                            </button>
+
+                            {/* Advanced toggle */}
+                            <button
+                                type="button"
+                                onClick={() => setShowAdvanced((s) => !s)}
+                                className="px-3 py-1.5 rounded-full bg-white/95 shadow-md border border-gray-200 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                                {showAdvanced ? "Hide advanced" : "Advanced (coords/link)"}
+                            </button>
+
+                            {/* Close */}
+                            <button
+                                onClick={onCancel}
+                                className="w-10 h-10 grid place-items-center rounded-full bg-white/95 shadow-md border border-gray-200 hover:bg-gray-50"
+                                aria-label="Close"
+                            >
+                                <IoClose size={18} />
+                            </button>
                         </div>
                     </div>
 
-                    {/* Search bar (top center) */}
-                    <div className="absolute top-3 left-3 right-3 max-w-xl mx-auto">
-                        <input
-                            ref={searchInputRef}
-                            type="text"
-                            placeholder="Search address, town, landmark…"
-                            className="w-full rounded-full bg-white/95 px-4 py-2 text-xs outline-none shadow-md border border-gray-200 placeholder:text-gray-400"
-                        />
-                    </div>
-
-                    {/* Advanced panel toggle */}
-                    <button
-                        type="button"
-                        onClick={() => setShowAdvanced((s) => !s)}
-                        className="absolute top-3 right-3 md:right-4 md:top-16 px-3 py-1.5 rounded-full bg-white/95 shadow-md border border-gray-200 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
-                    >
-                        {showAdvanced ? "Hide advanced" : "Advanced (coords/link)"}
-                    </button>
-
                     {/* Advanced floating panel */}
                     {showAdvanced && (
-                        <div className="z-30 absolute top-16 right-3 md:right-4 w-80 max-w-[90vw] bg-gray-100 rounded-2xl shadow-xl border border-gray-200 p-3 text-xs">
-                            {/* Header row with close button */}
+                        <div className="z-30 absolute top-24 right-3 md:right-4 w-80 max-w-[90vw] bg-gray-100 rounded-2xl shadow-xl border border-gray-200 p-3 text-xs">
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex flex-col">
                                     <span className="text-[11px] font-semibold text-gray-700">
@@ -1035,7 +1146,6 @@ function LandPolygonPickerModal({
                                     </button>
                                 </div>
 
-                                {/* Divider */}
                                 <div className="h-px bg-gray-100" />
 
                                 {/* Google Maps link */}
@@ -1063,8 +1173,8 @@ function LandPolygonPickerModal({
                         </div>
                     )}
 
-                    {/* Right-side controls (zoom / fit / type / draw) */}
-                    <div className="absolute bottom-3 right-3 flex flex-col gap-2">
+                    {/* Right-side controls */}
+                    <div className="absolute bottom-24 right-3 flex flex-col gap-2 items-end">
                         <button
                             type="button"
                             onClick={handleZoomIn}
@@ -1106,21 +1216,10 @@ function LandPolygonPickerModal({
                         >
                             {mapType === "roadmap" ? "SAT" : "MAP"}
                         </button>
-                        <button
-                            type="button"
-                            onClick={toggleDrawMode}
-                            className={`w-9 h-9 rounded-full shadow-md border grid place-items-center text-[9px] font-bold ${drawEnabled
-                                ? "bg-emerald-600 border-emerald-700 text-white"
-                                : "bg-white border-gray-200 text-gray-700"
-                                } hover:bg-opacity-90`}
-                            title="Toggle drawing mode"
-                        >
-                            {drawEnabled ? "DRAW" : "MOVE"}
-                        </button>
                     </div>
 
                     {/* Bottom-left: points + undo/clear */}
-                    <div className="absolute bottom-3 left-3 flex items-center gap-3 bg-white/90 rounded-full px-3 py-1 shadow-md border border-gray-200 text-[11px]">
+                    <div className="absolute bottom-24 left-3 flex items-center gap-3 bg-white/90 rounded-full px-3 py-1 shadow-md border border-gray-200 text-[11px]">
                         <span className="font-semibold text-gray-700">
                             Points: {points.length}
                         </span>
@@ -1128,9 +1227,7 @@ function LandPolygonPickerModal({
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setPoints((prev) =>
-                                        prev.slice(0, prev.length - 1)
-                                    )
+                                    setPoints((prev) => prev.slice(0, prev.length - 1))
                                 }
                                 className="px-2 py-0.5 rounded-full border border-gray-200 text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={points.length === 0}
@@ -1147,28 +1244,31 @@ function LandPolygonPickerModal({
                             </button>
                         </div>
                     </div>
-                </div>
 
-                {/* Footer */}
-                <div className="mt-3 flex items-center justify-end gap-2">
-                    <button
-                        onClick={onCancel}
-                        className="h-10 px-4 rounded-xl border border-gray-200 hover:bg-gray-50 font-semibold"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleUse}
-                        className="h-10 px-5 rounded-xl text-white font-black hover:opacity-90"
-                        style={{ backgroundColor: EKARI.gold }}
-                    >
-                        Use this area
-                    </button>
+                    {/* Bottom overlay actions */}
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
+                        <button
+                            onClick={onCancel}
+                            className="h-10 px-4 rounded-xl border border-gray-200 bg-white/95 text-sm font-semibold hover:bg-gray-50 shadow-md"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleUse}
+                            className="h-10 px-5 rounded-xl text-sm text-white font-black shadow-md hover:opacity-90"
+                            style={{ backgroundColor: EKARI.gold }}
+                        >
+                            Use this area
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
+
+
+
 
 
 
@@ -1186,18 +1286,29 @@ export default function SellModal({
     // 👇 avoid SSR mismatch when using document.body
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
+    // ==== NEW: verification status for current user ====
+    const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("none");
+    const [verificationLoading, setVerificationLoading] = useState<boolean>(true);
+
     // Currency preference (KES / USD)
     const [currency, setCurrency] = useState<CurrencyCode>("KES");
     useEffect(() => {
         const auth = getAuth();
         const user = auth.currentUser;
-        if (!user) return;
+        if (!user) {
+            setVerificationStatus("none");
+            setVerificationLoading(false);
+            return;
+        }
 
         const db = getFirestore();
         const userRef = doc(db, "users", user.uid);
 
         const unsub = onSnapshot(userRef, (snap) => {
             const data = snap.data() as any | undefined;
+            const status = (data?.verificationStatus as VerificationStatus) || "none";
+            setVerificationStatus(status);
+            setVerificationLoading(false);
             const pref = data?.preferredCurrency;
             if (pref === "KES" || pref === "USD") {
                 setCurrency(pref);
@@ -1300,10 +1411,22 @@ export default function SellModal({
     // For service (old path), we now use Firestore items
     const catalogItems = useMemo(() => {
         if (!category) return [];
+
         const list = items.filter(
             (it) => it.type === typeSel && norm(it.category) === norm(category)
         );
-        return Array.from(new Set(list.map((it) => it.name).filter(Boolean)));
+
+        const pieces = list.flatMap((it) => {
+            if (!it.name) return [];
+            // split on comma, trim each part
+            return it.name
+                .split(",")
+                .map((p) => p.trim())
+                .filter(Boolean);
+        });
+
+        // Unique values, optionally sorted
+        return Array.from(new Set(pieces)).sort();
     }, [items, typeSel, category]);
 
     // Skip pack/unit step for lease/service (same as before)
@@ -1706,7 +1829,7 @@ export default function SellModal({
                             (DIRECT_NAME_TYPES.includes(typeSel)
                                 ? "Item"
                                 : "Category & Item")}
-                        {step === 2 && "Pack & Unit"}
+                        {step === 2 && "Quantity & Unit"}
                         {step === 3 &&
                             (typeSel === "lease" || typeSel === "service"
                                 ? "Rate & Billing"
@@ -1872,7 +1995,7 @@ export default function SellModal({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-extrabold text-gray-500">
-                                    Typical pack size
+                                    Quantity
                                 </label>
                                 <input
                                     value={String(pack || "")}
@@ -1884,7 +2007,7 @@ export default function SellModal({
                             </div>
                             <div>
                                 <label className="text-xs font-extrabold text-gray-500">
-                                    Unit
+                                    Unit of measure
                                 </label>
                                 <input
                                     value={unit}
@@ -2200,6 +2323,56 @@ export default function SellModal({
 
                                 </div>
                             </div>
+                            {/* ==== NEW: Account verification gate ==== */}
+                            <div className="border border-amber-200 rounded-xl p-3 bg-amber-50 flex items-start gap-3">
+                                <div className="mt-0.5 h-2 w-2 rounded-full bg-amber-500" />
+                                <div className="flex-1 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <div className="font-black text-sm text-gray-900">
+                                            Account verification required
+                                        </div>
+                                        <span
+                                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${verificationStatus === "approved"
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : verificationStatus === "pending"
+                                                    ? "bg-amber-100 text-amber-800"
+                                                    : verificationStatus === "rejected"
+                                                        ? "bg-red-100 text-red-700"
+                                                        : "bg-gray-100 text-gray-600"
+                                                }`}
+                                        >
+                                            {verificationLoading
+                                                ? "Checking..."
+                                                : verificationStatus === "approved"
+                                                    ? "Verified"
+                                                    : verificationStatus === "pending"
+                                                        ? "Pending review"
+                                                        : verificationStatus === "rejected"
+                                                            ? "Rejected"
+                                                            : "Not verified"}
+                                        </span>
+                                    </div>
+
+                                    {verificationStatus === "approved" ? (
+                                        <p className="text-xs text-gray-600">
+                                            Your account is verified. You can publish this listing.
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <p className="text-xs text-gray-600">
+                                                To sell on ekariMarket, please verify your account first. This helps
+                                                keep buyers safe and builds trust in your listings.
+                                            </p>
+                                            <a
+                                                href="/account/verification"
+                                                className="inline-flex mt-1 text-xs font-bold text-emerald-800 underline"
+                                            >
+                                                Go to verification page
+                                            </a>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -2231,17 +2404,34 @@ export default function SellModal({
                         </button>
                     ) : (
                         <button
-                            onClick={createProduct}
-                            disabled={saving}
+                            onClick={() => {
+                                if (verificationStatus !== "approved") {
+                                    alert(
+                                        verificationStatus === "pending"
+                                            ? "Your verification is still under review. You’ll be able to sell once it is approved."
+                                            : "To sell on ekariMarket, please verify your account first from the Verification page in your profile."
+                                    );
+                                    return;
+                                }
+                                createProduct();
+                            }}
+                            disabled={saving || verificationStatus !== "approved"}
                             className="h-11 px-5 rounded-xl text-white font-black inline-flex items-center gap-2 disabled:opacity-60 hover:opacity-90"
-                            style={{ backgroundColor: EKARI.gold }}
+                            style={{
+                                backgroundColor:
+                                    verificationStatus === "approved" ? EKARI.gold : "#9CA3AF",
+                            }}
                         >
                             {saving ? (
                                 <span>Saving…</span>
                             ) : (
                                 <>
                                     <IoCheckmarkDone />
-                                    Finish
+                                    {verificationStatus === "approved"
+                                        ? "Finish"
+                                        : verificationStatus === "pending"
+                                            ? "Awaiting approval"
+                                            : "Verify to publish"}
                                 </>
                             )}
                         </button>

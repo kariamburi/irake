@@ -78,7 +78,7 @@ export default function AppShell({
             }}
         >
             {/* 🔝 Global top-right user menu (visible on ALL pages using AppShell) */}
-            <div className="fixed top-0 right-3 md:right-4 py-3 z-40">
+            <div className="fixed top-0 right-0 py-3 z-40">
                 {uid ? (
                     <UserAvatarMenu
                         uid={uid}

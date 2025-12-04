@@ -52,6 +52,7 @@ import {
     IoLeafOutline, // for tree use-case
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import SellerReviewsSection from "@/app/components/SellerReviewsSection";
 
 /* ================== Types ================== */
 export type CurrencyCode = "KES" | "USD";
@@ -873,7 +874,7 @@ export default function ProductDetailsClient({
 
     // ===== Render =====
     return (
-        <main className="min-h-screen w-full">
+        <main className="min-h-screen pb-5 w-full">
             {/* Header (sticky) */}
             <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[color:var(--hair,#E5E7EB)] flex items-center h-14 px-4">
                 <button
@@ -1157,7 +1158,11 @@ export default function ProductDetailsClient({
             </div>
 
             {/* Reviews */}
-            <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
+            {/* Seller Reviews (shared with profile page) */}
+            {product.sellerId && (
+                <SellerReviewsSection sellerId={product.sellerId} />
+            )}
+            {/**  <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
                 <div className="flex items-center justify-between">
                     <h3 className="font-black text-[color:var(--text,#0F172A)] text-lg">
                         Reviews
@@ -1288,8 +1293,8 @@ export default function ProductDetailsClient({
                     </div>
                 )}
             </div>
-
-            {/* Review modal */}
+*/}
+            {/* Review modal 
             {rvVisible && (
                 <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center md:justify-center">
                     <div className="w-full md:max-w-lg bg-white rounded-t-2xl md:rounded-2xl p-5 shadow-xl border border-[color:var(--hair,#E5E7EB)]">
@@ -1367,7 +1372,7 @@ export default function ProductDetailsClient({
                     </div>
                 </div>
             )}
-
+*/}
             {/* ===== Fullscreen Modal ===== */}
             {fsOpen && (
                 <div className="fixed inset-0 z-[60] bg-black/90 text-white">

@@ -6,15 +6,48 @@ export async function createMuxDirectUpload(input?: {
     playbackPolicy?: ("public" | "signed")[];
     passthrough?: unknown;
 }): Promise<{ uploadUrl: string; uploadId: string }> {
-    const res = await fetch("/api/mux/create-upload", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input ?? {}),
-    });
-    if (!res.ok) {
-        throw new Error(`Failed to create Direct Upload (${res.status})`);
+    let res: Response;
+    try {
+        res = await fetch(
+            "https://us-central1-ekarihub-aed5a.cloudfunctions.net/muxCreateUpload",
+            {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(input ?? {}),
+            }
+        );
+    } catch (e: any) {
+        // Network / CORS / DNS errors → "Failed to fetch"
+        console.error("muxCreateUpload network error", e);
+        throw new Error(e?.message || "Network error calling muxCreateUpload");
     }
-    return res.json();
+
+    let payload: any = null;
+    const text = await res.text();
+    try {
+        payload = text ? JSON.parse(text) : null;
+    } catch {
+        // ignore JSON parse error, we'll still use text for debugging
+    }
+
+    if (!res.ok) {
+        const msg =
+            payload?.message ||
+            payload?.error ||
+            `Failed to create Direct Upload (HTTP ${res.status})`;
+        console.error("muxCreateUpload HTTP error", res.status, payload || text);
+        throw new Error(msg);
+    }
+
+    if (!payload?.uploadUrl || !payload?.uploadId) {
+        console.error("muxCreateUpload missing fields", payload);
+        throw new Error("muxCreateUpload did not return uploadUrl/uploadId");
+    }
+
+    return {
+        uploadUrl: payload.uploadUrl,
+        uploadId: payload.uploadId,
+    };
 }
 
 export async function uploadVideoToMux(opts: {

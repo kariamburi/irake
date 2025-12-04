@@ -292,7 +292,7 @@ export default function HandleConnectionsPage() {
   return (
     <AppShell>
       <div
-        className="mx-auto w-full px-3 md:px-4 pt-3 pb-6"
+        className="mx-auto min-h-screen w-full px-3 md:px-4 pt-3 pb-6"
         style={{ backgroundColor: EKARI.bg }}
       >
         {/* Top bar */}
