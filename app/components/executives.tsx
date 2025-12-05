@@ -29,8 +29,8 @@ export const EXECUTIVES: Exec[] = [
         ],
         links: [
             // { label: "Website", href: "https://www.ekarihub.com" },
-            { label: "Email", href: "mailto:ceo@ekarihub.com" },
-            { label: "LinkedIn", href: "https://www.linkedin.com/in/stephen-ndulah" }
+            { label: "Email", href: "mailto:info@ekarihub.com" },
+            { label: "LinkedIn", href: "https://www.linkedin.com/in/stephen-wafullah-6a013961/" }
         ]
     },
     {
@@ -49,8 +49,8 @@ export const EXECUTIVES: Exec[] = [
             "Energetic, insightful, and execution-focused, Emily is committed to ensuring that ekarihub’s voice, identity, and impact remain distinctive and influential across Africa’s agribusiness landscape."
         ],
         links: [
-            { label: "Email", href: "mailto:emily@ekarihub.com" },
-            { label: "LinkedIn", href: "https://www.linkedin.com/in/emilyokech" }
+            { label: "Email", href: "mailto:info@ekarihub.com" },
+            { label: "LinkedIn", href: "https://www.linkedin.com/in/emily-oketch-541441142/" }
         ]
     }
 ];
