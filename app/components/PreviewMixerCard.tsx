@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import PreviewMixerPlayer from "./PreviewMixerPlayer";
 import { IoClose, IoPlay } from "react-icons/io5";
+import { createPortal } from "react-dom";
 
 const EKARI = {
     forest: "#233F39",
@@ -79,7 +80,7 @@ export default function PreviewMixerCard({
             </button>
 
             {open && (
-                <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/60 backdrop-blur-sm">
+                createPortal(<div className="fixed inset-0 z-[1000] grid place-items-center bg-black/60 backdrop-blur-sm">
                     <div
                         className="relative w-[95vw] max-w-[900px] rounded-2xl p-3 shadow-xl"
                         style={{ maxHeight: "100svh" }}
@@ -130,7 +131,8 @@ export default function PreviewMixerCard({
                         </div>
                     </div>
                 </div>
-
+                    ,
+                    document.body)
             )}
         </>
     );

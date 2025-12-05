@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { collection, getDocs, getFirestore } from "firebase/firestore";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 
 export type Tab = "library" | "upload" | "link";
 
@@ -232,7 +233,7 @@ export default function SoundSheetWeb({
 
     if (!open) return null;
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center">
             {/* backdrop */}
             <button
@@ -440,5 +441,7 @@ export default function SoundSheetWeb({
                 </div>
             </div>
         </div>
+        ,
+        document.body
     );
 }

@@ -27,6 +27,7 @@ import StudioShell from "../components/StudioShell";
 import AppShell from "@/app/components/AppShell";
 import dynamic from 'next/dynamic';
 import { PickedSound } from "@/app/components/SoundSheetWeb";
+import { createPortal } from "react-dom";
 // Replace your static imports:
 const SoundSheetWeb = dynamic(() => import('@/app/components/SoundSheetWeb'), { ssr: false });
 const PreviewMixerCard = dynamic(() => import('@/app/components/PreviewMixerCard'), { ssr: false });
@@ -1442,14 +1443,21 @@ function BadgeMono({ children, className = "" }: { children: React.ReactNode; cl
     </span>
   );
 }
+
 function UploadModal({ open, progress }: { open: boolean; progress: number }) {
   if (!open) return null;
+
   const pct = Math.max(0, Math.min(100, Math.round(progress || 0)));
 
-  return (
+  // (optional) SSR safety for Next.js
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[999] grid place-items-center bg-black/50 backdrop-blur-sm">
       <div className="w-[92%] max-w-md rounded-2xl bg-white p-5 shadow-xl">
-        <div className="mb-2 text-sm font-bold text-gray-900">{pct < 100 ? "Uploading your deed…" : "Finalizing…"}</div>
+        <div className="mb-2 text-sm font-bold text-gray-900">
+          {pct < 100 ? "Uploading your deed…" : "Finalizing…"}
+        </div>
         <div className="mb-3 text-4xl font-extrabold tracking-tight text-gray-900">
           {pct}%
         </div>
@@ -1458,9 +1466,11 @@ function UploadModal({ open, progress }: { open: boolean; progress: number }) {
           {pct < 100 ? "Uploading…" : "Almost done…"}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
+
 
 /* ---------- little UI bits for preview ---------- */
 function BottomTabsMock({ active = "Home" }: { active?: "Home" | "Mates" | "Create" | "Bonga" | "Profile"; }) {
