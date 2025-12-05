@@ -103,7 +103,13 @@ export default function LoginPage() {
 
                 if (!snap.exists()) {
                     // New user → getstarted
-                    router.replace("/getstarted");
+                    if (user) {
+
+                        router.replace("/onboarding");
+                    } else {
+                        router.replace("/login");
+                    }
+                    // 
                     return;
                 }
 

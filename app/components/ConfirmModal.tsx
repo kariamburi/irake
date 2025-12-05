@@ -1,5 +1,18 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
+
+type ConfirmModalProps = {
+    open: boolean;
+    title?: string;
+    message?: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+};
 
 export function ConfirmModal({
     open,
@@ -9,18 +22,19 @@ export function ConfirmModal({
     cancelText = "No, keep editing",
     onConfirm,
     onCancel,
-}: {
-    open: boolean;
-    title?: string;
-    message?: string;
-    confirmText?: string;
-    cancelText?: string;
-    onConfirm: () => void;
-    onCancel: () => void;
-}) {
-    return (
+}: ConfirmModalProps) {
+    const [mounted, setMounted] = useState(false);
+
+    // Ensure we only use document in the browser
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return null; // avoid SSR document errors
+
+    return createPortal(
         <AnimatePresence>
-            {open && (createPortal(
+            {open && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center"
                     aria-live="assertive"
@@ -74,9 +88,8 @@ export function ConfirmModal({
                         </div>
                     </motion.div>
                 </div>
-                ,
-                document.body)
             )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }

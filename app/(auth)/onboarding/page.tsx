@@ -890,6 +890,7 @@ export default function OnboardingWizardPage() {
                     {title}
                 </div>
                 <div className="flex items-center gap-1.5">
+
                     {[1, 2, 3, 4, 5].map((i) => (
                         <div
                             key={i}
@@ -901,6 +902,28 @@ export default function OnboardingWizardPage() {
                             }}
                         />
                     ))}
+                    <button
+                        type="button"
+                        onClick={() => setConfirmOpen(true)}
+                        className="text-xs px-3 py-1.5 rounded-full border hover:bg-red-50 transition"
+                        style={{
+                            borderColor: EKARI.hair,
+                            color: EKARI.danger,
+                            background: "#fff",
+                        }}
+                    >
+                        Cancel onboarding
+                    </button>
+
+                    <ConfirmModal
+                        open={confirmOpen}
+                        title="Cancel onboarding?"
+                        message="You’ll be signed out and taken back to login."
+                        confirmText="Yes, log me out"
+                        cancelText="No, stay here"
+                        onConfirm={confirmLogout}
+                        onCancel={cancelLogout}
+                    />
                 </div>
             </div>
         );
@@ -1075,42 +1098,6 @@ export default function OnboardingWizardPage() {
             }}
         >
             {/* Top bar: cancel onboarding */}
-            <div className="sticky top-0 z-30 bg-white/70 backdrop-blur border-b" style={{ borderColor: EKARI.hair }}>
-                <div className="mx-auto max-w-3xl px-5 h-12 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                        <span
-                            className="text-xs md:text-sm font-semibold"
-                            style={{ color: EKARI.dim }}
-                        >
-                            Craft your Ekarihub profile
-                        </span>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setConfirmOpen(true)}
-                        className="text-xs md:text-sm font-bold px-3 py-1.5 rounded-full border hover:bg-red-50 transition"
-                        style={{
-                            borderColor: EKARI.hair,
-                            color: EKARI.danger,
-                            background: "#fff",
-                        }}
-                    >
-                        Cancel onboarding
-                    </button>
-
-                    <ConfirmModal
-                        open={confirmOpen}
-                        title="Cancel onboarding?"
-                        message="You’ll be signed out and taken back to login."
-                        confirmText="Yes, log me out"
-                        cancelText="No, stay here"
-                        onConfirm={confirmLogout}
-                        onCancel={cancelLogout}
-                    />
-                </div>
-            </div>
 
             <div className="mx-auto max-w-3xl px-5 pt-6 pb-10">
                 <motion.div
@@ -1154,44 +1141,65 @@ export default function OnboardingWizardPage() {
                                             value={surname}
                                             onChange={(e) => setSurname(e.target.value)}
                                         />
+
                                     </div>
                                 </Field>
-
-                                <Field
-                                    label="Username"
-                                    helper={
-                                        checkingHandle
-                                            ? "Checking availability…"
-                                            : handleMsg || undefined
-                                    }
-                                >
-                                    <div
-                                        className="flex items-center h-11 rounded-xl border px-3 bg-[#F6F7FB]"
-                                        style={{ borderColor: EKARI.hair }}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <Field
+                                        label="Username"
+                                        helper={
+                                            checkingHandle
+                                                ? "Checking availability…"
+                                                : handleMsg || undefined
+                                        }
                                     >
-                                        <input
-                                            placeholder="@handle"
-                                            className="w-full bg-transparent outline-none text-sm"
-                                            style={{ color: EKARI.text }}
-                                            value={handle}
-                                            onChange={(e) => onChangeHandle(e.target.value)}
-                                            autoCapitalize="none"
-                                        />
-                                        {checkingHandle ? (
-                                            <span className="ml-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                                        ) : handle.length > 0 && handleAvailable !== null ? (
-                                            <span
-                                                className="ml-2 text-xs font-bold"
-                                                style={{
-                                                    color: handleAvailable ? "#10B981" : "#EF4444",
-                                                }}
-                                            >
-                                                {handleAvailable ? "OK" : "X"}
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                </Field>
+                                        <div
+                                            className="flex items-center h-11 rounded-xl border px-3 bg-[#F6F7FB]"
+                                            style={{ borderColor: EKARI.hair }}
+                                        >
 
+                                            <input
+                                                placeholder="@handle"
+                                                className="w-full bg-transparent outline-none text-sm"
+                                                style={{ color: EKARI.text }}
+                                                value={handle}
+                                                onChange={(e) => onChangeHandle(e.target.value)}
+                                                autoCapitalize="none"
+                                            />
+                                            {checkingHandle ? (
+                                                <span className="ml-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                                            ) : handle.length > 0 && handleAvailable !== null ? (
+                                                <span
+                                                    className="ml-2 text-xs font-bold"
+                                                    style={{
+                                                        color: handleAvailable ? "#10B981" : "#EF4444",
+                                                    }}
+                                                >
+                                                    {handleAvailable ? "OK" : "X"}
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </Field>
+                                    <Field
+                                        label="Email"
+
+                                    >
+                                        <div
+                                            className="flex items-center h-11 rounded-xl border px-3 bg-[#F6F7FB]"
+                                            style={{ borderColor: EKARI.hair }}
+                                        >
+                                            <input
+                                                placeholder="@email"
+                                                className="w-full bg-transparent outline-none text-sm"
+                                                style={{ color: EKARI.text }}
+                                                value={user?.email ?? ""}
+                                                autoCapitalize="none"
+                                                disabled
+                                            />
+
+                                        </div>
+                                    </Field>
+                                </div>
                                 <Field
                                     label="Date of birth"
                                     helper="You must be 18+ to join."

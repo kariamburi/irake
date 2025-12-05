@@ -111,26 +111,34 @@ export default function PhoneLoginPage() {
 
     // Post-login route (mirror login/signup → home or /getstarted)
     useEffect(() => {
+        // Wait until auth is done and we actually have a signed-in user
         if (authLoading || !user) return;
+
         let alive = true;
+
         (async () => {
             try {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (!alive) return;
 
+                // If user exists in "users" collection → go to /getstarted
+                // If user does NOT exist → go to onboarding
                 if (snap.exists()) {
-                    router.replace(safeNext || "/");
-                } else {
                     router.replace("/getstarted");
+                } else {
+                    router.replace("/onboarding");
                 }
             } catch {
+                // On error, treat as not-onboarded and send to onboarding
                 if (alive) router.replace("/getstarted");
             }
         })();
+
         return () => {
             alive = false;
         };
-    }, [user, authLoading, router, safeNext]);
+    }, [user, authLoading, router]);
+
 
     const sendCode = async () => {
         if (!authBundle || !captchaReady || !validPhone || sending) return;

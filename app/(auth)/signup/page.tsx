@@ -83,21 +83,34 @@ export default function SignupPage() {
     // After auth state resolves:
     // if user doc exists → home, else → getstarted (just like login new user)
     useEffect(() => {
+        // Wait until auth is done and we actually have a signed-in user
         if (authLoading || !user) return;
+
         let alive = true;
+
         (async () => {
             try {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (!alive) return;
-                router.replace(snap.exists() ? "/" : "/getstarted");
+
+                // If user exists in "users" collection → go to /getstarted
+                // If user does NOT exist → go to onboarding
+                if (snap.exists()) {
+                    router.replace("/getstarted");
+                } else {
+                    router.replace("/onboarding");
+                }
             } catch {
+                // On error, treat as not-onboarded and send to onboarding
                 if (alive) router.replace("/getstarted");
             }
         })();
+
         return () => {
             alive = false;
         };
     }, [user, authLoading, router]);
+
 
     const handleSignup = async () => {
         if (!isValid || loading || !authBundle) return;
