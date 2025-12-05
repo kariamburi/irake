@@ -372,134 +372,7 @@ async function loadGoogleMaps(apiKey?: string): Promise<typeof google | null> {
 }
 
 /* ================= Reusable in-file MapPicker ================= */
-function MapPicker({
-    center,
-    radiusKm,
-    onChangeCenter,
-    height = 300,
-}: {
-    center: { latitude: number; longitude: number } | null;
-    radiusKm: number;
-    onChangeCenter: (c: { latitude: number; longitude: number }) => void;
-    height?: number;
-}) {
-    const mapDivRef = useRef<HTMLDivElement | null>(null);
-    const mapRef = useRef<google.maps.Map | null>(null);
-    const circleRef = useRef<google.maps.Circle | null>(null);
-    const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null>(null);
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-    const [mapReady, setMapReady] = useState(false);
-
-    // Init map ONCE
-    useEffect(() => {
-        let alive = true;
-        (async () => {
-            const g = await loadGoogleMaps(apiKey);
-            if (!alive || !g || !mapDivRef.current) return;
-
-            const fallback = { latitude: -1.286389, longitude: 36.817223 }; // Nairobi CBD
-            const init = center ?? fallback;
-
-            if (!mapRef.current) {
-                mapRef.current = new g.maps.Map(mapDivRef.current, {
-                    center: { lat: init.latitude, lng: init.longitude },
-                    zoom: center ? 12 : 11,
-                    disableDefaultUI: true,
-                    mapTypeControl: false,
-                    streetViewControl: false,
-                    fullscreenControl: false,
-                });
-
-                // Click on map to move marker
-                mapRef.current.addListener("click", (e: google.maps.MapMouseEvent) => {
-                    if (!e.latLng) return;
-                    onChangeCenter({
-                        latitude: e.latLng.lat(),
-                        longitude: e.latLng.lng(),
-                    });
-                });
-
-                setMapReady(true);
-            }
-        })();
-
-        return () => {
-            alive = false;
-        };
-    }, [apiKey]); // don't depend on center here
-
-    // Draw / update marker + circle once map is ready or center/radius changes
-    useEffect(() => {
-        const g = (window as any).google as typeof google | undefined;
-        if (!g || !mapRef.current || !center || !mapReady) return;
-
-        const latlng = new g.maps.LatLng(center.latitude, center.longitude);
-        mapRef.current.setCenter(latlng);
-
-        const { AdvancedMarkerElement } = (g.maps as any).marker || {};
-
-        // Marker
-        if (AdvancedMarkerElement) {
-            // clear previous
-            if (markerRef.current) (markerRef.current as any).map = null;
-            markerRef.current = new AdvancedMarkerElement({
-                map: mapRef.current,
-                position: latlng,
-                gmpDraggable: true,
-            });
-            (markerRef.current as any).addListener("dragend", (ev: any) => {
-                const pos = ev?.latLng;
-                if (!pos) return;
-                onChangeCenter({ latitude: pos.lat(), longitude: pos.lng() });
-            });
-        } else {
-            if (markerRef.current && "setMap" in markerRef.current) {
-                (markerRef.current as google.maps.Marker).setMap(null);
-            }
-            markerRef.current = new g.maps.Marker({
-                map: mapRef.current,
-                position: latlng,
-                draggable: true,
-            });
-            (markerRef.current as google.maps.Marker).addListener("dragend", (ev: any) => {
-                const pos = (ev as unknown as google.maps.MapMouseEvent).latLng;
-                if (!pos) return;
-                onChangeCenter({ latitude: pos.lat(), longitude: pos.lng() });
-            });
-        }
-
-        // Circle
-        const meters = Math.max(0, Number(radiusKm) || 0) * 1000;
-        if (!circleRef.current) {
-            circleRef.current = new g.maps.Circle({
-                map: mapRef.current!,
-                center: latlng,
-                radius: meters,
-                strokeOpacity: 0.9,
-                strokeWeight: 2,
-                strokeColor: "#10B981",
-                fillOpacity: 0.15,
-                fillColor: "#10B981",
-            });
-        } else {
-            circleRef.current.setCenter(latlng);
-            circleRef.current.setRadius(meters);
-        }
-    }, [center?.latitude, center?.longitude, radiusKm, mapReady, onChangeCenter]);
-
-    return (
-        <div
-            ref={mapDivRef}
-            style={{
-                height,
-                borderRadius: 12,
-                overflow: "hidden",
-                border: `1px solid ${EKARI.hair}`,
-            }}
-        />
-    );
-}
 
 
 /* ================= Location Picker Modal (Places + Map) ================= */
@@ -527,34 +400,46 @@ function LocationPickerModal({
     const markerRef = React.useRef<any>(null);
 
     // ---------- Places autocomplete ----------
+    // When center changes (marker drag / map click / programmatic),
+    // look up a human-readable place and fill the input.
     useEffect(() => {
-        let alive = true;
-        (async () => {
-            const g = await loadGoogleMaps(apiKey);
-            if (!alive || !g || !inputRef.current) return;
+        let cancelled = false;
 
-            const ac = new g.maps.places.Autocomplete(inputRef.current, {
-                fields: ["geometry", "name", "formatted_address"],
-                types: ["geocode"],
-            });
-            ac.addListener("place_changed", () => {
-                const place = ac.getPlace();
-                const loc = place?.geometry?.location;
-                const label =
-                    place?.formatted_address ||
-                    place?.name ||
-                    inputRef.current?.value ||
-                    "";
-                setText(label);
-                if (loc) {
-                    setCenter({ latitude: loc.lat(), longitude: loc.lng() });
+        (async () => {
+            if (!center) return;
+            const g = await loadGoogleMaps(apiKey);
+            if (!g) return;
+
+            const geocoder = new g.maps.Geocoder();
+            geocoder.geocode(
+                {
+                    location: {
+                        lat: center.latitude,
+                        lng: center.longitude,
+                    },
+                },
+                (results, status) => {
+                    if (cancelled) return;
+
+                    if (status === "OK" && results && results[0]) {
+                        const label =
+                            results[0].formatted_address ??
+                            `${center.latitude.toFixed(5)}, ${center.longitude.toFixed(5)}`;
+
+                        setText(label); // ✅ input will show this
+                    } else {
+                        const fallback = `${center.latitude.toFixed(5)}, ${center.longitude.toFixed(5)}`;
+                        setText(fallback);
+                    }
                 }
-            });
+            );
         })();
+
         return () => {
-            alive = false;
+            cancelled = true;
         };
-    }, [apiKey]);
+    }, [center.latitude, center.longitude, apiKey]);
+
 
     // ---------- Map + draggable marker setup ----------
     useEffect(() => {
@@ -712,6 +597,7 @@ function LandPolygonPickerModal({
     initialPolygon: { lat: number; lng: number }[];
     onCancel: () => void;
     onUse: (payload: {
+        text: string,
         center: { latitude: number; longitude: number };
         polygon: { lat: number; lng: number }[];
     }) => void;
@@ -730,6 +616,12 @@ function LandPolygonPickerModal({
         initialPolygon || []
     );
     const [mapType, setMapType] = React.useState<"roadmap" | "hybrid">("hybrid");
+    const [centerPos, setCenterPos] = React.useState<{ lat: number; lng: number }>({
+        lat: initialCenter.latitude,
+        lng: initialCenter.longitude,
+    });
+
+    const [centerLabel, setCenterLabel] = React.useState<string>("");
 
     // Keep a ref of points for map listeners
     const pointsRef = React.useRef(points);
@@ -767,12 +659,18 @@ function LandPolygonPickerModal({
                 centerMarkerRef.current.setMap(mapRef.current);
             }
 
+            // 👇 save center + inputs
+            setCenterPos(pos);
+            setLatInput(lat.toFixed(6));
+            setLngInput(lng.toFixed(6));
+
             if (addPoint && drawEnabledRef.current) {
                 setPoints((prev) => [...prev, pos]);
             }
         },
         []
     );
+
 
     // Init map + click to add points + smooth mousemove rubber band
     React.useEffect(() => {
@@ -914,6 +812,10 @@ function LandPolygonPickerModal({
                     centerMarkerRef.current.setPosition(pos);
                     centerMarkerRef.current.setMap(mapRef.current!);
                 }
+                // 👇 update center + inputs
+                setCenterPos(pos);
+                setLatInput(pos.lat.toFixed(6));
+                setLngInput(pos.lng.toFixed(6));
             });
         })();
         return () => {
@@ -1008,6 +910,7 @@ function LandPolygonPickerModal({
         const centerLng = sum.lng / points.length;
 
         onUse({
+            text: centerLabel,
             center: { latitude: centerLat, longitude: centerLng },
             polygon: points,
         });
@@ -1039,6 +942,9 @@ function LandPolygonPickerModal({
             centerMarkerRef.current.setPosition(pos);
             centerMarkerRef.current.setMap(mapRef.current);
         }
+        setCenterPos(pos);
+        setLatInput(pos.lat.toFixed(6));
+        setLngInput(pos.lng.toFixed(6));
     };
 
     const handleFitPolygon = () => {
@@ -1100,6 +1006,37 @@ function LandPolygonPickerModal({
         }
         panToLatLng(parsed.lat, parsed.lng, true);
     };
+    React.useEffect(() => {
+        let cancelled = false;
+
+        (async () => {
+            const g = await loadGoogleMaps(apiKey);
+            if (!g) return;
+
+            const geocoder = new g.maps.Geocoder();
+            geocoder.geocode(
+                { location: { lat: centerPos.lat, lng: centerPos.lng } },
+                (results, status) => {
+                    if (cancelled) return;
+
+                    if (status === "OK" && results && results[0]) {
+                        const label =
+                            results[0].formatted_address ??
+                            `${centerPos.lat.toFixed(5)}, ${centerPos.lng.toFixed(5)}`;
+                        setCenterLabel(label);
+                    } else {
+                        setCenterLabel(
+                            `${centerPos.lat.toFixed(5)}, ${centerPos.lng.toFixed(5)}`
+                        );
+                    }
+                }
+            );
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [apiKey, centerPos.lat, centerPos.lng]);
 
     return (
         <div className="fixed inset-0 z-[60]">
@@ -2569,7 +2506,8 @@ export default function SellModal({
                     }
                     initialPolygon={landPolygon}
                     onCancel={() => setPolygonModalOpen(false)}
-                    onUse={({ center, polygon }) => {
+                    onUse={({ text, center, polygon }) => {
+                        setPlaceText(text);
                         setLandCenter(center);
                         setCoords(center); // keep using coords for search / existing logic
                         setLandPolygon(polygon);
