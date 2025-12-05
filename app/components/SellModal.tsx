@@ -515,10 +515,18 @@ function LocationPickerModal({
     onUse: (text: string, center: { latitude: number; longitude: number }) => void;
 }) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
     const inputRef = React.useRef<HTMLInputElement | null>(null);
+
     const [text, setText] = React.useState(initialText || "");
     const [center, setCenter] = React.useState(initialCenter);
 
+    // NEW: map + marker refs
+    const mapDivRef = React.useRef<HTMLDivElement | null>(null);
+    const mapRef = React.useRef<any>(null);
+    const markerRef = React.useRef<any>(null);
+
+    // ---------- Places autocomplete ----------
     useEffect(() => {
         let alive = true;
         (async () => {
@@ -533,7 +541,10 @@ function LocationPickerModal({
                 const place = ac.getPlace();
                 const loc = place?.geometry?.location;
                 const label =
-                    place?.formatted_address || place?.name || inputRef.current?.value || "";
+                    place?.formatted_address ||
+                    place?.name ||
+                    inputRef.current?.value ||
+                    "";
                 setText(label);
                 if (loc) {
                     setCenter({ latitude: loc.lat(), longitude: loc.lng() });
@@ -545,18 +556,95 @@ function LocationPickerModal({
         };
     }, [apiKey]);
 
+    // ---------- Map + draggable marker setup ----------
+    useEffect(() => {
+        if (!apiKey) return;
+        let cancelled = false;
+
+        (async () => {
+            const g = await loadGoogleMaps(apiKey);
+            if (cancelled || !g || !mapDivRef.current) return;
+
+            if (!mapRef.current) {
+                // create map
+                mapRef.current = new g.maps.Map(mapDivRef.current, {
+                    center: { lat: center.latitude, lng: center.longitude },
+                    zoom: 14,
+                    disableDefaultUI: true,
+                });
+
+                // create draggable marker at center
+                markerRef.current = new g.maps.Marker({
+                    position: { lat: center.latitude, lng: center.longitude },
+                    map: mapRef.current,
+                    draggable: true,
+                });
+
+                // clicking map moves marker
+                g.maps.event.addListener(
+                    mapRef.current,
+                    "click",
+                    (e: google.maps.MapMouseEvent) => {
+                        const lat = e.latLng?.lat();
+                        const lng = e.latLng?.lng();
+                        if (lat == null || lng == null) return;
+                        setCenter({ latitude: lat, longitude: lng });
+                    }
+                );
+
+                // dragging marker updates center
+                g.maps.event.addListener(
+                    markerRef.current,
+                    "dragend",
+                    (e: google.maps.MapMouseEvent) => {
+                        const lat = e.latLng?.lat();
+                        const lng = e.latLng?.lng();
+                        if (lat == null || lng == null) return;
+                        setCenter({ latitude: lat, longitude: lng });
+                    }
+                );
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [apiKey, center.latitude, center.longitude]);
+
+    // Keep map + marker in sync when `center` changes from outside (search, etc.)
+    useEffect(() => {
+        const map = mapRef.current;
+        const marker = markerRef.current;
+        if (!map || !marker) return;
+
+        const pos = { lat: center.latitude, lng: center.longitude };
+        marker.setPosition(pos);
+        map.setCenter(pos);
+    }, [center.latitude, center.longitude]);
+
     return (
         <div className="fixed inset-0 z-[60]">
-            <button onClick={onCancel} className="absolute inset-0 bg-black/50" aria-label="Close" />
+            <button
+                onClick={onCancel}
+                className="absolute inset-0 bg-black/50"
+                aria-label="Close"
+            />
             <div className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 max-h-[85vh] overflow-hidden">
                 <div className="flex items-center justify-between mb-2">
                     <div className="text-base font-black text-gray-900">Add Location</div>
-                    <button onClick={onCancel} className="w-10 h-10 grid place-items-center rounded-full hover:bg-gray-50" aria-label="Close">
+                    <button
+                        onClick={onCancel}
+                        className="w-10 h-10 grid place-items-center rounded-full hover:bg-gray-50"
+                        aria-label="Close"
+                    >
                         <IoClose size={20} />
                     </button>
                 </div>
 
-                <div className="overflow-y-auto pr-1 space-y-3" style={{ maxHeight: "60vh" }}>
+                <div
+                    className="overflow-y-auto pr-1 space-y-3"
+                    style={{ maxHeight: "60vh" }}
+                >
                     <div className="relative">
                         <input
                             ref={inputRef}
@@ -569,10 +657,20 @@ function LocationPickerModal({
                     </div>
 
                     <div>
-                        <div className="text-xs font-extrabold text-gray-500 mb-1">Tap the map or drag marker</div>
-                        <MapPicker center={center} radiusKm={0} onChangeCenter={setCenter} height={300} />
+                        <div className="text-xs font-extrabold text-gray-500 mb-1">
+                            Tap the map or drag marker
+                        </div>
+
+                        {/* MAP WITH DRAGGABLE MARKER */}
+                        <div
+                            ref={mapDivRef}
+                            className="w-full rounded-xl overflow-hidden border border-gray-200"
+                            style={{ height: 300 }}
+                        />
+
                         <div className="mt-1 text-xs text-gray-500">
-                            Selected: {center.latitude.toFixed(5)}, {center.longitude.toFixed(5)}
+                            Selected: {center.latitude.toFixed(5)},{" "}
+                            {center.longitude.toFixed(5)}
                         </div>
                     </div>
                 </div>
@@ -602,6 +700,7 @@ function LocationPickerModal({
         </div>
     );
 }
+
 /* ================= Land Polygon Picker Modal (for arable land) ================= */
 function LandPolygonPickerModal({
     initialCenter,
@@ -1306,7 +1405,8 @@ export default function SellModal({
 
         const unsub = onSnapshot(userRef, (snap) => {
             const data = snap.data() as any | undefined;
-            const status = (data?.verificationStatus as VerificationStatus) || "none";
+            const status =
+                (data?.verification?.status as VerificationStatus) ?? "none";
             setVerificationStatus(status);
             setVerificationLoading(false);
             const pref = data?.preferredCurrency;
