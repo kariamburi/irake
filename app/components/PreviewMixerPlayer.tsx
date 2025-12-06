@@ -1,5 +1,11 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 
 /* Brand */
 const EKARI = {
@@ -13,13 +19,18 @@ const EKARI = {
 type Mode = "video" | "videoWithMusic" | "photo" | "photoWithMusic";
 
 export type PreviewMixerPlayerProps = {
+    /** Modal-style visibility flag (like ConfirmModal) */
+    open?: boolean;
+    /** Optional callback if you later want to close from inside */
+    onClose?: () => void;
+
     videoUri?: string | null;
     photoUri?: string | null;
     posterUri?: string | null;
     musicUri?: string | null;
-    musicOffsetMs?: number;       // +ve = music starts later
-    musicGain?: number;           // 0..1
-    videoGain?: number;           // 0..1 (web-only knob)
+    musicOffsetMs?: number; // +ve = music starts later
+    musicGain?: number; // 0..1
+    videoGain?: number; // 0..1 (web-only knob)
     photoDurationSec?: number;
     isLooping?: boolean;
 
@@ -28,8 +39,8 @@ export type PreviewMixerPlayerProps = {
 
     showControls?: boolean;
     onOffsetChange?: (ms: number) => void;
-    onGainChange?: (gain01: number) => void;       // music gain
-    onVideoGainChange?: (gain01: number) => void;  // video gain
+    onGainChange?: (gain01: number) => void; // music gain
+    onVideoGainChange?: (gain01: number) => void; // video gain
 
     onPlayState?: (playing: boolean) => void;
 
@@ -37,6 +48,9 @@ export type PreviewMixerPlayerProps = {
 };
 
 export default function PreviewMixerPlayer({
+    open = true,
+    onClose,
+
     videoUri,
     photoUri,
     posterUri,
@@ -71,8 +85,9 @@ export default function PreviewMixerPlayer({
     const [videoDurMs, setVideoDurMs] = useState<number>(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [internalPosMs, setInternalPosMs] = useState(0);
-    // Smooth open animation like ConfirmModal
-    const [sheetVisible, setSheetVisible] = useState(false);
+
+    // Modal-like visibility state (ConfirmModal style)
+    const [sheetVisible, setSheetVisible] = useState<boolean>(open);
 
     useEffect(() => {
         if (open) {
@@ -84,20 +99,30 @@ export default function PreviewMixerPlayer({
     }, [open]);
 
     const mainDurationMs = useMemo(() => {
-        if (mode === "video" || mode === "videoWithMusic") return Math.max(0, videoDurMs);
+        if (mode === "video" || mode === "videoWithMusic") {
+            return Math.max(0, videoDurMs);
+        }
         return Math.max(0, Math.floor(photoDurationSec * 1000));
     }, [mode, videoDurMs, photoDurationSec]);
 
     const posMsControlled = useMemo(() => {
         if (typeof positionSec === "number" && isFinite(positionSec)) {
-            return Math.max(0, Math.min(mainDurationMs, Math.floor(positionSec * 1000)));
+            return Math.max(
+                0,
+                Math.min(mainDurationMs, Math.floor(positionSec * 1000))
+            );
         }
         return internalPosMs;
     }, [positionSec, mainDurationMs, internalPosMs]);
 
     // Volumes
-    useEffect(() => { if (vref.current) vref.current.volume = clamp01(videoGain); }, [videoGain]);
-    useEffect(() => { if (aref.current) aref.current.volume = clamp01(musicGain); }, [musicGain]);
+    useEffect(() => {
+        if (vref.current) vref.current.volume = clamp01(videoGain);
+    }, [videoGain]);
+
+    useEffect(() => {
+        if (aref.current) aref.current.volume = clamp01(musicGain);
+    }, [musicGain]);
 
     const onLoadedMetadata = useCallback(() => {
         const v = vref.current;
@@ -116,15 +141,28 @@ export default function PreviewMixerPlayer({
         const startAt = posMsControlled;
 
         if (vref.current && (mode === "video" || mode === "videoWithMusic")) {
-            try { vref.current.currentTime = startAt / 1000; } catch { }
+            try {
+                vref.current.currentTime = startAt / 1000;
+            } catch { }
         }
         if (aref.current && musicUri) {
-            try { aref.current.currentTime = soundPosForMain(startAt) / 1000; } catch { }
+            try {
+                aref.current.currentTime = soundPosForMain(startAt) / 1000;
+            } catch { }
         }
 
-        const startVideo = async () => { try { await vref.current?.play(); } catch { } };
-        const startAudio = async () => { try { await aref.current?.play(); } catch { } };
+        const startVideo = async () => {
+            try {
+                await vref.current?.play();
+            } catch { }
+        };
+        const startAudio = async () => {
+            try {
+                await aref.current?.play();
+            } catch { }
+        };
 
+        // No music case or pure video
         if (!musicUri || mode === "video" || (mode === "photo" && !musicUri)) {
             if (mode === "video") await startVideo();
             setIsPlaying(true);
@@ -132,23 +170,40 @@ export default function PreviewMixerPlayer({
             return;
         }
 
+        // With music
         if (musicOffsetMs === 0) {
             await Promise.all([startVideo(), startAudio()]);
         } else if (musicOffsetMs > 0) {
             await startVideo();
-            setTimeout(() => { startAudio(); }, musicOffsetMs);
+            setTimeout(() => {
+                void startAudio();
+            }, musicOffsetMs);
         } else {
             await startAudio();
-            setTimeout(() => { startVideo(); }, Math.abs(musicOffsetMs));
+            setTimeout(() => {
+                void startVideo();
+            }, Math.abs(musicOffsetMs));
         }
         setIsPlaying(true);
         onPlayState?.(true);
-    }, [isPlaying, posMsControlled, mode, musicUri, musicOffsetMs, onPlayState, soundPosForMain]);
+    }, [
+        isPlaying,
+        posMsControlled,
+        mode,
+        musicUri,
+        musicOffsetMs,
+        onPlayState,
+        soundPosForMain,
+    ]);
 
     const pause = useCallback(async () => {
         if (!isPlaying) return;
-        try { vref.current?.pause(); } catch { }
-        try { aref.current?.pause(); } catch { }
+        try {
+            vref.current?.pause();
+        } catch { }
+        try {
+            aref.current?.pause();
+        } catch { }
         setIsPlaying(false);
         onPlayState?.(false);
     }, [isPlaying, onPlayState]);
@@ -163,25 +218,36 @@ export default function PreviewMixerPlayer({
 
             if (mode === "video" || mode === "videoWithMusic") {
                 const v = vref.current;
-                if (v && isFinite((v as HTMLVideoElement).currentTime)) {
+                if (v && isFinite(v.currentTime)) {
                     now = Math.max(0, Math.floor(v.currentTime * 1000));
                     if (isLooping && v.ended) {
-                        try { v.currentTime = 0; v.play(); } catch { }
+                        try {
+                            v.currentTime = 0;
+                            void v.play();
+                        } catch { }
                         if (aref.current && musicUri) {
-                            try { aref.current.currentTime = soundPosForMain(0) / 1000; aref.current.play(); } catch { }
+                            try {
+                                aref.current.currentTime =
+                                    soundPosForMain(0) / 1000;
+                                void aref.current.play();
+                            } catch { }
                         }
                     }
                 }
             } else {
                 if (isPlaying) {
-                    if (startTs === 0) startTs = Date.now() - internalPosMs;
+                    if (startTs === 0)
+                        startTs = Date.now() - internalPosMs;
                     now = Date.now() - startTs;
                     if (now > mainDurationMs) {
                         if (isLooping) {
                             startTs = Date.now();
                             now = 0;
                             if (aref.current && musicUri) {
-                                try { aref.current.currentTime = soundPosForMain(0) / 1000; } catch { }
+                                try {
+                                    aref.current.currentTime =
+                                        soundPosForMain(0) / 1000;
+                                } catch { }
                             }
                         } else {
                             now = mainDurationMs;
@@ -194,8 +260,11 @@ export default function PreviewMixerPlayer({
                 }
             }
 
-            if (typeof positionSec !== "number") setInternalPosMs(now);
-            else onPositionSecChange?.(now / 1000);
+            if (typeof positionSec !== "number") {
+                setInternalPosMs(now);
+            } else {
+                onPositionSecChange?.(now / 1000);
+            }
 
             raf = requestAnimationFrame(loop);
         };
@@ -203,22 +272,51 @@ export default function PreviewMixerPlayer({
         raf = requestAnimationFrame(loop);
         return () => cancelAnimationFrame(raf);
     }, [
-        mode, internalPosMs, isPlaying, mainDurationMs, isLooping,
-        positionSec, onPositionSecChange, musicUri, soundPosForMain, onPlayState
+        mode,
+        internalPosMs,
+        isPlaying,
+        mainDurationMs,
+        isLooping,
+        positionSec,
+        onPositionSecChange,
+        musicUri,
+        soundPosForMain,
+        onPlayState,
     ]);
 
-    const setMainPositionMs = useCallback((ms: number) => {
-        const clamped = Math.max(0, Math.min(mainDurationMs, Math.floor(ms)));
-        onPositionSecChange?.(clamped / 1000);
-        if (typeof positionSec !== "number") setInternalPosMs(clamped);
+    const setMainPositionMs = useCallback(
+        (ms: number) => {
+            const clamped = Math.max(
+                0,
+                Math.min(mainDurationMs, Math.floor(ms))
+            );
+            onPositionSecChange?.(clamped / 1000);
+            if (typeof positionSec !== "number") setInternalPosMs(clamped);
 
-        if (vref.current && (mode === "video" || mode === "videoWithMusic")) {
-            try { vref.current.currentTime = clamped / 1000; } catch { }
-        }
-        if (aref.current && musicUri) {
-            try { aref.current.currentTime = soundPosForMain(clamped) / 1000; } catch { }
-        }
-    }, [mainDurationMs, positionSec, mode, musicUri, soundPosForMain, onPositionSecChange]);
+            if (
+                vref.current &&
+                (mode === "video" || mode === "videoWithMusic")
+            ) {
+                try {
+                    vref.current.currentTime = clamped / 1000;
+                } catch { }
+            }
+            if (aref.current && musicUri) {
+                try {
+                    aref.current.currentTime =
+                        soundPosForMain(clamped) / 1000;
+                } catch { }
+            }
+        },
+        [
+            mainDurationMs,
+            positionSec,
+            mode,
+            musicUri,
+            soundPosForMain,
+            onPositionSecChange,
+        ]
+    );
 
     const pretty = (ms: number) => {
         const s = Math.floor(ms / 1000);
@@ -226,6 +324,9 @@ export default function PreviewMixerPlayer({
         const r = s % 60;
         return `${m}:${r.toString().padStart(2, "0")}`;
     };
+
+    // If closed (ConfirmModal-style), render nothing
+    if (!sheetVisible) return null;
 
     // --- RENDER
     return (
@@ -240,7 +341,7 @@ export default function PreviewMixerPlayer({
                     height: "min(90svh, 800px)", // portrait-friendly
                 }}
             >
-                {(mode === "video" || mode === "videoWithMusic") ? (
+                {mode === "video" || mode === "videoWithMusic" ? (
                     <video
                         ref={vref}
                         src={videoUri || undefined}
@@ -256,13 +357,25 @@ export default function PreviewMixerPlayer({
                     <div className="h-full w-full bg-black">
                         {photoUri && (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={photoUri} alt="preview" className="h-full w-full object-contain" />
+                            <img
+                                src={photoUri}
+                                alt="preview"
+                                className="h-full w-full object-contain"
+                            />
                         )}
                     </div>
                 )}
-                {musicUri ? <audio ref={aref} src={musicUri} preload="auto" loop={isLooping} /> : null}
 
-                {/* ===== Overlay: Center Play/Pause ===== */}
+                {musicUri ? (
+                    <audio
+                        ref={aref}
+                        src={musicUri}
+                        preload="auto"
+                        loop={isLooping}
+                    />
+                ) : null}
+
+                {/* Center Play/Pause overlay */}
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <button
                         type="button"
@@ -270,7 +383,9 @@ export default function PreviewMixerPlayer({
                         onClick={isPlaying ? pause : play}
                         className="pointer-events-auto h-16 w-16 rounded-full shadow-lg backdrop-blur-sm transition active:scale-95"
                         style={{
-                            background: isPlaying ? `${EKARI.gold}E6` : `${EKARI.forest}E6`,
+                            background: isPlaying
+                                ? `${EKARI.gold}E6`
+                                : `${EKARI.forest}E6`,
                             color: "#fff",
                             border: "2px solid #ffffff66",
                         }}
@@ -279,31 +394,43 @@ export default function PreviewMixerPlayer({
                     </button>
                 </div>
 
-                {/* ===== Overlay: Bottom Controls (time + scrubber) ===== */}
+                {/* Bottom controls overlay */}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 p-3">
                     {musicUri ? (
                         <div className="mt-1 text-xs text-white/95">
-
-                            <div>Music Offset: <span>{Math.round(musicOffsetMs)} ms</span></div>
-                            <div> Music Gain: <span>{Math.round(musicGain * 100)}%</span></div>
-                        </div>) : (
+                            <div>
+                                Music Offset:{" "}
+                                <span>{Math.round(musicOffsetMs)} ms</span>
+                            </div>
+                            <div>
+                                Music Gain:{" "}
+                                <span>{Math.round(musicGain * 100)}%</span>
+                            </div>
+                        </div>
+                    ) : (
                         <div className="mt-1 text-xs text-white/95">
-                            <div className="mt-2 text-xs">No music selected.</div>
+                            <div className="mt-2 text-xs">
+                                No music selected.
+                            </div>
                         </div>
                     )}
+
                     {(mode === "video" || mode === "videoWithMusic") && (
-                        <>
-
-                            <div className="mt-1 text-xs text-white/95">
-                                Video Gain: <span>{Math.round((videoGain || 0) * 100)}%</span>
-                            </div>
-
-                        </>
+                        <div className="mt-1 text-xs text-white/95">
+                            Video Gain:{" "}
+                            <span>
+                                {Math.round((videoGain || 0) * 100)}%
+                            </span>
+                        </div>
                     )}
-                    <div className="rounded-xl px-3 pb-3 pt-2"
+
+                    <div
+                        className="rounded-xl px-3 pb-3 pt-2"
                         style={{
-                            background: "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.25), rgba(0,0,0,0))",
-                        }}>
+                            background:
+                                "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.25), rgba(0,0,0,0))",
+                        }}
+                    >
                         <div className="mb-2 flex items-center justify-between text-[12px] font-semibold text-white/95">
                             <span>{pretty(posMsControlled)}</span>
                             <span>{pretty(mainDurationMs)}</span>
@@ -317,60 +444,22 @@ export default function PreviewMixerPlayer({
                             step={10}
                             value={posMsControlled}
                             onChange={(v) => setMainPositionMs(v)}
-                            percent={toPercent(posMsControlled, 0, Math.max(1, mainDurationMs))}
+                            percent={toPercent(
+                                posMsControlled,
+                                0,
+                                Math.max(1, mainDurationMs)
+                            )}
                         />
                     </div>
-
                 </div>
             </div>
 
-            {/* Music + Video controls (external panel) 
+            {/* External music/video controls panel (currently commented out) */}
+            {/* 
             {showControls && (
-                <div className="mt-4 rounded-xl border p-3" style={{ borderColor: EKARI.hair, background: "#fff" }}>
-                    <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>Music</div>
-
-                    {musicUri ? (
-                        <>
-                            <div className="mt-3 text-xs font-bold" style={{ color: EKARI.text }}>
-                                Offset: <span style={{ color: EKARI.dim }}>{Math.round(musicOffsetMs)} ms</span>
-                            </div>
-                            <ThemedRange
-                                min={-5000} max={5000} step={50}
-                                value={musicOffsetMs}
-                                onChange={(v) => onOffsetChange?.(Math.round(v))}
-                                percent={toPercent(musicOffsetMs, -5000, 5000)}
-                            />
-
-                            <div className="mt-3 text-xs font-bold" style={{ color: EKARI.text }}>
-                                Music Gain: <span style={{ color: EKARI.dim }}>{Math.round(musicGain * 100)}%</span>
-                            </div>
-                            <ThemedRange
-                                min={0} max={1} step={0.01}
-                                value={musicGain}
-                                onChange={(v) => onGainChange?.(clamp01(v))}
-                                percent={toPercent(musicGain, 0, 1)}
-                            />
-                        </>
-                    ) : (
-                        <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>No music selected.</div>
-                    )}
-
-                    {(mode === "video" || mode === "videoWithMusic") && (
-                        <>
-                            <div className="mt-4 text-sm font-extrabold" style={{ color: EKARI.text }}>Video</div>
-                            <div className="mt-2 text-xs font-bold" style={{ color: EKARI.text }}>
-                                Video Gain: <span style={{ color: EKARI.dim }}>{Math.round((videoGain || 0) * 100)}%</span>
-                            </div>
-                            <ThemedRange
-                                min={0} max={1} step={0.01}
-                                value={videoGain || 0}
-                                onChange={(v) => onVideoGainChange?.(clamp01(v))}
-                                percent={toPercent(videoGain || 0, 0, 1)}
-                            />
-                        </>
-                    )}
-                </div>
-            )}*/}
+                ...
+            )} 
+            */}
         </div>
     );
 }
@@ -379,13 +468,25 @@ export default function PreviewMixerPlayer({
 function PlayPauseIcon({ playing }: { playing: boolean }) {
     if (!playing) {
         return (
-            <svg viewBox="0 0 24 24" className="mx-auto h-6 w-6" fill="currentColor" role="img" aria-hidden="true">
+            <svg
+                viewBox="0 0 24 24"
+                className="mx-auto h-6 w-6"
+                fill="currentColor"
+                role="img"
+                aria-hidden="true"
+            >
                 <path d="M8 5v14l11-7z" />
             </svg>
         );
     }
     return (
-        <svg viewBox="0 0 24 24" className="mx-auto h-6 w-6" fill="currentColor" role="img" aria-hidden="true">
+        <svg
+            viewBox="0 0 24 24"
+            className="mx-auto h-6 w-6"
+            fill="currentColor"
+            role="img"
+            aria-hidden="true"
+        >
             <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
         </svg>
     );
@@ -393,10 +494,23 @@ function PlayPauseIcon({ playing }: { playing: boolean }) {
 
 /* Themed range (supports light or dark overlays) */
 function ThemedRange({
-    min, max, step, value, onChange, percent, className, dark = false,
+    min,
+    max,
+    step,
+    value,
+    onChange,
+    percent,
+    className,
+    dark = false,
 }: {
-    min: number; max: number; step: number; value: number;
-    onChange: (v: number) => void; percent: number; className?: string; dark?: boolean;
+    min: number;
+    max: number;
+    step: number;
+    value: number;
+    onChange: (v: number) => void;
+    percent: number;
+    className?: string;
+    dark?: boolean;
 }) {
     const trackBg = dark
         ? `linear-gradient(to right, ${EKARI.gold} ${percent}%, #ffffff33 ${percent} 100%)`
@@ -406,7 +520,9 @@ function ThemedRange({
         <div className={className}>
             <input
                 type="range"
-                min={min} max={max} step={step}
+                min={min}
+                max={max}
+                step={step}
                 value={value}
                 onChange={(e) => onChange(Number(e.target.value))}
                 className={[
@@ -426,15 +542,24 @@ function ThemedRange({
                 style={{ background: trackBg } as React.CSSProperties}
             />
             <style jsx>{`
-        input[type="range"]::-webkit-slider-thumb { background: ${EKARI.gold}; }
-        input[type="range"]::-moz-range-thumb { background: ${EKARI.gold}; }
-        input[type="range"]:focus-visible { box-shadow: 0 0 0 2px ${EKARI.forest}33; }
-      `}</style>
+                input[type="range"]::-webkit-slider-thumb {
+                    background: ${EKARI.gold};
+                }
+                input[type="range"]::-moz-range-thumb {
+                    background: ${EKARI.gold};
+                }
+                input[type="range"]:focus-visible {
+                    box-shadow: 0 0 0 2px ${EKARI.forest}33;
+                }
+            `}</style>
         </div>
     );
 }
 
-function clamp01(v: number) { return Math.max(0, Math.min(1, v)); }
+function clamp01(v: number) {
+    return Math.max(0, Math.min(1, v));
+}
+
 function toPercent(val: number, min: number, max: number) {
     if (max <= min) return 0;
     const p = ((val - min) / (max - min)) * 100;

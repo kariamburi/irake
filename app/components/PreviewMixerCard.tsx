@@ -128,6 +128,7 @@ export default function PreviewMixerCard({
                                 onVideoGainChange={onVideoGainChange}
                                 aspect={9 / 16}
                             />
+
                         </div>
                     </div>
                 </div>
