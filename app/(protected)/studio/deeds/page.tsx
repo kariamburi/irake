@@ -37,6 +37,7 @@ import {
 import TikBallsLoader from "@/components/ui/TikBallsLoader";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { ConfirmModal } from "@/app/components/ConfirmModal";
 
 /* ---------- Types ---------- */
 export type Deed = {
@@ -72,58 +73,7 @@ async function deleteMuxAsset(assetId: string) {
     if (!res.ok) throw new Error(`Mux delete failed: ${await res.text()}`);
 }
 
-/* ---------- Modals / UI bits ---------- */
-function Backdrop({ children }: { children: React.ReactNode }) {
-    // FIX: removed extra overlay div that blocked clicks
-    return (
-        <div className="fixed inset-0 z-[100] grid place-items-center bg-black/40 p-4">
-            {children}
-        </div>
-    );
-}
 
-function ConfirmModal({
-    title,
-    message,
-    confirmLabel = "Delete",
-    cancelLabel = "Cancel",
-    onConfirm,
-    onCancel,
-    busy,
-}: {
-    title: string;
-    message: string;
-    confirmLabel?: string;
-    cancelLabel?: string;
-    onConfirm: () => void;
-    onCancel: () => void;
-    busy?: boolean;
-}) {
-    return (
-        <Backdrop>
-            <div role="dialog" aria-modal className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-                <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-                <p className="mt-2 text-sm text-slate-600">{message}</p>
-                <div className="mt-5 flex items-center justify-end gap-2">
-                    <button
-                        onClick={onCancel}
-                        disabled={busy}
-                        className="rounded-lg border px-3 py-1.5 text-sm font-semibold hover:bg-black/5"
-                    >
-                        {cancelLabel}
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        disabled={busy}
-                        className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
-                    >
-                        {busy ? "Deleting…" : confirmLabel}
-                    </button>
-                </div>
-            </div>
-        </Backdrop>
-    );
-}
 
 function Toast({ text }: { text: string }) {
     return (
@@ -435,28 +385,39 @@ export default function PostsPage() {
                 </div>
 
                 {/* Delete confirm modal (single) */}
-                {confirmId && (
-                    <ConfirmModal
-                        title="Delete deed?"
-                        message="This will remove the deed. This can't be undone."
-                        confirmLabel="Delete"
-                        onCancel={() => setConfirmId(null)}
-                        onConfirm={() => hardDelete(confirmId)}
-                        busy={busyDelete}
-                    />
-                )}
+
+                <ConfirmModal
+                    open={!!confirmId}
+                    title="Delete deed?"
+                    message="This will remove the deed and its media. This action cannot be undone."
+                    confirmText={busyDelete ? "Deleting…" : "Delete"}
+                    cancelText="Cancel"
+                    onCancel={() => {
+                        if (busyDelete) return;
+                        setConfirmId(null);
+                    }}
+                    onConfirm={() => {
+                        if (!confirmId || busyDelete) return;
+                        void hardDelete(confirmId);
+                    }}
+                />
 
                 {/* Bulk delete modal */}
-                {confirmBulk && (
-                    <ConfirmModal
-                        title="Delete selected posts?"
-                        message={`You are about to delete ${selectedIds.length} deed(s) including their media and any linked assets.`}
-                        confirmLabel="Delete all"
-                        onCancel={() => setConfirmBulk(false)}
-                        onConfirm={hardDeleteBulk}
-                        busy={busyDelete}
-                    />
-                )}
+                <ConfirmModal
+                    open={confirmBulk}
+                    title="Delete selected posts?"
+                    message={`You are about to delete ${selectedIds.length} deed(s), including their media and any linked assets. This action cannot be undone.`}
+                    confirmText={busyDelete ? "Deleting…" : "Delete all"}
+                    cancelText="Cancel"
+                    onCancel={() => {
+                        if (busyDelete) return;
+                        setConfirmBulk(false);
+                    }}
+                    onConfirm={() => {
+                        if (busyDelete || selectedIds.length === 0) return;
+                        void hardDeleteBulk();
+                    }}
+                />
 
                 {/* Toast */}
                 {toast && <Toast text={toast} />}

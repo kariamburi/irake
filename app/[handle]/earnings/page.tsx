@@ -25,6 +25,12 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { IoArrowBackCircleOutline } from "react-icons/io5";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { ConfirmModal } from "@/app/components/ConfirmModal";
+import { createPortal } from "react-dom";
+
+// ✅ import your shared confirmation modal
+// (update the path if needed)
+
 
 const EKARI = {
   forest: "#233F39",
@@ -93,6 +99,14 @@ type PreferredCurrency = "USD" | "KES";
 
 type HistoryTab = "donations" | "topups";
 
+// for simple info/success/error modal
+type FeedbackModalState =
+  | {
+    title: string;
+    message: string;
+  }
+  | null;
+
 export default function EarningsPage() {
   const params = useParams<{ handle: string }>();
   const handle = "@" + params?.handle;
@@ -124,6 +138,20 @@ export default function EarningsPage() {
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState<string>("");
   const [topupLoading, setTopupLoading] = useState(false);
+  const [topupError, setTopupError] = useState<string | null>(null);
+  const [topupAnimated, setTopupAnimated] = useState(false);
+  // 🔹 Withdraw confirmation / feedback modals
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState<FeedbackModalState>(null);
+  useEffect(() => {
+    if (topupOpen) {
+      // next frame so transitions apply
+      const id = requestAnimationFrame(() => setTopupAnimated(true));
+      return () => cancelAnimationFrame(id);
+    } else {
+      setTopupAnimated(false);
+    }
+  }, [topupOpen]);
 
   // Watch adminSettings/finance
   useEffect(() => {
@@ -370,22 +398,23 @@ export default function EarningsPage() {
 
   const creatorSharePercentEffective = 100 - platformSharePercentEffective;
 
+  // ✅ now purely executes the request (no window.alert)
   const handleRequestWithdraw = async () => {
     if (!ownerUid || !wallet?.pendingBalance) return;
 
-    // 🔹 wallet.pendingBalance is in USD minor units now
     if (wallet.pendingBalance < minThresholdUsdMajor * 100) {
-      if (displayCurrency === "USD") {
-        alert(
-          `Minimum withdrawal is about USD ${minThresholdUsdMajor.toFixed(2)}.`
-        );
-      } else {
-        alert(
-          `Minimum withdrawal is about KSh ${minThresholdDisplayMajor.toFixed(
-            0
-          )} (≈ USD ${minThresholdUsdMajor.toFixed(2)}).`
-        );
-      }
+      // should not happen because button is hidden, but keep a graceful guard
+      setFeedbackModal({
+        title: "Below minimum withdrawal amount",
+        message:
+          displayCurrency === "USD"
+            ? `Your balance is below the minimum withdrawal of USD ${minThresholdUsdMajor.toFixed(
+              2
+            )}.`
+            : `Your balance is below the minimum withdrawal of KSh ${minThresholdDisplayMajor.toFixed(
+              0
+            )} (≈ USD ${minThresholdUsdMajor.toFixed(2)}).`,
+      });
       return;
     }
 
@@ -402,10 +431,18 @@ export default function EarningsPage() {
         updatedAt: serverTimestamp(),
       });
 
-      alert("Withdrawal request submitted!");
+      setFeedbackModal({
+        title: "Withdrawal request submitted",
+        message:
+          "Your withdrawal request has been sent. We’ll review it and notify you once it has been processed.",
+      });
     } catch (err) {
       console.error("Error creating withdrawal request", err);
-      alert("We could not submit your withdrawal request. Please try again.");
+      setFeedbackModal({
+        title: "Unable to submit request",
+        message:
+          "We couldn’t submit your withdrawal request. Please try again in a few moments.",
+      });
     }
   };
 
@@ -428,33 +465,41 @@ export default function EarningsPage() {
 
   // 🔹 Open modal
   const openTopupModal = () => {
+    // ownerUid is guaranteed here because this page is gated,
+    // but keep a soft guard that uses our feedback modal instead of alert.
     if (!ownerUid) {
-      alert("Please sign in to top up your wallet.");
+      setFeedbackModal({
+        title: "Sign in required",
+        message: "Please sign in to top up your ekarihub wallet.",
+      });
       return;
     }
     setTopupAmount("");
+    setTopupError(null);
     setTopupOpen(true);
   };
 
-  // 🔹 Confirm topup -> Cloud Function
+  // 🔹 Confirm topup -> Cloud Function (no alerts, uses inline error + feedback)
   const handleConfirmTopup = async () => {
     if (!ownerUid) {
-      alert("Please sign in to top up your wallet.");
+      setTopupError("You need to be signed in to top up your wallet.");
       return;
     }
     const raw = topupAmount.trim();
     if (!raw) {
-      alert("Please enter an amount.");
+      setTopupError("Please enter an amount to top up.");
       return;
     }
     const amountMajor = Number(raw);
     if (!Number.isFinite(amountMajor) || amountMajor <= 0) {
-      alert("Please enter a valid amount.");
+      setTopupError("Please enter a valid amount.");
       return;
     }
 
     try {
       setTopupLoading(true);
+      setTopupError(null);
+
       const functions = getFunctions(app, "us-central1");
       const createWalletTopupCheckout = httpsCallable<
         {
@@ -475,7 +520,9 @@ export default function EarningsPage() {
 
       const url = res.data.checkoutUrl;
       if (!url) {
-        alert("Unable to start top-up. Please try again.");
+        setTopupError(
+          "We were unable to start the top-up. Please try again in a moment."
+        );
         setTopupLoading(false);
         return;
       }
@@ -487,7 +534,9 @@ export default function EarningsPage() {
     } catch (err) {
       console.error("Top-up error", err);
       setTopupLoading(false);
-      alert("Unable to start top-up. Please try again.");
+      setTopupError(
+        "We were unable to start the top-up. Please check your connection and try again."
+      );
     }
   };
 
@@ -517,7 +566,7 @@ export default function EarningsPage() {
 
       breakdown = (
         <p className="mt-0.5 text-[11px]" style={{ color: EKARI.dim }}>
-          You (after fees): {cur} {netMajor.toFixed(2)} · ekariHub: {cur}{" "}
+          You (after fees): {cur} {netMajor.toFixed(2)} · ekarihub: {cur}{" "}
           {platMajor.toFixed(2)}
           {providerMajor != null && (
             <>
@@ -643,7 +692,6 @@ export default function EarningsPage() {
           style={{ backgroundColor: EKARI.bgSoft }}
         >
           <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-6 py-5 shadow-sm">
-
             <BouncingBallLoader />
             <p className="text-sm" style={{ color: EKARI.dim }}>
               Checking access to this earnings page…
@@ -826,7 +874,7 @@ export default function EarningsPage() {
               </p>
               <div className="mt-1 flex items-start justify-between gap-2">
                 <p className="text-xs" style={{ color: EKARI.dim }}>
-                  This is your current ekariHub wallet balance. You can
+                  This is your current ekarihub wallet balance. You can
                   withdraw once you reach the minimum threshold, or use it to
                   donate to other deeds.
                 </p>
@@ -846,7 +894,7 @@ export default function EarningsPage() {
             wallet.pendingBalance >= minThresholdUsdMajor * 100 ? (
             <button
               type="button"
-              onClick={handleRequestWithdraw}
+              onClick={() => setConfirmWithdrawOpen(true)}
               className="mt-2 w-full rounded-full bg-emerald-900 text-white py-2 font-semibold hover:bg-emerald-800"
             >
               Withdraw Funds
@@ -884,7 +932,6 @@ export default function EarningsPage() {
                     ? "bg-emerald-900 text-white shadow-sm"
                     : "text-slate-600"
                     }`}
-
                 >
                   USD
                 </button>
@@ -910,7 +957,7 @@ export default function EarningsPage() {
                 style={{ color: EKARI.dim }}
               >
                 Split: ~{creatorSharePercentEffective}% you ·{" "}
-                {platformSharePercentEffective}% ekariHub
+                {platformSharePercentEffective}% ekarihub
               </span>
             </div>
 
@@ -1015,21 +1062,30 @@ export default function EarningsPage() {
         </div>
 
         {/* 🔹 Top-up modal */}
-        {topupOpen && (
-          <div className="fixed inset-0 z-[70]">
-            <div
-              className="absolute inset-0 bg-black/40"
-              onClick={() => !topupLoading && setTopupOpen(false)}
-            />
-            <div className="absolute inset-0 flex items-center justify-center px-4">
-              <div className="w-full max-w-md rounded-3xl bg-white px-5 pb-5 pt-4 shadow-xl">
-                <div className="flex items-start justify-between gap-3 mb-3">
+        {topupOpen &&
+          createPortal(
+            <div className="fixed inset-0 z-[70] flex items-center justify-center">
+              {/* Backdrop – faded + blurred like ConfirmModal */}
+              <div
+                className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${topupAnimated ? "opacity-100" : "opacity-0"
+                  }`}
+                onClick={() => !topupLoading && setTopupOpen(false)}
+              />
+
+              {/* Modal card – fade + scale in */}
+              <div
+                className={`relative w-full max-w-md px-5 pb-5 pt-4 rounded-3xl bg-white shadow-xl transition-all duration-200 transform ${topupAnimated
+                  ? "opacity-100 scale-100 translate-y-0"
+                  : "opacity-0 scale-95 translate-y-2"
+                  }`}
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:#233F39]">
                       Top up your wallet
                     </p>
                     <h2 className="text-[16px] font-extrabold text-gray-900">
-                      Add funds to your ekariHub wallet
+                      Add funds to your ekarihub wallet
                     </h2>
                     <p className="mt-1 text-xs text-gray-500">
                       Enter the amount you want to load in{" "}
@@ -1059,17 +1115,21 @@ export default function EarningsPage() {
                       min={displayCurrency === "USD" ? 1 : 100}
                       step={displayCurrency === "USD" ? 1 : 50}
                       value={topupAmount}
-                      onChange={(e) => setTopupAmount(e.target.value)}
+                      onChange={(e) => {
+                        setTopupAmount(e.target.value);
+                        if (topupError) setTopupError(null);
+                      }}
                       className="flex-1 border-none bg-transparent text-sm outline-none placeholder:text-gray-300"
-                      placeholder={
-                        displayCurrency === "USD" ? "e.g. 10" : "e.g. 1000"
-                      }
+                      placeholder={displayCurrency === "USD" ? "e.g. 10" : "e.g. 1000"}
                     />
                   </div>
                   <p className="mt-1 text-[11px] text-gray-400">
-                    You’ll be redirected to a secure Paystack page to complete
-                    the top-up.
+                    You’ll be redirected to a secure Paystack page to complete the
+                    top-up.
                   </p>
+                  {topupError && (
+                    <p className="mt-2 text-[11px] text-red-500">{topupError}</p>
+                  )}
                 </div>
 
                 <button
@@ -1098,9 +1158,37 @@ export default function EarningsPage() {
                   succeeds.
                 </p>
               </div>
-            </div>
-          </div>
-        )}
+            </div>,
+            document.body
+          )}
+
+
+        {/* 🔹 Confirm Withdraw Modal */}
+        <ConfirmModal
+          open={confirmWithdrawOpen}
+          title="Withdraw your wallet balance?"
+          message={`You’re about to request a withdrawal of your full pending balance (${displayCurrency} ${pendingBalanceDisplayMajor.toFixed(
+            displayCurrency === "KES" ? 0 : 2
+          )}). We’ll review and process this request according to ekarihub payout timelines.`}
+          confirmText="Submit request"
+          cancelText="Cancel"
+          onConfirm={async () => {
+            setConfirmWithdrawOpen(false);
+            await handleRequestWithdraw();
+          }}
+          onCancel={() => setConfirmWithdrawOpen(false)}
+        />
+
+        {/* 🔹 Feedback Modal (success / error) */}
+        <ConfirmModal
+          open={!!feedbackModal}
+          title={feedbackModal?.title || ""}
+          message={feedbackModal?.message || ""}
+          confirmText="OK"
+          cancelText="Close"
+          onConfirm={() => setFeedbackModal(null)}
+          onCancel={() => setFeedbackModal(null)}
+        />
       </main>
     </AppShell>
   );

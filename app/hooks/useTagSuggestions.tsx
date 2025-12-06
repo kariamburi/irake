@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-    collection, doc, getDoc, getDocs, query, where, orderBy, limit, Timestamp
+    collection,
+    doc,
+    getDoc,
+    query,
+    orderBy,
+    limit,
+    onSnapshot,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { INTERESTS, ROLES } from "@/app/constants/constants";
@@ -17,13 +23,13 @@ const normalize = (s: string) =>
         .slice(0, 30);
 
 type Opts = {
-    uid?: string | null;          // signed-in user id
-    horizonDays?: number;         // lookback window for “trending”
-    maxTrending?: number;         // how many trending to keep
+    uid?: string | null;   // signed-in user id
+    horizonDays?: number;  // still accepted but no longer used directly
+    maxTrending?: number;  // how many trending to keep
 };
 
 export function useTagSuggestions(opts: Opts = {}) {
-    const { uid, horizonDays = 30, maxTrending = 24 } = opts;
+    const { uid, /* horizonDays = 30, */ maxTrending = 24 } = opts;
 
     const [userTags, setUserTags] = useState<string[]>([]);
     const [trending, setTrending] = useState<string[]>([]);
@@ -44,8 +50,11 @@ export function useTagSuggestions(opts: Opts = {}) {
                     return;
                 }
                 const d = snap.data() as any;
-                const aoi: string[] = Array.isArray(d?.areaOfInterest) ? d.areaOfInterest : [];
+                const aoi: string[] = Array.isArray(d?.areaOfInterest)
+                    ? d.areaOfInterest
+                    : [];
                 const roles: string[] = Array.isArray(d?.roles) ? d.roles : [];
+
                 const merged = [...aoi, ...roles]
                     .map(normalize)
                     .filter(Boolean);
@@ -55,62 +64,44 @@ export function useTagSuggestions(opts: Opts = {}) {
                 if (!cancelled) setUserTags([]);
             }
         })();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [uid]);
 
-    // 2) Compute trending from recent Events + Discussions
+    // 2) Trending from hashtags collection (top by uses)
     useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            setLoading(true);
-            try {
-                const since = Timestamp.fromDate(new Date(Date.now() - horizonDays * 24 * 60 * 60 * 1000));
+        setLoading(true);
+        const qHashtags = query(
+            collection(db, "hashtags"),
+            orderBy("uses", "desc"),
+            limit(maxTrending)
+        );
 
-                // events (createdAt >= since)
-                const qEvents = query(
-                    collection(db, "events"),
-                    where("createdAt", ">=", since),
-                    orderBy("createdAt", "desc"),
-                    limit(300)
+        const unsub = onSnapshot(
+            qHashtags,
+            (snap) => {
+                const tags: string[] = snap.docs.map((d) => {
+                    const data = d.data() as { tag?: string; uses?: number };
+                    // use data.tag if present, fall back to doc id
+                    const raw = data.tag || d.id || "";
+                    return normalize(raw);
+                });
+
+                const uniq = Array.from(
+                    new Set(tags.filter(Boolean))
                 );
-
-                // discussions (published===true, createdAt >= since)
-                const qDiscs = query(
-                    collection(db, "discussions"),
-                    where("published", "==", true),
-                    where("createdAt", ">=", since),
-                    orderBy("createdAt", "desc"),
-                    limit(300)
-                );
-
-                const [evSnap, diSnap] = await Promise.all([getDocs(qEvents), getDocs(qDiscs)]);
-                const freq = new Map<string, number>();
-
-                const bump = (arr?: string[]) => {
-                    (arr || []).forEach((t) => {
-                        const k = normalize(t);
-                        if (!k) return;
-                        freq.set(k, (freq.get(k) || 0) + 1);
-                    });
-                };
-
-                evSnap.forEach((d) => bump((d.data() as any)?.tags));
-                diSnap.forEach((d) => bump((d.data() as any)?.tags));
-
-                const sorted = Array.from(freq.entries())
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, maxTrending)
-                    .map(([k]) => k);
-
-                if (!cancelled) setTrending(sorted);
-            } catch {
-                if (!cancelled) setTrending([]);
-            } finally {
-                if (!cancelled) setLoading(false);
+                setTrending(uniq);
+                setLoading(false);
+            },
+            () => {
+                setTrending([]);
+                setLoading(false);
             }
-        })();
-        return () => { cancelled = true; };
-    }, [horizonDays, maxTrending]);
+        );
+
+        return () => unsub();
+    }, [maxTrending]);
 
     // 3) Global (curated) list
     const curatedAll = useMemo(() => {
@@ -135,17 +126,27 @@ export function useTagSuggestions(opts: Opts = {}) {
     // Nice groupings for your SmartPicker
     const groups = useMemo(() => {
         const g: { title: string; items: string[] }[] = [];
-        if (userTags.length) g.push({ title: "Suggested for you", items: userTags });
-        if (trending.length) g.push({ title: "Trending now", items: trending.filter((t) => !userTags.includes(t)) });
-        g.push({ title: "All tags", items: curatedAll.filter((t) => !userTags.includes(t) && !trending.includes(t)) });
+        if (userTags.length)
+            g.push({ title: "Suggested for you", items: userTags });
+        if (trending.length)
+            g.push({
+                title: "Trending now",
+                items: trending.filter((t) => !userTags.includes(t)),
+            });
+        g.push({
+            title: "All tags",
+            items: curatedAll.filter(
+                (t) => !userTags.includes(t) && !trending.includes(t)
+            ),
+        });
         return g;
     }, [userTags, trending, curatedAll]);
 
     return {
         loading,
-        userTags,       // personalized
-        trending,       // computed
-        all: mergedAll, // merged + deduped
-        groups,         // for SmartPicker’s 'groups' prop
+        userTags,   // personalized
+        trending,   // from hashtags
+        all: mergedAll,
+        groups,
     };
 }

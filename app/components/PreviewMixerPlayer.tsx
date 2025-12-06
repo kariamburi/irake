@@ -71,6 +71,17 @@ export default function PreviewMixerPlayer({
     const [videoDurMs, setVideoDurMs] = useState<number>(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [internalPosMs, setInternalPosMs] = useState(0);
+    // Smooth open animation like ConfirmModal
+    const [sheetVisible, setSheetVisible] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            const id = requestAnimationFrame(() => setSheetVisible(true));
+            return () => cancelAnimationFrame(id);
+        } else {
+            setSheetVisible(false);
+        }
+    }, [open]);
 
     const mainDurationMs = useMemo(() => {
         if (mode === "video" || mode === "videoWithMusic") return Math.max(0, videoDurMs);

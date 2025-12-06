@@ -1,3 +1,4 @@
+// app/admin/taxonomy/page.tsx (or wherever this file lives)
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -13,6 +14,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import { IoAdd, IoTrashOutline, IoCreateOutline } from "react-icons/io5";
+import { ConfirmModal } from "@/app/components/ConfirmModal";
 
 /* ---------- Brand ---------- */
 const EKARI = {
@@ -34,6 +36,12 @@ type TaxGroup = {
 };
 
 type TabKey = "interests" | "roles";
+
+type BannerState =
+  | { type: "success"; message: string }
+  | { type: "error"; message: string }
+  | { type: "info"; message: string }
+  | null;
 
 /* ---------- Helper: slug from title ---------- */
 function slugifyTitle(title: string): string {
@@ -72,8 +80,26 @@ export default function TaxonomyAdminPage() {
   const [active, setActive] = useState(true);
 
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  // 🔹 unified banner
+  const [banner, setBanner] = useState<BannerState>(null);
+
+  // 🔹 Confirm delete modal
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const showError = (message: string) =>
+    setBanner({ type: "error", message });
+  const showSuccess = (message: string) =>
+    setBanner({ type: "success", message });
+  const showInfo = (message: string) =>
+    setBanner({ type: "info", message });
+  const clearBanner = () => setBanner(null);
 
   // Optional: only allow your admin user
   const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID || "";
@@ -85,10 +111,7 @@ export default function TaxonomyAdminPage() {
 
   /* ---------- Subscribe to Firestore ---------- */
   useEffect(() => {
-    const q1 = query(
-      collection(db, "interest_groups"),
-      orderBy("order", "asc")
-    );
+    const q1 = query(collection(db, "interest_groups"), orderBy("order", "asc"));
     const unsub1 = onSnapshot(q1, (snap) => {
       const rows: TaxGroup[] = [];
       snap.forEach((d) => {
@@ -136,8 +159,7 @@ export default function TaxonomyAdminPage() {
     setItemsText("");
     setOrder(String((currentGroups[currentGroups.length - 1]?.order ?? 0) + 1));
     setActive(true);
-    setMsg(null);
-    setError(null);
+    clearBanner();
   }
 
   function startEdit(group: TaxGroup) {
@@ -150,27 +172,27 @@ export default function TaxonomyAdminPage() {
         : ""
     );
     setActive(group.active ?? true);
-    setMsg(null);
-    setError(null);
+    clearBanner();
   }
 
   /* ---------- Save (add / update) ---------- */
   async function save() {
     if (!allowed) return;
+
+    clearBanner();
+
     if (!title.trim()) {
-      setError("Title is required.");
+      showError("Title is required.");
       return;
     }
     const items = parseItems(itemsText);
     if (items.length === 0) {
-      setError("Add at least one item.");
+      showError("Add at least one item.");
       return;
     }
     const orderNum = order ? Number(order) : 0;
 
     setBusy(true);
-    setError(null);
-    setMsg(null);
     try {
       const id = selectedId || slugifyTitle(title.trim());
       await setDoc(
@@ -183,346 +205,394 @@ export default function TaxonomyAdminPage() {
         },
         { merge: true }
       );
-      setMsg("Saved successfully.");
+      showSuccess("Group saved successfully.");
       if (!selectedId) {
         // if new, keep selected to allow further edits
         setSelectedId(id);
       }
     } catch (e: any) {
       console.error(e);
-      setError(e?.message || "Failed to save.");
+      showError(e?.message || "Failed to save group. Please try again.");
     } finally {
       setBusy(false);
     }
   }
 
-  /* ---------- Delete ---------- */
-  async function remove(id: string) {
+  /* ---------- Delete (with ConfirmModal) ---------- */
+  function removeGroup(group: TaxGroup) {
     if (!allowed) return;
-    const ok = window.confirm("Delete this group permanently?");
-    if (!ok) return;
 
-    setBusy(true);
-    setError(null);
-    setMsg(null);
-    try {
-      await deleteDoc(doc(db, collectionName, id));
-      if (selectedId === id) {
-        startNew();
-      }
-      setMsg("Deleted.");
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message || "Failed to delete.");
-    } finally {
-      setBusy(false);
-    }
+    setConfirmConfig({
+      title: "Delete group",
+      message: `Delete the "${group.title}" group permanently? This action cannot be undone.`,
+      confirmText: "Delete group",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setConfirmConfig(null);
+        clearBanner();
+        setBusy(true);
+        try {
+          await deleteDoc(doc(db, collectionName, group.id));
+          if (selectedId === group.id) {
+            startNew();
+          }
+          showSuccess(`Group "${group.title}" deleted.`);
+        } catch (e: any) {
+          console.error(e);
+          showError(e?.message || "Failed to delete group. Please try again.");
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
   }
 
   /* ---------- UI ---------- */
   const headerTitle =
     tab === "interests" ? "Interest groups" : "Role groups";
 
+  // banner styling
+  const bannerBg =
+    banner?.type === "error"
+      ? "#FEF2F2"
+      : banner?.type === "success"
+        ? "#ECFDF3"
+        : "#DBEAFE";
+  const bannerText =
+    banner?.type === "error"
+      ? "#B91C1C"
+      : banner?.type === "success"
+        ? "#166534"
+        : "#1D4ED8";
+  const bannerBorder =
+    banner?.type === "error"
+      ? "#FECACA"
+      : banner?.type === "success"
+        ? "#BBF7D0"
+        : "#BFDBFE";
+
   return (
-    <main
-      className="min-h-screen w-full flex items-center justify-center px-4 py-6"
-      style={{ backgroundColor: EKARI.sand }}
-    >
-      <div
-        className="w-full max-w-5xl rounded-2xl border p-4 md:p-6 grid grid-cols-1 md:grid-cols-[1.2fr,1fr] gap-6"
-        style={{ borderColor: EKARI.hair, backgroundColor: "#FFFFFF" }}
+    <>
+      <main
+        className="min-h-screen w-full flex items-center justify-center px-4 py-6"
+        style={{ backgroundColor: EKARI.sand }}
       >
-        {/* Left: list + tabs */}
-        <div className="flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <h1
-              className="text-lg md:text-xl font-black"
-              style={{ color: EKARI.text }}
-            >
-              Taxonomy Admin
-            </h1>
-            <span className="text-[11px] font-semibold px-2 py-1 rounded-full border"
-              style={{ borderColor: EKARI.hair, color: EKARI.dim }}
-            >
-              {user?.email || user?.uid}
-            </span>
-          </div>
+        <div
+          className="w-full max-w-5xl rounded-2xl border p-4 md:p-6 grid grid-cols-1 md:grid-cols-[1.2fr,1fr] gap-6"
+          style={{ borderColor: EKARI.hair, backgroundColor: "#FFFFFF" }}
+        >
+          {/* Left: list + tabs */}
+          <div className="flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h1
+                className="text-lg md:text-xl font-black"
+                style={{ color: EKARI.text }}
+              >
+                Taxonomy Admin
+              </h1>
+              <span
+                className="text-[11px] font-semibold px-2 py-1 rounded-full border"
+                style={{ borderColor: EKARI.hair, color: EKARI.dim }}
+              >
+                {user?.email || user?.uid}
+              </span>
+            </div>
 
-          {/* Tabs */}
-          <div className="mb-3 flex gap-2">
-            <button
-              className="rounded-full px-3 py-1.5 text-xs md:text-sm font-bold border"
-              style={{
-                borderColor: tab === "interests" ? EKARI.forest : EKARI.hair,
-                background: tab === "interests" ? EKARI.forest : "#fff",
-                color: tab === "interests" ? "#fff" : EKARI.text,
-              }}
-              onClick={() => {
-                setTab("interests");
-                startNew();
-              }}
-            >
-              Interests
-            </button>
-            <button
-              className="rounded-full px-3 py-1.5 text-xs md:text-sm font-bold border"
-              style={{
-                borderColor: tab === "roles" ? EKARI.forest : EKARI.hair,
-                background: tab === "roles" ? EKARI.forest : "#fff",
-                color: tab === "roles" ? "#fff" : EKARI.text,
-              }}
-              onClick={() => {
-                setTab("roles");
-                startNew();
-              }}
-            >
-              Roles
-            </button>
-          </div>
-
-          {!allowed ? (
-            <p className="text-sm" style={{ color: EKARI.danger }}>
-              {loading
-                ? "Checking your account…"
-                : "You are not allowed to access this page."}
-            </p>
-          ) : (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <div
-                  className="text-sm font-semibold"
-                  style={{ color: EKARI.dim }}
-                >
-                  {headerTitle} ({currentGroups.length})
-                </div>
+            {/* 🔹 banner inside card */}
+            {banner && (
+              <div
+                className="mb-3 rounded-xl px-3 py-2 text-xs flex items-start justify-between gap-2"
+                style={{
+                  backgroundColor: bannerBg,
+                  color: bannerText,
+                  border: `1px solid ${bannerBorder}`,
+                }}
+              >
+                <div>{banner.message}</div>
                 <button
                   type="button"
-                  onClick={startNew}
-                  className="flex items-center gap-1 text-xs font-bold rounded-full border px-3 py-1.5"
-                  style={{
-                    borderColor: EKARI.forest,
-                    color: EKARI.forest,
-                    background: "#fff",
-                  }}
+                  onClick={clearBanner}
+                  className="text-[11px] font-bold"
                 >
-                  <IoAdd size={14} />
-                  New group
+                  ×
                 </button>
               </div>
+            )}
 
-              <div className="flex-1 overflow-auto border rounded-xl p-2"
-                style={{ borderColor: EKARI.hair, maxHeight: 450 }}
+            {/* Tabs */}
+            <div className="mb-3 flex gap-2">
+              <button
+                className="rounded-full px-3 py-1.5 text-xs md:text-sm font-bold border"
+                style={{
+                  borderColor: tab === "interests" ? EKARI.forest : EKARI.hair,
+                  background: tab === "interests" ? EKARI.forest : "#fff",
+                  color: tab === "interests" ? "#fff" : EKARI.text,
+                }}
+                onClick={() => {
+                  setTab("interests");
+                  startNew();
+                }}
               >
-                {currentGroups.length === 0 ? (
+                Interests
+              </button>
+              <button
+                className="rounded-full px-3 py-1.5 text-xs md:text-sm font-bold border"
+                style={{
+                  borderColor: tab === "roles" ? EKARI.forest : EKARI.hair,
+                  background: tab === "roles" ? EKARI.forest : "#fff",
+                  color: tab === "roles" ? "#fff" : EKARI.text,
+                }}
+                onClick={() => {
+                  setTab("roles");
+                  startNew();
+                }}
+              >
+                Roles
+              </button>
+            </div>
+
+            {!allowed ? (
+              <p className="text-sm" style={{ color: EKARI.danger }}>
+                {loading
+                  ? "Checking your account…"
+                  : "You are not allowed to access this page."}
+              </p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-2">
                   <div
-                    className="text-xs md:text-sm text-center py-6"
+                    className="text-sm font-semibold"
                     style={{ color: EKARI.dim }}
                   >
-                    No groups found. Use “New group” to create one.
+                    {headerTitle} ({currentGroups.length})
                   </div>
-                ) : (
-                  <ul className="space-y-2">
-                    {currentGroups.map((g) => {
-                      const selected = g.id === selectedId;
-                      return (
-                        <li
-                          key={g.id}
-                          className="flex items-center justify-between rounded-lg border px-2 py-1.5 text-xs md:text-sm"
-                          style={{
-                            borderColor: selected ? EKARI.forest : EKARI.hair,
-                            background: selected ? "#F0FDF4" : "#fff",
-                          }}
-                        >
-                          <button
-                            type="button"
-                            className="flex flex-col items-start flex-1 text-left"
-                            onClick={() => startEdit(g)}
+                  <button
+                    type="button"
+                    onClick={startNew}
+                    className="flex items-center gap-1 text-xs font-bold rounded-full border px-3 py-1.5"
+                    style={{
+                      borderColor: EKARI.forest,
+                      color: EKARI.forest,
+                      background: "#fff",
+                    }}
+                  >
+                    <IoAdd size={14} />
+                    New group
+                  </button>
+                </div>
+
+                <div
+                  className="flex-1 overflow-auto border rounded-xl p-2"
+                  style={{ borderColor: EKARI.hair, maxHeight: 450 }}
+                >
+                  {currentGroups.length === 0 ? (
+                    <div
+                      className="text-xs md:text-sm text-center py-6"
+                      style={{ color: EKARI.dim }}
+                    >
+                      No groups found. Use “New group” to create one.
+                    </div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {currentGroups.map((g) => {
+                        const selected = g.id === selectedId;
+                        return (
+                          <li
+                            key={g.id}
+                            className="flex items-center justify-between rounded-lg border px-2 py-1.5 text-xs md:text-sm"
+                            style={{
+                              borderColor: selected ? EKARI.forest : EKARI.hair,
+                              background: selected ? "#F0FDF4" : "#fff",
+                            }}
                           >
-                            <span
-                              className="font-semibold"
-                              style={{ color: EKARI.text }}
+                            <button
+                              type="button"
+                              className="flex flex-col items-start flex-1 text-left"
+                              onClick={() => startEdit(g)}
                             >
-                              {g.title}
-                            </span>
-                            <span
-                              className="text-[11px] mt-0.5"
-                              style={{ color: EKARI.dim }}
+                              <span
+                                className="font-semibold"
+                                style={{ color: EKARI.text }}
+                              >
+                                {g.title}
+                              </span>
+                              <span
+                                className="text-[11px] mt-0.5"
+                                style={{ color: EKARI.dim }}
+                              >
+                                {g.items.length} items • order {g.order ?? 0} •{" "}
+                                {g.active ? "active" : "inactive"}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeGroup(g)}
+                              className="ml-2 p-1 rounded-full hover:bg-red-50"
                             >
-                              {g.items.length} items • order {g.order ?? 0} •{" "}
-                              {g.active ? "active" : "inactive"}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => remove(g.id)}
-                            className="ml-2 p-1 rounded-full hover:bg-red-50"
-                          >
-                            <IoTrashOutline size={16} color={EKARI.danger} />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+                              <IoTrashOutline size={16} color={EKARI.danger} />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
-        {/* Right: editor */}
-        <div className="flex flex-col">
-          <h2
-            className="text-sm font-bold mb-2"
-            style={{ color: EKARI.text }}
-          >
-            {selectedId ? "Edit group" : "New group"}
-          </h2>
+          {/* Right: editor */}
+          <div className="flex flex-col">
+            <h2
+              className="text-sm font-bold mb-2"
+              style={{ color: EKARI.text }}
+            >
+              {selectedId ? "Edit group" : "New group"}
+            </h2>
 
-          <div className="space-y-3 text-sm">
-            <div>
-              <div
-                className="text-[12px] font-semibold mb-1"
-                style={{ color: EKARI.dim }}
-              >
-                Title
-              </div>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                style={{
-                  borderColor: EKARI.hair,
-                  background: "#F6F7FB",
-                  color: EKARI.text,
-                }}
-                placeholder={
-                  tab === "interests"
-                    ? "e.g. Crops & Products"
-                    : "e.g. Primary Producer"
-                }
-              />
-            </div>
-
-            <div>
-              <div
-                className="text-[12px] font-semibold mb-1"
-                style={{ color: EKARI.dim }}
-              >
-                Items (one per line or comma-separated)
-              </div>
-              <textarea
-                value={itemsText}
-                onChange={(e) => setItemsText(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm min-h-[140px]"
-                style={{
-                  borderColor: EKARI.hair,
-                  background: "#F6F7FB",
-                  color: EKARI.text,
-                }}
-                placeholder={
-                  tab === "interests"
-                    ? "Maize\nTomato\nPotato\n…"
-                    : "Farmer\nBeekeeper\nAggregator\n…"
-                }
-              />
-              <div
-                className="mt-1 text-[11px]"
-                style={{ color: EKARI.dim }}
-              >
-                We’ll split on new lines or commas.
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <div className="flex-1">
+            <div className="space-y-3 text-sm">
+              <div>
                 <div
                   className="text-[12px] font-semibold mb-1"
                   style={{ color: EKARI.dim }}
                 >
-                  Order
+                  Title
                 </div>
                 <input
-                  value={order}
-                  onChange={(e) => setOrder(e.target.value.replace(/[^\d]/g, ""))}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   className="w-full rounded-lg border px-3 py-2 text-sm"
                   style={{
                     borderColor: EKARI.hair,
                     background: "#F6F7FB",
                     color: EKARI.text,
                   }}
-                  placeholder="1"
+                  placeholder={
+                    tab === "interests"
+                      ? "e.g. Crops & Products"
+                      : "e.g. Primary Producer"
+                  }
                 />
               </div>
 
-              <div className="flex items-end">
-                <label className="inline-flex items-center gap-2 text-xs font-semibold">
+              <div>
+                <div
+                  className="text-[12px] font-semibold mb-1"
+                  style={{ color: EKARI.dim }}
+                >
+                  Items (one per line or comma-separated)
+                </div>
+                <textarea
+                  value={itemsText}
+                  onChange={(e) => setItemsText(e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm min-h-[140px]"
+                  style={{
+                    borderColor: EKARI.hair,
+                    background: "#F6F7FB",
+                    color: EKARI.text,
+                  }}
+                  placeholder={
+                    tab === "interests"
+                      ? "Maize\nTomato\nPotato\n…"
+                      : "Farmer\nBeekeeper\nAggregator\n…"
+                  }
+                />
+                <div
+                  className="mt-1 text-[11px]"
+                  style={{ color: EKARI.dim }}
+                >
+                  We’ll split on new lines or commas.
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <div
+                    className="text-[12px] font-semibold mb-1"
+                    style={{ color: EKARI.dim }}
+                  >
+                    Order
+                  </div>
                   <input
-                    type="checkbox"
-                    checked={active}
-                    onChange={(e) => setActive(e.target.checked)}
+                    value={order}
+                    onChange={(e) =>
+                      setOrder(e.target.value.replace(/[^\d]/g, ""))
+                    }
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    style={{
+                      borderColor: EKARI.hair,
+                      background: "#F6F7FB",
+                      color: EKARI.text,
+                    }}
+                    placeholder="1"
                   />
-                  <span style={{ color: EKARI.text }}>Active</span>
-                </label>
-              </div>
-            </div>
+                </div>
 
-            {msg && (
-              <div
-                className="mt-1 rounded-lg px-3 py-2 text-xs"
-                style={{
-                  backgroundColor: "#ECFDF3",
-                  color: "#166534",
-                  border: "1px solid #BBF7D0",
-                }}
-              >
-                {msg}
+                <div className="flex items-end">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={(e) => setActive(e.target.checked)}
+                    />
+                    <span style={{ color: EKARI.text }}>Active</span>
+                  </label>
+                </div>
               </div>
-            )}
-            {error && (
-              <div
-                className="mt-1 rounded-lg px-3 py-2 text-xs"
-                style={{
-                  backgroundColor: "#FEF2F2",
-                  color: "#B91C1C",
-                  border: "1px solid #FECACA",
-                }}
-              >
-                {error}
-              </div>
-            )}
 
-            <div className="pt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={save}
-                disabled={!allowed || busy}
-                className="flex-1 rounded-xl py-2.5 font-extrabold text-white flex items-center justify-center gap-1 text-sm active:scale-[0.98] transition"
-                style={{
-                  backgroundColor: EKARI.gold,
-                  opacity: busy || !allowed ? 0.7 : 1,
-                }}
-              >
-                <IoCreateOutline size={16} />
-                {busy ? "Saving…" : "Save group"}
-              </button>
-              <button
-                type="button"
-                onClick={startNew}
-                disabled={busy}
-                className="rounded-xl py-2.5 px-4 font-extrabold text-sm border"
-                style={{
-                  borderColor: EKARI.hair,
-                  color: EKARI.text,
-                  background: "#fff",
-                  opacity: busy ? 0.7 : 1,
-                }}
-              >
-                Clear
-              </button>
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={save}
+                  disabled={!allowed || busy}
+                  className="flex-1 rounded-xl py-2.5 font-extrabold text-white flex items-center justify-center gap-1 text-sm active:scale-[0.98] transition"
+                  style={{
+                    backgroundColor: EKARI.gold,
+                    opacity: busy || !allowed ? 0.7 : 1,
+                  }}
+                >
+                  <IoCreateOutline size={16} />
+                  {busy ? "Saving…" : "Save group"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    startNew();
+                    showInfo("Form cleared.");
+                  }}
+                  disabled={busy}
+                  className="rounded-xl py-2.5 px-4 font-extrabold text-sm border"
+                  style={{
+                    borderColor: EKARI.hair,
+                    color: EKARI.text,
+                    background: "#fff",
+                    opacity: busy ? 0.7 : 1,
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+
+      {/* 🔹 Confirm modal for deleting a group */}
+      <ConfirmModal
+        open={!!confirmConfig}
+        title={confirmConfig?.title || ""}
+        message={confirmConfig?.message || ""}
+        confirmText={confirmConfig?.confirmText || "Confirm"}
+        cancelText={confirmConfig?.cancelText || "Cancel"}
+        onConfirm={() => {
+          if (confirmConfig?.onConfirm) {
+            confirmConfig.onConfirm();
+          } else {
+            setConfirmConfig(null);
+          }
+        }}
+        onCancel={() => setConfirmConfig(null)}
+      />
+    </>
   );
 }

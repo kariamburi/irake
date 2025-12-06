@@ -11,6 +11,7 @@ import {
   IoShieldCheckmarkOutline,
   IoTrendingUpOutline,
 } from "react-icons/io5";
+import { ConfirmModal } from "@/app/components/ConfirmModal"; // 👈 global confirm
 
 const EKARI = {
   forest: "#233F39",
@@ -45,7 +46,14 @@ export default function AdminFinancePage() {
     "1,5,10,15,20,50,100"
   );
   const [platformShareInput, setPlatformShareInput] = useState("10");
-  const [verificationFeeUSDInput, setVerificationFeeUSDInput] = useState("5");
+  const [verificationFeeUSDInput, setVerificationFeeUSDInput] =
+    useState("5");
+
+  // 🔹 Global validation / error modal
+  const [feedbackModal, setFeedbackModal] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
 
   // Subscribe to adminSettings/finance
   useEffect(() => {
@@ -108,15 +116,20 @@ export default function AdminFinancePage() {
     // --- validate + parse ---
     const minWithdraw = parseInt(minWithdrawInput, 10);
     if (Number.isNaN(minWithdraw) || minWithdraw < 0) {
-      alert(
-        "Please enter a valid non-negative number for Minimum withdrawal (USD)."
-      );
+      setFeedbackModal({
+        title: "Invalid minimum withdrawal",
+        message:
+          "Please enter a valid non-negative number for Minimum withdrawal (USD).",
+      });
       return;
     }
 
     const usdRate = parseFloat(usdRateInput);
     if (!Number.isFinite(usdRate) || usdRate <= 0) {
-      alert("Please enter a valid positive number for USD → KES rate.");
+      setFeedbackModal({
+        title: "Invalid FX rate",
+        message: "Please enter a valid positive number for USD → KES rate.",
+      });
       return;
     }
 
@@ -126,7 +139,10 @@ export default function AdminFinancePage() {
       processingFee < 0 ||
       processingFee > 100
     ) {
-      alert("Processing fee (%) must be between 0 and 100.");
+      setFeedbackModal({
+        title: "Invalid processing fee",
+        message: "Processing fee (%) must be between 0 and 100.",
+      });
       return;
     }
 
@@ -140,9 +156,11 @@ export default function AdminFinancePage() {
       .filter((n) => Number.isFinite(n) && n > 0);
 
     if (!presetsNums.length) {
-      alert(
-        "Please enter at least one valid USD preset amount (e.g. 1,5,10)."
-      );
+      setFeedbackModal({
+        title: "Invalid donation presets",
+        message:
+          "Please enter at least one valid USD preset amount (e.g. 1,5,10).",
+      });
       return;
     }
 
@@ -152,16 +170,21 @@ export default function AdminFinancePage() {
       platformShare < 0 ||
       platformShare > 100
     ) {
-      alert("Platform share (%) must be between 0 and 100.");
+      setFeedbackModal({
+        title: "Invalid platform share",
+        message: "Platform share (%) must be between 0 and 100.",
+      });
       return;
     }
 
     // verification fee (USD)
     const verificationFeeUSD = parseFloat(verificationFeeUSDInput);
     if (!Number.isFinite(verificationFeeUSD) || verificationFeeUSD < 0) {
-      alert(
-        "Please enter a valid non-negative number for verification fee (USD)."
-      );
+      setFeedbackModal({
+        title: "Invalid verification fee",
+        message:
+          "Please enter a valid non-negative number for verification fee (USD).",
+      });
       return;
     }
 
@@ -185,7 +208,10 @@ export default function AdminFinancePage() {
       // onSnapshot will refresh view
     } catch (err: any) {
       console.error("Error saving finance settings", err);
-      alert(err?.message || "Unable to save finance settings.");
+      setFeedbackModal({
+        title: "Save failed",
+        message: err?.message || "Unable to save finance settings.",
+      });
     } finally {
       setSaving(false);
     }
@@ -206,12 +232,16 @@ export default function AdminFinancePage() {
         <header className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 shadow-sm border border-slate-200 mb-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white"
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white"
                 style={{ backgroundColor: EKARI.forest }}
               >
                 <IoSettingsOutline size={14} />
               </span>
-              <span className="text-[11px] font-semibold tracking-wide uppercase" style={{ color: EKARI.dim }}>
+              <span
+                className="text-[11px] font-semibold tracking-wide uppercase"
+                style={{ color: EKARI.dim }}
+              >
                 Finance control panel
               </span>
             </div>
@@ -221,9 +251,13 @@ export default function AdminFinancePage() {
             >
               Finance & payout settings
             </h1>
-            <p className="mt-2 text-xs md:text-sm" style={{ color: EKARI.dim }}>
-              Configure thresholds, FX rates, donation fees and revenue sharing
-              used across EkariHub donations, wallet top-ups and payouts.
+            <p
+              className="mt-2 text-xs md:text-sm"
+              style={{ color: EKARI.dim }}
+            >
+              Configure thresholds, FX rates, donation fees and revenue
+              sharing used across EkariHub donations, wallet top-ups and
+              payouts.
             </p>
           </div>
 
@@ -268,7 +302,10 @@ export default function AdminFinancePage() {
               >
                 USD {currentMin}
               </p>
-              <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+              <p
+                className="mt-1 text-[11px]"
+                style={{ color: EKARI.dim }}
+              >
                 Pending balance threshold.
               </p>
             </div>
@@ -289,7 +326,10 @@ export default function AdminFinancePage() {
               >
                 1 USD ≈ KSh {currentUsdRate}
               </p>
-              <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+              <p
+                className="mt-1 text-[11px]"
+                style={{ color: EKARI.dim }}
+              >
                 Used for KSh estimates.
               </p>
             </div>
@@ -310,7 +350,10 @@ export default function AdminFinancePage() {
               >
                 {currentProcessing}%
               </p>
-              <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+              <p
+                className="mt-1 text-[11px]"
+                style={{ color: EKARI.dim }}
+              >
                 Before revenue split.
               </p>
             </div>
@@ -331,7 +374,10 @@ export default function AdminFinancePage() {
               >
                 {currentPlatformShare}% Ekari / {currentCreatorShare}% creator
               </p>
-              <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+              <p
+                className="mt-1 text-[11px]"
+                style={{ color: EKARI.dim }}
+              >
                 After fees, before payout.
               </p>
             </div>
@@ -352,7 +398,10 @@ export default function AdminFinancePage() {
               >
                 USD {currentVerificationFeeUSD}
               </p>
-              <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+              <p
+                className="mt-1 text-[11px]"
+                style={{ color: EKARI.dim }}
+              >
                 One-time account verification.
               </p>
             </div>
@@ -378,8 +427,8 @@ export default function AdminFinancePage() {
                   className="mt-1 text-xs md:text-sm"
                   style={{ color: EKARI.dim }}
                 >
-                  Creators can request withdrawals once their pending balance
-                  reaches this minimum amount.
+                  Creators can request withdrawals once their pending
+                  balance reaches this minimum amount.
                 </p>
                 {loaded && (
                   <p
@@ -409,7 +458,10 @@ export default function AdminFinancePage() {
                   value={minWithdrawInput}
                   onChange={(e) => setMinWithdrawInput(e.target.value)}
                 />
-                <p className="text-[11px]" style={{ color: EKARI.dim }}>
+                <p
+                  className="text-[11px]"
+                  style={{ color: EKARI.dim }}
+                >
                   Consider setting this high enough to avoid tiny payouts.
                 </p>
               </div>
@@ -431,7 +483,8 @@ export default function AdminFinancePage() {
                   className="mt-1 text-xs md:text-sm"
                   style={{ color: EKARI.dim }}
                 >
-                  Used when estimating KSh impact of USD donations or reporting.
+                  Used when estimating KSh impact of USD donations or
+                  reporting.
                 </p>
                 {loaded && (
                   <p
@@ -505,7 +558,10 @@ export default function AdminFinancePage() {
                   value={processingFeeInput}
                   onChange={(e) => setProcessingFeeInput(e.target.value)}
                 />
-                <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                <p
+                  className="mt-1 text-[11px]"
+                  style={{ color: EKARI.dim }}
+                >
                   This includes any gateway fees you want to account for
                   centrally.
                 </p>
@@ -528,8 +584,8 @@ export default function AdminFinancePage() {
                   style={{ color: EKARI.dim }}
                 >
                   One-time fee members pay when submitting their professional
-                  profile for verification (e.g. veterinary doctor, agronomist,
-                  trainer).
+                  profile for verification (e.g. veterinary doctor,
+                  agronomist, trainer).
                 </p>
                 {loaded && (
                   <p
@@ -558,11 +614,16 @@ export default function AdminFinancePage() {
                   className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:#233F39] focus:border-[color:#233F39]"
                   style={{ borderColor: EKARI.hair, color: EKARI.ink }}
                   value={verificationFeeUSDInput}
-                  onChange={(e) => setVerificationFeeUSDInput(e.target.value)}
+                  onChange={(e) =>
+                    setVerificationFeeUSDInput(e.target.value)
+                  }
                 />
-                <p className="text-[11px]" style={{ color: EKARI.dim }}>
-                  Stored in USD; converted to KSh using the active FX rate when
-                  charging via Paystack.
+                <p
+                  className="text-[11px]"
+                  style={{ color: EKARI.dim }}
+                >
+                  Stored in USD; converted to KSh using the active FX rate
+                  when charging via Paystack.
                 </p>
               </div>
             </div>
@@ -617,7 +678,10 @@ export default function AdminFinancePage() {
                   onChange={(e) => setUsdPresetsInput(e.target.value)}
                   placeholder="1,5,10,15,20,50,100"
                 />
-                <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                <p
+                  className="mt-1 text-[11px]"
+                  style={{ color: EKARI.dim }}
+                >
                   We recommend small, medium and large tiers for better UX.
                 </p>
               </div>
@@ -634,8 +698,8 @@ export default function AdminFinancePage() {
                   className="mt-1 text-xs md:text-sm"
                   style={{ color: EKARI.dim }}
                 >
-                  Control how net donations are split between EkariHub support
-                  and the deed owner.
+                  Control how net donations are split between EkariHub
+                  support and the deed owner.
                 </p>
                 {loaded && (
                   <p
@@ -644,8 +708,8 @@ export default function AdminFinancePage() {
                   >
                     Current split:{" "}
                     <span className="font-semibold text-emerald-700">
-                      {currentPlatformShare}% ekariHub / {currentCreatorShare}%
-                      {" "}creator
+                      {currentPlatformShare}% ekariHub /{" "}
+                      {currentCreatorShare}% creator
                     </span>
                   </p>
                 )}
@@ -667,10 +731,17 @@ export default function AdminFinancePage() {
                   onChange={(e) => setPlatformShareInput(e.target.value)}
                 />
 
-                <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                <p
+                  className="mt-1 text-[11px]"
+                  style={{ color: EKARI.dim }}
+                >
                   Creator will receive:{" "}
                   <span className="font-semibold">
-                    {Math.max(0, 100 - Number(platformShareInput) || 0)}%
+                    {Math.max(
+                      0,
+                      100 - (Number(platformShareInput) || 0)
+                    )}
+                    %
                   </span>{" "}
                   of the amount after processing fees.
                 </p>
@@ -705,6 +776,17 @@ export default function AdminFinancePage() {
             </button>
           </div>
         </form>
+
+        {/* 🔹 Global validation / error modal */}
+        <ConfirmModal
+          open={!!feedbackModal}
+          title={feedbackModal?.title || ""}
+          message={feedbackModal?.message || ""}
+          confirmText="OK"
+          cancelText="Close"
+          onConfirm={() => setFeedbackModal(null)}
+          onCancel={() => setFeedbackModal(null)}
+        />
       </div>
     </div>
   );

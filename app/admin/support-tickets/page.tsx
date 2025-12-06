@@ -95,7 +95,9 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
     closed: "Closed",
   };
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${map[status]}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${map[status]}`}
+    >
       {text[status]}
     </span>
   );
@@ -115,7 +117,9 @@ function PriorityBadge({ priority }: { priority: Ticket["priority"] }) {
     urgent: "Urgent",
   };
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${map[priority]}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${map[priority]}`}
+    >
       {text[priority]}
     </span>
   );
@@ -140,7 +144,10 @@ function Card({
       {(title || subtitle) && (
         <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
           {title && (
-            <div className="text-[15px] font-black" style={{ color: EKARI.text }}>
+            <div
+              className="text-[15px] font-black"
+              style={{ color: EKARI.text }}
+            >
               {title}
             </div>
           )}
@@ -163,20 +170,28 @@ export default function AdminSupportTicketsPage() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | Ticket["status"]>("all");
+  const [statusFilter, setStatusFilter] =
+    useState<"all" | Ticket["status"]>("all");
   const [topicFilter, setTopicFilter] = useState<"all" | string>("all");
-  const [priorityFilter, setPriorityFilter] = useState<"all" | Ticket["priority"]>("all");
+  const [priorityFilter, setPriorityFilter] =
+    useState<"all" | Ticket["priority"]>("all");
 
   const [viewMode, setViewMode] = useState<ViewMode>("open");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-  const [updatingAssigneeId, setUpdatingAssigneeId] = useState<string | null>(null);
+  const [updatingAssigneeId, setUpdatingAssigneeId] = useState<string | null>(
+    null
+  );
 
   const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [error, setError] = useState<string | null>(null); // 🔹 shared error banner
 
   // admins
   useEffect(() => {
-    const qAdmins = query(collection(db, "users"), where("isAdmin", "==", true));
+    const qAdmins = query(
+      collection(db, "users"),
+      where("isAdmin", "==", true)
+    );
     const unsub = onSnapshot(qAdmins, (snap) => {
       const arr: AdminUser[] = snap.docs.map((d) => {
         const data = d.data() as any;
@@ -184,7 +199,9 @@ export default function AdminSupportTicketsPage() {
           uid: d.id,
           displayName:
             data?.displayName ||
-            (data?.firstName ? `${data.firstName} ${data.surname || ""}`.trim() : undefined),
+            (data?.firstName
+              ? `${data.firstName} ${data.surname || ""}`.trim()
+              : undefined),
           email: data?.email,
         };
       });
@@ -226,7 +243,10 @@ export default function AdminSupportTicketsPage() {
     const unsub = onSnapshot(
       qy,
       (snap) => {
-        const arr: Ticket[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+        const arr: Ticket[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as any),
+        }));
         setTickets(arr);
         setLoading(false);
         if (!selectedTicketId && arr.length > 0) {
@@ -249,8 +269,10 @@ export default function AdminSupportTicketsPage() {
     const term = search.trim().toLowerCase();
     return tickets.filter((t) => {
       if (statusFilter !== "all" && t.status !== statusFilter) return false;
-      if (topicFilter !== "all" && (t as any).topic !== topicFilter) return false;
-      if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+      if (topicFilter !== "all" && (t as any).topic !== topicFilter)
+        return false;
+      if (priorityFilter !== "all" && t.priority !== priorityFilter)
+        return false;
 
       if (!term) return true;
 
@@ -286,23 +308,33 @@ export default function AdminSupportTicketsPage() {
     return { total, byStatus };
   }, [tickets]);
 
-  const handleChangeStatus = async (ticket: Ticket, newStatus: Ticket["status"]) => {
+  const handleChangeStatus = async (
+    ticket: Ticket,
+    newStatus: Ticket["status"]
+  ) => {
     if (ticket.status === newStatus) return;
+    setError(null); // 🔹 clear previous error
     try {
       setUpdatingStatusId(ticket.id);
       await updateDoc(doc(db, "support_tickets", ticket.id), {
         status: newStatus,
         updatedAt: serverTimestamp(),
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Could not update status. Please try again.");
+      setError(
+        err?.message || "Could not update ticket status. Please try again."
+      );
     } finally {
       setUpdatingStatusId(null);
     }
   };
 
-  const handleAssign = async (ticket: Ticket, adminUid: string | "unassigned" | "me") => {
+  const handleAssign = async (
+    ticket: Ticket,
+    adminUid: string | "unassigned" | "me"
+  ) => {
+    setError(null); // 🔹 clear previous error
     try {
       setUpdatingAssigneeId(ticket.id);
 
@@ -331,9 +363,11 @@ export default function AdminSupportTicketsPage() {
       }
 
       await updateDoc(doc(db, "support_tickets", ticket.id), payload as any);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Could not update assignee. Please try again.");
+      setError(
+        err?.message || "Could not update ticket assignee. Please try again."
+      );
     } finally {
       setUpdatingAssigneeId(null);
     }
@@ -344,7 +378,7 @@ export default function AdminSupportTicketsPage() {
     [admins, authUser?.uid]
   );
 
-  // ------------------ RENDER (inside AdminLayout container) ------------------
+  // ------------------ RENDER ------------------
 
   return (
     <div className="space-y-4">
@@ -363,9 +397,21 @@ export default function AdminSupportTicketsPage() {
           Support tickets
         </h1>
         <p className="mt-1 text-xs md:text-sm" style={{ color: EKARI.dim }}>
-          Route, assign and resolve tickets submitted from the public support page.
+          Route, assign and resolve tickets submitted from the public support
+          page.
         </p>
       </div>
+
+      {/* 🔹 Inline error banner (replaces alert) */}
+      {error && (
+        <div
+          className="flex items-start gap-2 rounded-xl px-3 py-2 text-xs md:text-sm"
+          style={{ backgroundColor: "#FEE2E2", color: "#991B1B" }}
+        >
+          <IoAlertCircleOutline className="mt-[2px] flex-shrink-0" size={16} />
+          <div>{error}</div>
+        </div>
+      )}
 
       {/* main white panel */}
       <div
@@ -385,7 +431,11 @@ export default function AdminSupportTicketsPage() {
               {(["all", "open", "mine"] as ViewMode[]).map((mode) => {
                 const active = viewMode === mode;
                 const label =
-                  mode === "all" ? "All" : mode === "open" ? "Open queue" : "My queue";
+                  mode === "all"
+                    ? "All"
+                    : mode === "open"
+                      ? "Open queue"
+                      : "My queue";
                 return (
                   <button
                     key={mode}
@@ -431,10 +481,16 @@ export default function AdminSupportTicketsPage() {
               className="rounded-2xl border bg-white px-4 py-3 flex flex-col justify-between"
               style={{ borderColor: EKARI.hair }}
             >
-              <div className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+              <div
+                className="text-xs font-semibold"
+                style={{ color: EKARI.dim }}
+              >
                 Tickets in view
               </div>
-              <div className="mt-1 text-2xl font-black" style={{ color: EKARI.text }}>
+              <div
+                className="mt-1 text-2xl font-black"
+                style={{ color: EKARI.text }}
+              >
                 {stats.total}
               </div>
             </div>
@@ -442,7 +498,10 @@ export default function AdminSupportTicketsPage() {
               className="rounded-2xl border bg-white px-4 py-3 flex flex-col justify-between"
               style={{ borderColor: EKARI.hair }}
             >
-              <div className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+              <div
+                className="text-xs font-semibold"
+                style={{ color: EKARI.dim }}
+              >
                 Open
               </div>
               <div className="mt-1 text-lg font-black text-emerald-700">
@@ -453,7 +512,10 @@ export default function AdminSupportTicketsPage() {
               className="rounded-2xl border bg-white px-4 py-3 flex flex-col justify-between"
               style={{ borderColor: EKARI.hair }}
             >
-              <div className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+              <div
+                className="text-xs font-semibold"
+                style={{ color: EKARI.dim }}
+              >
                 In progress
               </div>
               <div className="mt-1 text-lg font-black text-amber-700">
@@ -464,7 +526,10 @@ export default function AdminSupportTicketsPage() {
               className="rounded-2xl border bg-white px-4 py-3 flex flex-col justify-between"
               style={{ borderColor: EKARI.hair }}
             >
-              <div className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+              <div
+                className="text-xs font-semibold"
+                style={{ color: EKARI.dim }}
+              >
                 Resolved
               </div>
               <div className="mt-1 text-lg font-black text-blue-700">
@@ -490,7 +555,9 @@ export default function AdminSupportTicketsPage() {
                 <div className="flex flex-wrap gap-2">
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    onChange={(e) =>
+                      setStatusFilter(e.target.value as any)
+                    }
                     className="h-9 rounded-full border text-xs px-3 bg-white outline-none"
                     style={{ borderColor: EKARI.hair, color: EKARI.text }}
                   >
@@ -503,7 +570,9 @@ export default function AdminSupportTicketsPage() {
 
                   <select
                     value={topicFilter}
-                    onChange={(e) => setTopicFilter(e.target.value as any)}
+                    onChange={(e) =>
+                      setTopicFilter(e.target.value as any)
+                    }
                     className="h-9 rounded-full border text-xs px-3 bg-white outline-none"
                     style={{ borderColor: EKARI.hair, color: EKARI.text }}
                   >
@@ -517,7 +586,9 @@ export default function AdminSupportTicketsPage() {
 
                   <select
                     value={priorityFilter}
-                    onChange={(e) => setPriorityFilter(e.target.value as any)}
+                    onChange={(e) =>
+                      setPriorityFilter(e.target.value as any)
+                    }
                     className="h-9 rounded-full border text-xs px-3 bg-white outline-none"
                     style={{ borderColor: EKARI.hair, color: EKARI.text }}
                   >
@@ -546,24 +617,37 @@ export default function AdminSupportTicketsPage() {
                 </div>
 
                 {loading ? (
-                  <div className="py-8 text-center text-sm" style={{ color: EKARI.dim }}>
+                  <div
+                    className="py-8 text-center text-sm"
+                    style={{ color: EKARI.dim }}
+                  >
                     Loading tickets…
                   </div>
                 ) : filteredTickets.length === 0 ? (
-                  <div className="py-8 text-center text-sm" style={{ color: EKARI.dim }}>
+                  <div
+                    className="py-8 text-center text-sm"
+                    style={{ color: EKARI.dim }}
+                  >
                     No tickets match your filters.
                   </div>
                 ) : (
-                  <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
+                  <ul
+                    className="divide-y"
+                    style={{ borderColor: EKARI.hair }}
+                  >
                     {filteredTickets.map((t) => {
-                      const topicMeta = TOPICS.find((x) => x.key === (t as any).topic);
+                      const topicMeta = TOPICS.find(
+                        (x) => x.key === (t as any).topic
+                      );
                       const active = selectedTicketId === t.id;
 
                       return (
                         <li
                           key={t.id}
                           onClick={() => setSelectedTicketId(t.id)}
-                          className={`px-4 py-3 cursor-pointer transition ${active ? "bg-emerald-50/40" : "hover:bg-slate-50/60"
+                          className={`px-4 py-3 cursor-pointer transition ${active
+                            ? "bg-emerald-50/40"
+                            : "hover:bg-slate-50/60"
                             }`}
                         >
                           {/* desktop row */}
@@ -622,17 +706,24 @@ export default function AdminSupportTicketsPage() {
                                 </span>
                               </div>
                               <div className="flex gap-2 flex-wrap">
-                                <PriorityBadge priority={t.priority || "normal"} />
+                                <PriorityBadge
+                                  priority={t.priority || "normal"}
+                                />
                                 <StatusBadge status={t.status || "open"} />
                               </div>
                             </div>
 
-                            <div className="text-xs" style={{ color: EKARI.dim }}>
+                            <div
+                              className="text-xs"
+                              style={{ color: EKARI.dim }}
+                            >
                               <div>{prettyDate(t.createdAt)}</div>
                               {t.updatedAt && (
                                 <div className="flex items-center gap-1 mt-0.5 text-[11px]">
                                   <IoTimeOutline />
-                                  <span>Updated {prettyDate(t.updatedAt)}</span>
+                                  <span>
+                                    Updated {prettyDate(t.updatedAt)}
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -647,11 +738,17 @@ export default function AdminSupportTicketsPage() {
                               >
                                 {t.subject || "(no subject)"}
                               </div>
-                              <PriorityBadge priority={t.priority || "normal"} />
+                              <PriorityBadge
+                                priority={t.priority || "normal"}
+                              />
                             </div>
                             <div className="flex items-center justify-between gap-2 text-xs">
-                              <div className="truncate" style={{ color: EKARI.dim }}>
-                                {t.name || "Unknown"} · {topicMeta?.label ?? "General"}
+                              <div
+                                className="truncate"
+                                style={{ color: EKARI.dim }}
+                              >
+                                {t.name || "Unknown"} ·{" "}
+                                {topicMeta?.label ?? "General"}
                               </div>
                               <StatusBadge status={t.status || "open"} />
                             </div>
@@ -693,9 +790,12 @@ export default function AdminSupportTicketsPage() {
               }
             >
               {!selectedTicket ? (
-                <div className="py-6 text-sm" style={{ color: EKARI.dim }}>
-                  Select a ticket from the queue to view full details, assign it, and
-                  update its status.
+                <div
+                  className="py-6 text-sm"
+                  style={{ color: EKARI.dim }}
+                >
+                  Select a ticket from the queue to view full details, assign
+                  it, and update its status.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -743,7 +843,9 @@ export default function AdminSupportTicketsPage() {
                         <PriorityBadge
                           priority={selectedTicket.priority || "normal"}
                         />
-                        <StatusBadge status={selectedTicket.status || "open"} />
+                        <StatusBadge
+                          status={selectedTicket.status || "open"}
+                        />
                       </div>
                       <div
                         className="text-[11px]"
@@ -778,7 +880,8 @@ export default function AdminSupportTicketsPage() {
                             className="font-semibold"
                             style={{ color: EKARI.text }}
                           >
-                            {selectedTicket.assignedToName || "Unassigned"}
+                            {selectedTicket.assignedToName ||
+                              "Unassigned"}
                           </span>
                           {selectedTicket.assignedToEmail && (
                             <span
@@ -799,7 +902,10 @@ export default function AdminSupportTicketsPage() {
                             : "unassigned"
                         }
                         onChange={(e) =>
-                          handleAssign(selectedTicket, e.target.value as any)
+                          handleAssign(
+                            selectedTicket,
+                            e.target.value as any
+                          )
                         }
                         className="h-8 rounded-full border bg-white px-3 text-[11px] outline-none"
                         style={{ borderColor: EKARI.hair, color: EKARI.text }}
@@ -835,13 +941,21 @@ export default function AdminSupportTicketsPage() {
                           <button
                             key={s}
                             type="button"
-                            disabled={updatingStatusId === selectedTicket.id}
-                            onClick={() => handleChangeStatus(selectedTicket, s)}
+                            disabled={
+                              updatingStatusId === selectedTicket.id
+                            }
+                            onClick={() =>
+                              handleChangeStatus(selectedTicket, s)
+                            }
                             className={`h-8 px-3 rounded-full text-xs font-semibold border transition ${active ? "text-white" : ""
                               }`}
                             style={{
-                              borderColor: active ? EKARI.forest : EKARI.hair,
-                              background: active ? EKARI.forest : "#FFFFFF",
+                              borderColor: active
+                                ? EKARI.forest
+                                : EKARI.hair,
+                              background: active
+                                ? EKARI.forest
+                                : "#FFFFFF",
                               color: active ? "#FFFFFF" : EKARI.text,
                             }}
                           >
@@ -868,7 +982,10 @@ export default function AdminSupportTicketsPage() {
                     </div>
                     <div
                       className="rounded-2xl border bg-white px-3 py-2 text-sm whitespace-pre-wrap"
-                      style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                      style={{
+                        borderColor: EKARI.hair,
+                        color: EKARI.text,
+                      }}
                     >
                       {selectedTicket.message}
                     </div>
@@ -891,7 +1008,10 @@ export default function AdminSupportTicketsPage() {
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs underline rounded-full px-3 py-1 border bg-white hover:bg-slate-50 transition"
-                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                            style={{
+                              borderColor: EKARI.hair,
+                              color: EKARI.text,
+                            }}
                           >
                             {a.name}
                           </a>
@@ -901,7 +1021,10 @@ export default function AdminSupportTicketsPage() {
                   )}
 
                   {/* reply */}
-                  <div className="pt-2 border-t" style={{ borderColor: EKARI.hair }}>
+                  <div
+                    className="pt-2 border-t"
+                    style={{ borderColor: EKARI.hair }}
+                  >
                     <div
                       className="text-xs font-semibold mb-2"
                       style={{ color: EKARI.dim }}
@@ -912,11 +1035,16 @@ export default function AdminSupportTicketsPage() {
                       {selectedTicket.email && (
                         <a
                           href={`mailto:${selectedTicket.email}?subject=${encodeURIComponent(
-                            `[EkariHub Support] ${selectedTicket.subject || selectedTicket.ticketNo || ""
+                            `[EkariHub Support] ${selectedTicket.subject ||
+                            selectedTicket.ticketNo ||
+                            ""
                             }`
                           )}`}
                           className="inline-flex items-center gap-1 rounded-full border px-3 py-1 hover:bg-slate-50 transition"
-                          style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                          style={{
+                            borderColor: EKARI.hair,
+                            color: EKARI.text,
+                          }}
                         >
                           <IoMailOutline className="text-sm" />
                           Email
@@ -924,7 +1052,10 @@ export default function AdminSupportTicketsPage() {
                       )}
                       <span
                         className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] bg-slate-50/60"
-                        style={{ borderColor: EKARI.hair, color: EKARI.dim }}
+                        style={{
+                          borderColor: EKARI.hair,
+                          color: EKARI.dim,
+                        }}
                       >
                         <IoChatbubblesOutline className="text-sm" />
                         Reply via in-app chat (future)

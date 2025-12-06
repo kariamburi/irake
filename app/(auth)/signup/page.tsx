@@ -375,11 +375,8 @@ export default function SignupPage() {
                 <div className="mt-5 flex flex-wrap justify-center gap-3 text-[11px] text-gray-500">
                     <Link href="/about">About</Link>
                     <Link href="/terms">T&amp;Cs</Link>
-                    <Link href="/privacy">Privacy</Link>
-                    <Link href="/craft-ad">Craft Ad</Link>
-                    <Link href="/craft-page">Craft Page</Link>
-                    <Link href="/viip">ViIP</Link>
-                    <Link href="/celebrity">Celebrity</Link>
+                    <Link href="/privacy">Privacy Policy</Link>
+
                 </div>
             </motion.div>
         </main>

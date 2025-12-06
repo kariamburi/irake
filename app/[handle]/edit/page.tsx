@@ -32,12 +32,17 @@ import {
   onAuthStateChanged,
   linkWithPhoneNumber,
   RecaptchaVerifier,
+  signOut,
 } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { IoArrowBack, IoPencil, IoLockClosed } from "react-icons/io5";
 import Cropper from "react-easy-crop";
 
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { ConfirmModal } from "@/app/components/ConfirmModal";
+import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 
 /* ===================== Brand ===================== */
 const EKARI = {
@@ -57,8 +62,6 @@ type GroupConfig = {
   title: string;
   items: string[];
 };
-
-/* ---------- Static fallbacks (used if Firestore empty) ---------- */
 
 /* ============== Helpers ============== */
 const validateUrl = (v: string) =>
@@ -126,7 +129,9 @@ async function getCroppedImageBlob(
     );
   });
 }
+
 const INTERESTS_FALLBACK = null;
+
 /* =========================================================
    PAGE (/[handle]/edit)
    ========================================================= */
@@ -142,6 +147,10 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [profileUpdatedAtText, setProfileUpdatedAtText] = useState<
+    string | null
+  >(null);
 
   const [uid, setUid] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
@@ -159,7 +168,6 @@ export default function EditProfilePage() {
   const [roles, setRoles] = useState<string[]>([]);
 
   // 🔹 Dynamic taxonomy options for TagPicker
-  // 🔹 Dynamic taxonomy options for TagPicker
   const [interestOptions, setInterestOptions] = useState<string[]>([]);
   const [roleOptions, setRoleOptions] = useState<string[]>([]);
   const [taxonomyLoading, setTaxonomyLoading] = useState<boolean>(true);
@@ -175,9 +183,14 @@ export default function EditProfilePage() {
     | "roles"
     | "currency";
   const [sheet, setSheet] = useState<SheetKind>(null);
+
   // 🔹 NEW: preferred currency + country
-  const [preferredCurrency, setPreferredCurrency] = useState<"KES" | "USD" | null>(null);
+  const [preferredCurrency, setPreferredCurrency] = useState<
+    "KES" | "USD" | null
+  >(null);
   const [countryCode, setCountryCode] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   // phone link state
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
@@ -189,6 +202,26 @@ export default function EditProfilePage() {
       : any | null
     >(null);
   const recaptchaRef = useRef<any>(null);
+
+  // Delete account state
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // delete account state
+
+  // ---------- Avatar crop state ----------
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null); // original object URL
+  const [avatarCropOpen, setAvatarCropOpen] = useState(false);
+
+  const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any | null>(null);
+
+  const [avatarPreviewCropped, setAvatarPreviewCropped] = useState<
+    string | null
+  >(null); // circle preview URL
+
+  // ---------- Load taxonomy (interests & roles) from Firestore (grouped + fallback) ----------
   useEffect(() => {
     let cancelled = false;
 
@@ -248,7 +281,6 @@ export default function EditProfilePage() {
           }
         }
 
-        // 3) Set options (deduped)
         setInterestOptions(Array.from(new Set(interestFlat)));
         setRoleOptions(Array.from(new Set(roleFlat)));
       } catch (e: any) {
@@ -268,91 +300,7 @@ export default function EditProfilePage() {
     };
   }, [db]);
 
-  // ---------- Avatar crop state ----------
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null); // original object URL
-  const [avatarCropOpen, setAvatarCropOpen] = useState(false);
-
-  const [crop, setCrop] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any | null>(null);
-
-  const [avatarPreviewCropped, setAvatarPreviewCropped] = useState<
-    string | null
-  >(null); // circle preview URL
-
-  // ---------- Load taxonomy (interests & roles) from Firestore ----------
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadTaxonomy() {
-      try {
-        setTaxonomyLoading(true);
-        setTaxonomyError(null);
-
-        const igSnap = await getDocs(
-          query(collection(db, "interest_groups"), orderBy("order", "asc"))
-        );
-        const rgSnap = await getDocs(
-          query(collection(db, "role_groups"), orderBy("order", "asc"))
-        );
-
-        if (cancelled) return;
-
-        const ig: GroupConfig[] = igSnap.docs
-          .map((d) => {
-            const data = d.data() as any;
-
-            return {
-              id: d.id,
-              title: data.title ?? d.id,
-              items: Array.isArray(data.items) ? data.items : [],
-            };
-          })
-          .filter((g) => g.items.length);
-
-        const rg: GroupConfig[] = rgSnap.docs
-          .map((d) => {
-            const data = d.data() as any;
-            return {
-              id: d.id,
-              title: data.title ?? d.id,
-              items: Array.isArray(data.items) ? data.items : [],
-            };
-          })
-          .filter((g) => g.items.length);
-
-        // Flatten & dedupe
-        const interestFlat = ig.flatMap((g) => g.items);
-        const roleFlat = rg.flatMap((g) => g.items);
-
-        if (interestFlat.length) {
-          setInterestOptions(Array.from(new Set(interestFlat)));
-        } else {
-          setInterestOptions([]);
-        }
-
-        if (roleFlat.length) {
-          setRoleOptions(Array.from(new Set(roleFlat)));
-        } else {
-          setRoleOptions([]);
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setTaxonomyError("Could not load interests & roles, using defaults.");
-          setInterestOptions([]);
-          setRoleOptions([]);
-        }
-      } finally {
-        if (!cancelled) setTaxonomyLoading(false);
-      }
-    }
-
-    void loadTaxonomy();
-    return () => {
-      cancelled = true;
-    };
-  }, [db]);
+  // (The second taxonomy effect in your original file was redundant, so we keep only this one.)
 
   // ---------- Load current user + guard by route handle ----------
   useEffect(() => {
@@ -380,10 +328,23 @@ export default function EditProfilePage() {
           setPhone(d.phone ?? u.phoneNumber ?? null);
           setPhoneVerified(!!d.phoneVerified || !!u.phoneNumber);
           setCountryCode(d.countryCode ?? null);
+
           const fromDoc = d.preferredCurrency as "KES" | "USD" | undefined;
           const fallback =
             (d.countryCode === "KE" ? "KES" : "USD") as "KES" | "USD";
           setPreferredCurrency(fromDoc ?? fallback);
+
+          // last updated text
+          const ts = d.updatedAt || d.createdAt;
+          if (ts?.toDate) {
+            const date = ts.toDate() as Date;
+            setProfileUpdatedAtText(
+              `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
+            );
+          } else {
+            setProfileUpdatedAtText(null);
+          }
+
           const routeH = (params?.handle || "")
             .toString()
             .replace(/^@/, "")
@@ -425,11 +386,15 @@ export default function EditProfilePage() {
     if (!uid) return;
     setSaving(true);
     setErrorMsg("");
+    setSuccessMsg("");
     try {
       await updateDoc(doc(db, "users", uid), {
         ...patch,
         updatedAt: serverTimestamp(),
       });
+      setSuccessMsg("Changes saved.");
+      // auto-hide success after a few seconds
+      setTimeout(() => setSuccessMsg(""), 3500);
     } catch (err: any) {
       setErrorMsg(err?.message || "Could not save changes.");
     } finally {
@@ -459,6 +424,7 @@ export default function EditProfilePage() {
     if (!uid || !avatarPreview || !croppedAreaPixels) return;
     setSaving(true);
     setErrorMsg("");
+    setSuccessMsg("");
 
     try {
       const croppedBlob = await getCroppedImageBlob(
@@ -494,6 +460,8 @@ export default function EditProfilePage() {
           photoURL: url,
           updatedAt: serverTimestamp(),
         });
+        setSuccessMsg("Profile photo updated.");
+        setTimeout(() => setSuccessMsg(""), 3500);
       } catch (e: any) {
         console.error("Failed to update user photoURL:", e);
         setErrorMsg(
@@ -518,6 +486,7 @@ export default function EditProfilePage() {
 
     setSaving(true);
     setErrorMsg("");
+    setSuccessMsg("");
 
     try {
       if (initialPhotoURL && isFirebaseUrl(initialPhotoURL)) {
@@ -535,6 +504,8 @@ export default function EditProfilePage() {
 
       setPhotoURL(null);
       setInitialPhotoURL(null);
+      setSuccessMsg("Avatar reset to default.");
+      setTimeout(() => setSuccessMsg(""), 3500);
     } catch (err: any) {
       setErrorMsg(err?.message || "Could not reset avatar.");
     } finally {
@@ -594,6 +565,7 @@ export default function EditProfilePage() {
     }
     setPhoneBusy(true);
     setErrorMsg("");
+    setSuccessMsg("");
     try {
       ensureRecaptcha();
       // @ts-ignore
@@ -615,6 +587,7 @@ export default function EditProfilePage() {
     if (!confirmationResultRef.current) return;
     setPhoneBusy(true);
     setErrorMsg("");
+    setSuccessMsg("");
     try {
       await confirmationResultRef.current.confirm(smsCode);
       await saveField({ phone, phoneVerified: true });
@@ -627,11 +600,38 @@ export default function EditProfilePage() {
     }
   };
 
+  // ---------- Delete account (calls backend cloud function) ----------
+  const handleConfirmDelete = async () => {
+    if (!uid) return;
+    setDeleting(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const functions = getFunctions();
+      // Make sure you have a callable function named "deleteAccountCascade"
+      // which deletes: user doc, deeds, listings, discussions, events,
+      // Mux assets and all Firebase Storage files related to this user.
+      const fn = httpsCallable(functions, "deleteAccountCascade");
+      await fn({});
+
+      // Sign out & redirect home after successful deletion
+      await auth.signOut();
+      router.replace("/");
+    } catch (err: any) {
+      console.error("Delete account failed", err);
+      setErrorMsg(err?.message || "Failed to delete account. Please try again.");
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteOpen(false);
+    }
+  };
+
   // ---------- UI ----------
+
   if (loading) {
     return (
       <AppShell>
-        <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex min-h-screen items-center justify-center">
           <div className="animate-pulse text-[color:var(--ekari-gold,#C79257)]">
             <BouncingBallLoader />
           </div>
@@ -644,7 +644,7 @@ export default function EditProfilePage() {
 
   return (
     <AppShell>
-      <div className="w-full px-4 py-4">
+      <div className="w-full min-h-screen px-4 py-4">
         {/* Header */}
         <div className="flex h-12 items-center justify-between border-b border-gray-200">
           <button
@@ -657,6 +657,12 @@ export default function EditProfilePage() {
           <div className="font-extrabold text-slate-900">Edit Profile</div>
           <div className="w-8" />
         </div>
+
+        {profileUpdatedAtText && (
+          <p className="mt-2 text-xs text-center text-slate-500">
+            Last updated: {profileUpdatedAtText}
+          </p>
+        )}
 
         {/* Avatar */}
         <div className="flex flex-col items-center mt-4 mb-2">
@@ -708,65 +714,125 @@ export default function EditProfilePage() {
           </div>
         </div>
 
-        {/* Read-only fields with Edit actions */}
-        <div className="mt-4 divide-y rounded-2xl border bg-white shadow-sm overflow-hidden">
-          <ItemRow
-            label="Name"
-            value={`${firstName || "-"} ${surname || ""}`.trim() || "-"}
-            onEdit={() => setSheet("name")}
-          />
-          <ItemRow label="Username" value={handle || "-"} locked />
-          <ItemRow
-            label="Bio"
-            value={bio || "Add bio"}
-            onEdit={() => setSheet("bio")}
-          />
-          <ItemRow
-            label="Phone"
-            value={
-              phone
-                ? `${phoneVerified ? "✅ " : "⚠️ "}${phone}`
-                : "Add phone"
-            }
-            onEdit={() => setSheet("phone")}
-          />
-          <ItemRow
-            label="Website"
-            value={website || "Add website"}
-            onEdit={() => setSheet("website")}
-          />
-
-          {/* 🔹 NEW: Preferred currency row */}
-          <ItemRow
-            label="Preferred currency"
-            value={
-              preferredCurrency
-                ? preferredCurrency === "KES"
-                  ? "KES – Kenyan Shilling (M-Pesa available)"
-                  : "USD – US Dollar"
-                : "Auto (based on country)"
-            }
-            onEdit={() => setSheet("currency")}
-          />
-          <ItemRow
-            label="Interests"
-            value={
-              areaOfInterest.length
-                ? `${areaOfInterest.length} selected`
-                : "Add interests"
-            }
-            onEdit={() => setSheet("interests")}
-          />
-          <ItemRow
-            label="Roles"
-            value={roles.length ? `${roles.length} selected` : "Add roles"}
-            onEdit={() => setSheet("roles")}
-          />
+        {/* Alerts */}
+        <div className="mt-3 space-y-2">
+          {!!errorMsg && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {errorMsg}
+            </div>
+          )}
+          {!!successMsg && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              {successMsg}
+            </div>
+          )}
         </div>
 
-        {!!errorMsg && (
-          <p className="text-center text-rose-600 mt-3">{errorMsg}</p>
-        )}
+        {/* Sections */}
+        <div className="mt-5 space-y-6">
+          {/* Profile section */}
+          <section>
+            <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+              Profile
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-3">
+              <ItemRow
+                label="Name"
+                value={`${firstName || "-"} ${surname || ""}`.trim() || "-"}
+                onEdit={() => setSheet("name")}
+              />
+              <ItemRow label="Username" value={handle || "-"} locked />
+              <ItemRow
+                label="Bio"
+                value={bio || "Add bio"}
+                onEdit={() => setSheet("bio")}
+              />
+            </div>
+          </section>
+
+          {/* Contact section */}
+          <section>
+            <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+              Contact
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-3">
+              <ItemRow
+                label="Phone"
+                value={
+                  phone
+                    ? `${phoneVerified ? "✅ " : "⚠️ "}${phone}`
+                    : "Add phone"
+                }
+                onEdit={() => setSheet("phone")}
+              />
+              <ItemRow
+                label="Website"
+                value={website || "Add website"}
+                onEdit={() => setSheet("website")}
+              />
+            </div>
+          </section>
+
+          {/* Preferences section */}
+          <section>
+            <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+              Preferences
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-3">
+              <ItemRow
+                label="Preferred currency"
+                value={
+                  preferredCurrency
+                    ? preferredCurrency === "KES"
+                      ? "KES – Kenyan Shilling (M-Pesa available)"
+                      : "USD – US Dollar"
+                    : "Auto (based on country)"
+                }
+                onEdit={() => setSheet("currency")}
+              />
+              <ItemRow
+                label="Interests"
+                value={
+                  areaOfInterest.length
+                    ? `${areaOfInterest.length} selected`
+                    : "Add interests"
+                }
+                onEdit={() => setSheet("interests")}
+              />
+              <ItemRow
+                label="Roles"
+                value={roles.length ? `${roles.length} selected` : "Add roles"}
+                onEdit={() => setSheet("roles")}
+              />
+            </div>
+          </section>
+
+          {/* Danger zone section */}
+          <section>
+            <h2 className="text-[11px] font-bold uppercase tracking-wide text-rose-600 mb-2">
+              Danger zone
+            </h2>
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 flex flex-col gap-2">
+              <div className="text-sm font-semibold text-rose-800">
+                Delete account
+              </div>
+              <p className="text-xs text-rose-700 leading-relaxed">
+                This will permanently delete your ekarihub account, all your
+                deeds, listings, discussions, events any uploaded files. This action cannot be undone.
+              </p>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  disabled={deleting}
+                  className="rounded-xl px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60"
+                >
+                  {deleting ? "Deleting…" : "Delete account"}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
 
       {/* Avatar crop sheet */}
@@ -976,6 +1042,7 @@ export default function EditProfilePage() {
           </div>
         </div>
       </BottomSheet>
+
       <BottomSheet
         open={sheet === "currency"}
         title="Preferred currency"
@@ -986,7 +1053,8 @@ export default function EditProfilePage() {
             This will be the default currency for donations you make.
           </p>
           <p className="text-xs text-slate-500">
-            M-Pesa is only available when donating in <span className="font-semibold">KES</span>.
+            M-Pesa is only available when donating in{" "}
+            <span className="font-semibold">KES</span>.
           </p>
 
           <div className="mt-3 space-y-2">
@@ -1006,7 +1074,9 @@ export default function EditProfilePage() {
                   key={code}
                   type="button"
                   onClick={() => setPreferredCurrency(code)}
-                  className={`w-full flex items-start gap-2 rounded-xl border px-3 py-2 text-left ${active ? "border-[#233F39] bg-[#233F39]/5" : "border-gray-200 bg-white"
+                  className={`w-full flex items-start gap-2 rounded-xl border px-3 py-2 text-left ${active
+                    ? "border-[#233F39] bg-[#233F39]/5"
+                    : "border-gray-200 bg-white"
                     }`}
                 >
                   <div className="mt-1">
@@ -1098,9 +1168,7 @@ export default function EditProfilePage() {
         onClose={() => setSheet(null)}
       >
         {taxonomyLoading && (
-          <p className="text-xs text-gray-500 mb-1">
-            Loading role options…
-          </p>
+          <p className="text-xs text-gray-500 mb-1">Loading role options…</p>
         )}
         {taxonomyError && (
           <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>
@@ -1223,12 +1291,25 @@ export default function EditProfilePage() {
 
       {/* invisible recaptcha node */}
       <div id="recaptcha-container" />
+
+      {/* Global confirm modal for delete account */}
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        title="Permanently delete your ekarihub account?"
+        message="This will delete your profile, deeds, listings, discussions, events and any uploaded files. This cannot be undone."
+        confirmText={deleting ? "Deleting…" : "Yes, delete everything"}
+        cancelText="Cancel"
+        onCancel={() => {
+          if (!deleting) setConfirmDeleteOpen(false);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </AppShell>
   );
 }
 
 /* =========================================================
-   ItemRow — compact modern row with trailing Edit
+   ItemRow — card-style row
    ========================================================= */
 function ItemRow({
   label,
@@ -1242,26 +1323,26 @@ function ItemRow({
   locked?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-4 hover:bg-slate-50 transition-colors">
-      <div>
-        <div className="text-xs font-bold uppercase tracking-wide text-slate-500">
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-4 flex items-center justify-between hover:border-[#C79257]/70 hover:shadow-md transition-all">
+      <div className="pr-3">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
           {label}
         </div>
-        <div className="mt-1 text-slate-900 font-semibold break-words">
+        <div className="mt-1 text-sm text-slate-900 font-semibold break-words">
           {value}
         </div>
       </div>
-      <div>
+      <div className="shrink-0">
         {locked ? (
-          <span className="inline-flex items-center gap-1 text-slate-400 text-sm">
-            <IoLockClosed /> Locked
+          <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
+            <IoLockClosed size={14} /> Locked
           </span>
         ) : (
           <button
             onClick={onEdit}
-            className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm font-bold"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-xs font-bold text-slate-800"
           >
-            <IoPencil /> Edit
+            <IoPencil size={14} /> Edit
           </button>
         )}
       </div>
@@ -1283,24 +1364,66 @@ function BottomSheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto md:w-[480px] md:rounded-l-2xl bg-white border-t md:border-l border-gray-200 rounded-t-2xl shadow-xl">
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="font-extrabold text-slate-900">{title}</div>
-          <button className="px-2 py-1 text-slate-600" onClick={onClose}>
-            ✕
-          </button>
+  const [mounted, setMounted] = React.useState(false);
+
+  // Avoid SSR document access issues
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center">
+          {/* Backdrop */}
+          <motion.div
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+
+          {/* Centered dialog */}
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sheet-title"
+            className="relative z-[91] w-[92vw] max-w-md md:max-w-lg rounded-2xl bg-white border border-gray-200 shadow-xl"
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 6 }}
+            transition={{ type: "spring", stiffness: 240, damping: 22, mass: 0.7 }}
+          >
+            <div className="flex items-center justify-between p-4 border-b">
+              <div
+                id="sheet-title"
+                className="font-extrabold text-slate-900"
+              >
+                {title}
+              </div>
+              <button
+                className="px-2 py-1 text-slate-600 hover:text-slate-900"
+                onClick={onClose}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 overflow-auto max-h-[70vh] md:max-h-[75vh]">
+              {children}
+            </div>
+          </motion.div>
         </div>
-        <div className="p-4 overflow-auto max-h-[70vh] md:max-h-[80vh]">
-          {children}
-        </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>,
+    document.body
   );
 }
+
+
 
 /* =========================================================
    TagPicker — lightweight multi-select chips with search

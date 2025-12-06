@@ -317,6 +317,18 @@ export default function FilterModal({
     const [typeDocs, setTypeDocs] = useState<MarketTypeDoc[]>([]);
     const [categoryDocs, setCategoryDocs] = useState<MarketCategoryDoc[]>([]);
     const [itemDocs, setItemDocs] = useState<MarketItemDoc[]>([]);
+    // Smooth open animation like ConfirmModal
+    const [sheetVisible, setSheetVisible] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            const id = requestAnimationFrame(() => setSheetVisible(true));
+            return () => cancelAnimationFrame(id);
+        } else {
+            setSheetVisible(false);
+        }
+    }, [open]);
+
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
     useEffect(() => {
@@ -639,25 +651,35 @@ export default function FilterModal({
     const priceCurrencyLabel = currency || "KES";
 
     return createPortal(
-        <div className="fixed inset-0 z-50">
-            {/* backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop – faded + blurred like ConfirmModal */}
             <button
-                className="absolute inset-0 bg-black/40"
+                type="button"
+                className={clsx(
+                    "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200",
+                    sheetVisible ? "opacity-100" : "opacity-0"
+                )}
                 onClick={onClose}
                 aria-label="Close filters"
             />
 
-            {/* sheet */}
+            {/* Centered modal card – slide + fade in */}
             <div
-                className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 h-[80vh] flex flex-col"
+                className={clsx(
+                    "relative w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-4 shadow-xl transition-all duration-200 transform",
+                    "max-h-[90vh] flex flex-col", // so body can scroll inside
+                    sheetVisible
+                        ? "translate-y-0 opacity-100"
+                        : "translate-y-4 opacity-0"
+                )}
                 role="dialog"
                 aria-modal="true"
             >
-                {/* grab handle */}
-                <div className="w-12 h-1.5 rounded-full bg-gray-300 mx-auto mb-2" />
+                {/* grab handle (optional, can remove now if you want) */}
+                <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-gray-300" />
 
                 {/* Header */}
-                <div className="flex items-center justify-between mb-1">
+                <div className="mb-1 flex items-center justify-between">
                     <div
                         className="text-base font-black"
                         style={{ color: EKARI.text }}
@@ -678,7 +700,7 @@ export default function FilterModal({
                         </button>
                         <button
                             onClick={onClose}
-                            className="w-9 h-9 grid place-items-center rounded-full hover:bg-gray-50"
+                            className="grid h-9 w-9 place-items-center rounded-full hover:bg-gray-50"
                             aria-label="Close"
                         >
                             <IoClose size={20} />

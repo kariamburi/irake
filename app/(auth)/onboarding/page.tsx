@@ -235,43 +235,45 @@ function SmartPicker({
         selectedSet.has(tag) ? remove(tag) : add(tag);
     }
 
-    const GroupedList = () => (
-        <div className="mt-3 max-h-[60vh] overflow-auto space-y-5">
-            {packs.map((g) => {
-                if (!g.items.length) return null;
-                return (
-                    <div key={g.title}>
-                        <div
-                            className="mb-2 text-xs font-bold uppercase tracking-wider"
-                            style={{ color: ekari.dim }}
-                        >
-                            {g.title}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {g.items.map((i) => {
-                                const active = selectedSet.has(i);
-                                return (
-                                    <button
-                                        key={i}
-                                        onClick={() => toggle(i)}
-                                        className="rounded-full border px-3 py-1.5 text-xs font-bold"
-                                        style={{
-                                            borderColor: active ? ekari.forest : ekari.hair,
-                                            background: active ? ekari.forest : "#fff",
-                                            color: active ? "#fff" : ekari.text,
-                                        }}
-                                        disabled={!active && !canAddMore}
-                                    >
-                                        {i}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
+    const GroupedList = () => {
+        // Flatten + dedupe all items from all packs
+        const seen = new Set<string>();
+        const flat: string[] = [];
+        packs.forEach((g) => {
+            g.items.forEach((i) => {
+                if (!seen.has(i)) {
+                    seen.add(i);
+                    flat.push(i);
+                }
+            });
+        });
+
+        return (
+            <div className="mt-3 max-h-[60vh] overflow-auto">
+                <div className="flex flex-wrap gap-2">
+                    {flat.map((i) => {
+                        const active = selectedSet.has(i);
+                        return (
+                            <button
+                                key={i}
+                                onClick={() => toggle(i)}
+                                className="rounded-full border px-3 py-1.5 text-xs font-bold"
+                                style={{
+                                    borderColor: active ? ekari.forest : ekari.hair,
+                                    background: active ? ekari.forest : "#fff",
+                                    color: active ? "#fff" : ekari.text,
+                                }}
+                                disabled={!active && !canAddMore}
+                            >
+                                {i}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
 
     return (
         <div>

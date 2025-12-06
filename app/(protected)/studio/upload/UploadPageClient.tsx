@@ -12,6 +12,8 @@ import {
 
 import {
   collection, serverTimestamp, doc, getDoc, updateDoc, setDoc,
+  writeBatch,
+  increment,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -28,6 +30,7 @@ import AppShell from "@/app/components/AppShell";
 import dynamic from 'next/dynamic';
 import { PickedSound } from "@/app/components/SoundSheetWeb";
 import { createPortal } from "react-dom";
+import { ConfirmModal } from "@/app/components/ConfirmModal";
 // Replace your static imports:
 const SoundSheetWeb = dynamic(() => import('@/app/components/SoundSheetWeb'), { ssr: false });
 const PreviewMixerCard = dynamic(() => import('@/app/components/PreviewMixerCard'), { ssr: false });
@@ -114,6 +117,43 @@ const asArray = (v: unknown): string[] => {
   if (typeof v === "string") return v.split(",").map((s) => s.trim()).filter(Boolean);
   return [];
 };
+// Upsert hashtag docs whenever a deed uses tags
+async function upsertHashtagsForTags(tags: string[]) {
+  if (!tags || !tags.length) return;
+
+  // Normalize: strip leading #, trim, lower-case
+  const unique = Array.from(
+    new Set(
+      tags
+        .map((t) => String(t).trim().replace(/^#+/, "")) // remove leading #
+        .filter(Boolean)
+        .map((t) => t.toLowerCase())
+    )
+  );
+
+  if (!unique.length) return;
+
+  const batch = writeBatch(db);
+
+  for (const normalized of unique) {
+    // we can store the original tag label as capitalized or same as normalized
+    const tagLabel = normalized; // you can prettify if you want
+
+    const hashtagRef = doc(db, "hashtags", normalized);
+    batch.set(
+      hashtagRef,
+      {
+        tag: tagLabel,              // shown in UI
+        tagLower: normalized,       // for search
+        uses: increment(1),         // bump usage count
+        lastUsedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  await batch.commit();
+}
 
 /* ---------- page ---------- */
 export default function UploadPage() {
@@ -215,6 +255,50 @@ export default function UploadPage() {
   const mergedTags = useMemo(() => (
     Array.from(new Set([...selectedTags.map((t) => t.toLowerCase()), ...tagsFromCaption]))
   ), [selectedTags, tagsFromCaption]);
+  // Shared confirm / alert modal state
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+  }>({
+    open: false,
+    title: "",
+    message: "",
+    confirmText: "OK",
+    cancelText: "Cancel",
+    onConfirm: undefined,
+  });
+
+  const showInfoModal = (title: string, message: string) => {
+    setConfirmState({
+      open: true,
+      title,
+      message,
+      confirmText: "OK",
+      cancelText: "Close",
+      onConfirm: undefined,
+    });
+  };
+
+  const showConfirmModal = (opts: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }) => {
+    setConfirmState({
+      open: true,
+      title: opts.title,
+      message: opts.message,
+      confirmText: opts.confirmText ?? "Yes, continue",
+      cancelText: opts.cancelText ?? "Cancel",
+      onConfirm: opts.onConfirm,
+    });
+  };
 
   /* ---------- ui ---------- */
   const [busy, setBusy] = useState(false);
@@ -291,12 +375,24 @@ export default function UploadPage() {
   const onDrop = async (f: File) => {
     if (!f) return;
     const mb = f.size / (1024 * 1024);
-    if (mb > MAX_MEDIA_MB) { alert(`Max ${MAX_MEDIA_MB} MB. Your file is ~${mb.toFixed(1)} MB.`); return; }
+    if (mb > MAX_MEDIA_MB) {
+      showInfoModal(
+        "File too large",
+        `Max ${MAX_MEDIA_MB} MB. Your file is ~${mb.toFixed(1)} MB.`
+      );
+      return;
+    }
     // if (!f.type.startsWith("video/")) { alert("Please select a video file."); return; }
     // if (mediaUrl) URL.revokeObjectURL(mediaUrl);
     const isVideo = f.type.startsWith("video/");
     const isImage = f.type.startsWith("image/");
-    if (!isVideo && !isImage) { alert("Please select a video or image."); return; }
+
+
+    if (!isVideo && !isImage) {
+      showInfoModal("Unsupported file", "Please select a video or image.");
+      return;
+    }
+
     if (mediaUrl) URL.revokeObjectURL(mediaUrl);
     setFile(f);
     const url = URL.createObjectURL(f);
@@ -445,7 +541,7 @@ export default function UploadPage() {
     const isVideo = mediaKind === "video";
     const isImage = mediaKind === "image";
     if (isVideo && durationSec && durationSec > MAX_VIDEO_SEC) {
-      alert(`Video must be ≤ ${MAX_VIDEO_SEC}s.`);
+      showInfoModal("Video too long", `Video must be ≤ ${MAX_VIDEO_SEC}s.`);
       setStep?.(1);
       return;
     }
@@ -606,6 +702,10 @@ export default function UploadPage() {
         });
 
         await updateDoc(deedRef, payload);
+        // 👇 upsert hashtags after deed is saved
+        if (mergedTags.length) {
+          await upsertHashtagsForTags(mergedTags);
+        }
       }
 
       // =========================
@@ -675,6 +775,9 @@ export default function UploadPage() {
         });
 
         await updateDoc(deedRef!, payload);
+        if (mergedTags.length) {
+          await upsertHashtagsForTags(mergedTags);
+        }
 
         // Early exit for images
         if (typeof window !== "undefined") localStorage.removeItem(DRAFT_KEY);
@@ -774,6 +877,10 @@ export default function UploadPage() {
         });
 
         await updateDoc(deedRef, payload);
+        // 👇 upsert hashtags after deed is saved
+        if (mergedTags.length) {
+          await upsertHashtagsForTags(mergedTags);
+        }
       }
 
       // cleanup + navigate
@@ -1003,7 +1110,17 @@ export default function UploadPage() {
                       <IoSwapHorizontalOutline className="inline -mt-0.5 mr-1" /> {file ? "Replace again" : (isEditing ? "Replace video" : "Replace")}
                     </button>
                     {!isEditing && (
-                      <button className="rounded-lg border px-3 py-1.5 text-sm" style={{ borderColor: EKARI.hair, color: EKARI.danger }} onClick={() => { if (confirm("Remove this video?")) clearMedia(); }}>
+                      <button className="rounded-lg border px-3 py-1.5 text-sm" style={{ borderColor: EKARI.hair, color: EKARI.danger }} onClick={() => {
+                        showConfirmModal({
+                          title: "Remove media?",
+                          message: "This will remove this media from your upload.",
+                          confirmText: "Remove",
+                          cancelText: "Cancel",
+                          onConfirm: () => {
+                            clearMedia();
+                          },
+                        });
+                      }}>
                         <IoTrashOutline className="inline -mt-0.5 mr-1" /> Remove
                       </button>
                     )}
@@ -1239,7 +1356,7 @@ export default function UploadPage() {
                             musicGainDb, videoGainDb, ducking, duckAmountDb, loopMusic, startOffsetSec
                           })
                         );
-                        alert("Draft saved.");
+                        showInfoModal("Draft saved", "Your draft has been saved on this device.");
                       }}
                     >
                       Save draft
@@ -1302,6 +1419,23 @@ export default function UploadPage() {
           }}
         />
       </StudioShell>
+      {/* Global confirm / alert modal for this page */}
+      <ConfirmModal
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        onCancel={() => {
+          setConfirmState((s) => ({ ...s, open: false }));
+        }}
+        onConfirm={() => {
+          const fn = confirmState.onConfirm;
+          setConfirmState((s) => ({ ...s, open: false }));
+          if (fn) fn();
+        }}
+      />
+
     </AppShell>
   );
 }

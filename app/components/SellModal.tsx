@@ -38,6 +38,7 @@ import {
     IoSearch,
 } from "react-icons/io5";
 import { createPortal } from "react-dom";
+import clsx from "clsx";
 
 /* ================= Theme ================= */
 const EKARI = {
@@ -1320,6 +1321,18 @@ export default function SellModal({
 }) {
     const { types, categories, items, loading: catalogLoading } = useMarketCatalog();
     // 👇 avoid SSR mismatch when using document.body
+    // Smooth open animation like ConfirmModal
+    const [sheetVisible, setSheetVisible] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            const id = requestAnimationFrame(() => setSheetVisible(true));
+            return () => cancelAnimationFrame(id);
+        } else {
+            setSheetVisible(false);
+        }
+    }, [open]);
+
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
     // ==== NEW: verification status for current user ====
@@ -1817,21 +1830,35 @@ export default function SellModal({
 
     if (!mounted || !open) return null;
 
+
+
     return createPortal(
-        <div aria-label="Sell sheet" className="fixed inset-0 z-[70] flex items-end justify-center">
-            {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop – faded + blurred like ConfirmModal */}
             <button
+                type="button"
+                className={clsx(
+                    "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200",
+                    sheetVisible ? "opacity-100" : "opacity-0"
+                )}
                 onClick={() => !saving && onClose()}
-                className="absolute inset-0 bg-black/40"
-                aria-label="Close"
+                aria-label="Close filters"
             />
 
-            {/* Bottom sheet container */}
+            {/* Centered modal card – slide + fade in */}
             <div
-                className="relative w-full bg-white border-t border-gray-200 rounded-t-2xl p-4 h-[80vh] flex flex-col shadow-lg"
+                className={clsx(
+                    "relative w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-4 shadow-xl transition-all duration-200 transform",
+                    "max-h-[90vh] flex flex-col", // so body can scroll inside
+                    sheetVisible
+                        ? "translate-y-0 opacity-100"
+                        : "translate-y-4 opacity-0"
+                )}
                 role="dialog"
                 aria-modal="true"
             >
+
+
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="text-base font-black text-gray-900">
@@ -2495,27 +2522,29 @@ export default function SellModal({
                 />
             )}
             {/* NEW: Polygon picker for arable land */}
-            {polygonModalOpen && (
-                <LandPolygonPickerModal
-                    initialCenter={
-                        landCenter ||
-                        coords || {
-                            latitude: -1.286389,
-                            longitude: 36.817223,
+            {
+                polygonModalOpen && (
+                    <LandPolygonPickerModal
+                        initialCenter={
+                            landCenter ||
+                            coords || {
+                                latitude: -1.286389,
+                                longitude: 36.817223,
+                            }
                         }
-                    }
-                    initialPolygon={landPolygon}
-                    onCancel={() => setPolygonModalOpen(false)}
-                    onUse={({ text, center, polygon }) => {
-                        setPlaceText(text);
-                        setLandCenter(center);
-                        setCoords(center); // keep using coords for search / existing logic
-                        setLandPolygon(polygon);
-                        setPolygonModalOpen(false);
-                    }}
-                />
-            )}
-        </div>,
+                        initialPolygon={landPolygon}
+                        onCancel={() => setPolygonModalOpen(false)}
+                        onUse={({ text, center, polygon }) => {
+                            setPlaceText(text);
+                            setLandCenter(center);
+                            setCoords(center); // keep using coords for search / existing logic
+                            setLandPolygon(polygon);
+                            setPolygonModalOpen(false);
+                        }}
+                    />
+                )
+            }
+        </div >,
         document.body
     );
 }

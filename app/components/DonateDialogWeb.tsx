@@ -6,6 +6,7 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 
 import { app, db } from "@/lib/firebase";
+import { ConfirmModal } from "@/app/components/ConfirmModal"; // 👈 make sure path is correct
 
 type Props = {
     open: boolean;
@@ -44,6 +45,15 @@ const EKARI = {
     hair: "#E5E7EB",
 };
 
+// 🔹 Simple global feedback modal state
+type FeedbackModalState =
+    | {
+        title: string;
+        message: string;
+        closeOnConfirm?: boolean;
+    }
+    | null;
+
 export function DonateDialogWeb({
     open,
     onClose,
@@ -62,6 +72,9 @@ export function DonateDialogWeb({
 
     // 🔹 Pay method: wallet vs Paystack
     const [payMethod, setPayMethod] = useState<PayMethod>("paystack");
+
+    // 🔹 Global feedback modal
+    const [feedbackModal, setFeedbackModal] = useState<FeedbackModalState>(null);
 
     // ---------- Load finance settings ----------
     useEffect(() => {
@@ -175,8 +188,7 @@ export function DonateDialogWeb({
 
     // ---------- Wallet derived values ----------
     const walletUsdMajor = useMemo(
-        () =>
-            wallet?.pendingBalance != null ? wallet.pendingBalance / 100 : 0,
+        () => (wallet?.pendingBalance != null ? wallet.pendingBalance / 100 : 0),
         [wallet?.pendingBalance]
     );
 
@@ -213,13 +225,19 @@ export function DonateDialogWeb({
 
     const handleDonate = async () => {
         if (!selectedAmount) {
-            window.alert("Please pick an amount to continue.");
+            setFeedbackModal({
+                title: "Select an amount",
+                message: "Please pick an amount before continuing.",
+            });
             return;
         }
 
         const auth = getAuth(app);
         if (!auth.currentUser) {
-            window.alert("Please sign in to support this deed.");
+            setFeedbackModal({
+                title: "Sign in required",
+                message: "Please sign in to support this deed.",
+            });
             return;
         }
 
@@ -231,7 +249,11 @@ export function DonateDialogWeb({
 
             if (payMethod === "wallet") {
                 if (!canUseWalletForCurrentAmount) {
-                    window.alert("Your wallet balance is not enough for this donation.");
+                    setFeedbackModal({
+                        title: "Insufficient wallet balance",
+                        message:
+                            "Your wallet balance is not enough for this donation. You can top up from your earnings page or choose Paystack instead.",
+                    });
                     setLoading(false);
                     return;
                 }
@@ -254,16 +276,22 @@ export function DonateDialogWeb({
                 });
 
                 if (!res.data.ok) {
-                    window.alert(
-                        "We could not complete your wallet donation. Please try again."
-                    );
+                    setFeedbackModal({
+                        title: "Wallet donation failed",
+                        message:
+                            "We could not complete your wallet donation. Please try again in a few moments.",
+                    });
                     setLoading(false);
                     return;
                 }
 
-                window.alert("Thank you! Your donation from wallet was recorded.");
+                // Success – show thank you, then close dialog when user taps OK
+                setFeedbackModal({
+                    title: "Thank you! 🌱",
+                    message: "Your donation from wallet was recorded successfully.",
+                    closeOnConfirm: true,
+                });
                 setLoading(false);
-                onClose();
                 return;
             }
 
@@ -289,208 +317,229 @@ export function DonateDialogWeb({
 
             const url = res.data.checkoutUrl;
             if (!url) {
-                window.alert("Unable to start checkout. Please try again.");
+                setFeedbackModal({
+                    title: "Unable to start checkout",
+                    message: "We could not start the payment checkout. Please try again.",
+                });
                 setLoading(false);
                 return;
             }
 
+            // Close sheet and redirect out to Paystack
             onClose();
             window.location.href = url;
         } catch (err: any) {
             console.error("Donation error", err);
-            window.alert(
-                err?.message || "Unable to start donation. Please try again."
-            );
+            setFeedbackModal({
+                title: "Donation error",
+                message:
+                    err?.message ||
+                    "We were unable to start your donation. Please try again shortly.",
+            });
             setLoading(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 z-[70]">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/40"
-                onClick={() => {
-                    if (!loading) onClose();
-                }}
-            />
+        <>
+            <div className="fixed inset-0 z-[70]">
+                {/* Backdrop */}
+                <div
+                    className="absolute inset-0 bg-black/40"
+                    onClick={() => {
+                        if (!loading) onClose();
+                    }}
+                />
 
-            {/* Bottom sheet container */}
-            <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-full max-w-[600px] rounded-3xl bg-white px-4 pb-5 pt-3 shadow-xl translate-y-0 transition-transform duration-200">
-                    {/* handle bar */}
-                    <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
+                {/* Centered sheet container */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-full max-w-[600px] rounded-3xl bg-white px-4 pb-5 pt-3 shadow-xl translate-y-0 transition-transform duration-200">
+                        {/* handle bar */}
+                        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
 
-                    {/* header */}
-                    <div className="flex items-start gap-3 mb-3">
-                        <div className="flex-1">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:#233F39]">
-                                Uplift this deed
-                            </p>
-                            <h2 className="text-[16px] font-extrabold text-gray-900">
-                                Uplift {creatorName || "this creator"}
-                            </h2>
-
-                            {/* Main share line + tooltip */}
-                            <p className="mt-1 text-xs text-gray-500 flex items-center gap-1">
-                                <span>
-                                    About {creatorShare}% goes directly to the creator and{" "}
-                                    {platformShare}% helps run ekarihub.
-                                </span>
-                                <span
-                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-500 cursor-help"
-                                    title={
-                                        "About 90% goes directly to the creator and 10% helps run ekarihub. Payment providers may charge an additional 2.9% fee, which is deducted from the creator's portion (not extra on top of what you pay)."
-                                    }
-                                >
-                                    ?
-                                </span>
-                            </p>
-
-                            {/**   {currency === "KES" && (
-                                <p className="mt-1 text-[10px] text-gray-400">
-                                    Amounts are based on USD presets converted at{" "}
-                                    {effectiveRate.toFixed(2)} KSh per 1 USD.
+                        {/* header */}
+                        <div className="mb-3 flex items-start gap-3">
+                            <div className="flex-1">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:#233F39]">
+                                    Uplift this deed
                                 </p>
-                            )} */}
+                                <h2 className="text-[16px] font-extrabold text-gray-900">
+                                    Uplift {creatorName || "this creator"}
+                                </h2>
+
+                                {/* Main share line + tooltip */}
+                                <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                                    <span>
+                                        About {creatorShare}% goes directly to the creator and{" "}
+                                        {platformShare}% helps run ekarihub.
+                                    </span>
+                                    <span
+                                        className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-500"
+                                        title={
+                                            "About 90% goes directly to the creator and 10% helps run ekarihub. Payment providers may charge an additional 2.9% fee, which is deducted from the creator's portion (not extra on top of what you pay)."
+                                        }
+                                    >
+                                        ?
+                                    </span>
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                disabled={loading}
+                                onClick={onClose}
+                                className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40"
+                            >
+                                <span className="sr-only">Close</span>
+                                ✕
+                            </button>
                         </div>
+
+                        {/* Pay method pill */}
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                            <div className="inline-flex rounded-full bg-slate-100 p-0.5 text-[11px]">
+                                <button
+                                    type="button"
+                                    onClick={() => setPayMethod("wallet")}
+                                    className={`px-3 py-1 rounded-full font-semibold transition ${payMethod === "wallet"
+                                        ? "bg-white shadow-sm text-emerald-900"
+                                        : "text-slate-600"
+                                        }`}
+                                >
+                                    From wallet
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPayMethod("paystack")}
+                                    className={`px-3 py-1 rounded-full font-semibold transition ${payMethod === "paystack"
+                                        ? "bg-white shadow-sm text-emerald-900"
+                                        : "text-slate-600"
+                                        }`}
+                                >
+                                    Paystack
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Wallet balance info (when using wallet) */}
+                        {payMethod === "wallet" && (
+                            <div className="mb-3 rounded-2xl bg-slate-50 px-3 py-2">
+                                {authUid ? (
+                                    <>
+                                        <p className="text-[11px] text-gray-600">
+                                            Wallet balance:{" "}
+                                            <span className="font-semibold">
+                                                {currency === "USD" ? "USD" : "KSh"}{" "}
+                                                {walletDisplayMajor.toFixed(
+                                                    currency === "KES" ? 0 : 2
+                                                )}
+                                            </span>
+                                        </p>
+                                        {!hasWallet && (
+                                            <p className="mt-0.5 text-[10px] text-red-500">
+                                                Your wallet is empty. Top up from your earnings page.
+                                            </p>
+                                        )}
+                                        {hasWallet &&
+                                            !canUseWalletForCurrentAmount &&
+                                            selectedAmount && (
+                                                <p className="mt-0.5 text-[10px] text-red-500">
+                                                    Your wallet balance is lower than the selected
+                                                    amount.
+                                                </p>
+                                            )}
+                                    </>
+                                ) : (
+                                    <p className="text-[11px] text-gray-600">
+                                        Sign in to donate from your ekarihub wallet.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* amount chips */}
+                        <div className="mb-4 flex flex-wrap gap-2">
+                            {displayPresets.map((amt) => {
+                                const active = selectedAmount === amt;
+                                return (
+                                    <button
+                                        key={amt}
+                                        type="button"
+                                        onClick={() => setSelectedAmount(amt)}
+                                        className={[
+                                            "rounded-full border px-3 py-1.5 text-sm font-semibold transition",
+                                            active
+                                                ? "border-[color:#233F39] bg-[color:#233F39] text-white"
+                                                : "border-gray-200 bg-gray-50 text-gray-800 hover:bg-gray-100",
+                                        ].join(" ")}
+                                    >
+                                        {symbol} {amt}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* CTA */}
                         <button
                             type="button"
-                            disabled={loading}
-                            onClick={onClose}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40"
-                        >
-                            <span className="sr-only">Close</span>
-                            ✕
-                        </button>
-                    </div>
-
-                    {/* Pay method pill */}
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                        <div className="inline-flex rounded-full bg-slate-100 p-0.5 text-[11px]">
-                            <button
-                                type="button"
-                                onClick={() => setPayMethod("wallet")}
-                                className={`px-3 py-1 rounded-full font-semibold transition ${payMethod === "wallet"
-                                    ? "bg-white shadow-sm text-emerald-900"
-                                    : "text-slate-600"
-                                    }`}
-                            >
-                                From wallet
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPayMethod("paystack")}
-                                className={`px-3 py-1 rounded-full font-semibold transition ${payMethod === "paystack"
-                                    ? "bg-white shadow-sm text-emerald-900"
-                                    : "text-slate-600"
-                                    }`}
-                            >
-                                Paystack
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Wallet balance info (when using wallet) */}
-                    {payMethod === "wallet" && (
-                        <div className="mb-3 rounded-2xl bg-slate-50 px-3 py-2">
-                            {authUid ? (
-                                <>
-                                    <p className="text-[11px] text-gray-600">
-                                        Wallet balance:{" "}
-                                        <span className="font-semibold">
-                                            {currency === "USD" ? "USD" : "KSh"}{" "}
-                                            {walletDisplayMajor.toFixed(
-                                                currency === "KES" ? 0 : 2
-                                            )}
-                                        </span>
-                                    </p>
-                                    {!hasWallet && (
-                                        <p className="mt-0.5 text-[10px] text-red-500">
-                                            Your wallet is empty. Top up from your earnings page.
-                                        </p>
-                                    )}
-                                    {hasWallet && !canUseWalletForCurrentAmount && selectedAmount && (
-                                        <p className="mt-0.5 text-[10px] text-red-500">
-                                            Your wallet balance is lower than the selected amount.
-                                        </p>
-                                    )}
-                                </>
-                            ) : (
-                                <p className="text-[11px] text-gray-600">
-                                    Sign in to donate from your ekarihub wallet.
-                                </p>
-                            )}
-                        </div>
-                    )}
-
-                    {/* amount chips */}
-                    <div className="mb-4 flex flex-wrap gap-2">
-                        {displayPresets.map((amt) => {
-                            const active = selectedAmount === amt;
-                            return (
-                                <button
-                                    key={amt}
-                                    type="button"
-                                    onClick={() => setSelectedAmount(amt)}
-                                    className={[
-                                        "rounded-full border px-3 py-1.5 text-sm font-semibold transition",
-                                        active
-                                            ? "border-[color:#233F39] bg-[color:#233F39] text-white"
-                                            : "border-gray-200 bg-gray-50 text-gray-800 hover:bg-gray-100",
-                                    ].join(" ")}
-                                >
-                                    {symbol} {amt}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* CTA */}
-                    <button
-                        type="button"
-                        onClick={handleDonate}
-                        disabled={
-                            !selectedAmount ||
-                            loading ||
-                            (payMethod === "wallet" && !canUseWalletForCurrentAmount)
-                        }
-                        className={[
-                            "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-sm transition",
-                            "bg-[color:#233F39] hover:bg-[#1b312d]",
-                            (!selectedAmount ||
+                            onClick={handleDonate}
+                            disabled={
+                                !selectedAmount ||
                                 loading ||
-                                (payMethod === "wallet" && !canUseWalletForCurrentAmount)) &&
-                            "opacity-60 cursor-not-allowed",
-                        ].join(" ")}
-                    >
-                        {loading ? (
-                            <span className="inline-flex items-center gap-2">
-                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                {payMethod === "wallet"
-                                    ? "Processing wallet donation…"
-                                    : "Processing…"}
-                            </span>
-                        ) : (
-                            <>
-                                <span role="img" aria-label="heart">
-                                    🌱
-                                </span>
-                                <span>
+                                (payMethod === "wallet" && !canUseWalletForCurrentAmount)
+                            }
+                            className={[
+                                "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-sm transition",
+                                "bg-[color:#233F39] hover:bg-[#1b312d]",
+                                (!selectedAmount ||
+                                    loading ||
+                                    (payMethod === "wallet" && !canUseWalletForCurrentAmount)) &&
+                                "opacity-60 cursor-not-allowed",
+                            ].join(" ")}
+                        >
+                            {loading ? (
+                                <span className="inline-flex items-center gap-2">
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                                     {payMethod === "wallet"
-                                        ? "Uplift from wallet"
-                                        : `Continue* ${symbol}.${selectedAmount ?? ""}`}
+                                        ? "Processing wallet donation…"
+                                        : "Processing…"}
                                 </span>
-                            </>
-                        )}
-                    </button>
+                            ) : (
+                                <>
+                                    <span role="img" aria-label="heart">
+                                        🌱
+                                    </span>
+                                    <span>
+                                        {payMethod === "wallet"
+                                            ? "Uplift from wallet"
+                                            : `Continue* ${symbol}.${selectedAmount ?? ""}`}
+                                    </span>
+                                </>
+                            )}
+                        </button>
 
-                    <p className="mt-2 text-center text-[10px] text-gray-500">
-                        Payments are processed securely. Some methods may be provided by
-                        partners (cards, mobile money, etc.).
-                    </p>
+                        <p className="mt-2 text-center text-[10px] text-gray-500">
+                            Payments are processed securely. Some methods may be provided by
+                            partners (cards, mobile money, etc.).
+                        </p>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            {/* 🔹 Global feedback modal for all errors / info */}
+            <ConfirmModal
+                open={!!feedbackModal}
+                title={feedbackModal?.title || ""}
+                message={feedbackModal?.message || ""}
+                confirmText="OK"
+                cancelText="Close"
+                onConfirm={() => {
+                    if (feedbackModal?.closeOnConfirm) {
+                        onClose();
+                    }
+                    setFeedbackModal(null);
+                }}
+                onCancel={() => setFeedbackModal(null)}
+            />
+        </>
     );
 }

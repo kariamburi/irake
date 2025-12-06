@@ -57,6 +57,7 @@ import { SmartImage } from "../components/SmartImage";
 import SmartAvatar from "../components/SmartAvatar";
 import { deleteObject, getStorage, listAll, ref as sRef } from "firebase/storage";
 import SellerReviewsSection from "../components/SellerReviewsSection";
+import { ConfirmModal } from "../components/ConfirmModal";
 
 const EKARI = {
   forest: "#233F39",
@@ -159,6 +160,14 @@ function DeedProcessingGate({
   const [deed, setDeed] = React.useState<DeedDoc | null>(null);
   const [busyDelete, setBusyDelete] = React.useState(false);
 
+  // NEW: local modals
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [errorModal, setErrorModal] = React.useState<{
+    open: boolean;
+    title: string;
+    message: string;
+  }>({ open: false, title: "", message: "" });
+
   // resolve deedId from query, else localStorage
   React.useEffect(() => {
     const qId = search?.get?.("deedId");
@@ -238,7 +247,7 @@ function DeedProcessingGate({
       .filter(Boolean) as string[];
     for (const assetId of muxIds) {
       try {
-        await fetch(`/api/mux/delete?assetId=${encodeURIComponent(assetId)}`, {
+        await fetch(`https://us-central1-ekarihub-aed5a.cloudfunctions.net/muxDeleteAsset?assetId=${encodeURIComponent(assetId)}`, {
           method: "DELETE",
         });
       } catch { }
@@ -259,10 +268,8 @@ function DeedProcessingGate({
     } catch { }
   }
 
-  async function hardDeleteFailed() {
+  async function performHardDelete() {
     if (!deedId || !deed) return;
-    const ok = window.confirm("Delete failed upload?");
-    if (!ok) return;
     try {
       setBusyDelete(true);
       await Promise.allSettled([deleteMuxIfAny(deed), deleteStorageIfAny(deed)]);
@@ -272,11 +279,15 @@ function DeedProcessingGate({
           localStorage.removeItem("lastUploadedDeedId");
         } catch { }
       }
-      // back to profile clean
       const url = `/${encodeURIComponent(handle.replace(/^@/, ""))}`;
       router.replace(url);
     } catch (e: any) {
-      alert(e?.message || "Delete failed. Try again.");
+      console.error(e);
+      setErrorModal({
+        open: true,
+        title: "Delete failed",
+        message: e?.message || "We couldn't delete this failed upload. Please try again.",
+      });
     } finally {
       setBusyDelete(false);
     }
@@ -285,65 +296,93 @@ function DeedProcessingGate({
   if (!deedId || (!isBlocking && !isFailed)) return null;
 
   return (
-    <div className="fixed inset-0 z-[200]">
-      {/* Backdrop blocks all interaction */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+    <>
+      <div className="fixed inset-0 z-[200]">
+        {/* Backdrop blocks all interaction */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
 
-      {/* Panel */}
-      <div className="absolute left-1/2 top-1/2 w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-white p-5 shadow-2xl">
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 grid place-items-center rounded-full bg-emerald-700 text-white">
-            {isFailed ? <IoClose size={18} /> : <DotsLoader />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-base font-extrabold text-slate-900">
-              {isFailed ? "Upload failed" : "Processing your deed"}
+        {/* Panel */}
+        <div className="absolute left-1/2 top-1/2 w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-white p-5 shadow-2xl">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 grid place-items-center rounded-full bg-emerald-700 text-white">
+              {isFailed ? <IoClose size={18} /> : <DotsLoader />}
             </div>
-            <div className="mt-1 text-sm text-slate-600">
-              {isFailed
-                ? "We couldn't finish preparing your video. You can delete it and try again."
-                : "We’re mixing and preparing your video. This can take a short moment. You’ll be able to preview and share once it’s ready."}
+            <div className="min-w-0 flex-1">
+              <div className="text-base font-extrabold text-slate-900">
+                {isFailed ? "Upload failed" : "Processing your deed"}
+              </div>
+              <div className="mt-1 text-sm text-slate-600">
+                {isFailed
+                  ? "We couldn't finish preparing your video. You can delete it and try again."
+                  : "We’re mixing and preparing your video. This can take a short moment. You’ll be able to preview and share once it’s ready."}
+              </div>
+
+              {!isFailed && (
+                <div className="mt-4">
+                  <div className="mb-1 flex items-center justify-between text-[12px] font-semibold text-slate-600">
+                    <span>Status: {status}</span>
+                    <span>{Math.round(rawP * 100)}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full border border-slate-200">
+                    <div
+                      className="h-full bg-emerald-600 transition-[width] duration-500"
+                      style={{
+                        width: `${Math.max(5, Math.min(100, Math.round(rawP * 100)))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {isFailed && (
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    disabled={busyDelete}
+                    className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+                  >
+                    {busyDelete ? "Deleting…" : "Delete failed upload"}
+                  </button>
+                </div>
+              )}
             </div>
-
-            {!isFailed && (
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between text-[12px] font-semibold text-slate-600">
-                  <span>Status: {status}</span>
-                  <span>{Math.round(rawP * 100)}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full border border-slate-200">
-                  <div
-                    className="h-full bg-emerald-600 transition-[width] duration-500"
-                    style={{
-                      width: `${Math.max(5, Math.min(100, Math.round(rawP * 100)))}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {isFailed && (
-              <div className="mt-4 flex items-center justify-end gap-2">
-                <button
-                  onClick={hardDeleteFailed}
-                  disabled={busyDelete}
-                  className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-60"
-                >
-                  {busyDelete ? "Deleting…" : "Delete"}
-                </button>
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Footer hint */}
-        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-          Note: While processing, profile actions are disabled.
+          {/* Footer hint */}
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+            Note: While processing, profile actions are disabled.
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Confirm delete failed upload */}
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        title="Delete failed upload?"
+        message="This will permanently delete the failed upload and any associated files. This cannot be undone."
+        confirmText="Yes, delete it"
+        cancelText="No, keep it"
+        onConfirm={() => {
+          setConfirmDeleteOpen(false);
+          void performHardDelete();
+        }}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
+
+      {/* Error modal */}
+      <ConfirmModal
+        open={errorModal.open}
+        title={errorModal.title || "Something went wrong"}
+        message={errorModal.message}
+        confirmText="Close"
+        cancelText={undefined}
+        onConfirm={() => setErrorModal((s) => ({ ...s, open: false }))}
+        onCancel={() => setErrorModal((s) => ({ ...s, open: false }))}
+      />
+    </>
   );
 }
+
 
 function useMutualFollow(viewerUid?: string, targetUid?: string) {
   const [aFollowsB, setAFollowsB] = React.useState(false);
@@ -1190,6 +1229,18 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
   const [loading, setLoading] = React.useState(true);
   const lastDocRef = React.useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
 
+  // NEW: confirm + info modals
+  const [confirmDelete, setConfirmDelete] = React.useState<{
+    open: boolean;
+    product: Product | null;
+  }>({ open: false, product: null });
+
+  const [infoModal, setInfoModal] = React.useState<{
+    open: boolean;
+    title: string;
+    message: string;
+  }>({ open: false, title: "", message: "" });
+
   React.useEffect(() => {
     if (!uid) return;
 
@@ -1271,25 +1322,17 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
         updatedAt: serverTimestamp(),
       });
     } catch (e: any) {
-      alert(`Failed to update: ${e?.message || "Unknown error"}`);
+      console.error(e);
+      setInfoModal({
+        open: true,
+        title: "Update failed",
+        message:
+          e?.message ||
+          "We couldn't update the listing status. Please try again in a moment.",
+      });
     }
   };
 
-  const formatMoney = (n: number, currency: CurrencyCode = "KES") => {
-    const safe = Number.isFinite(n) ? n : 0;
-
-    try {
-      return new Intl.NumberFormat("en-KE", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }).format(safe);
-    } catch {
-      // Fallback if currency/Intl fails
-      const prefix = currency === "USD" ? "$" : "KSh ";
-      return prefix + safe.toLocaleString("en-KE", { maximumFractionDigits: 0 });
-    }
-  };
   async function deleteFolderRecursively(folderRef: ReturnType<typeof sRef>) {
     const { items, prefixes } = await listAll(folderRef);
     await Promise.all(
@@ -1316,13 +1359,9 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
     }
   }
 
-  const removeListing = async (p: Product) => {
+  // ACTUAL deletion (no confirm here)
+  const performRemoveListing = async (p: Product) => {
     if (!isOwner) return; // safety
-    const ok = window.confirm(
-      "Delete this listing? This will also remove its images."
-    );
-    if (!ok) return;
-
     const storage = getStorage();
     const parentPath = `marketListings/${p.id}`;
     const imagesFolder = sRef(storage, `products/${p.sellerId}/${p.id}/images`);
@@ -1335,9 +1374,40 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
       }
       await deleteSubcollection(parentPath, "reviews");
       await deleteDoc(doc(db, parentPath));
-      alert("Listing deleted.");
+      setItems((prev) => prev.filter((x) => x.id !== p.id));
+      setInfoModal({
+        open: true,
+        title: "Listing deleted",
+        message: "The listing and its images were removed successfully.",
+      });
     } catch (e: any) {
-      alert(`Failed to delete: ${e?.message || "Unknown error"}`);
+      console.error(e);
+      setInfoModal({
+        open: true,
+        title: "Delete failed",
+        message:
+          e?.message || "We couldn't delete this listing. Please try again later.",
+      });
+    }
+  };
+
+  const removeListing = (p: Product) => {
+    if (!isOwner) return; // safety
+    setConfirmDelete({ open: true, product: p });
+  };
+
+  const formatMoney = (n: number, currency: CurrencyCode = "KES") => {
+    const safe = Number.isFinite(n) ? n : 0;
+
+    try {
+      return new Intl.NumberFormat("en-KE", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      }).format(safe);
+    } catch {
+      const prefix = currency === "USD" ? "$" : "KSh ";
+      return prefix + safe.toLocaleString("en-KE", { maximumFractionDigits: 0 });
     }
   };
 
@@ -1367,145 +1437,174 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
     );
 
   return (
-    <div className="px-3 md:px-6 pb-12">
-      <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-700">
-        <IoCubeOutline className="text-emerald-700" />
-        <span>
-          {total} listing{total === 1 ? "" : "s"}
-        </span>
-      </div>
+    <>
+      <div className="px-3 md:px-6 pb-12">
+        <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-700">
+          <IoCubeOutline className="text-emerald-700" />
+          <span>
+            {total} listing{total === 1 ? "" : "s"}
+          </span>
+        </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {items.map((p) => {
-          const cover = p.imageUrl || p.imageUrls?.[0];
-          const numericRate = Number(String(p.rate ?? "").replace(/[^\d.]/g, ""));
-          const currency: CurrencyCode = p.currency || "KES"; // default to KES
-          const priceText =
-            p.type === "lease" || p.type === "service"
-              ? `${Number.isFinite(numericRate) && numericRate > 0
-                ? formatMoney(numericRate, currency)
-                : "—"
-              }${p.billingUnit ? ` / ${p.billingUnit}` : ""}`
-              : formatMoney(Number(p.price || 0), currency);
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {items.map((p) => {
+            const cover = p.imageUrl || p.imageUrls?.[0];
+            const numericRate = Number(
+              String(p.rate ?? "").replace(/[^\d.]/g, "")
+            );
+            const currency: CurrencyCode = p.currency || "KES";
+            const priceText =
+              p.type === "lease" || p.type === "service"
+                ? `${Number.isFinite(numericRate) && numericRate > 0
+                  ? formatMoney(numericRate, currency)
+                  : "—"
+                }${p.billingUnit ? ` / ${p.billingUnit}` : ""}`
+                : formatMoney(Number(p.price || 0), currency);
 
+            const statusLabel = (p.status || (p.sold ? "sold" : "active")).replace(
+              /^\w/,
+              (c) => c.toUpperCase()
+            );
 
-
-          const statusLabel = (p.status || (p.sold ? "sold" : "active")).replace(
-            /^\w/,
-            (c) => c.toUpperCase()
-          );
-
-          return (
-            <div
-              key={p.id}
-              className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition"
-            >
+            return (
               <div
-                onClick={() => router.push(`/market/${p.id}`)}
-                className="relative block aspect-[4/3] bg-gray-100 cursor-pointer"
+                key={p.id}
+                className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition"
               >
-                <SmartImage
-                  src={cover || ""}
-                  alt={p.name || "Listing"}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width:768px) 100vw, 33vw"
-                  fallbackSrc=""
-                  emptyFallback={
-                    <div className="absolute inset-0 grid place-items-center text-gray-400 text-sm bg-gray-50">
-                      No image
-                    </div>
-                  }
-                />
                 <div
-                  className={`absolute left-2 top-2 ${statusColor(
-                    p
-                  )} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center gap-1`}
+                  onClick={() => router.push(`/market/${p.id}`)}
+                  className="relative block aspect-[4/3] bg-gray-100 cursor-pointer"
                 >
-                  <IoCheckmarkDone size={12} />
-                  {statusLabel}
+                  <SmartImage
+                    src={cover || ""}
+                    alt={p.name || "Listing"}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width:768px) 100vw, 33vw"
+                    fallbackSrc=""
+                    emptyFallback={
+                      <div className="absolute inset-0 grid place-items-center text-gray-400 text-sm bg-gray-50">
+                        No image
+                      </div>
+                    }
+                  />
+                  <div
+                    className={`absolute left-2 top-2 ${statusColor(
+                      p
+                    )} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center gap-1`}
+                  >
+                    <IoCheckmarkDone size={12} />
+                    {statusLabel}
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-3">
-                <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">
-                  {p.name || "Untitled"}
-                </div>
-                <div className="text-emerald-700 font-black">{priceText}</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {!!p.category && (
-                    <span className="inline-flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-[12px] font-bold">
-                      <IoPricetagOutline className="text-emerald-700" size={14} />
-                      {p.category}
-                    </span>
+                <div className="p-3">
+                  <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">
+                    {p.name || "Untitled"}
+                  </div>
+                  <div className="text-emerald-700 font-black">{priceText}</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {!!p.category && (
+                      <span className="inline-flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-[12px] font-bold">
+                        <IoPricetagOutline className="text-emerald-700" size={14} />
+                        {p.category}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Owner-only control buttons */}
+                  {isOwner && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {p.status !== "active" && (
+                        <button
+                          onClick={() => updateStatus(p, "active")}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 text-white text-xs font-bold hover:opacity-90"
+                        >
+                          <IoCheckmarkDone /> Activate
+                        </button>
+                      )}
+                      {p.status !== "sold" && (
+                        <button
+                          onClick={() => updateStatus(p, "sold")}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 text-white text-xs font-bold hover:opacity-90"
+                        >
+                          <IoCashOutline /> Sold
+                        </button>
+                      )}
+                      {p.status !== "reserved" && (
+                        <button
+                          onClick={() => updateStatus(p, "reserved")}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500 text-white text-xs font-bold hover:opacity-90"
+                        >
+                          <IoTimeOutline /> Reserve
+                        </button>
+                      )}
+                      {p.status !== "hidden" && (
+                        <button
+                          onClick={() => updateStatus(p, "hidden")}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-600 text-white text-xs font-bold hover:opacity-90"
+                        >
+                          <IoEyeOffOutline /> Hide
+                        </button>
+                      )}
+                      <button
+                        onClick={() => removeListing(p)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-600 text-white text-xs font-bold hover:opacity-90"
+                      >
+                        <IoTrashOutline /> Delete
+                      </button>
+                    </div>
                   )}
                 </div>
-
-                {/* Owner-only control buttons */}
-                {isOwner && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {p.status !== "active" && (
-                      <button
-                        onClick={() => updateStatus(p, "active")}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 text-white text-xs font-bold hover:opacity-90"
-                      >
-                        <IoCheckmarkDone /> Activate
-                      </button>
-                    )}
-                    {p.status !== "sold" && (
-                      <button
-                        onClick={() => updateStatus(p, "sold")}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 text-white text-xs font-bold hover:opacity-90"
-                      >
-                        <IoCashOutline /> Sold
-                      </button>
-                    )}
-                    {p.status !== "reserved" && (
-                      <button
-                        onClick={() => updateStatus(p, "reserved")}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500 text-white text-xs font-bold hover:opacity-90"
-                      >
-                        <IoTimeOutline /> Reserve
-                      </button>
-                    )}
-                    {p.status !== "hidden" && (
-                      <button
-                        onClick={() => updateStatus(p, "hidden")}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-600 text-white text-xs font-bold hover:opacity-90"
-                      >
-                        <IoEyeOffOutline /> Hide
-                      </button>
-                    )}
-                    <button
-                      onClick={() => removeListing(p)}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-600 text-white text-xs font-bold hover:opacity-90"
-                    >
-                      <IoTrashOutline /> Delete
-                    </button>
-                  </div>
-                )}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        <div className="mt-6 grid place-items-center">
+          {lastDocRef.current ? (
+            <button
+              onClick={loadMore}
+              disabled={paging}
+              className="px-4 py-2 rounded-lg bg-emerald-700 text-white font-black hover:opacity-90 disabled:opacity-60"
+            >
+              {paging ? <BouncingBallLoader /> : "Load more"}
+            </button>
+          ) : (
+            <div className="text-gray-400 text-sm mt-4">End of results</div>
+          )}
+        </div>
       </div>
 
-      <div className="mt-6 grid place-items-center">
-        {lastDocRef.current ? (
-          <button
-            onClick={loadMore}
-            disabled={paging}
-            className="px-4 py-2 rounded-lg bg-emerald-700 text-white font-black hover:opacity-90 disabled:opacity-60"
-          >
-            {paging ? <BouncingBallLoader /> : "Load more"}
-          </button>
-        ) : (
-          <div className="text-gray-400 text-sm mt-4">End of results</div>
-        )}
-      </div>
-    </div>
+      {/* Confirm delete listing */}
+      <ConfirmModal
+        open={confirmDelete.open}
+        title="Delete this listing?"
+        message="This will permanently remove the listing, its images and reviews. This action cannot be undone."
+        confirmText="Yes, delete it"
+        cancelText="No, keep listing"
+        onConfirm={() => {
+          const p = confirmDelete.product;
+          setConfirmDelete({ open: false, product: null });
+          if (p) void performRemoveListing(p);
+        }}
+        onCancel={() => setConfirmDelete({ open: false, product: null })}
+      />
+
+      {/* Info / error modal */}
+      <ConfirmModal
+        open={infoModal.open}
+        title={infoModal.title || "Notice"}
+        message={infoModal.message}
+        confirmText="Close"
+        cancelText={undefined}
+        onConfirm={() => setInfoModal((s) => ({ ...s, open: false }))}
+        onCancel={() => setInfoModal((s) => ({ ...s, open: false }))}
+      />
+    </>
   );
 }
+
 
 /* ---------- Events (owner vs guests) ---------- */
 type EventDoc = {
@@ -1537,6 +1636,17 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
 
+  const [confirmDelete, setConfirmDelete] = React.useState<{
+    open: boolean;
+    event: EventDoc | null;
+  }>({ open: false, event: null });
+
+  const [infoModal, setInfoModal] = React.useState<{
+    open: boolean;
+    title: string;
+    message: string;
+  }>({ open: false, title: "", message: "" });
+
   React.useEffect(() => {
     if (!uid) return;
     const qRef = query(
@@ -1550,7 +1660,6 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
         const raw = snap.docs.map(
           (d) => ({ id: d.id, ...(d.data() as DocumentData) } as EventDoc)
         );
-        // Owner: see all; Guest: only active/visible events
         const filtered = isOwner
           ? raw
           : raw.filter((e) => (e.status ?? "active") === "active");
@@ -1584,13 +1693,8 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
     await Promise.all(prefixes.map((p) => deleteFolderRecursively(p)));
   }
 
-  const removeEvent = async (e: EventDoc) => {
-    if (!isOwner) return; // extra safety
-    const ok = window.confirm(
-      "Delete this event? This will also remove its images."
-    );
-    if (!ok) return;
-
+  const performRemoveEvent = async (e: EventDoc) => {
+    if (!isOwner) return;
     const storage = getStorage();
     const organizer = e.organizerId || uid;
     const folderRef = sRef(storage, `events/${organizer}/${e.id}`);
@@ -1604,10 +1708,25 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
       }
       await deleteDoc(doc(db, parentPath));
       setEvents((prev) => prev.filter((x) => x.id !== e.id));
-      alert("Event deleted.");
+      setInfoModal({
+        open: true,
+        title: "Event deleted",
+        message: "The event and its media were removed successfully.",
+      });
     } catch (err: any) {
-      alert(`Failed to delete: ${err?.message || "Unknown error"}`);
+      console.error(err);
+      setInfoModal({
+        open: true,
+        title: "Delete failed",
+        message:
+          err?.message || "We couldn't delete this event. Please try again later.",
+      });
     }
+  };
+
+  const requestRemoveEvent = (e: EventDoc) => {
+    if (!isOwner) return;
+    setConfirmDelete({ open: true, event: e });
   };
 
   if (loading)
@@ -1627,92 +1746,121 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
     );
 
   return (
-    <div className="px-3 md:px-6 pb-12">
-      <div className="flex items-center gap-2 mb-5 text-sm font-semibold text-gray-700">
-        <IoCalendarOutline className="text-emerald-700" />
-        <span>
-          {events.length} event{events.length === 1 ? "" : "s"}
-        </span>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-50"
-        >
-          {refreshing ? "Refreshing..." : "Reload"}
-        </button>
-      </div>
+    <>
+      <div className="px-3 md:px-6 pb-12">
+        <div className="flex items-center gap-2 mb-5 text-sm font-semibold text-gray-700">
+          <IoCalendarOutline className="text-emerald-700" />
+          <span>
+            {events.length} event{events.length === 1 ? "" : "s"}
+          </span>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-50"
+          >
+            {refreshing ? "Refreshing..." : "Reload"}
+          </button>
+        </div>
 
-      <div className="flex flex-col gap-4">
-        {events.map((e) => {
-          const likes = e?.stats?.likes ?? 0;
-          const rsvps = e?.stats?.rsvps ?? 0;
+        <div className="flex flex-col gap-4">
+          {events.map((e) => {
+            const likes = e?.stats?.likes ?? 0;
+            const rsvps = e?.stats?.rsvps ?? 0;
 
-          return (
-            <div
-              key={e.id}
-              className="border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition p-4 flex flex-col gap-2"
-            >
-              <div className="flex items-start gap-3">
-                <button
-                  onClick={() => router.push(`/events/${e.id}`)}
-                  className="flex-1 min-w-0 text-left"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-700 shrink-0">
-                      <IoTimeOutline size={18} color="#fff" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[15px] font-extrabold text-gray-900 truncate">
-                        {e.title || "Untitled event"}
-                      </div>
-                      <div className="text-[13px] text-gray-500 flex flex-wrap items-center gap-1">
-                        <span>{fmtDate(e.dateISO)}</span>
-                        {e.location && (
-                          <>
-                            <span>•</span>
-                            <span className="inline-flex items-center gap-1">
-                              <IoLocationOutline size={12} />
-                              {e.location}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-
-                {isOwner && (
+            return (
+              <div
+                key={e.id}
+                className="border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition p-4 flex flex-col gap-2"
+              >
+                <div className="flex items-start gap-3">
                   <button
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      removeEvent(e);
-                    }}
-                    className="h-9 w-9 grid place-items-center rounded-lg bg-rose-50 border border-rose-200"
-                    aria-label="Delete event"
-                    title="Delete"
+                    onClick={() => router.push(`/events/${e.id}`)}
+                    className="flex-1 min-w-0 text-left"
                   >
-                    <IoTrashOutline className="text-rose-600" size={18} />
+                    <div className="flex items-start gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-700 shrink-0">
+                        <IoTimeOutline size={18} color="#fff" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[15px] font-extrabold text-gray-900 truncate">
+                          {e.title || "Untitled event"}
+                        </div>
+                        <div className="text-[13px] text-gray-500 flex flex-wrap items-center gap-1">
+                          <span>{fmtDate(e.dateISO)}</span>
+                          {e.location && (
+                            <>
+                              <span>•</span>
+                              <span className="inline-flex items-center gap-1">
+                                <IoLocationOutline size={12} />
+                                {e.location}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </button>
-                )}
-              </div>
 
-              <div className="flex gap-3 mt-2">
-                <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-xs font-bold">
-                  <IoHeartOutline className="text-emerald-700" size={14} />
-                  {likes}
+                  {isOwner && (
+                    <button
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        requestRemoveEvent(e);
+                      }}
+                      className="h-9 w-9 grid place-items-center rounded-lg bg-rose-50 border border-rose-200"
+                      aria-label="Delete event"
+                      title="Delete"
+                    >
+                      <IoTrashOutline className="text-rose-600" size={18} />
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-xs font-bold">
-                  <IoPeopleOutline className="text-emerald-700" size={14} />
-                  {rsvps}
+
+                <div className="flex gap-3 mt-2">
+                  <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-xs font-bold">
+                    <IoHeartOutline className="text-emerald-700" size={14} />
+                    {likes}
+                  </div>
+                  <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-xs font-bold">
+                    <IoPeopleOutline className="text-emerald-700" size={14} />
+                    {rsvps}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Confirm delete event */}
+      <ConfirmModal
+        open={confirmDelete.open}
+        title="Delete this event?"
+        message="This will permanently remove the event and its images. Guests will no longer be able to view it."
+        confirmText="Yes, delete event"
+        cancelText="No, keep event"
+        onConfirm={() => {
+          const e = confirmDelete.event;
+          setConfirmDelete({ open: false, event: null });
+          if (e) void performRemoveEvent(e);
+        }}
+        onCancel={() => setConfirmDelete({ open: false, event: null })}
+      />
+
+      {/* Info / error modal */}
+      <ConfirmModal
+        open={infoModal.open}
+        title={infoModal.title || "Notice"}
+        message={infoModal.message}
+        confirmText="Close"
+        cancelText={undefined}
+        onConfirm={() => setInfoModal((s) => ({ ...s, open: false }))}
+        onCancel={() => setInfoModal((s) => ({ ...s, open: false }))}
+      />
+    </>
   );
 }
+
 
 /* ---------- Discussions (owner vs guests) ---------- */
 type DiscussionRow = {
@@ -1742,6 +1890,18 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [reloadToken, setReloadToken] = React.useState(0);
 
+  // NEW
+  const [confirmDelete, setConfirmDelete] = React.useState<{
+    open: boolean;
+    row: DiscussionRow | null;
+  }>({ open: false, row: null });
+
+  const [infoModal, setInfoModal] = React.useState<{
+    open: boolean;
+    title: string;
+    message: string;
+  }>({ open: false, title: "", message: "" });
+
   React.useEffect(() => {
     if (!uid) {
       setItems([]);
@@ -1758,7 +1918,6 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
 
     const unsub = onSnapshot(
       qRef,
-      // you can drop includeMetadataChanges unless you *really* need it
       (snap) => {
         const rows = snap.docs.map(
           (d) =>
@@ -1783,12 +1942,10 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
     );
 
     return () => unsub();
-    // reattach whenever uid or reloadToken changes
   }, [uid, isOwner, reloadToken]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    // bump token to re-run the effect & re-create listener cleanly
     setReloadToken((x) => x + 1);
   };
 
@@ -1805,29 +1962,50 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
       setBusyId(row.id);
       await updateDoc(doc(db, "discussions", row.id), { published: next });
     } catch (e: any) {
+      console.error(e);
       setItems((prev) =>
         prev.map((i) =>
           i.id === row.id ? { ...i, published: current, _pending: false } : i
         )
       );
-      alert(e?.message || "Failed to update discussion.");
+      setInfoModal({
+        open: true,
+        title: "Update failed",
+        message:
+          e?.message ||
+          "We couldn't update the publication status of this discussion.",
+      });
     } finally {
       setBusyId(null);
     }
   };
 
-  const confirmDelete = async (row: DiscussionRow) => {
+  const performDeleteDiscussion = async (row: DiscussionRow) => {
     if (!isOwner) return;
-    const ok = window.confirm("Delete this discussion? This cannot be undone.");
-    if (!ok) return;
     try {
       setBusyId(row.id);
       await deleteDoc(doc(db, "discussions", row.id));
+      setInfoModal({
+        open: true,
+        title: "Discussion deleted",
+        message: "The discussion was deleted successfully.",
+      });
     } catch (e: any) {
-      alert(e?.message || "Delete failed. Try again.");
+      console.error(e);
+      setInfoModal({
+        open: true,
+        title: "Delete failed",
+        message:
+          e?.message || "We couldn't delete this discussion. Please try again.",
+      });
     } finally {
       setBusyId(null);
     }
+  };
+
+  const requestDeleteDiscussion = (row: DiscussionRow) => {
+    if (!isOwner) return;
+    setConfirmDelete({ open: true, row });
   };
 
   if (loading)
@@ -1848,97 +2026,125 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
     );
 
   return (
-    <div className="px-3 md:px-6 pb-12">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="text-sm font-semibold text-gray-700">
-          {items.length} discussion{items.length === 1 ? "" : "s"}
+    <>
+      <div className="px-3 md:px-6 pb-12">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="text-sm font-semibold text-gray-700">
+            {items.length} discussion{items.length === 1 ? "" : "s"}
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-60"
+          >
+            {refreshing ? "Refreshing..." : "Reload"}
+          </button>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-60"
-        >
-          {refreshing ? "Refreshing..." : "Reload"}
-        </button>
-      </div>
 
-      <div className="flex flex-col gap-3">
-        {items.map((item) => {
-          const isPublished = item.published ?? true;
-          const statusTxt = isPublished ? "Published" : "Unpublished";
-          const statusCls = isPublished
-            ? "bg-emerald-50 text-emerald-800"
-            : "bg-gray-100 text-gray-700";
+        <div className="flex flex-col gap-3">
+          {items.map((item) => {
+            const isPublished = item.published ?? true;
+            const statusTxt = isPublished ? "Published" : "Unpublished";
+            const statusCls = isPublished
+              ? "bg-emerald-50 text-emerald-800"
+              : "bg-gray-100 text-gray-700";
 
-          return (
-            <div
-              key={item.id}
-              className="border border-gray-200 rounded-xl bg-white shadow-sm p-4"
-            >
-              <button
-                onClick={() => router.push(`/discussions/${item.id}`)}
-                className="block w-full text-left"
+            return (
+              <div
+                key={item.id}
+                className="border border-gray-200 rounded-xl bg-white shadow-sm p-4"
               >
-                <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">
-                  {item.title || "Untitled discussion"}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-[13px]">
-                  {!!item.createdAt && (
-                    <span className="inline-flex items-center gap-1 text-gray-500">
-                      <IoTimeOutline size={14} />
-                      {dateText(item.createdAt)}
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1 text-gray-500">
-                    <IoChatbubbleEllipsesOutline size={14} />
-                    {(item.repliesCount ?? 0).toString()} answers
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${statusCls}`}
-                  >
-                    {statusTxt}
-                  </span>
-                  {item._pending && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">
-                      Syncing…
-                    </span>
-                  )}
-                </div>
-              </button>
-
-              {isOwner && (
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    onClick={() => togglePublish(item)}
-                    disabled={busyId === item.id}
-                    className={`h-9 px-3 rounded-full text-white text-xs font-extrabold transition
-                      ${isPublished ? "bg-amber-600" : "bg-emerald-700"} hover:opacity-90 disabled:opacity-60`}
-                  >
-                    {busyId === item.id
-                      ? "Working…"
-                      : isPublished
-                        ? "Unpublish"
-                        : "Publish"}
-                  </button>
-
-                  <button
-                    onClick={() => confirmDelete(item)}
-                    disabled={busyId === item.id}
-                    className="h-9 w-10 grid place-items-center rounded-lg bg-rose-50 border border-rose-200 disabled:opacity-60"
-                  >
-                    {busyId === item.id ? (
-                      <span className="text-rose-600 text-xs font-bold">…</span>
-                    ) : (
-                      <IoTrashOutline className="text-rose-600" size={18} />
+                <button
+                  onClick={() => router.push(`/discussions/${item.id}`)}
+                  className="block w-full text-left"
+                >
+                  <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">
+                    {item.title || "Untitled discussion"}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-[13px]">
+                    {!!item.createdAt && (
+                      <span className="inline-flex items-center gap-1 text-gray-500">
+                        <IoTimeOutline size={14} />
+                        {dateText(item.createdAt)}
+                      </span>
                     )}
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                    <span className="inline-flex items-center gap-1 text-gray-500">
+                      <IoChatbubbleEllipsesOutline size={14} />
+                      {(item.repliesCount ?? 0).toString()} answers
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${statusCls}`}
+                    >
+                      {statusTxt}
+                    </span>
+                    {item._pending && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">
+                        Syncing…
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                {isOwner && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      onClick={() => togglePublish(item)}
+                      disabled={busyId === item.id}
+                      className={`h-9 px-3 rounded-full text-white text-xs font-extrabold transition
+                      ${isPublished ? "bg-amber-600" : "bg-emerald-700"} hover:opacity-90 disabled:opacity-60`}
+                    >
+                      {busyId === item.id
+                        ? "Working…"
+                        : isPublished
+                          ? "Unpublish"
+                          : "Publish"}
+                    </button>
+
+                    <button
+                      onClick={() => requestDeleteDiscussion(item)}
+                      disabled={busyId === item.id}
+                      className="h-9 w-10 grid place-items-center rounded-lg bg-rose-50 border border-rose-200 disabled:opacity-60"
+                    >
+                      {busyId === item.id ? (
+                        <span className="text-rose-600 text-xs font-bold">…</span>
+                      ) : (
+                        <IoTrashOutline className="text-rose-600" size={18} />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Confirm delete */}
+      <ConfirmModal
+        open={confirmDelete.open}
+        title="Delete this discussion?"
+        message="This will permanently remove the discussion and its answers. This action cannot be undone."
+        confirmText="Yes, delete discussion"
+        cancelText="No, keep it"
+        onConfirm={() => {
+          const row = confirmDelete.row;
+          setConfirmDelete({ open: false, row: null });
+          if (row) void performDeleteDiscussion(row);
+        }}
+        onCancel={() => setConfirmDelete({ open: false, row: null })}
+      />
+
+      {/* Info / error modal */}
+      <ConfirmModal
+        open={infoModal.open}
+        title={infoModal.title || "Notice"}
+        message={infoModal.message}
+        confirmText="Close"
+        cancelText={undefined}
+        onConfirm={() => setInfoModal((s) => ({ ...s, open: false }))}
+        onCancel={() => setInfoModal((s) => ({ ...s, open: false }))}
+      />
+    </>
   );
 }
 

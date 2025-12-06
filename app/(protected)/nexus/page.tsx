@@ -78,18 +78,30 @@ const DISC_FILTERS: Array<DiscCategory | "All"> = [
 /* ============================== */
 /* BottomSheet Primitive          */
 /* ============================== */
+/* ============================== */
+/* Centered Modal Primitive       */
+/* ============================== */
 function BottomSheet({
   open,
   onClose,
   children,
   title,
   footer,
-}: PropsWithChildren<{ open: boolean; onClose: () => void; title?: string; footer?: ReactNode }>) {
+}: PropsWithChildren<{
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  footer?: ReactNode;
+}>) {
   const [mounted, setMounted] = useState(false);
+  const [sheetVisible, setSheetVisible] = useState(false);
+
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     if (open) window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
@@ -99,72 +111,91 @@ function BottomSheet({
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [open]);
 
-  // ⬇️ If not mounted or not open, render nothing
+  // Trigger enter animation
+  useEffect(() => {
+    if (open) {
+      setSheetVisible(true);
+    } else {
+      setSheetVisible(false);
+    }
+  }, [open]);
+
   if (!mounted || !open) return null;
 
   return createPortal(
-    <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/40"
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      {/* Backdrop – dim + blur like ConfirmModal */}
+      <button
+        type="button"
+        className={
+          "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200"
+        }
         onClick={onClose}
+        aria-label="Close modal"
       />
-      {/* Sheet */}
+
+      {/* Centered modal card */}
       <div
-        className="fixed left-0 right-0 bottom-0 z-[60] bg-white rounded-t-2xl shadow-2xl border-t transition-transform duration-300"
+        role="dialog"
+        aria-modal="true"
+        className={[
+          "relative w-full max-w-2xl rounded-3xl border bg-white shadow-xl",
+          "flex flex-col max-h-[90vh] px-4 pt-3 pb-4",
+          "transition-all duration-200 transform",
+          sheetVisible
+            ? "opacity-100 translate-y-0 scale-100"
+            : "opacity-0 translate-y-3 scale-95",
+        ].join(" ")}
         style={{ borderColor: EKARI.hair }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col max-h-[85vh]">
-          {/* Grabber + Close */}
-          <div className="flex items-center justify-between px-4 pt-3 pb-2">
-            <div className="h-1.5 w-12 rounded-full bg-gray-300 mx-auto" />
-            <button
-              aria-label="Close"
-              onClick={onClose}
-              className="h-9 w-9 grid place-items-center rounded-full border bg-white"
-              style={{ borderColor: EKARI.hair }}
-            >
-              <IoClose />
-            </button>
+        {/* Header */}
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {title && (
+              <h3
+                className="text-base font-black"
+                style={{ color: EKARI.text }}
+              >
+                {title}
+              </h3>
+            )}
           </div>
-
-          {title ? (
-            <div className="px-4 -mt-3 pb-1">
-              <h3 className="text-base font-black" style={{ color: EKARI.text }}>{title}</h3>
-            </div>
-          ) : null}
-
-          {/* Scrollable content */}
-          <div
-            className="flex-1 px-4"
-            style={{
-              overflowY: "auto",
-              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 120px)",
-            }}
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-full border bg-white hover:bg-gray-50"
+            style={{ borderColor: EKARI.hair }}
           >
-            {children}
-          </div>
+            <IoClose />
+          </button>
+        </div>
 
-          {/* Sticky Footer */}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto pr-1 mt-1 space-y-3">
+          {children}
+        </div>
+
+        {/* Footer */}
+        {footer && (
           <div
-            className="sticky bottom-0 border-t bg-white px-4 pt-3 pb-3"
-            style={{
-              borderColor: EKARI.hair,
-              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
-            }}
+            className="mt-3 border-t pt-3"
+            style={{ borderColor: EKARI.hair }}
           >
             {footer}
           </div>
-        </div>
+        )}
       </div>
-    </>,
+    </div>,
     document.body
   );
 }
+
 
 
 /* ============================== */
