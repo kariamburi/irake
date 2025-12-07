@@ -72,15 +72,23 @@ export default function UserAvatarMenu({
                 aria-haspopup="menu"
                 aria-expanded={open}
                 className="
-          h-9 w-9 rounded-full overflow-hidden
+          h-10 w-10 rounded-full overflow-hidden
           border border-gray-200 bg-white text-[#233F39]
           shadow-sm hover:shadow-md transition
-          focus:outline-none focus:ring-2 focus:ring-[#C79257] focus:ring-offset-1
           active:scale-[.98]
         "
             >
+                <div className="relative flex h-9 w-9 items-center justify-center rounded-full">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39]" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={avatarSrc || "/avatar-placeholder.png"}
+                        alt="Profile"
+                        className="relative h-8 w-8 rounded-full border-2 border-white object-cover"
+                    />
+                </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={avatarSrc} alt={handle || 'user avatar'} className="h-full w-full object-cover" />
+
             </button>
 
             {/* Menu */}

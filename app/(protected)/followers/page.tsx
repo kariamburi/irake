@@ -39,6 +39,7 @@ type FollowerRow = {
   name?: string;
   photoURL?: string | null;
   createdAt?: any;
+  handle?: string;
   seen?: boolean;
 };
 
@@ -91,6 +92,7 @@ export default function FollowersPage() {
           photoURL: x?.photoURL || null,
           createdAt: x?.createdAt,
           seen: !!x?.seen,
+          handle: x?.handle,
         };
       });
       setFollowers(rows);
@@ -171,14 +173,27 @@ export default function FollowersPage() {
     }
   }, [uid]);
 
-  const onOpenProfile = (theirId: string) => {
+  const onOpenProfile = (handle: string) => {
     // Adjust if your profile route differs
-    router.push(`/u/${theirId}`);
+    router.push(`/${handle}`);
   };
 
-  const onMessage = (theirId: string) => {
-    // Adjust if your chat route differs
-    router.push(`/inbox?peerId=${encodeURIComponent(theirId)}`);
+  const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
+  const onMessage = (row: FollowerRow) => {
+    const peerName = row?.name ?? "";
+    const peerPhotoURL = row?.photoURL ?? "";
+    const peerHandle = row?.handle ?? "";
+    const q = new URLSearchParams({
+      peerId: row.userId,
+      peerName,
+      peerPhotoURL,
+      peerHandle,
+    });
+    if (uid) {
+      const threadId = makeThreadId(uid, row.userId);
+      router.push(`/messages/${threadId}?${q.toString()}`);
+    }
+
   };
 
   const headerRight = useMemo(
@@ -250,7 +265,7 @@ export default function FollowersPage() {
                 >
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => onOpenProfile(item.userId)}
+                      onClick={() => item?.handle ? onOpenProfile(item?.handle) : null}
                       className="shrink-0"
                       aria-label={`Open ${item.name || "user"}'s profile`}
                     >
@@ -272,7 +287,7 @@ export default function FollowersPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <button
-                          onClick={() => onOpenProfile(item.userId)}
+                          onClick={() => item?.handle ? onOpenProfile(item?.handle) : null}
                           className="text-left"
                         >
                           <div className="font-extrabold text-[15px] text-slate-900 truncate">
@@ -292,7 +307,7 @@ export default function FollowersPage() {
                     {following ? (
                       <motion.button
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => onMessage(item.userId)}
+                        onClick={() => onMessage(item)}
                         className="h-8 px-3 rounded-full border border-gray-200 bg-gray-100 text-slate-900 text-[12px] font-bold"
                       >
                         Message

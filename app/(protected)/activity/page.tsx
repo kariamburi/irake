@@ -181,6 +181,7 @@ function NotifRow({
 }) {
   const [following, setFollowing] = useState<boolean | null>(null);
   const router = useRouter();
+
   // Only check follow state for "follow" notifications with valid byUserId
   useEffect(() => {
     let mounted = true;
@@ -203,7 +204,9 @@ function NotifRow({
     };
   }, [uid, n.type, n.byUserId]);
 
-  const canFollowBack = n.type === "follow" && n.byUserId && uid && n.byUserId !== uid;
+  // ✅ this is the one that was missing
+  const canFollowBack =
+    n.type === "follow" && n.byUserId && uid && n.byUserId !== uid;
 
   async function followBack() {
     if (!uid || !n.byUserId || following) return;
@@ -237,14 +240,15 @@ function NotifRow({
       )}
     >
       <div className="flex items-center gap-3">
+        {/* Avatar – ALWAYS go to profile */}
         <button
+          type="button"
           onClick={() => onOpenProfile(n.handle, n.byName, n.byPhotoURL)}
           className="relative shrink-0"
           aria-label={`${n.byName || "User"} profile`}
         >
           <div className="relative">
             <SmartAvatar src={n.byPhotoURL} alt={n.byName || "User"} size={46} />
-            {/* Type badge */}
             <span
               className="absolute -right-1 -bottom-1 w-[18px] h-[18px] rounded-full border-2 border-white flex items-center justify-center"
               style={{ backgroundColor: badge.bg }}
@@ -256,43 +260,61 @@ function NotifRow({
           </div>
         </button>
 
-        {/* Body @mwangi/video/i9uOVBRRLUHkAcGXAebq */}
-
-
+        {/* Body */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
+            {/* Name – ALWAYS go to profile, highlightable */}
             <button
-              onClick={() => {
-                (n.type === "comment" || n.type === "like") ?
-                  router.push(`${n.handle}/deed/${n.deedId}`) : onOpenProfile(n.handle, n.byName, n.byPhotoURL);
-              }
-              }
-              className="text-left"
+              type="button"
+              onClick={() => onOpenProfile(n.handle, n.byName, n.byPhotoURL)}
+              className="text-left group"
             >
-              <div className="font-extrabold text-[15px] text-slate-900 truncate">
+              <div
+                className={clsx(
+                  "font-extrabold text-[15px] truncate",
+                  "text-slate-900",
+                  "group-hover:underline"
+                )}
+              // if you want forest on hover, easiest is keep Tailwind + theme by class:
+              // you could also define a .text-forest utility in Tailwind config
+              >
                 {n.byName || "User"}
               </div>
             </button>
+
             <div className="ml-2 text-[12px] text-slate-500">
               {timeAgo(n.createdAt)}
             </div>
           </div>
-          <div onClick={() => {
-            (n.type === "comment" || n.type === "like") ?
-              router.push(`${n.handle}/deed/${n.deedId}`) : onOpenProfile(n.handle, n.byName, n.byPhotoURL);
-          }
-          }
-            className="text-[13px] cursor-pointer text-slate-600">
-            {primaryText(n)}
-          </div>
-        </div>
 
+          {/* Primary text – click → deed (like/comment) or profile */}
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                (n.type === "comment" || n.type === "like") &&
+                n.deedId &&
+                n.handle
+              ) {
+                router.push(`/${encodeURIComponent(n.handle)}/deed/${n.deedId}`);
+              } else {
+                onOpenProfile(n.handle, n.byName, n.byPhotoURL);
+              }
+            }}
+            className="mt-0.5 text-[13px] text-slate-600 hover:text-slate-900 hover:underline text-left"
+          >
+            {primaryText(n)}
+          </button>
+        </div>
 
         {/* Right actions */}
         {canFollowBack && following !== null && !following && (
           <button
             onClick={followBack}
-            className="h-8 px-3 rounded-full bg-[#C79257] text-white text-[12px] font-extrabold hover:opacity-95"
+            className="h-8 px-3 rounded-full text-white text-[12px] font-extrabold hover:opacity-95"
+            style={{
+              backgroundColor: EKARI.gold, // gold + white text
+            }}
           >
             Follow
           </button>
@@ -300,26 +322,36 @@ function NotifRow({
         {canFollowBack && following === true && (
           <button
             onClick={() => onOpenThread(n)}
-            className="h-8 px-3 rounded-full border border-gray-200 bg-gray-100 text-slate-900 text-[12px] font-bold hover:bg-gray-200"
+            className="h-8 px-3 rounded-full border text-[12px] font-bold hover:bg-gray-100"
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderColor: EKARI.forest,
+              color: EKARI.forest,
+            }}
           >
             Message
           </button>
         )}
 
-        {/* Unread dot */}
+        {/* Unread dot – forest */}
         {n.seen === false && (
           <span
             className="ml-1 inline-flex items-center justify-center"
             title="Unread"
             aria-label="Unread"
           >
-            <IoCheckmarkCircleOutline className="text-emerald-600" size={16} />
+            <IoCheckmarkCircleOutline
+              size={16}
+              style={{ color: EKARI.forest }}
+            />
           </span>
         )}
       </div>
     </li>
   );
 }
+
+
 
 /* --------------------------- Page component --------------------------- */
 export default function ActivityPage() {

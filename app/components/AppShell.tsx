@@ -90,28 +90,30 @@ export default function AppShell({
                 )}
             </div>
 
-            <div className="mx-auto max-w-[1400px] flex pb-2 pt-2 pr-10">
+            <div className="mx-auto max-w-[1400px] flex pb-0 pr-10">
                 <LeftRailCompact />
                 <LeftNavDesktop uid={uid} handle={effectiveHandle} />
 
                 {/* Center content */}
-                <main className="pl-5 flex-1 flex justify-center">
+                <main className="pl-5 flex-1 flex items-center justify-center">
                     <motion.div
-                        className="w-full max-w-5xl"
+                        className="w-full max-w-5xl flex items-center justify-center"
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25, ease: "easeOut" }}
                     >
-                        <div className="rounded-3xl bg-white/80 backdrop-blur-md border border-gray-100 shadow-[0_18px_45px_rgba(0,0,0,0.06)] overflow-hidden">
+                        <div className="w-full flex items-center justify-center rounded-3xl bg-white/80 backdrop-blur-md border border-gray-100 shadow-[0_18px_45px_rgba(0,0,0,0.06)] overflow-hidden">
                             {children}
                         </div>
                     </motion.div>
                 </main>
 
+
                 {/* Right rail */}
                 {rightRail && (
 
                     <motion.div
+
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25, delay: 0.05, ease: "easeOut" }}

@@ -91,7 +91,7 @@ export function NavItem({
             href={href}
             onClick={onClick}
             className={cn(
-                "group relative w-full flex items-center gap-3 rounded-xl px-3.5 py-1.5",
+                "group relative w-full flex items-center gap-2 rounded-xl px-3.5 py-1",
                 "transition-colors duration-200",
                 "hover:bg-gray-50",
                 isActive &&
@@ -294,7 +294,7 @@ export function LeftNavDesktop({
             style={{ borderColor: EKARI.hair }}
         >
             {/* Logo + app name */}
-            <div className="px-4 pt-5 pb-3 border-b" style={{ borderColor: EKARI.hair }}>
+            <div className="px-4 pt-3 pb-2 border-b" style={{ borderColor: EKARI.hair }}>
                 <Link
                     href="/"
                     className="inline-flex items-center gap-2 rounded-2xl px-2.5 py-2 hover:bg-gray-50 transition-colors"
@@ -312,7 +312,7 @@ export function LeftNavDesktop({
             </div>
 
             {/* Main nav */}
-            <nav className="px-3 pt-3 space-y-1 text-[15px]">
+            <nav className="px-3 pt-2 space-y-1 text-[15px]">
 
                 {items.map((it) => {
                     const active = useIsActive(it.href, it.alsoMatch);
@@ -345,11 +345,11 @@ export function LeftNavDesktop({
 
             </nav>
 
-            {/* Footer */}
+            {/* Footer 
             <div className="mt-auto px-4 pb-4 pt-3 text-[11px] text-gray-400 border-t" style={{ borderColor: EKARI.hair }}>
                 <div>© {new Date().getFullYear()} ekarihub</div>
                 <div className="mt-0.5">Collaborate • Innovate • Cultivate</div>
-            </div>
+            </div>*/}
         </aside>
     );
 }

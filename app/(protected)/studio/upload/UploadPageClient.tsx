@@ -782,7 +782,7 @@ export default function UploadPage() {
         // Early exit for images
         if (typeof window !== "undefined") localStorage.removeItem(DRAFT_KEY);
         setProgress(100);
-        router.push(`/${userProfile?.handle ?? "me"}/photo/${deedRef!.id}`);
+        router.push(`/${userProfile?.handle}`);
         return;
       }
 

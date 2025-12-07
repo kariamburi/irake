@@ -638,340 +638,342 @@ export default function ThreadPage() {
 
   return (
     <AppShell>
-      <div className="h-[100dvh] w-full bg-white flex flex-col overflow-hidden">
+      <div className="h-full w-full items-center justify-center flex flex-col overflow-hidden">
         {/* Fixed HEADER */}
-        <div
-          ref={headerRef}
-          className="top-0 inset-x-0 z-40 bg-white border-b"
-          style={{ borderColor: EKARI.hair }}
-        >
-          <div className="h-[54px] px-3 flex items-center justify-between max-w-[1100px] mx-auto">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => router.back()}
-                className="p-2 rounded-lg hover:bg-black/5"
-                aria-label="Back"
-              >
-                <IoArrowBack size={20} color={EKARI.text} />
-              </button>
+        <div className="md:h-[calc(100vh-1rem)] bg-white w-full">
+          <div
+            ref={headerRef}
+            className="top-0 inset-x-0 z-40 bg-white border-b"
+            style={{ borderColor: EKARI.hair }}
+          >
+            <div className="h-[54px] px-3 flex items-center justify-between max-w-[1100px] mx-auto">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => router.back()}
+                  className="p-2 rounded-lg hover:bg-black/5"
+                  aria-label="Back"
+                >
+                  <IoArrowBack size={20} color={EKARI.text} />
+                </button>
 
-              <div className="flex items-center gap-3 max-w-[80%]">
-                <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-100">
-                  <Image
-                    src={peer?.photoURL || peerPhotoURLFromQs || "/avatar-placeholder.png"}
-                    alt={headerTitle}
-                    fill
-                    className="object-cover"
-                    sizes="36px"
-                  />
-                  {onlineNow && (
-                    <span
-                      className="absolute -right-0 -bottom-0 w-[14px] h-[14px] rounded-full border-2"
-                      style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }}
+                <div className="flex items-center gap-3 max-w-[80%]">
+                  <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-100">
+                    <Image
+                      src={peer?.photoURL || peerPhotoURLFromQs || "/avatar-placeholder.png"}
+                      alt={headerTitle}
+                      fill
+                      className="object-cover"
+                      sizes="36px"
                     />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-extrabold text-slate-900 text-sm">
-                    {headerTitle}
-                  </div>
-                  <div className="flex text-xs text-slate-500">
-                    {peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <button
-              className="p-2 rounded-lg hover:bg-black/5"
-              aria-label="Report"
-              title="Report conversation"
-            >
-              <IoFlagOutline size={18} color={EKARI.dim} />
-            </button>
-          </div>
-        </div>
-
-        {/* SCROLLER */}
-        <div
-          ref={listRef}
-          className="flex-1 overflow-y-auto bg-gray-50"
-          style={{
-            paddingTop: headerH + 8,
-            paddingBottom: composerH + 8,
-            scrollPaddingBottom: composerH + 8,
-            scrollbarGutter: "stable both-edges",
-          } as React.CSSProperties}
-        >
-          {loading ? (
-            <div
-              className="h-full flex items-center justify-center"
-              style={{ color: EKARI.dim }}
-            >
-              <BouncingBallLoader />
-            </div>
-          ) : !hasMessages ? (
-            <EmptyState />
-          ) : (
-            <div className="px-3 py-3">
-              {/* Load older */}
-              {oldestDoc && (
-                <div className="mb-2 flex justify-center">
-                  <button
-                    onClick={loadMore}
-                    className="h-8 px-3 rounded-lg border text-xs font-bold transition hover:bg-black/5"
-                    disabled={paging}
-                    style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                  >
-                    {paging ? "Loading…" : "Load older"}
-                  </button>
-                </div>
-              )}
-
-              {/* Messages (ASC) */}
-              {items.map((msg) => {
-                const mine = msg.from === uid;
-                return (
-                  <div
-                    key={msg.id}
-                    className={`my-2 flex ${mine ? "justify-end" : "justify-start"
-                      } items-end gap-2`}
-                  >
-                    {!mine && (
-                      <div className="relative w-6 h-6 rounded-full overflow-hidden bg-gray-200">
-                        <Image
-                          src={
-                            peer?.photoURL ||
-                            peerPhotoURLFromQs ||
-                            "/avatar-placeholder.png"
-                          }
-                          alt="avatar"
-                          fill
-                          className="object-cover"
-                          sizes="24px"
-                        />
-                      </div>
+                    {onlineNow && (
+                      <span
+                        className="absolute -right-0 -bottom-0 w-[14px] h-[14px] rounded-full border-2"
+                        style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }}
+                      />
                     )}
-
-                    <div
-                      style={{
-                        background: mine ? mineBg : theirsBg,
-                        borderColor: mine ? mineBorder : theirsBrd,
-                      }}
-                      className={`max-w-[78%] text-[15px] rounded-2xl px-3 py-2 shadow-sm border ${mine ? "rounded-tr-sm" : "rounded-tl-sm"
-                        }`}
-                    >
-                      {msg.uploading ? (
-                        <div className="flex items-center gap-2 opacity-80">
-                          <span className="w-3 h-3 rounded-full animate-pulse bg-slate-400" />
-                          <span>Uploading…</span>
-                        </div>
-                      ) : msg.error ? (
-                        <span className="text-red-500">Failed to send</span>
-                      ) : msg.type === "image" && msg.imageUrl ? (
-                        <a
-                          href={msg.imageUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={msg.imageUrl}
-                            alt="Sent image"
-                            className="rounded-xl bg-gray-100 max-w-full"
-                            style={{
-                              width: 260,
-                              height: "auto",
-                              objectFit: "cover",
-                            }}
-                            onLoad={() => scrollToBottom("auto")}
-                          />
-                        </a>
-                      ) : (
-                        !!msg.text && (
-                          <span className="leading-5 whitespace-pre-wrap break-words">
-                            {msg.text}
-                          </span>
-                        )
-                      )}
-
-                      <div className="mt-1 text-[11px] text-slate-600">
-                        {formatMsgTime(msg.createdAt)}
-                      </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-slate-900 text-sm">
+                      {headerTitle}
+                    </div>
+                    <div className="flex text-xs text-slate-500">
+                      {peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}
                     </div>
                   </div>
-                );
-              })}
-
-              {/* bottom sentinel */}
-              <div ref={endRef} className="h-0" />
-            </div>
-          )}
-        </div>
-
-        {/* Jump to latest */}
-        {showJump && hasMessages && (
-          <button
-            onClick={() => scrollToBottom("smooth")}
-            className="fixed bottom-[88px] right-4 z-40 h-9 px-3 rounded-full text-sm font-extrabold shadow-md"
-            style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-          >
-            Jump to latest
-          </button>
-        )}
-
-        {/* COMPOSER (fixed) */}
-        <div
-          ref={composerRef}
-          className="fixed bottom-0 right-0 left-0 z-50 border-t bg-white"
-          style={{
-            borderColor: EKARI.hair,
-            paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
-          }}
-        >
-          <div className="mx-auto w-full max-w-[1100px] px-3">
-            <div className="flex items-end gap-2 py-2 relative">
-              {/* optional avatar placeholder */}
-              <div className="hidden sm:flex w-9 h-9 rounded-full bg-gray-200 overflow-hidden items-center justify-center">
-                {user?.photoURL ? (
-                  <Image
-                    src={user.photoURL}
-                    alt="You"
-                    width={36}
-                    height={36}
-                    className="object-cover"
-                  />
-                ) : (
-                  <span className="text-xs font-bold text-slate-600">
-                    {user?.displayName?.[0]?.toUpperCase() || "Y"}
-                  </span>
-                )}
+                </div>
               </div>
 
-              <div
-                className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2"
-                style={{ borderColor: EKARI.hair }}
+              <button
+                className="p-2 rounded-lg hover:bg-black/5"
+                aria-label="Report"
+                title="Report conversation"
               >
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => {
-                    setInput(e.target.value);
-                    setTypingDebounced(!!e.target.value.trim());
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      onSend();
-                    }
-                  }}
-                  onBlur={() => setTypingDebounced(false)}
-                  placeholder="Message…"
-                  rows={1}
-                  className="w-full bg-transparent outline-none text-[15px] resize-none max-h-40 leading-5"
-                  style={{ height: 40 }}
-                />
+                <IoFlagOutline size={18} color={EKARI.dim} />
+              </button>
+            </div>
+          </div>
 
-                {/* quick preview for chosen image */}
-                {preview && (
-                  <div className="mt-2 relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={preview}
-                      alt="Preview"
-                      className="w-24 h-24 rounded-md object-cover border"
-                      onLoad={() => scrollToBottom("auto")}
-                      style={{ borderColor: EKARI.hair }}
-                    />
+          {/* SCROLLER */}
+          <div
+            ref={listRef}
+            className="flex-1 overflow-y-auto bg-gray-50"
+            style={{
+              paddingTop: headerH + 8,
+              paddingBottom: composerH + 8,
+              scrollPaddingBottom: composerH + 8,
+              scrollbarGutter: "stable both-edges",
+            } as React.CSSProperties}
+          >
+            {loading ? (
+              <div
+                className="h-full flex items-center justify-center"
+                style={{ color: EKARI.dim }}
+              >
+                <BouncingBallLoader />
+              </div>
+            ) : !hasMessages ? (
+              <EmptyState />
+            ) : (
+              <div className="px-3 py-3">
+                {/* Load older */}
+                {oldestDoc && (
+                  <div className="mb-2 flex justify-center">
                     <button
-                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs"
-                      onClick={() => setPreview(null)}
-                      aria-label="Remove preview"
-                      title="Remove preview"
+                      onClick={loadMore}
+                      className="h-8 px-3 rounded-lg border text-xs font-bold transition hover:bg-black/5"
+                      disabled={paging}
+                      style={{ borderColor: EKARI.hair, color: EKARI.text }}
                     >
-                      ×
+                      {paging ? "Loading…" : "Load older"}
                     </button>
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 pt-2">
-                  {/* Emoji */}
-                  <button
-                    className="w-9 h-9 rounded-full flex items-center justify-center"
-                    title="Emoji"
-                    type="button"
-                    onClick={() => setShowEmoji((p) => !p)}
-                    style={{ backgroundColor: "#F3F4F6" }}
-                  >
-                    <IoHappyOutline size={20} color={EKARI.text} />
-                    {showEmoji && (
+                {/* Messages (ASC) */}
+                {items.map((msg) => {
+                  const mine = msg.from === uid;
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`my-2 flex ${mine ? "justify-end" : "justify-start"
+                        } items-end gap-2`}
+                    >
+                      {!mine && (
+                        <div className="relative w-6 h-6 rounded-full overflow-hidden bg-gray-200">
+                          <Image
+                            src={
+                              peer?.photoURL ||
+                              peerPhotoURLFromQs ||
+                              "/avatar-placeholder.png"
+                            }
+                            alt="avatar"
+                            fill
+                            className="object-cover"
+                            sizes="24px"
+                          />
+                        </div>
+                      )}
+
                       <div
-                        className="absolute bottom-14 left-3 z-50 bg-white rounded-xl shadow-lg p-2 max-w-[260px] w-[240px] h-[180px] overflow-y-auto grid grid-cols-8 gap-1 border"
-                        onMouseLeave={() => setShowEmoji(false)}
-                        style={{ borderColor: EKARI.hair }}
+                        style={{
+                          background: mine ? mineBg : theirsBg,
+                          borderColor: mine ? mineBorder : theirsBrd,
+                        }}
+                        className={`max-w-[78%] text-[15px] rounded-2xl px-3 py-2 shadow-sm border ${mine ? "rounded-tr-sm" : "rounded-tl-sm"
+                          }`}
                       >
-                        {EmojiPickerList.map((emo) => (
-                          <button
-                            key={emo}
-                            onClick={() => {
-                              setInput((prev) => prev + emo);
-                              setShowEmoji(false);
-                              const ta = textareaRef.current;
-                              if (ta) ta.focus();
-                            }}
-                            className="text-xl rounded-md hover:bg-black/5"
-                            title={emo}
-                            type="button"
+                        {msg.uploading ? (
+                          <div className="flex items-center gap-2 opacity-80">
+                            <span className="w-3 h-3 rounded-full animate-pulse bg-slate-400" />
+                            <span>Uploading…</span>
+                          </div>
+                        ) : msg.error ? (
+                          <span className="text-red-500">Failed to send</span>
+                        ) : msg.type === "image" && msg.imageUrl ? (
+                          <a
+                            href={msg.imageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block"
                           >
-                            {emo}
-                          </button>
-                        ))}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={msg.imageUrl}
+                              alt="Sent image"
+                              className="rounded-xl bg-gray-100 max-w-full"
+                              style={{
+                                width: 260,
+                                height: "auto",
+                                objectFit: "cover",
+                              }}
+                              onLoad={() => scrollToBottom("auto")}
+                            />
+                          </a>
+                        ) : (
+                          !!msg.text && (
+                            <span className="leading-5 whitespace-pre-wrap break-words">
+                              {msg.text}
+                            </span>
+                          )
+                        )}
+
+                        <div className="mt-1 text-[11px] text-slate-600">
+                          {formatMsgTime(msg.createdAt)}
+                        </div>
                       </div>
-                    )}
-                  </button>
+                    </div>
+                  );
+                })}
 
-                  {/* Image */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={onImageChosen}
-                  />
-                  <button
-                    className="w-9 h-9 rounded-full flex items-center justify-center"
-                    title="Image"
-                    type="button"
-                    onClick={onPickImage}
-                    style={{ backgroundColor: "#F3F4F6" }}
-                  >
-                    <IoImageOutline size={20} color={EKARI.text} />
-                  </button>
-
-                  {/* Camera (shortcut → same file input, user can choose camera on mobile) */}
-                  <button
-                    className="w-9 h-9 rounded-full flex items-center justify-center"
-                    title="Camera"
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{ backgroundColor: "#F3F4F6" }}
-                  >
-                    <IoCameraOutline size={20} color={EKARI.text} />
-                  </button>
-                </div>
+                {/* bottom sentinel */}
+                <div ref={endRef} className="h-0" />
               </div>
+            )}
+          </div>
 
-              <button
-                onClick={onSend}
-                disabled={!input.trim()}
-                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
-                title="Send"
-                type="button"
-                style={{ backgroundColor: EKARI.gold }}
-              >
-                <IoSend size={18} color="#fff" />
-              </button>
+          {/* Jump to latest */}
+          {showJump && hasMessages && (
+            <button
+              onClick={() => scrollToBottom("smooth")}
+              className="fixed bottom-[88px] right-4 z-40 h-9 px-3 rounded-full text-sm font-extrabold shadow-md"
+              style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
+            >
+              Jump to latest
+            </button>
+          )}
+
+          {/* COMPOSER (fixed) */}
+          <div
+            ref={composerRef}
+            className="fixed bottom-0 right-0 left-0 z-50 border-t bg-white"
+            style={{
+              borderColor: EKARI.hair,
+              paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
+            }}
+          >
+            <div className="mx-auto w-full max-w-[1100px] px-3">
+              <div className="flex items-end gap-2 py-2 relative">
+                {/* optional avatar placeholder */}
+                <div className="hidden sm:flex w-9 h-9 rounded-full bg-gray-200 overflow-hidden items-center justify-center">
+                  {user?.photoURL ? (
+                    <Image
+                      src={user.photoURL}
+                      alt="You"
+                      width={36}
+                      height={36}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs font-bold text-slate-600">
+                      {user?.displayName?.[0]?.toUpperCase() || "Y"}
+                    </span>
+                  )}
+                </div>
+
+                <div
+                  className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2"
+                  style={{ borderColor: EKARI.hair }}
+                >
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      setTypingDebounced(!!e.target.value.trim());
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        onSend();
+                      }
+                    }}
+                    onBlur={() => setTypingDebounced(false)}
+                    placeholder="Message…"
+                    rows={1}
+                    className="w-full bg-transparent outline-none text-[15px] resize-none max-h-40 leading-5"
+                    style={{ height: 40 }}
+                  />
+
+                  {/* quick preview for chosen image */}
+                  {preview && (
+                    <div className="mt-2 relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={preview}
+                        alt="Preview"
+                        className="w-24 h-24 rounded-md object-cover border"
+                        onLoad={() => scrollToBottom("auto")}
+                        style={{ borderColor: EKARI.hair }}
+                      />
+                      <button
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs"
+                        onClick={() => setPreview(null)}
+                        aria-label="Remove preview"
+                        title="Remove preview"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-2">
+                    {/* Emoji */}
+                    <button
+                      className="w-9 h-9 rounded-full flex items-center justify-center"
+                      title="Emoji"
+                      type="button"
+                      onClick={() => setShowEmoji((p) => !p)}
+                      style={{ backgroundColor: "#F3F4F6" }}
+                    >
+                      <IoHappyOutline size={20} color={EKARI.text} />
+                      {showEmoji && (
+                        <div
+                          className="absolute bottom-14 left-3 z-50 bg-white rounded-xl shadow-lg p-2 max-w-[260px] w-[240px] h-[180px] overflow-y-auto grid grid-cols-8 gap-1 border"
+                          onMouseLeave={() => setShowEmoji(false)}
+                          style={{ borderColor: EKARI.hair }}
+                        >
+                          {EmojiPickerList.map((emo) => (
+                            <button
+                              key={emo}
+                              onClick={() => {
+                                setInput((prev) => prev + emo);
+                                setShowEmoji(false);
+                                const ta = textareaRef.current;
+                                if (ta) ta.focus();
+                              }}
+                              className="text-xl rounded-md hover:bg-black/5"
+                              title={emo}
+                              type="button"
+                            >
+                              {emo}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+
+                    {/* Image */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={onImageChosen}
+                    />
+                    <button
+                      className="w-9 h-9 rounded-full flex items-center justify-center"
+                      title="Image"
+                      type="button"
+                      onClick={onPickImage}
+                      style={{ backgroundColor: "#F3F4F6" }}
+                    >
+                      <IoImageOutline size={20} color={EKARI.text} />
+                    </button>
+
+                    {/* Camera (shortcut → same file input, user can choose camera on mobile) */}
+                    <button
+                      className="w-9 h-9 rounded-full flex items-center justify-center"
+                      title="Camera"
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ backgroundColor: "#F3F4F6" }}
+                    >
+                      <IoCameraOutline size={20} color={EKARI.text} />
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={onSend}
+                  disabled={!input.trim()}
+                  className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
+                  title="Send"
+                  type="button"
+                  style={{ backgroundColor: EKARI.gold }}
+                >
+                  <IoSend size={18} color="#fff" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
