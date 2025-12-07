@@ -3,7 +3,6 @@
 import React, {
     useCallback,
     useEffect,
-    useMemo,
     useRef,
     useState,
 } from "react";
@@ -123,20 +122,27 @@ function VideoPreload({
     );
 }
 
+/** 🔥 Preload tuned with neighborRange like mobile */
 function AdjacentPreloadWeb({
     siblings,
     activeIndex,
+    neighborRange,
 }: {
     siblings: Item[];
     activeIndex: number;
+    neighborRange: number;
 }) {
-    const prev = siblings[activeIndex - 1];
-    const next = siblings[activeIndex + 1];
+    if (neighborRange <= 0) return null;
 
-    const candidates = [prev, next].filter(
-        (it): it is Item =>
-            !!it && it.mediaType === "video" && !!it.mediaUrl
-    );
+    const candidates: Item[] = [];
+
+    for (let offset = 1; offset <= neighborRange; offset++) {
+        const prev = siblings[activeIndex - offset];
+        const next = siblings[activeIndex + offset];
+
+        if (prev && prev.mediaType === "video" && prev.mediaUrl) candidates.push(prev);
+        if (next && next.mediaType === "video" && next.mediaUrl) candidates.push(next);
+    }
 
     if (!candidates.length) return null;
 
@@ -298,8 +304,9 @@ function DeedSlide({
     };
 
     return (
+        // 👇 EXACTLY one viewport-high slide
         <div className="snap-start h-[100svh] flex items-center justify-center">
-            <div className="relative flex h-[min(100svh,92vh)] w-[min(92vw,800px)] max-h-[100svh] max-w-[min(92vw,800px)] items-center justify-center">
+            <div className="relative flex h-[100svh] w-[min(92vw,800px)] max-h-[100svh] max-w-[min(92vw,800px)] items-center justify-center">
                 {/* Video / Photo */}
                 {item.mediaType === "video" && item.mediaUrl ? (
                     <video
@@ -548,8 +555,46 @@ export default function PlayerByHandlePage() {
 
     const { user } = useAuth();
     const uid = user?.uid;
-    const profile = useUserProfile(uid);
+    const profile = useUserProfile(uid);   // for RightRail
+    const prefs = useUserPrefs(uid);       // for data saver flag
     const EKARI = { primary: "#C79257" };
+
+    /* ⭐ Dynamic neighbor preload range (web version of mobile logic) */
+    const [neighborPreloadRange, setNeighborPreloadRange] = useState(1);
+
+    useEffect(() => {
+        let base = 1;
+
+        try {
+            const navAny = navigator as any;
+            const conn =
+                navAny?.connection || navAny?.mozConnection || navAny?.webkitConnection;
+            const type: string | undefined = conn?.type;
+            const effectiveType: string | undefined = conn?.effectiveType;
+
+            if (type === "wifi" || effectiveType === "4g") {
+                base = 2; // wifi / good network => more preloads
+            } else {
+                base = 1; // unknown / cellular => lighter
+            }
+        } catch {
+            base = 1;
+        }
+
+        // logged out: be conservative
+        if (!uid) {
+            base = Math.min(base, 1);
+        }
+
+        // user data saver: reduce by 1 (not below 0)
+        if (prefs?.dataSaverVideos) {
+            base = Math.max(0, base - 1);
+        }
+
+        if (!Number.isFinite(base)) base = 1;
+        const clamped = Math.max(0, Math.min(3, base));
+        setNeighborPreloadRange(clamped);
+    }, [uid, prefs?.dataSaverVideos]);
 
     const requireAuth = (fn: () => void) => {
         if (!uid) {
@@ -657,18 +702,15 @@ export default function PlayerByHandlePage() {
         };
     }, []);
 
-    const scrollToIndex = useCallback(
-        (index: number) => {
-            const el = scrollRef.current;
-            if (!el) return;
-            const h = el.clientHeight || window.innerHeight;
-            el.scrollTo({
-                top: index * h,
-                behavior: "smooth",
-            });
-        },
-        []
-    );
+    const scrollToIndex = useCallback((index: number) => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const h = el.clientHeight || window.innerHeight;
+        el.scrollTo({
+            top: index * h,
+            behavior: "smooth",
+        });
+    }, []);
 
     const goPrev = useCallback(() => {
         if (activeIndex > 0) scrollToIndex(activeIndex - 1);
@@ -741,7 +783,7 @@ export default function PlayerByHandlePage() {
                 {/* MEDIA COLUMN: vertical scroll-snap feed */}
                 <div
                     ref={scrollRef}
-                    className="relative flex flex-col items-stretch justify-start overflow-y-scroll snap-y snap-mandatory scroll-smooth"
+                    className="relative flex h-full min-h-0 flex-col items-stretch justify-start overflow-y-scroll snap-y snap-mandatory scroll-smooth"
                     onScroll={onScroll}
                 >
                     {siblings.map((it, index) => (
@@ -799,8 +841,12 @@ export default function PlayerByHandlePage() {
                 </aside>
             </div>
 
-            {/* 🔥 Adjacent video preloading (next/prev deeds) */}
-            <AdjacentPreloadWeb siblings={siblings} activeIndex={activeIndex} />
+            {/* 🔥 Adjacent video preloading (respects data saver + network) */}
+            <AdjacentPreloadWeb
+                siblings={siblings}
+                activeIndex={activeIndex}
+                neighborRange={neighborPreloadRange}
+            />
         </div>
     );
 }
@@ -812,6 +858,7 @@ function getOrMakeDeviceId(): string {
     try {
         let v: any = localStorage.getItem(k);
         if (!v || v.length < 16) {
+
             v =
                 (typeof crypto !== "undefined" && (crypto as any)?.randomUUID?.()) ??
                 (Math.random().toString(36).slice(2) + Date.now().toString(36));
@@ -827,8 +874,10 @@ function getOrMakeDeviceId(): string {
     }
 }
 
+/** Simple profile for RightRail + avatar */
 function useUserProfile(uid?: string) {
     const [profile, setProfile] = useState<any | null>(null);
+
     useEffect(() => {
         if (!uid) {
             setProfile(null);
@@ -838,14 +887,37 @@ function useUserProfile(uid?: string) {
         const unsub = onSnapshot(ref, (snap) => {
             const data = snap.data() as any | undefined;
             setProfile({
-                uid: uid,
+                uid,
                 handle: data?.handle,
-                photoURL: data?.photoURL,
+                photoURL: data?.photoURL ?? null,
             });
         });
         return () => unsub();
     }, [uid]);
+
     return profile;
+}
+
+/** Separate hook for data saver flag */
+function useUserPrefs(uid?: string) {
+    const [prefs, setPrefs] = useState<{ dataSaverVideos?: boolean } | null>(null);
+
+    useEffect(() => {
+        if (!uid) {
+            setPrefs(null);
+            return;
+        }
+        const ref = doc(db, "users", uid);
+        const unsub = onSnapshot(ref, (snap) => {
+            const data = snap.data() as any | undefined;
+            setPrefs({
+                dataSaverVideos: !!data?.dataSaverVideos,
+            });
+        });
+        return () => unsub();
+    }, [uid]);
+
+    return prefs;
 }
 
 function useLiked(deedId?: string, uid?: string) {
