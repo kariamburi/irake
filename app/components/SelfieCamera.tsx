@@ -13,13 +13,23 @@ export function SelfieCamera({ onCapture, onError }: SelfieCameraProps) {
     const [loading, setLoading] = useState(false);
     const [hasPermission, setHasPermission] = useState(false);
 
-    // Start camera when component mounts
     useEffect(() => {
         let cancelled = false;
 
         const startCamera = async () => {
             try {
                 setLoading(true);
+
+                // Extra guard: only run in browser + supported
+                if (
+                    typeof navigator === "undefined" ||
+                    !("mediaDevices" in navigator) ||
+                    !navigator.mediaDevices.getUserMedia
+                ) {
+                    onError?.("Camera not supported in this browser.");
+                    return;
+                }
+
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "user" },
                     audio: false,
@@ -30,12 +40,40 @@ export function SelfieCamera({ onCapture, onError }: SelfieCameraProps) {
                     return;
                 }
 
+                console.log("✅ Got media stream:", stream);
                 streamRef.current = stream;
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    await videoRef.current.play();
-                }
                 setHasPermission(true);
+
+                const video = videoRef.current;
+                if (video) {
+                    video.srcObject = stream;
+
+                    // Just in case metadata is already loaded
+                    const playVideo = async () => {
+                        try {
+                            await video.play();
+                            console.log(
+                                "▶️ Video playing. Size:",
+                                video.videoWidth,
+                                "x",
+                                video.videoHeight
+                            );
+                        } catch (err) {
+                            console.error("Video play error", err);
+                            onError?.("Could not start video preview.");
+                        }
+                    };
+
+                    // If metadata not ready yet, hook event; otherwise just play
+                    if (video.readyState >= 1) {
+                        playVideo();
+                    } else {
+                        video.onloadedmetadata = () => {
+                            console.log("ℹ️ loadedmetadata fired");
+                            playVideo();
+                        };
+                    }
+                }
             } catch (err) {
                 console.error("Camera error", err);
                 setHasPermission(false);
@@ -45,11 +83,7 @@ export function SelfieCamera({ onCapture, onError }: SelfieCameraProps) {
             }
         };
 
-        if (navigator.mediaDevices) {
-            startCamera();
-        } else {
-            onError?.("Camera not supported in this browser.");
-        }
+        startCamera();
 
         return () => {
             cancelled = true;
@@ -63,11 +97,17 @@ export function SelfieCamera({ onCapture, onError }: SelfieCameraProps) {
         const video = videoRef.current;
         if (!video) return;
 
+        console.log(
+            "📸 Capturing frame with size:",
+            video.videoWidth,
+            "x",
+            video.videoHeight
+        );
+
         const canvas = document.createElement("canvas");
         const width = video.videoWidth || 640;
         const height = video.videoHeight || 640;
 
-        // Make square if you want a profile-style selfie
         const size = Math.min(width, height);
         canvas.width = size;
         canvas.height = size;
@@ -75,7 +115,6 @@ export function SelfieCamera({ onCapture, onError }: SelfieCameraProps) {
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        // center crop
         const sx = (width - size) / 2;
         const sy = (height - size) / 2;
         ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
@@ -104,12 +143,15 @@ export function SelfieCamera({ onCapture, onError }: SelfieCameraProps) {
                     Camera not available. Please allow access and refresh the page.
                 </p>
             )}
+
             <video
                 ref={videoRef}
                 className="w-48 h-48 md:w-56 md:h-56 rounded-2xl object-cover bg-black"
+                autoPlay
                 playsInline
                 muted
             />
+
             <button
                 type="button"
                 onClick={handleCapture}
