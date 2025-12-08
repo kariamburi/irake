@@ -23,6 +23,7 @@ import {
   IoTelescopeOutline,
   IoLogoUsd,
   IoMusicalNotesOutline,
+  IoPersonCircleOutline,
 } from "react-icons/io5";
 import {
   collection,
@@ -61,14 +62,24 @@ const EKARI = {
   subtext: "#6B7280",
   hair: "#E5E7EB",
   primary: "#C79257",
+
+  forest: "#233F39",
+  gold: "#C79257",
+  // ...
 };
+
+
 
 /* ---------- Channels ---------- */
 type TabKey = "forYou" | "following" | "nearby";
 const TABS: TabKey[] = ["forYou", "following", "nearby"];
-const LABEL: Record<TabKey, string> = { forYou: "For You", following: "Following", nearby: "Nearby" };
+const LABEL: Record<TabKey, string> = {
+  forYou: "For You",
+  following: "Following",
+  nearby: "Nearby",
+};
 
-/* ---------- Visibility check (kept from your current file) ---------- */
+/* ---------- Visibility check ---------- */
 type Visibility = "public" | "followers" | "private";
 
 const canSee = (
@@ -85,12 +96,13 @@ const canSee = (
 };
 
 function formatCount(n: number) {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n % 1_000_000 ? 1 : 0) + "M";
+  if (n >= 1_000_000)
+    return (n / 1_000_000).toFixed(n % 1_000_000 ? 1 : 0) + "M";
   if (n >= 1_000) return (n / 1_000).toFixed(n % 1_000 ? 1 : 0) + "K";
   return String(n);
 }
 
-/* ---------- Following (reused) ---------- */
+/* ---------- Following ---------- */
 function useFollowing(uid?: string) {
   const [following, setFollowing] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -98,7 +110,10 @@ function useFollowing(uid?: string) {
       setFollowing(new Set());
       return;
     }
-    const qF = query(collection(db, "follows"), where("followerId", "==", uid));
+    const qF = query(
+      collection(db, "follows"),
+      where("followerId", "==", uid)
+    );
     const unsub = onSnapshot(
       qF,
       (snap) => {
@@ -136,6 +151,7 @@ async function fetchPublicForYou(limitCount = 30) {
     return [];
   }
 }
+
 function useProgressIndicator(isLoading: boolean, minMs = 300, delayMs = 120) {
   // shows after a short delay (avoid flicker) and stays visible for a minimum time
   const [show, setShow] = React.useState(false);
@@ -208,11 +224,11 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
 
     // 2) If no fresh ids, call refreshFeed and WAIT for it
     if (!ids) {
-      const functions = getFunctions(app, "us-central1"); // set region if needed
-      const refreshFeed = httpsCallable<
-        { surface: TabKey },
-        { ids: string[] }
-      >(functions, "refreshFeed");
+      const functions = getFunctions(app, "us-central1");
+      const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
+        functions,
+        "refreshFeed"
+      );
 
       console.log("[feed] calling refreshFeed", { surface, uid });
 
@@ -249,10 +265,7 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
   }
 }
 
-
-
-
-/* ---------- Likes / Comments / Bookmarks / Shares (unchanged) ---------- */
+/* ---------- Likes / Comments / Bookmarks / Shares ---------- */
 function useLikes(itemId: string, uid?: string) {
   const likeId = uid ? `${itemId}_${uid}` : undefined;
   const [liked, setLiked] = useState(false);
@@ -260,7 +273,10 @@ function useLikes(itemId: string, uid?: string) {
 
   useEffect(() => {
     let unsubSelf = () => { };
-    if (likeId) unsubSelf = onSnapshot(doc(db, "likes", likeId), (s) => setLiked(s.exists()));
+    if (likeId)
+      unsubSelf = onSnapshot(doc(db, "likes", likeId), (s) =>
+        setLiked(s.exists())
+      );
     const unsubCount = onSnapshot(
       query(collection(db, "likes"), where("deedId", "==", itemId)),
       (s) => setCount(s.size)
@@ -285,7 +301,10 @@ function useLikes(itemId: string, uid?: string) {
 function useCommentsCount(itemId: string) {
   const [count, setCount] = useState(0);
   useEffect(() => {
-    const qC = query(collection(db, "comments"), where("deedId", "==", itemId));
+    const qC = query(
+      collection(db, "comments"),
+      where("deedId", "==", itemId)
+    );
     const unsub = onSnapshot(qC, (s) => setCount(s.size));
     return () => unsub();
   }, [itemId]);
@@ -301,7 +320,9 @@ function useBookmarks(itemId: string, uid?: string) {
       setSaved(false);
       return;
     }
-    const unsub = onSnapshot(doc(db, "bookmarks", bookmarkId), (s) => setSaved(s.exists()));
+    const unsub = onSnapshot(doc(db, "bookmarks", bookmarkId), (s) =>
+      setSaved(s.exists())
+    );
     return () => unsub();
   }, [bookmarkId]);
 
@@ -356,7 +377,9 @@ function useFollowAuthor(authorId?: string, uid?: string) {
   useEffect(() => {
     let unsubSelf = () => { };
     if (followDocId) {
-      unsubSelf = onSnapshot(doc(db, "follows", followDocId), (s) => setFollowing(s.exists()));
+      unsubSelf = onSnapshot(doc(db, "follows", followDocId), (s) =>
+        setFollowing(s.exists())
+      );
     }
     if (!authorId) return () => unsubSelf();
     const unsubCount = onSnapshot(
@@ -381,7 +404,7 @@ function useFollowAuthor(authorId?: string, uid?: string) {
   return { following, followersCount, toggle };
 }
 
-/* ---------- Video helpers (unchanged) ---------- */
+/* ---------- Video helpers ---------- */
 let CURRENT_PLAYING: HTMLVideoElement | null = null;
 function playExclusive(el: HTMLVideoElement) {
   if (CURRENT_PLAYING && CURRENT_PLAYING !== el) CURRENT_PLAYING.pause();
@@ -424,15 +447,13 @@ function useHls(
       if (Hls?.isSupported()) {
         hls = new Hls({
           enableWorker: true,
-          capLevelToPlayerSize: true, // don’t go above player size
+          capLevelToPlayerSize: true,
         });
 
         hls.loadSource(src);
         hls.attachMedia(video);
 
-        // 🔒 Clamp max resolution if requested
-        // 🔒 Clamp max resolution if requested
-        const maxHeight = opts.maxHeight; // 👈 capture once
+        const maxHeight = opts.maxHeight;
         if (typeof maxHeight === "number") {
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             const levels = hls.levels || [];
@@ -446,7 +467,6 @@ function useHls(
             }
 
             if (capIndex >= 0) {
-              // Limit ABR to this level index (0..N)
               hls.autoLevelCapping = capIndex;
             }
           });
@@ -498,6 +518,8 @@ function VideoPreload({
   );
 }
 
+type PreloadMode = "none" | "light" | "aggressive";
+
 function AdjacentPreloadWeb({
   items,
   activeIndex,
@@ -518,10 +540,8 @@ function AdjacentPreloadWeb({
   };
 
   if (mode === "light") {
-    // 🔍 Only preload the *next* card
     pushIfVideo(items[activeIndex + 1]);
   } else {
-    // 🚀 Aggressive: prev/next and +/-2
     pushIfVideo(items[activeIndex + 1]);
     pushIfVideo(items[activeIndex - 1]);
     pushIfVideo(items[activeIndex + 2]);
@@ -555,7 +575,6 @@ function AdjacentPreloadWeb({
   );
 }
 
-
 function useAutoPlay(
   ref: React.RefObject<HTMLVideoElement | null>,
   opts: {
@@ -565,7 +584,12 @@ function useAutoPlay(
     initialMuted?: boolean;
   } = {}
 ) {
-  const { root, threshold = 0.35, rootMargin = "-30% 0px -30% 0px", initialMuted } = opts;
+  const {
+    root,
+    threshold = 0.35,
+    rootMargin = "-30% 0px -30% 0px",
+    initialMuted,
+  } = opts;
 
   useEffect(() => {
     const el = ref.current;
@@ -581,10 +605,15 @@ function useAutoPlay(
 
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && entry.intersectionRatio >= threshold) activate();
+        if (entry.isIntersecting && entry.intersectionRatio >= threshold)
+          activate();
         else deactivate();
       },
-      { root: root?.current ?? null, threshold: [0, 0.15, threshold, 0.8, 1], rootMargin }
+      {
+        root: root?.current ?? null,
+        threshold: [0, 0.15, threshold, 0.8, 1],
+        rootMargin,
+      }
     );
     io.observe(el);
 
@@ -593,8 +622,15 @@ function useAutoPlay(
       const rect = el.getBoundingClientRect();
       const vr = rootEl
         ? rootEl.getBoundingClientRect()
-        : ({ top: 0, bottom: window.innerHeight, height: window.innerHeight } as DOMRect);
-      const overlap = Math.max(0, Math.min(rect.bottom, vr.bottom) - Math.max(rect.top, vr.top));
+        : ({
+          top: 0,
+          bottom: window.innerHeight,
+          height: window.innerHeight,
+        } as DOMRect);
+      const overlap = Math.max(
+        0,
+        Math.min(rect.bottom, vr.bottom) - Math.max(rect.top, vr.top)
+      );
       const ratio = overlap / rect.height;
       if (ratio >= threshold) activate();
     };
@@ -614,7 +650,7 @@ function useAutoPlay(
   }, [ref, root, threshold, rootMargin, initialMuted]);
 }
 
-/* ---------- GLOBAL MUTE PROVIDER (unchanged) ---------- */
+/* ---------- GLOBAL MUTE PROVIDER ---------- */
 type MuteContextType = {
   muted: boolean;
   toggleMute: () => void;
@@ -662,7 +698,13 @@ function MuteProvider({ children }: { children: React.ReactNode }) {
     videos.current.delete(el);
   }, []);
   const value = React.useMemo(
-    () => ({ muted, toggleMute, setMuted: setMutedAndApply, registerVideo, unregisterVideo }),
+    () => ({
+      muted,
+      toggleMute,
+      setMuted: setMutedAndApply,
+      registerVideo,
+      unregisterVideo,
+    }),
     [muted, toggleMute, setMutedAndApply, registerVideo, unregisterVideo]
   );
   return <MuteContext.Provider value={value}>{children}</MuteContext.Provider>;
@@ -673,7 +715,6 @@ function cn(...xs: (string | false | null | undefined)[]) {
   return xs.filter(Boolean).join(" ");
 }
 
-/* ---------- Skeleton ---------- */
 /* ---------- Skeleton (same size as VideoCard) ---------- */
 function SkeletonCard({
   railOpen,
@@ -687,7 +728,7 @@ function SkeletonCard({
   return (
     <div className="relative mt-1 mb-1">
       <article
-        className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_22px_60px_rgba(0,0,0,.12)]"
+        className="relative overflow-hidden rounded-[0px] bg-white shadow-[0_22px_60px_rgba(0,0,0,.12)]"
         style={{ width: cardW, height: cardH, top: tabOffsetPx - 5 }}
       >
         <div className="h-full w-full bg-white" />
@@ -696,8 +737,7 @@ function SkeletonCard({
   );
 }
 
-
-/* ---------- VideoCard (unchanged UI; only data source varies) ---------- */
+/* ---------- VideoCard ---------- */
 function VideoCard({
   item,
   uid,
@@ -708,6 +748,7 @@ function VideoCard({
   tabOffsetPx = 0,
   dataSaverOn,
   hlsMaxHeight,
+  SNAP_ITEM_HEIGHT,
 }: {
   item: PlayerItem;
   uid?: string;
@@ -718,18 +759,25 @@ function VideoCard({
   tabOffsetPx?: number;
   dataSaverOn?: boolean;
   hlsMaxHeight?: number;
+  SNAP_ITEM_HEIGHT?: any;
 }) {
-  const { w: cardW, h: cardH } = useDeedBox(railOpen, tabOffsetPx);
-  const isDesktop = useIsDesktop(); // 👈 add
+  // const { w: cardW, h: cardH } = useDeedBox(railOpen, tabOffsetPx);
+  // const isDesktop = useIsDesktop();
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
-  const { muted, toggleMute, registerVideo, unregisterVideo } = useGlobalMute();
+  const { muted, toggleMute, registerVideo, unregisterVideo } =
+    useGlobalMute();
   const router = useRouter();
   const authorProfile = useAuthorProfile(item.authorId);
-  const [mediaReady, setMediaReady] = useState(item.mediaType !== "video");
+  // start as NOT ready for both video + image
+  const [mediaReady, setMediaReady] = useState(false);
+
   const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
   const firstFrameFiredRef = useRef(false);
 
-  const { liked, count: likeCount, toggle: toggleLike } = useLikes(item.id, uid);
+  const { liked, count: likeCount, toggle: toggleLike } = useLikes(
+    item.id,
+    uid
+  );
   const commentsCount = useCommentsCount(item.id);
   const { saved, toggle: toggleSave } = useBookmarks(item.id, uid);
   const totalBookmarks = useBookmarkTotalFromDeed(item.id);
@@ -817,13 +865,26 @@ function VideoCard({
     firstFrameFiredRef.current = true;
     onFirstFrame?.();
   }, [onFirstFrame]);
+  const [orientation, setOrientation] = useState<
+    "portrait" | "landscape" | "square"
+  >("portrait");
 
   const handleVideoReady = () => {
     const v = videoRef.current;
     if (v && (v as any).videoWidth && (v as any).videoHeight) {
-      setFitMode(
-        (v as any).videoWidth > (v as any).videoHeight ? "contain" : "cover"
-      );
+      const vw = (v as any).videoWidth as number;
+      const vh = (v as any).videoHeight as number;
+
+      if (vw > vh) {
+        setFitMode("contain");         // landscape content inside portrait card
+        setOrientation("landscape");
+      } else if (vw < vh) {
+        setFitMode("cover");           // tall portrait
+        setOrientation("portrait");
+      } else {
+        setFitMode("contain");
+        setOrientation("square");
+      }
     }
     setMediaReady(true);
     fireFirstFrameOnce();
@@ -832,9 +893,19 @@ function VideoCard({
   const handleImageReady: React.ReactEventHandler<HTMLImageElement> = (e) => {
     const img = e.currentTarget;
     if (img.naturalWidth && img.naturalHeight) {
-      setFitMode(
-        img.naturalWidth > img.naturalHeight ? "contain" : "cover"
-      );
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+
+      if (w > h) {
+        setFitMode("contain");
+        setOrientation("landscape");
+      } else if (w < h) {
+        setFitMode("cover");
+        setOrientation("portrait");
+      } else {
+        setFitMode("contain");
+        setOrientation("square");
+      }
     }
     setMediaReady(true);
     fireFirstFrameOnce();
@@ -897,10 +968,11 @@ function VideoCard({
   const showFollow = (!uid || uid !== item.authorId) && !following;
 
   return (
-    <div className="relative mt-1 mb-1">
+
+    <div className="relative h-full">
       <article
         className={cn(
-          "group relative overflow-hidden rounded-[28px]",
+          "bg-blue-400 group relative overflow-hidden rounded-[0px]",
           "shadow-[0_22px_60px_rgba(0,0,0,.65)]",
           "bg-gradient-to-b from-[#0B1513] via-black to-black",
           "transition-transform duration-300 ease-out",
@@ -908,9 +980,7 @@ function VideoCard({
         )}
         style={{
           width: "100%",
-          padding: 10,
-          height: cardH,
-          top: isDesktop ? 0 : tabOffsetPx - 5, // 👈 only shift on mobile
+          height: SNAP_ITEM_HEIGHT
         }}
       >
         {/* Loader overlay until mediaReady */}
@@ -919,9 +989,6 @@ function VideoCard({
             <BouncingBallLoader />
           </div>
         )}
-
-        {/* Top overlay controls */}
-
 
         {/* Media */}
         <div className="w-full h-full flex items-center justify-center bg-black">
@@ -934,8 +1001,8 @@ function VideoCard({
               controlsList="nodownload noremoteplayback"
               preload={dataSaverOn ? "metadata" : "auto"}
               className={cn(
-                "max-h-full max-w-full lg:max-w-[700px]",
-                fitMode === "contain" ? "object-contain" : "object-contain"
+                "max-h-full max-w-full lg:max-w-[700px]"
+
               )}
               onClick={togglePlay}
               onLoadedMetadata={handleVideoReady}
@@ -966,6 +1033,7 @@ function VideoCard({
             "absolute left-0 right-0 bottom-0 p-3 sm:p-4",
             "bg-gradient-to-t from-black/80 via-black/40 to-transparent",
             "transition-opacity duration-200",
+            railOpen ? orientation === "landscape" ? "ml-[80px]" : "ml-[0px]" : "",
             mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
           )}
         >
@@ -981,7 +1049,8 @@ function VideoCard({
               )}
               aria-label={
                 authorProfile?.handle || item.authorUsername
-                  ? `Open ${authorProfile?.handle || item.authorUsername} profile`
+                  ? `Open ${authorProfile?.handle || item.authorUsername
+                  } profile`
                   : undefined
               }
             >
@@ -1012,19 +1081,20 @@ function VideoCard({
               </div>
               <div
                 className="flex items-center text-white/70 text-[11px]"
-                title={`${followersCount} Follower${followersCount === 1 ? "" : "s"}`}
+                title={`${followersCount} Follower${followersCount === 1 ? "" : "s"
+                  }`}
               >
                 {formatCount(followersCount)} Follower
                 {followersCount === 1 ? "" : "s"}
               </div>
             </div>
 
-            {/* Right side: Follow + Mute at far right */}
+            {/* Right side: Follow + Mute */}
             <div className="ml-auto flex items-center gap-2">
               {showFollow && (
                 <button
                   onClick={onFollowClick}
-                  className="rounded-full px-3 py-1 text-xs font-bold text-[#0F172A] bg-[#FDE68A] hover:bg-[#FCD34D] shadow-sm"
+                  className="rounded-full px-3 py-1 text-xs font-bold text-white bg-[#C79257] hover:bg-[#FCD34D] shadow-sm"
                   aria-label="Follow"
                   title="Follow"
                 >
@@ -1035,8 +1105,15 @@ function VideoCard({
               {item.mediaType === "video" && (
                 <button
                   onClick={toggleMute}
-                  aria-label={muted ? "Unmute video (global)" : "Mute video (global)"}
-                  className="rounded-full bg-black/40 text-white p-2 hover:bg-black/70 backdrop-blur-sm border border-white/20"
+                  aria-label={
+                    muted ? "Unmute video (global)" : "Mute video (global)"
+                  }
+                  className={cn(
+                    "rounded-full bg-black/40 text-white p-2 hover:bg-black/70 backdrop-blur-sm border border-white/20",
+                    railOpen ? orientation === "landscape" ? "md:mr-[80px]" : "md:mr-[0px]" : "",
+
+                  )}
+
                 >
                   {muted ? <IoVolumeMute size={18} /> : <IoVolumeHigh size={18} />}
                 </button>
@@ -1073,17 +1150,19 @@ function VideoCard({
               )}
             </div>
           </div>
-
         </div>
       </article>
 
       {/* Action rail */}
+
+
       <div
         className={cn(
           "absolute z-10 flex flex-col items-center gap-1.5",
-          "right-3 top-1/2 -translate-y-1/2",
-          "md:right-[-50px]",
-          "transition-opacity duration-200",
+          // When comments / RightRail are open, keep rail fully inside the card
+          railOpen ? orientation === "landscape" ? "md:right-[120px]" : "md:right-[10px]" : "md:right-[-60px]",
+
+          "top-1/2 -translate-y-1/2 transition-opacity duration-200",
           mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
@@ -1209,10 +1288,9 @@ function VideoCard({
   );
 }
 
-
 /* ---------- Card sizing ---------- */
-const CARD_ASPECT = 9 / 16;      // portrait (mobile)
-const CARD_ASPECT_INV = 16 / 9;  // landscape
+const CARD_ASPECT = 9 / 16; // width / height (portrait)
+const CARD_ASPECT_INV = 16 / 9; // height / width (landscape if needed)
 
 function useDeedBox(railOpen: boolean, topOffsetPx = 0) {
   const [box, setBox] = React.useState<{ w: number; h: number }>({
@@ -1221,6 +1299,8 @@ function useDeedBox(railOpen: boolean, topOffsetPx = 0) {
   });
 
   const recalc = React.useCallback(() => {
+    if (typeof window === "undefined") return;
+
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
@@ -1228,23 +1308,27 @@ function useDeedBox(railOpen: boolean, topOffsetPx = 0) {
     const sideGutter = vw >= 1024 ? 48 : 16;
     const usableW = Math.max(320, vw - railW - sideGutter * 2);
 
-    // 💻 Desktop: wide 16:9, fully visible in viewport
+    // 💻 Desktop: tall portrait card that fills almost the whole screen height
     if (vw >= 1024) {
-      const targetW = Math.min(usableW, 1120);
-      // we no longer subtract topOffsetPx here
-      const maxHFromHeight = vh - 32; // small breathing space top/bottom
-      const hFromAspect = Math.round(targetW / CARD_ASPECT_INV);
-      const targetH = Math.max(360, Math.min(maxHFromHeight, hFromAspect));
+      // Leave a tiny breathing room for shadows, etc.
+      const maxHFromHeight = vh - 32;
+      // Make sure it’s not too tiny on short screens
+      const targetH = Math.max(520, maxHFromHeight);
+
+      // width = height * (9/16) → portrait
+      const rawW = Math.round(targetH * CARD_ASPECT);
+      const targetW = Math.min(usableW, rawW);
 
       setBox({
-        w: Math.round(targetW),
-        h: Math.round(targetH),
+        w: targetW,
+        h: targetH,
       });
       return;
     }
 
     // 📱 Mobile: keep tall portrait card, respect tab offset
-    const targetH = Math.max(320, vh - topOffsetPx);
+    const maxHMobile = vh - topOffsetPx;
+    const targetH = Math.max(320, maxHMobile);
     const targetW = Math.round(targetH * CARD_ASPECT);
 
     const mobileUsableW = vw - sideGutter * 2;
@@ -1265,9 +1349,6 @@ function useDeedBox(railOpen: boolean, topOffsetPx = 0) {
 
   return box;
 }
-
-
-
 
 function itemHeight(root: HTMLElement | null) {
   if (!root) return window.innerHeight;
@@ -1320,9 +1401,6 @@ function useUserProfile(uid?: string) {
   return profile;
 }
 
-
-type PreloadMode = "none" | "light" | "aggressive";
-
 function useNetworkProfile() {
   const [state, setState] = useState<{
     effectiveType?: string;
@@ -1352,9 +1430,12 @@ function useNetworkProfile() {
   return state;
 }
 
-/** 🔥 NEW: live author profile for each deed */
+/** 🔥 Live author profile for each deed */
 function useAuthorProfile(authorId?: string) {
-  const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
+  const [profile, setProfile] = useState<{
+    handle?: string;
+    photoURL?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!authorId) {
@@ -1381,7 +1462,7 @@ function useAuthorProfile(authorId?: string) {
   return profile;
 }
 
-/* ---------- Channelled Feed Shell ---------- */
+/* ---------- Channel tabs ---------- */
 function ChannelTabs({
   active,
   commentsId,
@@ -1406,90 +1487,138 @@ function ChannelTabs({
   onToggleDataSaver: () => void;
 }) {
   const router = useRouter();
+  const avatarUrl: string | undefined =
+    profile?.photoURL || profile?.imageUrl || undefined;
 
   return (
-    <div className="relative h-full flex items-center">
-      <div className="mx-auto w-full px-3 flex items-center justify-center">
+    <div className="relative h-full flex items-center pointer-events-none">
+      <div className="w-full px-3 flex items-center justify-center">
         <div
           className={cn(
-            "flex w-full justify-center items-center gap-2",
-            "overflow-x-auto no-scrollbar",
+            "flex w-full items-center justify-center",
+            "max-w-[500px] gap-2",
             commentsId ? "lg:mr-0" : "lg:mr-[100px]"
           )}
         >
-          {/* Tabs pill group */}
-          <div
-            className="inline-flex py-1.5 items-center gap-1 rounded-full shadow-sm px-1 py-1 ">
-            {TABS.map((k) => {
-              const isActive = active === k;
-              return (
-                <button
-                  key={k}
-                  onClick={() => onChange(k)}
-                  className={cn(
-                    "relative px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[60px] lg:w-[96px]",
-                    "rounded-full backdrop-blur-md font-semibold flex-shrink-0 flex items-center justify-center transition",
-                    isActive
-                      ? "bg-[#233F39] text-white shadow-sm"
-                      : "text-white hover:bg-gray-50"
-                  )}
-                >
-                  <span className="relative z-10">{LABEL[k]}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Dive In */}
+          {/* LEFT – Dive In button */}
           <button
+            type="button"
             onClick={() => router.push("/dive")}
-            className="flex px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[85px] lg:w-[100px] gap-2 rounded-full items-center justify-center font-semibold border transition
-                       backdrop-blur-md text-white hover:bg-gray-50 flex-shrink-0 shadow-sm"
+            className="pointer-events-auto flex h-[34px] min-w-[34px] items-center justify-center rounded-full 
+                       bg-black/40 px-2 text-[11px] font-extrabold tracking-[0.02em] text-white
+                       hover:bg-black/65 transition-colors"
+            aria-label="Open Dive"
           >
-            <IoTelescopeOutline />
+            <IoTelescopeOutline className="mr-1.5" size={18} />
+            {/* always show text now */}
             <span>Dive In</span>
           </button>
 
-          {/* Search (desktop) */}
-          <button
-            onClick={() => router.push("/search")}
-            className="hidden lg:inline-flex backdrop-blur-md items-center justify-center rounded-full text-white hover:bg-gray-50 shadow-sm p-2 flex-shrink-0"
-            aria-label="Search"
-          >
-            <IoSearch />
-          </button>
+          {/* CENTER – Tabs with animated underline */}
+          <div className="pointer-events-auto flex-1 px-2">
+            <div className="relative flex items-center justify-evenly">
+              {TABS.map((k) => {
+                const isActive = active === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => onChange(k)}
+                    className="relative w-[60px] lg:w-[80px] flex-1 select-none px-2 py-1.5 text-center"
+                  >
+                    <span
+                      className={cn(
+                        "text-[13px] font-semibold tracking-[0.02em]",
+                        "transition-colors",
+                        isActive
+                          ? "text-white font-extrabold"
+                          : "text-white/80"
+                      )}
+                    >
+                      {LABEL[k]}
+                    </span>
 
-          {/* Data saver pill */}
-          <button
-            type="button"
-            onClick={onToggleDataSaver}
-            disabled={!uid}
-            className={cn(
-              "ml-1 flex items-center backdrop-blur-md text-white gap-1 px-1.5 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm bg-white/90",
-              dataSaverOn
-                ? "text-emerald-700 border-emerald-200"
-                : "text-gray-700 border-gray-200 hover:bg-gray-50"
-            )}
-            title={
-              dataSaverOn
-                ? "Data saver active – videos may preload less and cap resolution to save your data."
-                : "Data saver off – videos can use higher resolution and more aggressive preloading."
-            }
-          >
-            <span
-              className="inline-flex h-2 w-2 rounded-full"
-              style={{ backgroundColor: dataSaverOn ? "#16A34A" : "#9CA3AF" }}
-            />
-            <span>Data saver</span>
-          </button>
+                    {/* underline sized to the tab width, not tiny */}
+                    {isActive && (
+                      <motion.span
+                        layoutId="feed-tab-underline"
+                        className="pointer-events-none absolute -bottom-1 h-[2px] rounded-full bg-white"
+                        // inset-x-4 = leave small margins so it “fits” nicely under the label
+                        style={{ left: "18%", right: "18%" }}
+                        transition={{ type: "spring", stiffness: 260, damping: 24 }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* RIGHT – Search + Avatar + Data saver */}
+          <div className="pointer-events-auto flex items-center gap-1.5">
+            {/* Search icon button */}
+            <button
+              type="button"
+              onClick={() => router.push("/search")}
+              className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-black/40 
+                         hover:bg-black/65 transition-colors shadow-sm"
+              aria-label="Search"
+            >
+              <IoSearch size={18} className="text-white" />
+            </button>
+
+
+
+            {/* Data saver pill – compact on the right */}
+            {/* Data saver toggle – professional switch-style */}
+            <button
+              type="button"
+              onClick={onToggleDataSaver}
+              disabled={!uid}
+              role="switch"
+              aria-checked={dataSaverOn}
+              className={cn(
+                "hidden sm:inline-flex items-center gap-2 rounded-full px-3 py-1.5",
+                "text-[11px] tracking-[0.02em]",
+                // Dive In–style glass pill
+                "bg-black/40 text-white backdrop-blur-sm border border-white/20 shadow-sm",
+                "hover:bg-black/65 transition-colors",
+                !uid && "opacity-60 cursor-not-allowed"
+              )}
+              title={
+                dataSaverOn
+                  ? "Data saver active – videos may preload less and cap resolution to save your data."
+                  : "Data saver off – videos can use higher resolution and more aggressive preloading."
+              }
+            >
+              {/* Status dot (ON/OFF) */}
+              <span
+                className={cn(
+                  "inline-flex h-2 w-2 rounded-full",
+                  dataSaverOn ? "bg-emerald-400" : "bg-gray-400"
+                )}
+              />
+
+              {/* Label + small hint if user has a saved preference */}
+              <span className={cn(
+                "flex items-center gap-1",
+                dataSaverOn ? "text-emerald-400" : "text-gray-400"
+              )}
+              >
+                <span>Data saver</span>
+
+              </span>
+            </button>
+
+
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-
-
+/* ---------- Channel feed hook ---------- */
 function useChannelFeed(tab: TabKey, uid?: string) {
   const following = useFollowing(uid);
   const [items, setItems] = useState<PlayerItem[]>([]);
@@ -1533,46 +1662,48 @@ function getOrMakeDeviceId(): string {
   try {
     let v = localStorage.getItem(k);
     if (!v || v.length < 16) {
-      v = (crypto?.randomUUID?.() ?? (Math.random().toString(36).slice(2) + Date.now().toString(36)));
+      v =
+        crypto?.randomUUID?.() ??
+        (Math.random().toString(36).slice(2) + Date.now().toString(36));
       if (v.length < 16) v = v.padEnd(16, "x");
       localStorage.setItem(k, v);
     }
     return v;
   } catch {
-    return "anon_device_" + Math.random().toString(36).slice(2).padEnd(16, "x");
+    return (
+      "anon_device_" +
+      Math.random().toString(36).slice(2).padEnd(16, "x")
+    );
   }
 }
 
+/* ---------- FeedShell (FlatList-style scroll) ---------- */
 function FeedShell() {
   const { user } = useAuth();
   const uid = user?.uid;
   const profile = useUserProfile(uid);
   const { effectiveType, saveData } = useNetworkProfile();
+  const SNAP_ITEM_HEIGHT = `calc(100vh)`;
 
   const userDataSaver = !!profile?.dataSaverVideos;
-  const isVerySlow =
-    effectiveType === "2g" || effectiveType === "slow-2g";
-  const isFast =
-    effectiveType === "4g" || effectiveType === "5g";
+  const isVerySlow = effectiveType === "2g" || effectiveType === "slow-2g";
+  const isFast = effectiveType === "4g" || effectiveType === "5g";
   const globalDataSaverOn = !!saveData;
 
   const dataSaverOn = userDataSaver || globalDataSaverOn || isVerySlow;
 
   const preloadMode: PreloadMode = dataSaverOn
-    ? "none" // 🧵 user wants to save data or connection is very slow
+    ? "none"
     : isFast && !globalDataSaverOn
-      ? "aggressive" // 💨 good connection, no data-saver → preload more neighbors
-      : "light"; // default
-  // 🎚 Clamp HLS resolution based on network/data saver
+      ? "aggressive"
+      : "light";
+
   let hlsMaxHeight: number | undefined;
   if (dataSaverOn || isVerySlow) {
-    // super conservative: up to 480p
     hlsMaxHeight = 480;
   } else if (!isFast) {
-    // mid-speed (3G-ish): allow up to 720p
     hlsMaxHeight = 720;
   } else {
-    // fast 4G / Wi-Fi: no cap (full resolution)
     hlsMaxHeight = undefined;
   }
 
@@ -1583,8 +1714,11 @@ function FeedShell() {
   const [commentsId, setCommentsId] = useState<string | null>(null);
   const isDesktop = useIsDesktop();
 
-  // gate changes
+  // 🔢 Track which deed is "active" (like FlatList index)
+  const [activeIndex, setActiveIndex] = useState(0);
+
   const router = useRouter();
+
   // 🔄 Toggle user preference in Firestore
   const [updatingDataSaver, setUpdatingDataSaver] = useState(false);
 
@@ -1607,46 +1741,117 @@ function FeedShell() {
       setUpdatingDataSaver(false);
     }
   }, [uid, router, userDataSaver, updatingDataSaver]);
-  const changeTab = useCallback((k: TabKey) => {
-    if (!uid && (k === "following" || k === "nearby")) {
-      router.push("/getstarted?next=/");
-      setTab("forYou");
-      return;
-    }
-    setTab(k);
-  }, [uid, router]);
+
+  const changeTab = useCallback(
+    (k: TabKey) => {
+      if (!uid && (k === "following" || k === "nearby")) {
+        router.push("/getstarted?next=/");
+        setTab("forYou");
+        return;
+      }
+      setTab(k);
+    },
+    [uid, router]
+  );
 
   useEffect(() => {
     if (!isDesktop && commentsId) {
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = prev; };
+      return () => {
+        document.body.style.overflow = prev;
+      };
     }
   }, [isDesktop, commentsId]);
 
   const openComments = useCallback((id: string) => setCommentsId(id), []);
   const closeComments = useCallback(() => setCommentsId(null), []);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeComments(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeComments();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [closeComments]);
 
-  // step scroll (unchanged)
-  const { goPrev, goNext, index } = useStepScroll(
-    scrollerRef as unknown as React.RefObject<HTMLElement>,
-    () => items.length,
-    true
+  // 🔧 Step size in pixels (one card)
+  const getStepPx = useCallback(() => {
+    const root = scrollerRef.current;
+    if (!root) {
+      if (typeof window !== "undefined") return window.innerHeight || 720;
+      return 720;
+    }
+    return root.clientHeight || 720;
+  }, []);
+
+  // 🔼🔽 Scroll by one "card" up or down
+  const scrollByDirection = useCallback(
+    (dir: 1 | -1) => {
+      const root = scrollerRef.current;
+      if (!root || !items.length) return;
+
+      const step = getStepPx();
+      root.scrollBy({
+        top: step * dir,
+        behavior: "smooth",
+      });
+
+      setActiveIndex((prev) => {
+        const next = Math.max(0, Math.min(items.length - 1, prev + dir));
+        return next;
+      });
+    },
+    [getStepPx, items.length]
   );
+
+  // ⌨️ Keyboard Up/Down on the scroller
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!items.length) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable ||
+          target.closest('[role="textbox"]'))
+      ) {
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        scrollByDirection(1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        scrollByDirection(-1);
+      }
+    },
+    [items.length, scrollByDirection]
+  );
+
+  // 🖱️ Mouse scroll → infer activeIndex from scrollTop
+  const handleScroll = useCallback(() => {
+    const root = scrollerRef.current;
+    if (!root || !items.length) return;
+    const step = getStepPx();
+    if (!step) return;
+
+    const idx = Math.round(root.scrollTop / step);
+    const clamped = Math.max(0, Math.min(items.length - 1, idx));
+    setActiveIndex(clamped);
+  }, [getStepPx, items.length]);
+
+  // Keep comments panel in sync with currently active card
   useEffect(() => {
     if (!commentsId) return;
-    const current = items[index];
+    const current = items[activeIndex];
     if (!current) return;
     if (current.id !== commentsId) setCommentsId(current.id);
-  }, [index, items, commentsId]);
+  }, [activeIndex, items, commentsId]);
 
-  const atTop = index <= 0;
-  const atEnd = index >= Math.max(0, items.length - 1);
+  const atTop = activeIndex <= 0;
+  const atEnd = activeIndex >= Math.max(0, items.length - 1);
 
   const railOffsetLg = "lg:right-[0px]";
   const railOffsetXl = "xl:right-[0px]";
@@ -1655,7 +1860,8 @@ function FeedShell() {
     if (!uid) router.push("/getstarted?next=/studio/upload");
     else router.push("/studio/upload");
   };
-  const TAB_BAR_H = 56; // px — tweak to taste
+
+
   return (
     <MuteProvider>
       <AppShell
@@ -1678,28 +1884,17 @@ function FeedShell() {
           <section
             ref={scrollerRef}
             tabIndex={0}
-            className="w-full flex h-[calc(100vh-0.5rem)] flex-col items-center gap-0 overflow-y-scroll no-scrollbar scroll-smooth outline-none bg-black"
+            onKeyDown={handleKeyDown}
+            onScroll={handleScroll}
+            className="w-full flex h-[calc(100vh-0.5rem)] flex-col items-center gap-0 overflow-y-auto no-scrollbar scroll-smooth outline-none bg-black"
             style={{
-              //   height: "100svh",
               scrollSnapType: "y mandatory" as any,
               overscrollBehaviorY: "contain",
             }}
           >
             {/* Sticky translucent bar */}
-
-            <div
-              className="sticky p-0 top-0 z-30 w-full"
-            // style={{ height: TAB_BAR_H }}
-            >
-              <div
-              // className="h-full w-full p-1 border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl"
-              // style={{
-              //  background:
-              //    "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
-              //  borderColor: "rgba(15,23,42,0.18)",
-              //  boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
-              //}}
-              >
+            <div className="sticky p-0 top-0 z-30 w-full">
+              <div>
                 <ChannelTabs
                   uid={uid}
                   profile={profile}
@@ -1723,16 +1918,24 @@ function FeedShell() {
                   "w-full flex items-center justify-center snap-start transition-[right] duration-200",
                   commentsId ? "lg:mr-0" : "lg:mr-[100px]",
                 ].join(" ")}
-                style={{ height: `100svh`, scrollSnapStop: "always" }}
+                style={{ height: SNAP_ITEM_HEIGHT, scrollSnapStop: "always" }}
               >
-                <SkeletonCard railOpen={!!commentsId} tabOffsetPx={TAB_BAR_H} />
+                <BouncingBallLoader />
               </div>
             )}
 
             {!loading && items.length === 0 && (
-              <div className="py-10 text-sm text-white/80">No deeds yet.</div>
+              <div
+                data-snap-item="1"
+                className={[
+                  "w-full flex items-center justify-center snap-start transition-[right] duration-200",
+                  commentsId ? "lg:mr-0" : "lg:mr-[100px]",
+                ].join(" ")}
+                style={{ height: SNAP_ITEM_HEIGHT, scrollSnapStop: "always" }}
+              >
+                <div className=" text-sm text-white/80">No deeds yet.</div>
+              </div>
             )}
-
 
             {items.map((item) => (
               <div
@@ -1740,10 +1943,10 @@ function FeedShell() {
                 data-snap-item="1"
                 className={[
                   "w-full flex items-center justify-center snap-start transition-[right] duration-200",
-                  "bg-black", // full black page behind the player
-                  commentsId ? "lg:mr-0" : "lg:mr-0",
+                  "bg-black",
+                  commentsId ? "lg:w-[200px]" : "lg:mr-0",
                 ].join(" ")}
-                style={{ height: `100svh`, scrollSnapStop: "always" }}
+                style={{ height: SNAP_ITEM_HEIGHT, scrollSnapStop: "always" }}
               >
                 <VideoCard
                   item={item}
@@ -1752,16 +1955,17 @@ function FeedShell() {
                   onOpenComments={openComments}
                   railOpen={!!commentsId}
                   onFirstFrame={undefined}
-                  tabOffsetPx={TAB_BAR_H} // ⬅️ pass down (new prop)
-                  dataSaverOn={dataSaverOn}   // 👈 NEW
+                  // tabOffsetPx={TAB_BAR_H}
+                  dataSaverOn={dataSaverOn}
                   hlsMaxHeight={hlsMaxHeight}
+                  SNAP_ITEM_HEIGHT={SNAP_ITEM_HEIGHT}
                 />
               </div>
             ))}
           </section>
 
-          {/* Up/Down steppers */}
-          <div className="hidden lg:inline ">
+          {/* Up/Down steppers (desktop) */}
+          <div className="hidden lg:inline">
             <div
               className={[
                 "fixed right-0 md:right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2 md:gap-3 transition-[right] duration-200",
@@ -1769,23 +1973,26 @@ function FeedShell() {
               ].join(" ")}
             >
               <button
-                onClick={goPrev}
+                onClick={() => scrollByDirection(-1)}
                 disabled={atTop}
                 aria-label="Previous"
-                className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 md:p-3 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+                className="rounded-full border border-[#C79257] bg-[#C79257] text-white shadow 
+                 p-2 md:p-3 hover:bg-[#d9a56c] disabled:opacity-40 disabled:pointer-events-none"
               >
                 <IoChevronUp size={18} />
               </button>
               <button
-                onClick={goNext}
+                onClick={() => scrollByDirection(1)}
                 disabled={atEnd}
                 aria-label="Next"
-                className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 md:p-3 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+                className="rounded-full border border-[#C79257] bg-[#C79257] text-white shadow 
+                 p-2 md:p-3 hover:bg-[#d9a56c] disabled:opacity-40 disabled:pointer-events-none"
               >
                 <IoChevronDown size={18} />
               </button>
             </div>
           </div>
+
 
           {/* Mobile upload FAB */}
           <button
@@ -1797,7 +2004,7 @@ function FeedShell() {
             <IoAdd size={22} />
           </button>
 
-          {/* Mobile comments overlay (same RightRail instance) */}
+          {/* Mobile comments overlay */}
           <div
             className={[
               "lg:hidden fixed inset-0 z-[60] transition",
@@ -1838,154 +2045,10 @@ function FeedShell() {
           </div>
         </div>
       </AppShell>
-      <AdjacentPreloadWeb
-        items={items}
-        activeIndex={index}
-        mode={preloadMode}
-      />
+      <AdjacentPreloadWeb items={items} activeIndex={activeIndex} mode={preloadMode} />
     </MuteProvider>
   );
 }
-
-/* ---------- One-item step scrolling (unchanged) ---------- */
-function useStepScroll(
-  rootRef: React.RefObject<HTMLElement | null>,
-  getCount: () => number,
-  enabled = true
-) {
-  const lockRef = useRef(false);
-  const indexRef = useRef(0);
-  const [index, setIndex] = useState(0);
-  const targetTopRef = useRef<number | null>(null);
-
-  const step = () => itemHeight(rootRef.current);
-  const isEditable = (t: EventTarget | null) => {
-    const el = t as HTMLElement | null;
-    if (!el) return false;
-    const tag = el.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable) return true;
-    if (el.closest('[role="textbox"]')) return true;
-    return false;
-  };
-  const goToIndex = useCallback(
-    (i: number) => {
-      const root = rootRef.current;
-      if (!root) return;
-      const total = getCount();
-      const clamped = Math.max(0, Math.min(total - 1, i));
-      indexRef.current = clamped;
-      setIndex(clamped);
-      targetTopRef.current = clamped * step();
-      (root as any).scrollTo({ top: targetTopRef.current, behavior: "smooth" });
-    },
-    [rootRef, getCount]
-  );
-
-  useEffect(() => {
-    if (!enabled) return;
-    const root = rootRef.current;
-    if (!root) return;
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (lockRef.current) return;
-      lockRef.current = true;
-      const dir = e.deltaY > 0 ? 1 : -1;
-      goToIndex(indexRef.current + dir);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (lockRef.current) return;
-      if (isEditable(e.target)) return;
-      const k = e.key;
-      if (k === " " || k === "Spacebar" || e.code === "Space") {
-        e.preventDefault();
-        lockRef.current = true;
-        goToIndex(indexRef.current + (e.shiftKey ? -1 : 1));
-        return;
-      }
-      if (k === "ArrowDown" || k === "PageDown") {
-        e.preventDefault();
-        lockRef.current = true;
-        goToIndex(indexRef.current + 1);
-        return;
-      }
-      if (k === "ArrowUp" || k === "PageUp") {
-        e.preventDefault();
-        lockRef.current = true;
-        goToIndex(indexRef.current - 1);
-        return;
-      }
-    };
-
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const s = (root as any).scrollTop;
-        const idx = Math.round(s / step());
-        if (idx !== indexRef.current) {
-          indexRef.current = idx;
-          setIndex(idx);
-        }
-      });
-    };
-
-    let rafMon = 0;
-    const monitor = () => {
-      if (targetTopRef.current == null) {
-        rafMon = requestAnimationFrame(monitor);
-        return;
-      }
-      const diff = Math.abs((root as any).scrollTop - targetTopRef.current);
-      if (diff < 2) {
-        targetTopRef.current = null;
-        lockRef.current = false;
-      } else {
-        rafMon = requestAnimationFrame(monitor);
-      }
-    };
-    rafMon = requestAnimationFrame(monitor);
-
-    indexRef.current = Math.round(((root as any).scrollTop) / step());
-    setIndex(indexRef.current);
-
-    (root as any).addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("keydown", onKey);
-    (root as any).addEventListener("scroll", onScroll, { passive: true });
-
-    return () => {
-      (root as any).removeEventListener("wheel", onWheel);
-      window.removeEventListener("keydown", onKey);
-      (root as any).removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(raf);
-      cancelAnimationFrame(rafMon);
-    };
-  }, [rootRef, goToIndex, getCount, enabled]);
-
-  useEffect(() => {
-    const onResize = () => {
-      const root = rootRef.current;
-      if (!root) return;
-      const i = Math.round(((root as any).scrollTop) / step());
-      (root as any).scrollTo({ top: i * step() });
-      indexRef.current = i;
-      setIndex(i);
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [rootRef]);
-
-  const goPrev = useCallback(() => goToIndex(indexRef.current - 1), [goToIndex]);
-  const goNext = useCallback(() => goToIndex(indexRef.current + 1), [goToIndex]);
-
-  return { goPrev, goNext, index };
-}
-
-/* ---------- Root: Splash + decision + Feed ---------- */
-// ...existing imports...
-// nothing extra to import
-
-// ...
 
 /* ---------- Root: Splash + decision + Feed ---------- */
 export default function RootPage() {
@@ -1995,7 +2058,6 @@ export default function RootPage() {
   const decidedRef = useRef(false);
   const [phase, setPhase] = useState<"splash" | "feed">("splash");
 
-  // NEW: splash memory key (session-based)
   const SPLASH_KEY = "__ekari_splash_seen_v1__";
   const [splashSeen, setSplashSeen] = useState<boolean>(false);
 
@@ -2006,17 +2068,16 @@ export default function RootPage() {
     router.prefetch("/studio/upload");
   }, [router]);
 
-  // NEW: read session flag once on mount
+  // Read session flag once on mount
   useEffect(() => {
     try {
       const seen = sessionStorage.getItem(SPLASH_KEY) === "1";
       if (seen) {
         setSplashSeen(true);
-        // IMPORTANT: skip splash immediately if already seen.
         setPhase("feed");
       }
     } catch {
-      // ignore storage errors, fallback to splash
+      // ignore
     }
   }, []);
 
@@ -2027,20 +2088,25 @@ export default function RootPage() {
     (async () => {
       decidedRef.current = true;
 
-      // Only delay for the actual first splash; if splashSeen, no delay.
-      const minDelay = splashSeen ? Promise.resolve() : new Promise((r) => setTimeout(r, 600));
+      const minDelay = splashSeen
+        ? Promise.resolve()
+        : new Promise((r) => setTimeout(r, 600));
 
       let goFeed = true;
       try {
         if (user?.uid) {
           const snap = await getDoc(doc(db, "users", user.uid));
-          const data = snap.exists() ? (snap.data() as { handle?: string }) : undefined;
-          const hasHandle = typeof data?.handle === "string" && data.handle.trim().length > 0;
+          const data = snap.exists()
+            ? (snap.data() as { handle?: string })
+            : undefined;
+          const hasHandle =
+            typeof data?.handle === "string" &&
+            data.handle.trim().length > 0;
           if (!hasHandle) goFeed = false;
         }
       } catch (e) {
         console.error("[Splash] Firestore read error:", e);
-        goFeed = true; // be permissive on errors
+        goFeed = true;
       }
 
       await minDelay;
@@ -2051,7 +2117,6 @@ export default function RootPage() {
         router.replace("/getstarted");
       }
 
-      // Mark splash as seen if this was the first time
       if (!splashSeen) {
         try {
           sessionStorage.setItem(SPLASH_KEY, "1");
@@ -2064,20 +2129,30 @@ export default function RootPage() {
   }, [authLoading, user?.uid, router, splashSeen]);
 
   if (phase === "splash" && !splashSeen) {
-    // show only on true first load in this tab
     return (
-      <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: THEME.forest }}>
+      <main
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: THEME.forest }}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", stiffness: 140, damping: 16, mass: 0.6 }}
+          transition={{
+            type: "spring",
+            stiffness: 140,
+            damping: 16,
+            mass: 0.6,
+          }}
         >
           <Image
             src="/ekarihub-logo-green.png"
             alt="ekarihub"
             width={320}
             height={86}
-            onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/ekarihub-logo.png")}
+            onError={(e) =>
+            ((e.currentTarget as HTMLImageElement).src =
+              "/ekarihub-logo.png")
+            }
             priority
           />
         </motion.div>
@@ -2085,7 +2160,5 @@ export default function RootPage() {
     );
   }
 
-  // If splashSeen (or decision finished), render feed shell
   return <FeedShell />;
 }
-

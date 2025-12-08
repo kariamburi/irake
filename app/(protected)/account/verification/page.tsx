@@ -27,6 +27,7 @@ import {
 import AppShell from "@/app/components/AppShell";
 import { useAuth } from "@/app/hooks/useAuth";
 import { db, app } from "@/lib/firebase";
+import { SelfieCamera } from "@/app/components/SelfieCamera";
 
 const EKARI = {
   forest: "#233F39",
@@ -923,51 +924,42 @@ export default function VerificationPage() {
                   {/* Selfie */}
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <IoCameraOutline
-                        size={18}
-                        style={{ color: EKARI.forest }}
-                      />
+                      <IoCameraOutline size={18} style={{ color: EKARI.forest }} />
                       <span className="text-xs font-semibold text-slate-700">
                         Live selfie (required)
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 mb-2">
-                      Take a selfie now using your device camera. Your whole
-                      face should be visible, with good lighting. This helps us
-                      confirm that you are the person on the ID.
+                      Take a selfie now using your device camera. Your whole face should be
+                      visible, with good lighting. This helps us confirm that you are the
+                      person on the ID.
                     </p>
 
-                    <label className="flex flex-col items-center justify-center text-center border border-dashed rounded-xl px-4 py-6 cursor-pointer hover:bg-slate-50 text-slate-600 text-xs">
-                      <IoCameraOutline size={22} className="mb-1 opacity-80" />
-                      <span className="font-semibold">Open camera</span>
-                      <span className="mt-0.5 text-[11px] text-slate-500">
-                        We’ll ask your browser to use the camera. On supported
-                        phones, this opens the camera instead of the gallery.
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="user"
-                        className="hidden"
-                        onChange={handleSelfieChange}
-                      />
-                      {selfieFile && (
-                        <span className="mt-2 text-[11px] text-slate-600 break-all">
-                          Captured: {selfieFile.name}
-                        </span>
-                      )}
-                      {selfiePreview && (
-                        <div className="mt-3 w-full flex items-center justify-center">
-                          <img
-                            src={selfiePreview}
-                            alt="Selfie preview"
-                            className="w-32 h-32 md:w-40 md:h-40 object-cover rounded-full border"
-                            style={{ borderColor: EKARI.hair }}
-                          />
-                        </div>
-                      )}
-                    </label>
+                    {/* Strict webcam capture */}
+                    <SelfieCamera
+                      onCapture={(file, previewUrl) => {
+                        setSelfieFile(file);
+                        if (selfiePreview) URL.revokeObjectURL(selfiePreview);
+                        setSelfiePreview(previewUrl);
+                      }}
+                      onError={(msg) => {
+                        // optional: show toast / error text
+                        console.error(msg);
+                      }}
+                    />
+
+                    {selfiePreview && (
+                      <div className="mt-3 w-full flex items-center justify-center">
+                        <img
+                          src={selfiePreview}
+                          alt="Selfie preview"
+                          className="w-32 h-32 md:w-40 md:h-40 object-cover rounded-full border"
+                          style={{ borderColor: EKARI.hair }}
+                        />
+                      </div>
+                    )}
                   </div>
+
                 </div>
               </>
             )}

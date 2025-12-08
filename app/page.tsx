@@ -1916,11 +1916,11 @@ function FeedShell() {
                 data-snap-item="1"
                 className={[
                   "w-full flex items-center justify-center snap-start transition-[right] duration-200",
-                  commentsId ? "lg:mr-0" : "lg:mr-[100px]",
+                  ,
                 ].join(" ")}
                 style={{ height: SNAP_ITEM_HEIGHT, scrollSnapStop: "always" }}
               >
-                <SkeletonCard railOpen={!!commentsId} />
+                <BouncingBallLoader />
               </div>
             )}
 
