@@ -873,7 +873,7 @@ export default function OnboardingWizardPage() {
             };
 
             await setDoc(doc(db, "users", uid), userDoc, { merge: true });
-            router.replace("/deeds");
+            router.replace("/");
         } catch (err: any) {
             setErrorMsg(err?.message || "Could not save your profile.");
         } finally {
