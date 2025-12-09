@@ -150,6 +150,7 @@ export type PlayerItem = {
   createdAt: number;
   visibility: "public" | "followers" | "private";
   stats?: DeedStats;
+  tags?: string[];
   music?: {
     title?: string;
     artist?: string;
@@ -195,6 +196,13 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
 
   const visibility: PlayerItem["visibility"] =
     d.visibility === "followers" || d.visibility === "private" ? d.visibility : "public";
+  // ✅ normalize tags
+  const tags: string[] = Array.isArray(d.tags)
+    ? d.tags
+      .filter((t: any) => typeof t === "string")
+      .map((t: string) => t.trim())
+      .filter(Boolean)
+    : [];
 
   // 🔊 NEW: normalize music from Firestore
   const rawMusic = d.music as any | undefined;
@@ -221,7 +229,7 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
     createdAt: createdAtMs,
     visibility,
     stats: d.stats ?? {},
-
+    tags,
     // 🔥 include it here
     music,
   };

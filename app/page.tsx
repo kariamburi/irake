@@ -915,6 +915,34 @@ function VideoCard({
   const soundAvatar = isLibrarySound ? (music?.coverUrl as string) : avatar;
 
   const [playing, setPlaying] = useState(false);
+
+  // 🔥 Caption + hashtag logic (TikTok-style)
+  const [captionExpanded, setCaptionExpanded] = useState(false);
+
+  const tags = useMemo(
+    () => (item.tags ?? []).filter(Boolean),
+    [item.tags]
+  );
+
+  const MAX_COLLAPSED_TAGS = 3;
+
+  const hasCaption = !!item.text;
+  const hasTags = tags.length > 0;
+
+  const captionTooLong = (item.text?.length ?? 0) > 80;
+  const tagsHidden = tags.length > MAX_COLLAPSED_TAGS;
+
+  // what we actually render
+  const visibleTags = captionExpanded ? tags : tags.slice(0, MAX_COLLAPSED_TAGS);
+
+  // should we show "… more"/"less" at all?
+  const showMoreToggle = captionTooLong || tagsHidden;
+
+  // Reset expanded state when the card changes to a new deed
+  useEffect(() => {
+    setCaptionExpanded(false);
+  }, [item.id]);
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -1110,7 +1138,7 @@ function VideoCard({
             {showFollow && (
               <button
                 onClick={onFollowClick}
-                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-[#C79257] bg-[#FDE68A] hover:bg-[#FCD34D] shadow-sm"
+                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-[#ffffff] bg-[#C79257] hover:bg-[#FCD34D] shadow-sm"
                 aria-label="Follow"
                 title="Follow"
               >
@@ -1119,11 +1147,74 @@ function VideoCard({
             )}
           </div>
 
-          {!!item.text && (
-            <p className="text-white/95 text-sm leading-5 line-clamp-3">
-              {item.text}
-            </p>
+          {/* Caption + hashtags (TikTok-style) */}
+
+          {/* Caption + hashtags (TikTok-style) */}
+          {(hasCaption || hasTags) && (
+            <motion.div
+              className="mt-1"
+              layout
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+            >
+              {/* Caption with inline toggle at end of last line */}
+              {hasCaption && (
+                <div className="relative pb-4">
+                  <motion.p
+                    layout
+                    className={cn(
+                      "text-white/95 text-sm leading-5 cursor-pointer pr-12",
+                      captionExpanded ? "" : "line-clamp-2"
+                    )}
+                    onClick={() => setCaptionExpanded((v) => !v)}
+                  >
+                    {item.text}
+                  </motion.p>
+
+
+                </div>
+              )}
+
+              {/* Hashtag pills */}
+              {hasTags && (
+                <motion.div
+                  layout
+                  className="mt-1 flex flex-wrap items-center gap-1.5"
+                >
+                  {visibleTags.map((tag: any) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="px-2 py-0.5 rounded-full border border-white/30 bg-black/30 text-[11px] text-white font-semibold hover:bg-black/60 transition-colors"
+                      onClick={() =>
+                        router.push(
+                          `/search?tag=${encodeURIComponent(tag)}&tab=Tags`
+                        )
+                      }
+
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                  {showMoreToggle && (
+                    <button
+                      type="button"
+                      onClick={() => setCaptionExpanded((v) => !v)}
+                      className={cn(
+
+                        "bg-gradient-to-l from-black via-black/80 to-transparent",
+                        "pl-2 text-[11px] text-white/90 font-semibold"
+                      )}
+                    >
+                      {captionExpanded ? "less" : "… more"}
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </motion.div>
           )}
+
+
+
 
           {/* Sound row */}
           <div className="mt-2 flex items-center gap-2">

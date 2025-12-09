@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     IoArrowBack,
     IoSearch,
@@ -488,6 +488,50 @@ export default function SearchPageClient() {
         !showDefault &&
         (q.trim().startsWith("#") || active === "Tags") &&
         (tagSuggestions.length > 0 || tagSuggestLoading);
+    const searchParams = useSearchParams();
+    const [bootstrappedFromURL, setBootstrappedFromURL] = useState(false);
+
+    useEffect(() => {
+        if (!searchParams || bootstrappedFromURL) return;
+
+        const qParam = searchParams.get("q");
+        const tagParam = searchParams.get("tag");
+        const tabParam = searchParams.get("tab") as TabKey | null;
+
+        // Decide query + tab from URL
+        let incomingQuery = "";
+        let incomingTab: TabKey = "Top";
+
+        if (tagParam) {
+            // from /search?tag=maize
+            incomingQuery = `#${tagParam}`;
+            incomingTab = "Tags";
+        } else if (qParam) {
+            incomingQuery = qParam.trim();
+
+            if (incomingQuery.startsWith("@")) {
+                incomingTab = "Accounts";
+            } else if (incomingQuery.startsWith("#")) {
+                incomingTab = "Tags";
+            } else if (tabParam && TABS.includes(tabParam)) {
+                incomingTab = tabParam;
+            } else {
+                incomingTab = "Top";
+            }
+        }
+
+        if (!incomingQuery) {
+            setBootstrappedFromURL(true);
+            return;
+        }
+
+        setQ(incomingQuery);
+        setActive(incomingTab);
+        setBootstrappedFromURL(true);
+
+        // Kick off initial search with this query + tab
+        startSearch(incomingQuery, incomingTab, true);
+    }, [searchParams, bootstrappedFromURL, startSearch]);
 
     /* --------- Render helpers --------- */
 
