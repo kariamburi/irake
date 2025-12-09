@@ -511,24 +511,6 @@ export default function SupportPage() {
         <aside className="space-y-6">
           <Card title="Contact us">
             <div className="space-y-3">
-              <Link
-                href="/bonga"
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <div className="w-9 h-9 rounded-full bg-[#233F39] text-white grid place-items-center">
-                  <IoChatbubblesOutline />
-                </div>
-                <div className="flex-1">
-                  <div className="font-bold" style={{ color: EKARI.text }}>
-                    Live chat
-                  </div>
-                  <div className="text-sm" style={{ color: EKARI.dim }}>
-                    Get help from our team in chat
-                  </div>
-                </div>
-                <IoChevronForward className="text-slate-400" />
-              </Link>
 
               <a
                 href="mailto:support@ekarihub.com"
@@ -549,37 +531,12 @@ export default function SupportPage() {
                 <IoChevronForward className="text-slate-400" />
               </a>
 
-              <a
-                href="tel:+254700000000"
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <div className="w-9 h-9 rounded-full bg-slate-800 text-white grid place-items-center">
-                  <IoCallOutline />
-                </div>
-                <div className="flex-1">
-                  <div className="font-bold" style={{ color: EKARI.text }}>
-                    Phone
-                  </div>
-                  <div className="text-sm" style={{ color: EKARI.dim }}>
-                    Mon–Fri 9am–5pm EAT
-                  </div>
-                </div>
-                <IoChevronForward className="text-slate-400" />
-              </a>
+
             </div>
           </Card>
 
           <Card title="Typical response times">
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border p-3 bg-white/70" style={{ borderColor: EKARI.hair }}>
-                <div className="text-xs" style={{ color: EKARI.dim }}>
-                  Chat
-                </div>
-                <div className="mt-1 text-lg font-black" style={{ color: EKARI.text }}>
-                  ~5–15 min
-                </div>
-              </div>
               <div className="rounded-xl border p-3 bg-white/70" style={{ borderColor: EKARI.hair }}>
                 <div className="text-xs" style={{ color: EKARI.dim }}>
                   Email
