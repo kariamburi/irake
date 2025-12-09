@@ -12,10 +12,11 @@ import {
     IoChatbubblesOutline,
 } from "react-icons/io5";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { app } from "@/lib/firebase";
+import { app, db } from "@/lib/firebase";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { DeedStats } from "@/lib/fire-queries";
+import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 
 /* -------------------- Types -------------------- */
 
@@ -209,7 +210,10 @@ export default function SearchPageClient() {
                 // use whichever you have:
                 // const db = getFirestore(app);
                 // or if you have imported `db` from "@/lib/firebase", just use it.
+                //  const db = getFirestore(app);
+                // or if you have imported `db` from "@/lib/firebase", just use it.
                 const ref = collection(db, "hashtags");
+
 
                 // Option A: purely by uses (most used overall)
                 const q = query(ref, orderBy("uses", "desc"), limit(20));
