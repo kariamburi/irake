@@ -1110,7 +1110,7 @@ function VideoCard({
             {showFollow && (
               <button
                 onClick={onFollowClick}
-                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-[#0F172A] bg-[#FDE68A] hover:bg-[#FCD34D] shadow-sm"
+                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-[#C79257] bg-[#FDE68A] hover:bg-[#FCD34D] shadow-sm"
                 aria-label="Follow"
                 title="Follow"
               >
