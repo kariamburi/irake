@@ -15,6 +15,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { app } from "@/lib/firebase";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { DeedStats } from "@/lib/fire-queries";
 
 /* -------------------- Types -------------------- */
 
@@ -24,13 +25,13 @@ const TABS: TabKey[] = ["Top", "Deeds", "Events", "Discussions", "Accounts", "Ta
 
 type Deed = {
     id: string;
-    thumbUrl?: string;
+    mediaThumbUrl?: string;
     caption?: string;
-    authorName?: string;
+    authorUsername?: string;
     authorId?: string;
-    authorHandle?: string; // 🔹 NEW: used for /[handle]/deed/[id]
-    likes?: number;
-    plays?: number;
+    // authorHandle?: string; // 🔹 used for /[handle]/deed/[id]
+    stats?: DeedStats;
+
     tagSlugs?: string[];
 };
 
@@ -199,7 +200,65 @@ export default function SearchPageClient() {
     const [tagData, setTagData] = useState<Hashtag[]>([]);
 
     const [recents, setRecents] = useState<string[]>([]);
-    const [trending] = useState<string[]>(TRENDING_DEFAULT);
+    const [trending, setTrending] = useState<string[]>(TRENDING_DEFAULT);
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadTrendingFromHashtags() {
+            try {
+                // use whichever you have:
+                // const db = getFirestore(app);
+                // or if you have imported `db` from "@/lib/firebase", just use it.
+                const ref = collection(db, "hashtags");
+
+                // Option A: purely by uses (most used overall)
+                const q = query(ref, orderBy("uses", "desc"), limit(20));
+
+                // Option B (optional): by recency + uses:
+                // const q = query(
+                //   ref,
+                //   orderBy("lastUsedAt", "desc"),
+                //   limit(50)
+                // );
+
+                const snap = await getDocs(q);
+                if (cancelled) return;
+
+                if (!snap.empty) {
+                    const labels = snap.docs
+                        .map((doc) => {
+                            const data = doc.data() as any;
+                            // prefer `tag` field as stored by upsertHashtagsForTags
+                            return data?.tag as string | undefined;
+                        })
+                        .filter((v): v is string => !!v);
+
+                    if (labels.length > 0) {
+                        // we might only want top 8–10 for UI
+                        setTrending(labels.slice(0, 10));
+                        return;
+                    }
+                }
+
+                // If we reach here and nothing valid, keep defaults
+                setTrending(TRENDING_DEFAULT);
+            } catch (err) {
+                console.warn("Failed to load trending hashtags", err);
+                // On error, keep defaults
+                setTrending(TRENDING_DEFAULT);
+            }
+        }
+
+        loadTrendingFromHashtags();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+
+    // When we're on Deeds tab and query is a tag, treat this as a "tag hub"
+    const isTagFeed = q.trim().startsWith("#") && active === "Deeds";
 
     // Autosuggest
     const [handleSuggestions, setHandleSuggestions] = useState<Account[]>([]);
@@ -337,15 +396,6 @@ export default function SearchPageClient() {
         };
     }, [q, active]);
 
-    const onSelectTagSuggestion = useCallback(
-        (tag: Hashtag) => {
-            setQ(`#${tag.tag}`);
-            setTagSuggestions([]);
-            router.push(`/tags/${encodeURIComponent(tag.tag)}`);
-        },
-        [router]
-    );
-
     /* --------- Search logic --------- */
 
     const startSearch = useCallback(
@@ -414,16 +464,26 @@ export default function SearchPageClient() {
                 setLoading(false);
             }
         },
-        [
-            page,
-            topData,
-            deedData,
-            eventData,
-            discData,
-            accData,
-            tagData,
-            saveRecent,
-        ]
+        [page, topData, deedData, eventData, discData, accData, tagData, saveRecent]
+    );
+
+    const onSelectTagSuggestion = useCallback(
+        (tag: Hashtag) => {
+            const label = `#${tag.tag}`;
+
+            setQ(label);
+            setTagSuggestions([]);
+            // default to Deeds feed for that tag
+            setActive("Deeds");
+            setPage(0);
+
+            // Run search immediately for that tag on Deeds tab
+            startSearch(label, "Deeds", true);
+
+            // Optional: sync URL so you can share links
+            router.push(`/search?tag=${encodeURIComponent(tag.tag)}&tab=Deeds`);
+        },
+        [router, startSearch]
     );
 
     const onSubmit = useCallback(
@@ -488,6 +548,7 @@ export default function SearchPageClient() {
         !showDefault &&
         (q.trim().startsWith("#") || active === "Tags") &&
         (tagSuggestions.length > 0 || tagSuggestLoading);
+
     const searchParams = useSearchParams();
     const [bootstrappedFromURL, setBootstrappedFromURL] = useState(false);
 
@@ -503,9 +564,15 @@ export default function SearchPageClient() {
         let incomingTab: TabKey = "Top";
 
         if (tagParam) {
-            // from /search?tag=maize
+            // from /search?tag=maize&tab=Deeds (or Tags, etc.)
             incomingQuery = `#${tagParam}`;
-            incomingTab = "Tags";
+
+            if (tabParam && TABS.includes(tabParam)) {
+                incomingTab = tabParam;
+            } else {
+                // default view for a tag – you can change to "Tags" if you prefer
+                incomingTab = "Deeds";
+            }
         } else if (qParam) {
             incomingQuery = qParam.trim();
 
@@ -537,15 +604,24 @@ export default function SearchPageClient() {
 
     // 🔹 Deed route: /[handle]/deed/[deedid]
     const handleDeedClick = (d: Deed) => {
-        const handle = d.authorHandle || d.authorId || "deed";
+        const handle = d.authorUsername || d.authorId || "deed";
         router.push(`/${encodeURIComponent(handle)}/deed/${d.id}`);
     };
 
     const handleEventClick = (id: string) => router.push(`/events/${id}`);
     const handleDiscussionClick = (id: string) => router.push(`/discussions/${id}`);
     const handleAccountClick = (handle: string) => router.push(`/${handle}`);
-    const handleTagClick = (tag: string) =>
-        router.push(`/tags/${encodeURIComponent(tag)}`);
+    const handleTagClick = (tag: string) => {
+        const label = `#${tag}`;
+
+        setQ(label);
+        setActive("Deeds");
+        setPage(0);
+
+        startSearch(label, "Deeds", true);
+
+        router.push(`/search?tag=${encodeURIComponent(tag)}&tab=Deeds`);
+    };
 
     const renderTopItem = (item: TopItem, idx: number) => {
         switch (item.type) {
@@ -558,7 +634,7 @@ export default function SearchPageClient() {
                         className="flex w-full items-center gap-3 rounded-xl py-3 text-left hover:bg-gray-50"
                     >
                         <img
-                            src={d.thumbUrl || PLACEHOLDER_DEED_THUMB}
+                            src={d.mediaThumbUrl || PLACEHOLDER_DEED_THUMB}
                             alt={d.caption || "deed"}
                             className="h-[62px] w-[110px] rounded-lg bg-gray-100 object-cover"
                         />
@@ -567,8 +643,8 @@ export default function SearchPageClient() {
                                 {d.caption || ""}
                             </p>
                             <p className="mt-1 text-xs text-gray-500">
-                                by {d.authorName || "EkariHub user"} ·{" "}
-                                {(d.likes ?? 0).toLocaleString()} likes
+                                by {d.authorUsername || "ekarihub user"} ·{" "}
+                                {(d.stats?.likes ?? 0).toLocaleString()} likes
                             </p>
                         </div>
                     </button>
@@ -651,7 +727,7 @@ export default function SearchPageClient() {
                         />
                         <div className="flex-1">
                             <p className="text-sm font-semibold text-gray-900">
-                                {a.firstName}{" "}{a.surname}
+                                {a.firstName} {a.surname}
                             </p>
                             <p className="mt-0.5 text-xs text-gray-500">{handleLabel}</p>
                         </div>
@@ -800,14 +876,15 @@ export default function SearchPageClient() {
                                                     >
                                                         <img
                                                             src={
-                                                                a.photoURL || PLACEHOLDER_AVATAR
+                                                                a.photoURL ||
+                                                                PLACEHOLDER_AVATAR
                                                             }
                                                             alt={a.firstName}
                                                             className="h-8 w-8 rounded-full bg-gray-100 object-cover"
                                                         />
                                                         <div className="flex-1">
                                                             <p className="text-xs font-semibold text-gray-900">
-                                                                {a.firstName}{" "}{a.surname}
+                                                                {a.firstName} {a.surname}
                                                             </p>
                                                             <p className="text-[11px] text-gray-500">
                                                                 {handleLabel}
@@ -919,9 +996,9 @@ export default function SearchPageClient() {
                                     className="mt-1 text-[11px]"
                                     style={{ color: "rgba(35,63,57,0.85)" }}
                                 >
-                                    Find deeds, events, discussions, people, and tags across the
-                                    agribusiness community. Try “maize”, “soil health”, “avocado
-                                    export”, <strong>@handle</strong> or{" "}
+                                    Find deeds, events, discussions, people, and tags across
+                                    the agribusiness community. Try “maize”, “soil health”,
+                                    “avocado export”, <strong>@handle</strong> or{" "}
                                     <strong>#farmer</strong>.
                                 </p>
                             </div>
@@ -998,6 +1075,24 @@ export default function SearchPageClient() {
                         </div>
                     ) : (
                         <div className="space-y-3">
+                            {/* Tag hub header (for Deeds + #tag) */}
+                            {isTagFeed && (
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <div>
+                                        <span>Deeds tagged with </span>
+                                        <span className="font-semibold text-gray-800">
+                                            {q.trim()}
+                                        </span>
+                                    </div>
+                                    {currentCount > 0 && (
+                                        <span>
+                                            {currentCount.toLocaleString()} deed
+                                            {currentCount > 1 ? "s" : ""} so far
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Results header */}
                             {lastQuery && (
                                 <div className="flex items-center justify-between text-xs text-gray-500">
@@ -1021,8 +1116,8 @@ export default function SearchPageClient() {
                             <div className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white">
                                 {(!listData || listData.length === 0) && !loading && (
                                     <div className="px-4 py-10 text-center text-sm text-gray-500">
-                                        No results found. Try a different keyword or broaden your
-                                        search.
+                                        No results found. Try a different keyword or broaden
+                                        your search.
                                     </div>
                                 )}
 
@@ -1046,7 +1141,7 @@ export default function SearchPageClient() {
                                             className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                                         >
                                             <img
-                                                src={d.thumbUrl || PLACEHOLDER_DEED_THUMB}
+                                                src={d.mediaThumbUrl || PLACEHOLDER_DEED_THUMB}
                                                 alt={d.caption || "deed"}
                                                 className="h-[62px] w-[110px] rounded-lg bg-gray-100 object-cover"
                                             />
@@ -1055,9 +1150,9 @@ export default function SearchPageClient() {
                                                     {d.caption || ""}
                                                 </p>
                                                 <p className="mt-1 text-xs text-gray-500">
-                                                    by {d.authorName || "EkariHub user"} ·{" "}
-                                                    {(d.likes ?? 0).toLocaleString()} likes ·{" "}
-                                                    {(d.plays ?? 0).toLocaleString()} plays
+                                                    by {d.authorUsername || "ekarihub user"} ·{" "}
+                                                    {(d.stats?.likes ?? 0).toLocaleString()} likes ·{" "}
+                                                    {(d.stats?.views ?? 0).toLocaleString()} views
                                                 </p>
                                             </div>
                                         </button>
@@ -1142,15 +1237,13 @@ export default function SearchPageClient() {
                                                 className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                                             >
                                                 <img
-                                                    src={
-                                                        a.photoURL || PLACEHOLDER_AVATAR
-                                                    }
+                                                    src={a.photoURL || PLACEHOLDER_AVATAR}
                                                     alt={a.firstName}
                                                     className="h-11 w-11 rounded-full bg-gray-100 object-cover"
                                                 />
                                                 <div className="flex-1">
                                                     <p className="text-sm font-semibold text-gray-900">
-                                                        {a.firstName}{" "} {a.surname}
+                                                        {a.firstName} {a.surname}
                                                     </p>
                                                     <p className="mt-0.5 text-xs text-gray-500">
                                                         {handleLabel} ·{" "}

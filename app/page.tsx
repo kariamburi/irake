@@ -1158,7 +1158,7 @@ function VideoCard({
             >
               {/* Caption with inline toggle at end of last line */}
               {hasCaption && (
-                <div className="relative pb-4">
+                <div className="relative pb-1">
                   <motion.p
                     layout
                     className={cn(
