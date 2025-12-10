@@ -18,8 +18,6 @@ import {
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
-
-//import { createMuxDirectUpload, uploadVideoToMux } from "@/utils/muxUpload";
 import HashtagPicker from "@/app/components/HashtagPicker";
 import { buildEkariTrending } from "@/utils/ekariTags";
 import { useTrendingTags } from "@/app/hooks/useTrendingTags";
@@ -31,6 +29,7 @@ import dynamic from 'next/dynamic';
 import { PickedSound } from "@/app/components/SoundSheetWeb";
 import { createPortal } from "react-dom";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
+import { useInitEkariTags } from "@/app/hooks/useInitEkariTags";
 // Replace your static imports:
 const SoundSheetWeb = dynamic(() => import('@/app/components/SoundSheetWeb'), { ssr: false });
 const PreviewMixerCard = dynamic(() => import('@/app/components/PreviewMixerCard'), { ssr: false });
@@ -157,6 +156,7 @@ async function upsertHashtagsForTags(tags: string[]) {
 
 /* ---------- page ---------- */
 export default function UploadPage() {
+  useInitEkariTags();  // <-- add this
   const router = useRouter();
   const search = useSearchParams();
   const editDeedId = search.get("editDeedId");
@@ -191,10 +191,10 @@ export default function UploadPage() {
       county: userCounty,
       profile: { country: userCountry, roles: userRoles, areaOfInterest: userInterests },
       crops: userInterests,
-      limit: 48,
+      limit: 800,
     });
-    const merged = [...(liveTrending || []).slice(0, 48), ...base];
-    return Array.from(new Set(merged)).slice(0, 48);
+    const merged = [...(liveTrending || []), ...base];
+    return Array.from(new Set(merged));
   }, [liveTrending, userCountry, userCounty, userRoles, userInterests]);
 
   /* ---------- steps ---------- */

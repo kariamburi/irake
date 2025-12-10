@@ -7,7 +7,9 @@ import React, {
 import {
   collection, query, orderBy, limit, onSnapshot, startAfter,
   getDocs, where, DocumentData, QueryDocumentSnapshot, doc, setDoc, serverTimestamp,
-  getDoc
+  getDoc,
+  increment,
+  writeBatch
 } from "firebase/firestore";
 import { ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -26,7 +28,9 @@ import { useAuth } from "@/app/hooks/useAuth";
 
 // Hashtag picker + suggestions
 import HashtagPicker from "@/app/components/HashtagPicker";
-import { useHashtagSuggestions } from "../studio/upload/useHashtagSuggestions";
+import { useInitEkariTags } from "@/app/hooks/useInitEkariTags";
+import { useTrendingTags } from "@/app/hooks/useTrendingTags";
+import { buildEkariTrending } from "@/utils/ekariTags";
 
 /* ---------- Theme ---------- */
 const EKARI = {
@@ -74,6 +78,108 @@ const EVENT_FILTERS: Array<EventCategory | "All"> = ["All", "Workshop", "Trainin
 const DISC_FILTERS: Array<DiscCategory | "All"> = [
   "All", "General", "Seeds", "Soil", "Equipment", "Market", "Regulations", "Other",
 ];
+/* ---------- Hashtag helpers (shared with Upload page style) ---------- */
+
+const asArray = (v: unknown): string[] => {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.map(String).map((s) => s.trim()).filter(Boolean);
+  if (typeof v === "string") {
+    return v
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+// Upsert hashtag docs whenever content uses tags
+async function upsertHashtagsForTags(tags: string[]) {
+  if (!tags || !tags.length) return;
+
+  // Normalize: strip leading #, trim, lower-case
+  const unique = Array.from(
+    new Set(
+      tags
+        .map((t) => String(t).trim().replace(/^#+/, "")) // remove leading #
+        .filter(Boolean)
+        .map((t) => t.toLowerCase())
+    )
+  );
+
+  if (!unique.length) return;
+
+  const batch = writeBatch(db);
+
+  for (const normalized of unique) {
+    const tagLabel = normalized; // you can prettify later if you want
+
+    const hashtagRef = doc(db, "hashtags", normalized);
+    batch.set(
+      hashtagRef,
+      {
+        tag: tagLabel,              // shown in UI
+        tagLower: normalized,       // for search
+        uses: increment(1),         // bump usage count
+        lastUsedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  await batch.commit();
+}
+/* ---------- Hashtag suggestions hook (same logic spirit as Upload page) ---------- */
+
+function useHashtagSuggestions(uid: string | null) {
+  const [profile, setProfile] = useState<any | null>(null);
+
+  // Load user profile (for country, roles, interests)
+  useEffect(() => {
+    if (!uid) {
+      setProfile(null);
+      return;
+    }
+
+    (async () => {
+      try {
+        const uRef = doc(db, "users", uid);
+        const snap = await getDoc(uRef);
+        setProfile(snap.exists() ? (snap.data() as any) : null);
+      } catch {
+        setProfile(null);
+      }
+    })();
+  }, [uid]);
+
+  const userRoles = asArray(profile?.roles);
+  const userInterests = asArray(profile?.areaOfInterest);
+  const userCountry = profile?.country || "kenya";
+  const userCounty = profile?.county || undefined;
+
+  const { list: liveTrending, meta, loading } = useTrendingTags();
+
+  const trending = useMemo(() => {
+    const base = buildEkariTrending({
+      country: userCountry,
+      county: userCounty,
+      profile: {
+        country: userCountry,
+        roles: userRoles,
+        areaOfInterest: userInterests,
+      },
+      crops: userInterests,
+      limit: 800,
+    });
+    const merged = [...(liveTrending || []), ...base];
+    return Array.from(new Set(merged));
+  }, [liveTrending, userCountry, userCounty, userRoles, userInterests]);
+
+  return {
+    loading,
+    trending,
+    trendingMeta: meta,
+  };
+}
 
 /* ============================== */
 /* BottomSheet Primitive          */
@@ -387,7 +493,8 @@ function EventForm({
   const { user } = useAuth();
   const uid = user?.uid || null;
 
-  const { loading, trending } = useHashtagSuggestions(uid);
+  const { loading, trending, trendingMeta } = useHashtagSuggestions(uid);
+
 
   type Step = 0 | 1 | 2; // 0=Basics, 1=Tags, 2=Details
   const [step, setStep] = useState<Step>(0);
@@ -527,7 +634,10 @@ function EventForm({
         description: description.trim() || null,
         visibility: "public",
       });
-
+      // 👇 record hashtag usage, same style as Upload page
+      if (mergedTags.length) {
+        await upsertHashtagsForTags(mergedTags);
+      }
       setSaving(false);
       onDone();
     } catch (e: any) {
@@ -757,6 +867,7 @@ function EventForm({
               onChange={setEventTags}
               ekari={EKARI}
               trending={trending}
+              trendingMeta={trendingMeta}
               max={10}
               showCounter
               placeholder={
@@ -765,6 +876,8 @@ function EventForm({
                   : "Type # to add… e.g. #maize #irrigation"
               }
             />
+
+
           </div>
           <p className="text-xs" style={{ color: EKARI.dim }}>
             Tip: you can also type <span className="font-bold">#tags</span> in
@@ -885,7 +998,8 @@ function DiscussionForm({ onDone, provideFooter }: { onDone: () => void; provide
   const [body, setBody] = useState("");
   const [category, setCategory] = useState<DiscCategory>("General");
 
-  const { loading, trending } = useHashtagSuggestions(uid);
+  const { loading, trending, trendingMeta } = useHashtagSuggestions(uid);
+
 
   const [tags, setTags] = useState<string[]>([]);
   type Step = 0 | 1; // 0=Basics, 1=Tags
@@ -923,6 +1037,10 @@ function DiscussionForm({ onDone, provideFooter }: { onDone: () => void; provide
         tags: mergedTags,
         published: true,
       });
+      // 👇 record hashtag usage, same style as Upload page
+      if (mergedTags.length) {
+        await upsertHashtagsForTags(mergedTags);
+      }
       setSaving(false);
       onDone();
     } catch (e: any) {
@@ -1061,10 +1179,16 @@ function DiscussionForm({ onDone, provideFooter }: { onDone: () => void; provide
               onChange={setTags}
               ekari={EKARI}
               trending={trending}
+              trendingMeta={trendingMeta}
               max={10}
               showCounter
-              placeholder={loading ? "Loading suggestions…" : "Type # to add… e.g. #market #seedlings"}
+              placeholder={
+                loading
+                  ? "Loading suggestions…"
+                  : "Type # to add… e.g. #market #seedlings"
+              }
             />
+
           </div>
           <p className="text-xs" style={{ color: EKARI.dim }}>
             Add at least one tag so others can find your topic.
@@ -1079,6 +1203,7 @@ function DiscussionForm({ onDone, provideFooter }: { onDone: () => void; provide
 /* Main Page (with BottomSheet)   */
 /* ============================== */
 export default function DivePage() {
+  useInitEkariTags();
   const [active, setActive] = useState<DiveTab>("events");
   const [queryInput, setQueryInput] = useState("");
   const [q, setQ] = useState("");

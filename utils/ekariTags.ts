@@ -3,9 +3,12 @@ import {
   Firestore,
   collection,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
 } from "firebase/firestore";
+
+/* ----------------- TYPES ----------------- */
 
 export type Stakeholder =
   | "primaryProducer"
@@ -23,21 +26,22 @@ export type EkariProfile = {
   areaOfInterest?: string[];
   accountType?: string;
   country?: string;
-  county?: string; // finer locale
+  county?: string;
 };
 
 export type BuildTrendingInput = {
   country?: string;
   county?: string;
-  stakeholders?: Stakeholder[];
+  stakeholders?: Stakeholder[]; // kept for future use
   emphasizeActions?: string[];
   profile?: EkariProfile;
   extra?: string[];
-  crops?: string[]; // bias to crop-specific pests/diseases
+  crops?: string[];
   limit?: number;
 };
 
-/* ----------------- SHARED NORMALIZER + ALIASES ----------------- */
+/* ----------------- NORMALISATION HELPERS ----------------- */
+
 export const normalizeTag = (s: string) =>
   s
     .trim()
@@ -66,438 +70,235 @@ const canonical = (raw: string) => {
 
 const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
 
-/* ----------------- STATIC CATALOGS (FALLBACK) ----------------- */
-const PLANT_PESTS = [
-  "fallarmyworm", // maize
-  "tutaabsoluta", // tomato leafminer
-  "fruitflies",
-  "stemborer",
-  "aphids",
-  "locusts",
-  "leafminer",
-];
+/* ----------------- FIRESTORE DOC SHAPES ----------------- */
 
-const PLANT_DISEASES = [
-  "maizelethalnecrosis",
-  "lateblight",
-  "bacterialwilt",
-  "anthracnose",
-  "coffeerust",
-  "powderymildew",
-];
-
-const ANIMAL_DISEASES = [
-  "footandmouth",
-  "newcastle",
-  "brucellosis",
-  "mastitis",
-  "eastcoastfever",
-  "anthrax",
-];
-
-const TOXINS_CONTAMINATION = ["aflatoxin", "residues", "mycotoxins"];
-
-/* link crops → likely pests/diseases (short illustrative map) */
-const CROP_LINKS: Record<string, string[]> = {
-  maize: ["fallarmyworm", "stemborer", "maizelethalnecrosis", "aflatoxin"],
-  tomato: ["tutaabsoluta", "lateblight", "bacterialwilt"],
-  potato: ["lateblight", "bacterialwilt"],
-  coffee: ["coffeerust"],
-  dairy: ["mastitis"],
-};
-
-/** Global base tags (fallback) */
-const GLOBAL_BASE_FALLBACK = [
-  "agribusiness",
-  "agriculture",
-  "supplychain",
-  "market",
-  "marketlinkage",
-  "valuechain",
-  "price",
-  "pests",
-  "diseases",
-];
-
-/* ----------------- FIRESTORE-DRIVEN RUNTIME TAGS ----------------- */
-
-/**
- * Flattened list of all interests (union of items in interest_groups)
- * and roles (union of items in role_groups), coming from Firestore.
- */
-let ALL_INTERESTS_RUNTIME: string[] = [];
-let ALL_ROLES_RUNTIME: string[] = [];
-
-/**
- * Firestore schema we expect:
- * collection("interest_groups") docs:
- *   { title: string, items: string[], order: number }
- * collection("role_groups") docs:
- *   { title: string, items: string[], order: number }
- */
 type GroupDoc = {
   title?: string;
   items?: string[];
   order?: number;
+  active?: boolean;
+};
+
+/* ----------------- RUNTIME TAG CACHE ----------------- */
+
+type RuntimeTag = {
+  value: string;      // normalized, e.g. "maize"
+  label: string;      // pretty label, e.g. "Maize"
+  baseWeight: number; // importance from group + type
 };
 
 /**
- * Call this once (e.g. app start, API route init) to sync
- * trending tags with Firestore interest_groups + role_groups.
- *
- * Safe to call multiple times; latest successful call wins.
+ * We keep ALL tags (from interests, roles, crops, etc.) here.
+ * Key = normalized value (e.g. "maize")
+ */
+let RUNTIME_TAGS: Record<string, RuntimeTag> = {};
+
+// latest docs per group type – so we can rebuild when any snapshot changes
+let INTEREST_DOCS: GroupDoc[] = [];
+let ROLE_DOCS: GroupDoc[] = [];
+let CROP_DOCS: GroupDoc[] = [];
+
+let SYNC_STARTED = false;
+
+/* ----------------- SMALL FALLBACK IF FIRESTORE FAILS ----------------- */
+
+const FALLBACK_TAGS = [
+  "agribusiness",
+  "agriculture",
+  "market",
+  "maize",
+  "tomato",
+  "dairy",
+  "poultry",
+];
+
+/* ----------------- INTERNAL: REBUILD CACHE ----------------- */
+
+function rebuildRuntimeTags() {
+  const next: Record<string, RuntimeTag> = {};
+
+  const ingest = (
+    kind: "interest" | "role" | "crop",
+    docs: GroupDoc[]
+  ) => {
+    docs.forEach((data, index) => {
+      if (data.active === false) return;
+
+      const items = data.items ?? [];
+      const groupOrder = data.order ?? index;
+
+      // basic boosts:
+      //  - crops a bit stronger (they’re very visible)
+      //  - roles slightly stronger than generic interests
+      const kindBoost = kind === "crop" ? 3 : kind === "role" ? 2 : 1;
+
+      // lower "order" → more important
+      const orderWeight = Math.max(1, 50 - groupOrder); // 50,49,48,...
+
+      const baseWeight = kindBoost + orderWeight / 10; // e.g. 3 + 4.9
+
+      items.forEach((rawLabel) => {
+        const label = (rawLabel ?? "").trim();
+        if (!label) return;
+        const value = canonical(label);
+        if (!value) return;
+
+        const existing = next[value];
+        if (!existing || baseWeight > existing.baseWeight) {
+          next[value] = {
+            value,
+            label,
+            baseWeight,
+          };
+        }
+      });
+    });
+  };
+
+  ingest("interest", INTEREST_DOCS);
+  ingest("role", ROLE_DOCS);
+  ingest("crop", CROP_DOCS);
+
+  RUNTIME_TAGS = next;
+}
+
+/* ----------------- PUBLIC: ONE-SHOT INIT + LIVE SYNC ----------------- */
+
+/**
+ * One-shot load (e.g. on app start).
+ * Also starts live sync on the browser using `onSnapshot`.
  */
 export async function initEkariTagsFromFirestore(db: Firestore) {
   try {
-    const igSnap = await getDocs(
-      query(collection(db, "interest_groups"), orderBy("order", "asc"))
-    );
-    const rgSnap = await getDocs(
-      query(collection(db, "role_groups"), orderBy("order", "asc"))
-    );
+    const [igSnap, rgSnap] = await Promise.all([
+      getDocs(
+        query(collection(db, "interest_groups"), orderBy("order", "asc"))
+      ),
+      getDocs(query(collection(db, "role_groups"), orderBy("order", "asc"))),
 
-    const interests: string[] = [];
-    igSnap.forEach((docSnap) => {
-      const data = docSnap.data() as GroupDoc;
-      if (Array.isArray(data.items)) {
-        interests.push(...data.items);
-      }
-    });
+    ]);
 
-    const roles: string[] = [];
-    rgSnap.forEach((docSnap) => {
-      const data = docSnap.data() as GroupDoc;
-      if (Array.isArray(data.items)) {
-        roles.push(...data.items);
-      }
-    });
+    INTEREST_DOCS = igSnap.docs.map((d) => d.data() as GroupDoc);
+    ROLE_DOCS = rgSnap.docs.map((d) => d.data() as GroupDoc);
 
-    ALL_INTERESTS_RUNTIME = uniq(
-      interests
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => canonical(s))
-    );
 
-    ALL_ROLES_RUNTIME = uniq(
-      roles
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => canonical(s))
-    );
+    rebuildRuntimeTags();
+
+    // start live syncing on the client
+    if (typeof window !== "undefined" && !SYNC_STARTED) {
+      startEkariTagSync(db);
+    }
   } catch (err) {
-    // If Firestore fails, we just keep runtime arrays empty
-    // and rely purely on the static taxonomy + profile.
     console.error("initEkariTagsFromFirestore failed:", err);
-    ALL_INTERESTS_RUNTIME = [];
-    ALL_ROLES_RUNTIME = [];
+    // keep whatever cache we had; buildTrending will fallback if empty
   }
 }
 
-/* ----------------- TAXONOMY (STATIC, BUT USES CATALOGS ABOVE) ----------------- */
+/**
+ * Start *live* syncing tags from Firestore.
+ * Safe to call multiple times; later calls are no-ops.
+ * Returns an unsubscribe function if you want to stop it.
+ */
+export function startEkariTagSync(db: Firestore) {
+  if (SYNC_STARTED) return () => { };
+  if (typeof window === "undefined") return () => { };
+  SYNC_STARTED = true;
 
-const TAXONOMY: Record<
-  Stakeholder,
-  {
-    tags: string[];
-    actions: Record<string, string[]>;
-  }
-> = {
-  primaryProducer: {
-    tags: [
-      "farmer",
-      "beekeeper",
-      "horticulture",
-      "livestock",
-      "aquaculture",
-      "forestry",
-      "onfarm",
-      "smallholder",
-    ],
-    actions: {
-      sellProduce: [
-        "grains",
-        "fruits",
-        "vegetables",
-        "dairy",
-        "meat",
-        "honey",
-        "timber",
-        "fish",
-        "flowers",
-        "marketlinkage",
-      ],
-      buyInputs: ["seeds", "fertilizers", "agrochemicals", "feeds", "tools"],
-      leaseEquipment: ["tractors", "irrigationpumps", "processingmachines"],
-      hireServices: ["vets", "agronomist", "soiltesting", "logistics"],
-      training: ["extension", "farmertraining", "goodagpractices"],
-      finance: ["loans", "insurance", "microfinance"],
-      irrigation: ["irrigation", "watermanagement"],
-      climate: ["climatesmart", "resilience"],
-    },
-  },
+  const qInterests = query(
+    collection(db, "interest_groups"),
+    orderBy("order", "asc")
+  );
+  const qRoles = query(
+    collection(db, "role_groups"),
+    orderBy("order", "asc")
+  );
 
-  inputProvider: {
-    tags: [
-      "inputsupplier",
-      "equipment",
-      "machinery",
-      "greenhouses",
-      "irrigationkits",
-      "demonstrations",
-    ],
-    actions: {
-      sellInputs: [
-        "seeds",
-        "feeds",
-        "fertilizers",
-        "chemicals",
-        "irrigationkits",
-        "tools",
-        "greenhouses",
-      ],
-      leaseEquipment: [
-        "machineryleasing",
-        "tractorhire",
-        "postharvestequipment",
-      ],
-      afterSales: ["aftersales", "training", "demos", "fielddays"],
-      bulkSupply: ["bulk", "cooperatives", "traders"],
-    },
-  },
 
-  animalPlantHealth: {
-    tags: [
-      "animalhealth",
-      "planthealth",
-      "vet",
-      "paravet",
-      "breeding",
-      "agronomist",
-      "biosecurity",
-    ],
-    actions: {
-      services: [
-        "vetservices",
-        "herdhealth",
-        "flockhealth",
-        "parasitemanagement",
-      ],
-      supplies: ["vaccines", "supplements", "drugs"],
-      breeding: ["ai", "breedingservices"],
-      partnerships: ["livestockkeepers", "outreach"],
-      pests: PLANT_PESTS,
-      plantDiseases: PLANT_DISEASES,
-      animalDiseases: ANIMAL_DISEASES,
-      contamination: TOXINS_CONTAMINATION,
-    },
-  },
+  const unsubInterests = onSnapshot(qInterests, (snap) => {
+    INTEREST_DOCS = snap.docs.map((d) => d.data() as GroupDoc);
+    rebuildRuntimeTags();
+  });
 
-  processorValueAdder: {
-    tags: [
-      "valueaddition",
-      "processor",
-      "packaging",
-      "coldstorage",
-      "qualitycontrol",
-    ],
-    actions: {
-      sourceRaw: ["sourcing", "fromfarmers", "aggregation"],
-      sellProcessed: [
-        "flour",
-        "dairyproducts",
-        "juice",
-        "honeyproducts",
-        "edibleoils",
-        "meatprocessing",
-      ],
-      infra: ["packaging", "coldchain", "coldrooms"],
-      export: ["export", "compliance", "certification"],
-    },
-  },
+  const unsubRoles = onSnapshot(qRoles, (snap) => {
+    ROLE_DOCS = snap.docs.map((d) => d.data() as GroupDoc);
+    rebuildRuntimeTags();
+  });
 
-  traderDistributor: {
-    tags: [
-      "trader",
-      "distributor",
-      "exporter",
-      "aggregator",
-      "cooperative",
-      "retailer",
-      "onlinedistributor",
-      "logistics",
-    ],
-    actions: {
-      bulkSourcing: ["bulk", "contracts", "procurement"],
-      aggregation: ["aggregation", "coopopportunities"],
-      logistics: ["transport", "coldchainbooking"],
-      export: ["exportlinkages", "tradefinance"],
-    },
-  },
-
-  financeBiz: {
-    tags: [
-      "agfinance",
-      "sacco",
-      "microfinance",
-      "leasing",
-      "insurance",
-      "consulting",
-    ],
-    actions: {
-      credit: ["agriloans", "credit", "workingcapital"],
-      risk: ["cropinsurance", "livestockinsurance", "indexinsurance"],
-      segments: ["cooperatives", "farmergroups", "sme"],
-      advisory: ["businessadvisory", "consultancy"],
-    },
-  },
-
-  knowledgeResearch: {
-    tags: [
-      "research",
-      "training",
-      "ict",
-      "agritech",
-      "knowledgehub",
-      "extension",
-    ],
-    actions: {
-      programs: ["courses", "trainings", "capacitybuilding"],
-      tools: ["farmapps", "digitaladvisory"],
-      collaboration: ["collaboration", "pilots", "fieldtests"],
-      outreach: ["demonstrations", "farmerfieldschool"],
-    },
-  },
-
-  governanceStandards: {
-    tags: [
-      "government",
-      "regulator",
-      "standards",
-      "certifier",
-      "ngo",
-      "devpartner",
-      "traceability",
-    ],
-    actions: {
-      licensing: ["licensing", "permits"],
-      certification: [
-        "certification",
-        "qualityassurance",
-        "haccp",
-        "organic",
-      ],
-      training: ["compliance", "foodsafety"],
-      programs: ["grants", "projectsupport"],
-    },
-  },
-
-  consumerBuyer: {
-    tags: [
-      "consumer",
-      "buyer",
-      "institutionalbuyer",
-      "exportmarket",
-      "organic",
-      "freshproduce",
-      "processed",
-    ],
-    actions: {
-      fresh: [
-        "fruits",
-        "vegetables",
-        "cereals",
-        "dairy",
-        "meat",
-        "honey",
-        "fish",
-        "flowers",
-      ],
-      processed: [
-        "flour",
-        "juices",
-        "oils",
-        "meatproducts",
-        "dairyproducts",
-      ],
-      bulk: ["bulkpurchase", "schools", "hotels", "hospitals", "supermarkets"],
-      preferences: ["certified", "organic", "traceable"],
-      export: ["exportbuyer"],
-    },
-  },
-};
-
-/* ----------------- HELPERS THAT USE CATALOGS ----------------- */
-
-function cropLinked(crops?: string[]) {
-  if (!crops?.length) return [] as string[];
-  const out: string[] = [];
-  for (const c of crops) {
-    const key = canonical(c);
-    if (CROP_LINKS[key]) out.push(...CROP_LINKS[key]);
-  }
-  return out;
+  return () => {
+    unsubInterests();
+    unsubRoles();
+    SYNC_STARTED = false;
+  };
 }
 
-/* ----------------- builder ----------------- */
-export function buildEkariTrending(input: BuildTrendingInput = {}): string[] {
+/* ----------------- LABEL HELPER (for HashtagPicker UI) ----------------- */
+
+export function getEkariTagLabel(tag: string): string {
+  const value = canonical(tag);
+  const runtime = RUNTIME_TAGS[value];
+
+  if (runtime) return runtime.label;
+
+  // fallback: make it look a bit nicer
+  const cleaned = tag
+    .replace(/[_-]/g, " ")
+    .trim();
+
+  if (!cleaned) return tag;
+
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+/* ----------------- TRENDING BUILDER ----------------- */
+
+export function buildEkariTrending(
+  input: BuildTrendingInput = {}
+): string[] {
   const {
-    country,
-    county,
-    stakeholders,
-    emphasizeActions = [],
     profile,
-    extra = [],
     crops = [],
-    limit = 48,
+    extra = [],
+    limit = 800,
   } = input;
 
-  // Start with global base + Firestore-driven global interests and roles
-  let out: string[] = [
-    ...GLOBAL_BASE_FALLBACK,
-    ...ALL_INTERESTS_RUNTIME,
-    ...ALL_ROLES_RUNTIME,
-    // region tags could be re-enabled later if needed
-    ...extra,
-    ...cropLinked(crops),
-    ...cropLinked(profile?.areaOfInterest),
-  ];
+  const scores: Record<string, number> = {};
 
-  const chosen: Stakeholder[] =
-    stakeholders && stakeholders.length
-      ? stakeholders
-      : (Object.keys(TAXONOMY) as Stakeholder[]);
+  const bump = (raw: string, amount: number) => {
+    const value = canonical(raw);
+    if (!value) return;
+    const base = RUNTIME_TAGS[value]?.baseWeight ?? 1;
+    scores[value] = (scores[value] ?? 0) + amount * base;
+  };
 
-  for (const key of chosen) {
-    const node = TAXONOMY[key];
-    out.push(...node.tags);
-    for (const k of Object.keys(node.actions)) {
-      out.push(...node.actions[k]);
-    }
-    for (const k of emphasizeActions) {
-      if (node.actions[k]) {
-        out.push(...node.actions[k], ...node.actions[k]); // double weight
-      }
-    }
+  // 1) Baseline: all known tags at their base weight
+  Object.values(RUNTIME_TAGS).forEach((rt) => {
+    scores[rt.value] = (scores[rt.value] ?? 0) + rt.baseWeight;
+  });
+
+  // 2) Profile interest + roles → ×2
+  (profile?.areaOfInterest ?? []).forEach((t) => bump(t, 2));
+  (profile?.roles ?? []).forEach((t) => bump(t, 2));
+
+  // 3) Explicit crops passed in → ×2
+  crops.forEach((c) => bump(c, 2));
+
+  // 4) Extras → ×3 (developer-forced boosts)
+  extra.forEach((e) => bump(e, 3));
+
+  // 5) Guard: if everything failed, use small fallback list
+  if (!Object.keys(scores).length) {
+    FALLBACK_TAGS.forEach((t) => bump(t, 1));
   }
 
-  if (profile?.roles?.length) out.push(...profile.roles);
-  if (profile?.areaOfInterest?.length) out.push(...profile.areaOfInterest);
-
-  const counts: Record<string, number> = {};
-  for (const raw of out) {
-    const t = canonical(raw);
-    if (!t) continue;
-    counts[t] = (counts[t] || 0) + 1;
-  }
-
-  const ranked = Object.keys(counts)
-    .sort((a, b) => counts[b] - counts[a])
+  return Object.keys(scores)
+    .sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0))
     .slice(0, limit);
+}
 
-  const boosters = ["agribusiness", "market", "kenya", "export", "organic"];
-  return uniq([
-    ...boosters.filter((b) => ranked.includes(b)),
-    ...ranked,
-  ]);
+/** Optional: get everything as `{ value, label }[]` if you ever need it */
+export function getAllRuntimeTags(): { value: string; label: string }[] {
+  return Object.values(RUNTIME_TAGS).map(({ value, label }) => ({
+    value,
+    label,
+  }));
 }

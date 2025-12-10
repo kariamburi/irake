@@ -1021,7 +1021,7 @@ function Header({
                         "inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs md:text-sm font-semibold transition",
                         followState.isFollowing
                           ? "border border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
-                          : "bg-emerald-700 text-white shadow-sm hover:shadow-md"
+                          : "bg-[#C79257] text-white shadow-sm hover:shadow-md"
                       )}
                     >
                       {followState.isFollowing ? "Following" : "Follow"}

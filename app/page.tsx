@@ -1152,17 +1152,17 @@ function VideoCard({
           {/* Caption + hashtags (TikTok-style) */}
           {(hasCaption || hasTags) && (
             <motion.div
-              className="mt-1"
+              className="mt-1 w-full"
               layout
               transition={{ type: "spring", stiffness: 260, damping: 26 }}
             >
               {/* Caption with inline toggle at end of last line */}
               {hasCaption && (
-                <div className="relative pb-1">
+                <div className="relative pb-1 w-full">
                   <motion.p
                     layout
                     className={cn(
-                      "text-white/95 text-sm leading-5 cursor-pointer pr-12",
+                      "text-white/95 w-full text-sm leading-5 cursor-pointer",
                       captionExpanded ? "" : "line-clamp-2"
                     )}
                     onClick={() => setCaptionExpanded((v) => !v)}
@@ -1178,7 +1178,7 @@ function VideoCard({
               {hasTags && (
                 <motion.div
                   layout
-                  className="mt-1 flex flex-wrap items-center gap-1.5"
+                  className="mt-1 w-full flex flex-wrap items-center gap-1.5"
                 >
                   {visibleTags.map((tag: any) => (
                     <button
