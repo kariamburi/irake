@@ -677,7 +677,10 @@ function Header({
   const followers = profile?.followersCount ?? 0;
   const following = profile?.followingCount ?? 0;
   const router = useRouter();
-
+  // ⭐ NEW: avatar zoom modal state
+  const [avatarZoomOpen, setAvatarZoomOpen] = React.useState(false);
+  const [avatarZoomLoading, setAvatarZoomLoading] = React.useState(false);
+  const [avatarZoomed, setAvatarZoomed] = React.useState(false);
   const handleSlug = React.useMemo(
     () => (profile.handle || "").replace(/^@/, ""),
     [profile.handle]
@@ -783,13 +786,79 @@ function Header({
     router.push(`/messages/${encodeURIComponent(threadId)}?${qs.toString()}`);
   };
 
-  return (
+  return (<>
+    {/* ⭐ Avatar zoom overlay */}
+    {avatarZoomOpen && (
+      <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80">
+        {/* Clickable backdrop */}
+        <button
+          type="button"
+          className="absolute inset-0 cursor-zoom-out"
+          onClick={() => setAvatarZoomOpen(false)}
+          aria-label="Close avatar preview"
+        />
+
+        <div className="relative max-w-3xl w-full px-4">
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={() => setAvatarZoomOpen(false)}
+            className="absolute -top-10 right-2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+            aria-label="Close"
+          >
+            <IoClose size={20} />
+          </button>
+
+          {/* Spinner while loading */}
+          {avatarZoomLoading && (
+            <div className="absolute inset-0 grid place-items-center pointer-events-none">
+              <div
+                className="h-10 w-10 rounded-full border-2 animate-spin"
+                style={{
+                  borderColor: "#D1D5DB",
+                  borderTopColor: EKARI.primary,
+                }}
+              />
+            </div>
+          )}
+
+          {/* Zoomable image */}
+          <div className="relative max-h-[80vh] overflow-hidden flex items-center justify-center">
+            <Image
+              src={profile.photoURL || "/avatar-blank.png"}
+              alt={profile.handle || "Profile photo"}
+              width={900}
+              height={900}
+              onLoadingComplete={() => setAvatarZoomLoading(false)}
+              onClick={() => setAvatarZoomed((z) => !z)}
+              className={cn(
+                "max-h-[80vh] w-auto object-contain transition-transform duration-200 cursor-zoom-in",
+                avatarZoomed && "scale-[1.3] cursor-zoom-out"
+              )}
+              sizes="(max-width: 768px) 100vw, 60vw"
+              priority={false}
+            />
+          </div>
+        </div>
+      </div>
+    )}
     <header className="px-4 md:px-8 pt-6 pb-5">
       {/* TOP: avatar + right column */}
       <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-6">
         {/* avatar with ekari ring */}
+
+        {/* avatar with ekari ring */}
         <div className="shrink-0">
-          <div className="p-[3px] rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39] shadow-sm">
+          <button
+            type="button"
+            onClick={() => {
+              setAvatarZoomed(false);
+              setAvatarZoomLoading(true);
+              setAvatarZoomOpen(true);
+            }}
+            className="p-[3px] rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 focus:ring-offset-white"
+            aria-label="View profile photo"
+          >
             <div className="rounded-full bg-white p-[3px]">
               <div
                 className="relative rounded-full overflow-hidden"
@@ -803,8 +872,9 @@ function Header({
                 />
               </div>
             </div>
-          </div>
+          </button>
         </div>
+
 
         {/* right side */}
         <div className="min-w-0 flex-1 lg:mt-3 space-y-3">
@@ -1094,7 +1164,7 @@ function Header({
         </nav>
       </div>
     </header>
-  );
+  </>);
 }
 
 
@@ -2246,6 +2316,7 @@ export default function HandleProfilePage() {
 
   return (
     <AppShell>
+
       {/* Processing Gate now ONLY blocks for profile owner */}
       {isOwner && <DeedProcessingGate authorUid={uid ?? null} handle={handleWithAt} />}
 

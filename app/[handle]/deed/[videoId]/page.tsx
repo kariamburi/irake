@@ -351,7 +351,7 @@ function DeedSlide({
                 {/* Mute toggle */}
                 <button
                     onClick={() => setMuted((m) => !m)}
-                    className="absolute left-3 top-3 rounded-full bg-white/10 p-2 hover:bg-black/80"
+                    className="absolute left-3 top-10 rounded-full bg-white/10 p-2 hover:bg-black/80"
                     aria-label={muted ? "Unmute" : "Mute"}
                 >
                     {muted ? <IoVolumeMute /> : <IoVolumeHigh />}

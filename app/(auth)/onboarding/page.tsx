@@ -378,6 +378,8 @@ function SmartPicker({
 export default function OnboardingWizardPage() {
     const router = useRouter();
     const { user, loading: authLoading, signOutUser } = useAuth();
+    // User must have a profile image before finishing onboarding
+
 
     // Guard: if auth resolved and no user → go to login
     useEffect(() => {
@@ -528,7 +530,7 @@ export default function OnboardingWizardPage() {
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
-
+    const hasProfilePhoto = Boolean(file || user?.photoURL);
     const [saving, setSaving] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
@@ -765,6 +767,14 @@ export default function OnboardingWizardPage() {
             setErrorMsg("You must be logged in.");
             return;
         }
+        // ⛔ NEW: Require profile photo before saving
+        if (!file && !user.photoURL) {
+            setErrorMsg("Please upload or take a profile photo before finishing.");
+            // make sure we are on step 5 just in case
+            setStep(5);
+            return;
+        }
+
         setSaving(true);
         setErrorMsg("");
 
@@ -1731,6 +1741,9 @@ export default function OnboardingWizardPage() {
                                             />
                                         </label>
                                     </div>
+                                    <div className="mt-2 text-xs text-center" style={{ color: EKARI.dim }}>
+                                        A profile photo is required to finish onboarding.
+                                    </div>
                                 </div>
 
                                 <FooterNav
@@ -1742,7 +1755,8 @@ export default function OnboardingWizardPage() {
                                             !!user &&
                                             !uploading &&
                                             !saving &&
-                                            !authLoading
+                                            !authLoading &&
+                                            hasProfilePhoto
                                         )
                                     }
                                     nextLabel={saving ? "Finishing…" : "Finish"}
