@@ -39,6 +39,7 @@ import {
 } from "react-icons/io5";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
+import { ConfirmModal } from "./ConfirmModal";
 
 /* ================= Theme ================= */
 const EKARI = {
@@ -49,6 +50,79 @@ const EKARI = {
     dim: "#6B7280",
     hair: "#E5E7EB",
 };
+
+
+type UIConfirmState = {
+    open: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    cancelText: string | null;
+    onConfirm?: () => void;
+};
+
+function useConfirmUI() {
+    const [state, setState] = React.useState<UIConfirmState>({
+        open: false,
+        title: "Notice",
+        message: "",
+        confirmText: "OK",
+        cancelText: null,
+    });
+
+    const close = React.useCallback(() => {
+        setState((s) => ({ ...s, open: false, onConfirm: undefined }));
+    }, []);
+
+    const alert = React.useCallback(
+        (message: string, opts?: { title?: string; okText?: string }) => {
+            setState({
+                open: true,
+                title: opts?.title ?? "Notice",
+                message,
+                confirmText: opts?.okText ?? "OK",
+                cancelText: null,
+                onConfirm: close,
+            });
+        },
+        [close]
+    );
+
+    const confirm = React.useCallback(
+        (
+            message: string,
+            onConfirm: () => void,
+            opts?: { title?: string; confirmText?: string; cancelText?: string }
+        ) => {
+            setState({
+                open: true,
+                title: opts?.title ?? "Are you sure?",
+                message,
+                confirmText: opts?.confirmText ?? "Yes, continue",
+                cancelText: opts?.cancelText ?? "Cancel",
+                onConfirm: () => {
+                    close();
+                    onConfirm();
+                },
+            });
+        },
+        [close]
+    );
+
+    const modal = (
+        <ConfirmModal
+            open={state.open}
+            title={state.title}
+            message={state.message}
+            confirmText={state.confirmText}
+            cancelText={state.cancelText}
+            onCancel={close}
+            onConfirm={state.onConfirm ?? close}
+        />
+    );
+
+    return { alert, confirm, modal, close };
+}
 
 const DIRECT_NAME_TYPES: MarketType[] = ["product", "animal", "lease", "tree", "arableLand"];
 const ARABLE_LAND_TYPE = "arableLand";
@@ -389,8 +463,11 @@ function LocationPickerModal({
     onUse: (text: string, center: { latitude: number; longitude: number }) => void;
 }) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const ui = useConfirmUI();
 
     const inputRef = React.useRef<HTMLInputElement | null>(null);
+    const [mapType, setMapType] = React.useState<"roadmap" | "hybrid">("roadmap");
+    const [locating, setLocating] = React.useState(false);
 
     const [text, setText] = React.useState(initialText || "");
     const [center, setCenter] = React.useState(initialCenter);
@@ -457,6 +534,11 @@ function LocationPickerModal({
                     center: { lat: center.latitude, lng: center.longitude },
                     zoom: 14,
                     disableDefaultUI: true,
+                    mapTypeControl: true,
+                    streetViewControl: true,
+                    zoomControl: true,
+                    fullscreenControl: false,
+                    mapTypeId: g.maps.MapTypeId.ROADMAP, // 👈 add
                 });
 
                 // create draggable marker at center
@@ -507,6 +589,97 @@ function LocationPickerModal({
         marker.setPosition(pos);
         map.setCenter(pos);
     }, [center.latitude, center.longitude]);
+    useEffect(() => {
+        if (!apiKey) return;
+
+        let alive = true;
+
+        (async () => {
+            const g = await loadGoogleMaps(apiKey);
+            if (!alive || !g || !inputRef.current || !mapRef.current) return;
+
+            // Make sure "places" library is loaded by loadGoogleMaps()
+            if (!g.maps.places?.Autocomplete) {
+                console.error("Google Maps Places library not loaded. Ensure libraries=places");
+                return;
+            }
+
+            const ac = new g.maps.places.Autocomplete(inputRef.current, {
+                fields: ["geometry", "name", "formatted_address"],
+                types: ["geocode"],
+            });
+
+            ac.bindTo("bounds", mapRef.current);
+
+            ac.addListener("place_changed", () => {
+                const place = ac.getPlace();
+                const loc = place?.geometry?.location;
+                if (!loc) return;
+
+                const lat = loc.lat();
+                const lng = loc.lng();
+
+                // Update center -> marker + map sync effect will kick in
+                setCenter({ latitude: lat, longitude: lng });
+
+                // Update the text to what user picked
+                setText(place.formatted_address || place.name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+            });
+        })();
+
+        return () => {
+            alive = false;
+        };
+    }, [apiKey]);
+    const handleUseMyLocation = async () => {
+        if (!navigator.geolocation) {
+            ui.alert("Geolocation is not supported by your browser.");
+            return;
+        }
+
+        setLocating(true);
+
+        navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+
+                setCenter({ latitude: lat, longitude: lng });
+
+                try {
+                    const g = await loadGoogleMaps(apiKey);
+                    if (!g) return;
+
+                    const geocoder = new g.maps.Geocoder();
+                    geocoder.geocode(
+                        { location: { lat, lng } },
+                        (results, status) => {
+                            if (status === "OK" && results && results[0]) {
+                                setText(results[0].formatted_address);
+                            } else {
+                                setText(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+                            }
+                        }
+                    );
+                } finally {
+                    setLocating(false);
+                }
+            },
+            (err) => {
+                setLocating(false);
+                if (err.code === err.PERMISSION_DENIED) {
+                    ui.alert("Location permission denied.");
+                } else {
+                    ui.alert("Unable to retrieve your location.");
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            }
+        );
+    };
 
     return (
         <div className="fixed inset-0 z-[60]">
@@ -515,7 +688,7 @@ function LocationPickerModal({
                 className="absolute inset-0 bg-black/50"
                 aria-label="Close"
             />
-            <div className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 max-h-[85vh] overflow-hidden">
+            <div className="absolute inset-x-0 bottom-0 bg-white border-t border-gray-200 rounded-t-2xl p-4 max-h-[95vh] overflow-hidden">
                 <div className="flex items-center justify-between mb-2">
                     <div className="text-base font-black text-gray-900">Add Location</div>
                     <button
@@ -529,19 +702,31 @@ function LocationPickerModal({
 
                 <div
                     className="overflow-y-auto pr-1 space-y-3"
-                    style={{ maxHeight: "60vh" }}
+                    style={{ maxHeight: "80vh" }}
                 >
-                    <div className="relative">
-                        <input
-                            ref={inputRef}
-                            defaultValue={initialText}
-                            onChange={(e) => setText(e.target.value)}
-                            placeholder="Search address or place"
-                            className="h-11 w-full rounded-xl border border-gray-200 px-3 outline-none"
-                        />
-                        <IoSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                    </div>
+                    <div className="flex justify-between items-center w-full gap-2">
+                        <div className="relative flex-1">
+                            <input
+                                ref={inputRef}
+                                value={text}
+                                onChange={(e) => setText(e.target.value)}
+                                placeholder="Search address or place"
+                                className="h-11 w-full rounded-xl border border-gray-200 px-3 outline-none"
+                            />
 
+                            <IoSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                        </div>
+                        <div className="flex">
+                            <button
+                                type="button"
+                                onClick={handleUseMyLocation}
+                                disabled={locating}
+                                className="mt-2 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                📍 {locating ? "Locating…" : "Use my GPS location"}
+                            </button>
+                        </div>
+                    </div>
                     <div>
                         <div className="text-xs font-extrabold text-gray-500 mb-1">
                             Tap the map or drag marker
@@ -571,7 +756,7 @@ function LocationPickerModal({
                     <button
                         onClick={() => {
                             if (!text.trim()) {
-                                alert("Enter a place name or search an address.");
+                                ui.alert("Enter a place name or search an address.");
                                 return;
                             }
                             onUse(text.trim(), center);
@@ -583,6 +768,7 @@ function LocationPickerModal({
                     </button>
                 </div>
             </div>
+            {ui.modal}
         </div>
     );
 }
@@ -603,6 +789,8 @@ function LandPolygonPickerModal({
         polygon: { lat: number; lng: number }[];
     }) => void;
 }) {
+    const ui = useConfirmUI();
+
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     const mapDivRef = React.useRef<HTMLDivElement | null>(null);
     const mapRef = React.useRef<google.maps.Map | null>(null);
@@ -642,6 +830,7 @@ function LandPolygonPickerModal({
     const [lngInput, setLngInput] = React.useState("");
     const [gmapsUrl, setGmapsUrl] = React.useState("");
     const [showAdvanced, setShowAdvanced] = React.useState(false);
+    const [locating, setLocating] = React.useState(false);
 
     const initialCenterRef = React.useRef(initialCenter);
 
@@ -690,8 +879,8 @@ function LandPolygonPickerModal({
                     center: centerPos,
                     zoom: 13,
                     disableDefaultUI: true,
-                    mapTypeControl: false,
-                    streetViewControl: false,
+                    mapTypeControl: true,
+                    // zoomControl: true,
                     fullscreenControl: false,
                     mapTypeId: g.maps.MapTypeId.HYBRID,
                     draggableCursor: "grab",
@@ -893,10 +1082,46 @@ function LandPolygonPickerModal({
             });
         }
     }, [points]);
+    const handleUseMyLocation = () => {
+        if (!navigator.geolocation) {
+            ui.alert("Geolocation is not supported by your browser.");
+            return;
+        }
+
+        setLocating(true);
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+
+                // Pan + move marker + update inputs (+ add polygon point if draw is ON)
+                panToLatLng(lat, lng, true);
+
+                setLocating(false);
+            },
+            (err) => {
+                setLocating(false);
+
+                if (err.code === err.PERMISSION_DENIED) {
+                    ui.alert("Location permission denied.");
+                } else if (err.code === err.TIMEOUT) {
+                    ui.alert("Location request timed out. Try again.");
+                } else {
+                    ui.alert("Unable to retrieve your location.");
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            }
+        );
+    };
 
     function handleUse() {
         if (points.length < 3) {
-            alert("Click at least three points on the map to outline the land.");
+            ui.alert("Click at least three points on the map to outline the land.");
             return;
         }
         const sum = points.reduce(
@@ -989,11 +1214,11 @@ function LandPolygonPickerModal({
         const lat = parseFloat(latInput);
         const lng = parseFloat(lngInput);
         if (!isFinite(lat) || !isFinite(lng)) {
-            alert("Enter valid numeric latitude and longitude.");
+            ui.alert("Enter valid numeric latitude and longitude.");
             return;
         }
         if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-            alert("Latitude must be between -90 and 90, longitude between -180 and 180.");
+            ui.alert("Latitude must be between -90 and 90, longitude between -180 and 180.");
             return;
         }
         panToLatLng(lat, lng, true);
@@ -1002,7 +1227,7 @@ function LandPolygonPickerModal({
     const handleUseGmapsUrl = () => {
         const parsed = parseLatLngFromGoogleUrl(gmapsUrl.trim());
         if (!parsed) {
-            alert("Could not find coordinates in that Google Maps link.");
+            ui.alert("Could not find coordinates in that Google Maps link.");
             return;
         }
         panToLatLng(parsed.lat, parsed.lng, true);
@@ -1110,7 +1335,7 @@ function LandPolygonPickerModal({
                                 onClick={() => setShowAdvanced((s) => !s)}
                                 className="px-3 py-1.5 rounded-full bg-white/95 shadow-md border border-gray-200 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
                             >
-                                {showAdvanced ? "Hide advanced" : "Advanced (coords/link)"}
+                                {showAdvanced ? "Hide advanced" : "Advanced (GPS/coords/link)"}
                             </button>
 
                             {/* Close */}
@@ -1206,6 +1431,18 @@ function LandPolygonPickerModal({
                                         </button>
                                     </div>
                                 </div>
+                                <div className="flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={handleUseMyLocation}
+                                        disabled={locating}
+                                        className="px-3 py-1.5 rounded-lg border border-gray-200 text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-50"
+                                        title="Use your current GPS location"
+                                    >
+                                        📍 {locating ? "Locating…" : "Use my GPS location"}
+                                    </button>
+                                </div>
+
                             </div>
                         </div>
                     )}
@@ -1300,6 +1537,7 @@ function LandPolygonPickerModal({
                     </div>
                 </div>
             </div>
+            {ui.modal}
         </div>
     );
 }
@@ -1323,6 +1561,7 @@ export default function SellModal({
     // 👇 avoid SSR mismatch when using document.body
     // Smooth open animation like ConfirmModal
     const [sheetVisible, setSheetVisible] = useState(false);
+    const ui = useConfirmUI();
 
     useEffect(() => {
         if (open) {
@@ -1655,28 +1894,28 @@ export default function SellModal({
 
     const onNext = useCallback(() => {
         if (!canNext) {
-            if (step === 1 && !name.trim()) alert("Please pick or type the item name.");
+            if (step === 1 && !name.trim()) ui.alert("Please pick or type the item name.");
             if (step === 3) {
                 if (typeSel === "lease" || typeSel === "service") {
                     if (!rate.trim() || !billingUnit.trim()) {
-                        alert("Provide a rate and billing unit (e.g., per hour / per acre).");
+                        ui.alert("Provide a rate and billing unit (e.g., per hour / per acre).");
                     }
                 } else {
-                    alert("Please enter a valid numeric price.");
+                    ui.alert("Please enter a valid numeric price.");
                 }
             }
             if (step === 4) {
-                if (photos.length === 0) return alert("Please add a photo.");
+                if (photos.length === 0) return ui.alert("Please add a photo.");
 
                 if (typeSel === ARABLE_LAND_TYPE) {
                     if (landPolygon.length < 3) {
-                        return alert("Tap at least three points on the map to outline the land.");
+                        return ui.alert("Tap at least three points on the map to outline the land.");
                     }
                     return;
                 }
 
-                if (!placeText.trim()) return alert("Add a place (e.g., Westlands, Nairobi).");
-                if (!coords) return alert("Open “Add location” and pick a point or search an address.");
+                if (!placeText.trim()) return ui.alert("Add a place (e.g., Westlands, Nairobi).");
+                if (!coords) return ui.alert("Open “Add location” and pick a point or search an address.");
             }
             return;
         }
@@ -1689,18 +1928,18 @@ export default function SellModal({
 
     // Upload -> Firestore create (unchanged except using same category/name)
     const createProduct = useCallback(async () => {
-        if (!photos.length) return alert("Please add at least one photo.");
-        if (!name.trim()) return alert("Please choose what you’re selling.");
-        if (!category) return alert("Pick a category.");
+        if (!photos.length) return ui.alert("Please add at least one photo.");
+        if (!name.trim()) return ui.alert("Please choose what you’re selling.");
+        if (!category) return ui.alert("Pick a category.");
 
         if (typeSel === "lease" || typeSel === "service") {
             if (!rate.trim() || !billingUnit.trim()) {
-                return alert("Provide a rate and billing unit.");
+                return ui.alert("Provide a rate and billing unit.");
             }
         } else {
             const nPrice = Number(String(price).replace(/[^\d.]/g, ""));
             if (!nPrice || nPrice <= 0) {
-                return alert("Please enter a valid numeric price.");
+                return ui.alert("Please enter a valid numeric price.");
             }
         }
 
@@ -1710,7 +1949,7 @@ export default function SellModal({
             const user = auth.currentUser;
             if (!user) {
                 setSaving(false);
-                return alert("Please sign in to sell.");
+                return ui.alert("Please sign in to sell.");
             }
 
             const db = getFirestore();
@@ -1741,7 +1980,7 @@ export default function SellModal({
 
             if (!coords) {
                 setSaving(false);
-                return alert("Please add a location and pick coordinates.");
+                return ui.alert("Please add a location and pick coordinates.");
             }
 
             const prodRef = doc(collection(db, "marketListings"));
@@ -1808,7 +2047,7 @@ export default function SellModal({
         } catch (e: any) {
             console.error(e);
             setSaving(false);
-            alert(e?.message || "Failed to post. Please try again.");
+            ui.alert(e?.message || "Failed to post. Please try again.");
         }
     }, [
         photos,
@@ -2470,7 +2709,7 @@ export default function SellModal({
                         <button
                             onClick={() => {
                                 if (verificationStatus !== "approved") {
-                                    alert(
+                                    ui.alert(
                                         verificationStatus === "pending"
                                             ? "Your verification is still under review. You’ll be able to sell once it is approved."
                                             : "To sell on ekariMarket, please verify your account first from the Verification page in your profile."
@@ -2544,6 +2783,8 @@ export default function SellModal({
                     />
                 )
             }
+            {ui.modal}
+
         </div >,
         document.body
     );

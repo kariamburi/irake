@@ -638,7 +638,7 @@ export default function DiscussionThreadPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen w-full bg-white">
         {/* Header */}
         <div className="h-12 border-b border-gray-200 px-3 flex items-center justify-between sticky top-0 bg-white z-10">
           <button
@@ -699,7 +699,7 @@ export default function DiscussionThreadPage() {
             // mobile: full width
             "left-0",
             // desktop+: leave space for the left rail (adjust widths to your rail)
-            "md:left-[240px] lg:left-[260px] xl:left-[260px]",
+
             // keep it above page content but below any global nav if you have one
             "z-30",
           ].join(" ")}

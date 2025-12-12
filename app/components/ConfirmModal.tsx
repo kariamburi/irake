@@ -9,7 +9,7 @@ type ConfirmModalProps = {
     title?: string;
     message?: string;
     confirmText?: string;
-    cancelText?: string;
+    cancelText?: string | null; // 👈 allow null to hide cancel
     onConfirm: () => void;
     onCancel: () => void;
 };
@@ -19,7 +19,7 @@ export function ConfirmModal({
     title = "Are you sure?",
     message = "This action cannot be undone.",
     confirmText = "Yes, continue",
-    cancelText = "No, keep editing",
+    cancelText = null,
     onConfirm,
     onCancel,
 }: ConfirmModalProps) {
@@ -71,13 +71,15 @@ export function ConfirmModal({
                         </div>
 
                         <div className="mt-4 flex gap-2">
-                            <button
-                                onClick={onCancel}
-                                className="w-1/2 rounded-xl border px-4 py-2.5 text-sm font-bold"
-                                style={{ borderColor: "#E5E7EB", color: "#0F172A", background: "#fff" }}
-                            >
-                                {cancelText}
-                            </button>
+                            {cancelText ? (
+                                <button
+                                    onClick={onCancel}
+                                    className="w-1/2 rounded-xl border px-4 py-2.5 text-sm font-bold"
+                                    style={{ borderColor: "#E5E7EB", color: "#0F172A", background: "#fff" }}
+                                >
+                                    {cancelText}
+                                </button>
+                            ) : null}
                             <button
                                 onClick={onConfirm}
                                 className="w-1/2 rounded-xl px-4 py-2.5 text-sm font-bold text-white"
