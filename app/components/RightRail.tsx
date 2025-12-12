@@ -26,6 +26,7 @@ import {
     IoTrashOutline,
 } from "react-icons/io5";
 import SmartAvatar from "./SmartAvatar";
+import { useRouter } from "next/navigation";
 
 /* ------------------------------------------------------------------ */
 /* Tiny activity indicator                                             */
@@ -640,18 +641,49 @@ function CommentRow({
         });
         setShowEditEmoji(false);
     };
+    const router = useRouter();
+
+    const goToProfile = useCallback(
+        (handle?: string | null) => {
+            const h = (handle || "").trim();
+            if (!h) return;
+
+            // If your handles are stored without "@", this is perfect.
+            // If sometimes stored with "@", strip it:
+            const clean = h.startsWith("@") ? h : "@" + h;
+
+            router.push(`/${clean}/`);
+
+        },
+        [router]
+    );
 
     return (
         <li className="flex items-start gap-3">
             <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <SmartAvatar src={comment.userPhotoURL} alt={comment.userHandle} size={34} />
-
+                <button
+                    type="button"
+                    onClick={() => goToProfile(comment.userHandle)}
+                    className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0 cursor-pointer"
+                    aria-label="Open profile"
+                    disabled={!comment.userHandle}
+                >
+                    <SmartAvatar src={comment.userPhotoURL} alt={comment.userHandle} size={34} />
+                </button>
             </div>
 
             <div className="min-w-0 flex-1">
-                {!!comment.userHandle && <div className="text-xs font-bold text-gray-600">{comment.userHandle}</div>}
-
+                {!!comment.userHandle && (
+                    <button
+                        type="button"
+                        onClick={() => goToProfile(comment.userHandle)}
+                        className="text-sm font-bold text-gray-600 hover:underline hover:text-gray-900 text-left"
+                        title={`View @${comment.userHandle}`}
+                    >
+                        {comment.userHandle}
+                    </button>
+                )}
                 {!isEditing ? (
                     <>
                         {!!comment.text && (
@@ -762,7 +794,7 @@ function CommentRow({
 
                 {open && (
                     <div className="pl-3 mt-2 border-l border-gray-200">
-                        <RepliesList deedId={deedId} parentId={comment.id} currentUser={currentUser} />
+                        <RepliesList goToProfile={goToProfile} deedId={deedId} parentId={comment.id} currentUser={currentUser} />
                     </div>
                 )}
             </div>
@@ -771,12 +803,12 @@ function CommentRow({
 }
 
 
-function RepliesList({ deedId, parentId, currentUser }: { deedId: string; parentId: string; currentUser: UserLite }) {
+function RepliesList({ goToProfile, deedId, parentId, currentUser }: { goToProfile: (handle: string) => void; deedId: string; parentId: string; currentUser: UserLite }) {
     const { list, loadMore, hasMore } = useReplies(deedId, parentId, true);
     return (
         <ul className="space-y-3">
             {list.map((r) => (
-                <ReplyRow key={r.id} reply={r} currentUser={currentUser} />
+                <ReplyRow key={r.id} goToProfile={goToProfile} reply={r} currentUser={currentUser} />
             ))}
             {hasMore && (
                 <li>
@@ -789,7 +821,7 @@ function RepliesList({ deedId, parentId, currentUser }: { deedId: string; parent
     );
 }
 
-function ReplyRow({ reply, currentUser }: { reply: any; currentUser: UserLite }) {
+function ReplyRow({ reply, currentUser, goToProfile }: { goToProfile: (handle: string) => void; reply: any; currentUser: UserLite }) {
     const canModify = currentUser?.uid === reply?.userId;
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(reply?.text ?? "");
@@ -851,11 +883,32 @@ function ReplyRow({ reply, currentUser }: { reply: any; currentUser: UserLite })
         <li className="flex items-start gap-3">
             <div className="h-7 w-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={reply.userPhotoURL || "/avatar-placeholder.png"} alt="avatar" className="h-7 w-7 object-cover" />
+
+                <button
+                    type="button"
+                    onClick={() => goToProfile(reply.userHandle)}
+                    className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0 cursor-pointer"
+                    aria-label="Open profile"
+                    disabled={!reply.userHandle}
+                >
+                    <SmartAvatar src={reply.userPhotoURL} alt={reply.userHandle} size={34} />
+
+                </button>
+
             </div>
 
             <div className="min-w-0 flex-1">
-                {!!reply.userHandle && <div className="text-[11px] font-bold text-gray-600">{reply.userHandle}</div>}
+                {!!reply.userHandle && (
+                    <button
+                        type="button"
+                        onClick={() => goToProfile(reply.userHandle)}
+                        className="text-xs font-bold text-gray-600 hover:underline hover:text-gray-900 text-left"
+                        title={`View ${reply.userHandle}`}
+                    >
+                        {reply.userHandle}
+                    </button>
+                )}
+
 
                 {!isEditing ? (
                     <>

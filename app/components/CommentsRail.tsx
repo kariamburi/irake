@@ -20,6 +20,7 @@ import { db } from "@/lib/firebase";
 import { IoClose, IoSwapVertical, IoTrashOutline, IoHappyOutline, IoImageOutline } from "react-icons/io5";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 type SortMode = "newest" | "oldest";
 type UserLite = { uid?: string; photoURL?: string | null; handle?: string | null };
@@ -177,6 +178,22 @@ export default function CommentsRail({
             console.warn("delete comment error", e);
         }
     }, [currentUser?.uid]);
+    const router = useRouter();
+
+    const goToProfile = useCallback(
+        (handle?: string | null) => {
+            const h = (handle || "").trim();
+            if (!h) return;
+
+            // If your handles are stored without "@", this is perfect.
+            // If sometimes stored with "@", strip it:
+            const clean = h.startsWith("@") ? h : "@" + h;
+
+            router.push(`/${clean}/`);
+            onClose(); // optional: close rail after navigating
+        },
+        [router, onClose]
+    );
 
     return (
         <AnimatePresence>
@@ -234,18 +251,35 @@ export default function CommentsRail({
                                     {items.map((c) => (
                                         <li key={c.id} className="flex items-start gap-3">
                                             <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                                                <Image
-                                                    src={c.userPhotoURL || "/avatar-placeholder.png"}
-                                                    alt="avatar"
-                                                    width={32}
-                                                    height={32}
-                                                    className="h-8 w-8 object-cover"
-                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => goToProfile(c.userHandle)}
+                                                    className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0 cursor-pointer"
+                                                    aria-label="Open profile"
+                                                    disabled={!c.userHandle}
+                                                >
+                                                    <Image
+                                                        src={c.userPhotoURL || "/avatar-placeholder.png"}
+                                                        alt="avatar"
+                                                        width={32}
+                                                        height={32}
+                                                        className="h-8 w-8 object-cover"
+                                                    />
+                                                </button>
+
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 {!!c.userHandle && (
-                                                    <div className="text-xs font-bold text-gray-600">@{c.userHandle}</div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => goToProfile(c.userHandle)}
+                                                        className="text-xs font-bold text-gray-600 hover:underline hover:text-gray-900 text-left"
+                                                        title={`View @${c.userHandle}`}
+                                                    >
+                                                        @{c.userHandle}
+                                                    </button>
                                                 )}
+
                                                 {!!c.text && <div className="text-sm text-gray-900 whitespace-pre-wrap">{c.text}</div>}
 
                                                 {/* meta: reply / view replies */}
