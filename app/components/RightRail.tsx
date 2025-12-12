@@ -657,6 +657,10 @@ function CommentRow({
         },
         [router]
     );
+    const authorProfile = useAuthorProfile(comment.userId);
+    const avatar =
+        authorProfile?.photoURL ||
+        "/avatar-placeholder.png";
 
     return (
         <li className="flex items-start gap-3">
@@ -669,7 +673,7 @@ function CommentRow({
                     aria-label="Open profile"
                     disabled={!comment.userHandle}
                 >
-                    <SmartAvatar src={comment.userPhotoURL} alt={comment.userHandle} size={34} />
+                    <SmartAvatar src={avatar} alt={comment.userHandle} size={34} />
                 </button>
             </div>
 
@@ -679,7 +683,7 @@ function CommentRow({
                         type="button"
                         onClick={() => goToProfile(comment.userHandle)}
                         className="text-sm font-bold text-gray-600 hover:underline hover:text-gray-900 text-left"
-                        title={`View @${comment.userHandle}`}
+                        title={`View ${comment.userHandle}`}
                     >
                         {comment.userHandle}
                     </button>
@@ -802,6 +806,35 @@ function CommentRow({
     );
 }
 
+/** 🔥 NEW: live author profile for each deed */
+function useAuthorProfile(authorId?: string) {
+    const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
+
+    useEffect(() => {
+        if (!authorId) {
+            setProfile(null);
+            return;
+        }
+
+        const ref = doc(db, "users", authorId);
+        const unsub = onSnapshot(ref, (snap) => {
+            const data = snap.data() as any | undefined;
+            if (!data) {
+                setProfile(null);
+                return;
+            }
+
+            setProfile({
+                handle: data?.handle,
+                photoURL: data?.photoURL,
+            });
+        });
+
+        return () => unsub();
+    }, [authorId]);
+
+    return profile;
+}
 
 function RepliesList({ goToProfile, deedId, parentId, currentUser }: { goToProfile: (handle: string) => void; deedId: string; parentId: string; currentUser: UserLite }) {
     const { list, loadMore, hasMore } = useReplies(deedId, parentId, true);
@@ -879,6 +912,10 @@ function ReplyRow({ reply, currentUser, goToProfile }: { goToProfile: (handle: s
         setShowEditEmoji(false);
     };
 
+    const authorProfile = useAuthorProfile(reply.userId);
+    const avatar =
+        authorProfile?.photoURL ||
+        "/avatar-placeholder.png";
     return (
         <li className="flex items-start gap-3">
             <div className="h-7 w-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
@@ -891,7 +928,7 @@ function ReplyRow({ reply, currentUser, goToProfile }: { goToProfile: (handle: s
                     aria-label="Open profile"
                     disabled={!reply.userHandle}
                 >
-                    <SmartAvatar src={reply.userPhotoURL} alt={reply.userHandle} size={34} />
+                    <SmartAvatar src={avatar} alt={reply.userHandle} size={34} />
 
                 </button>
 
