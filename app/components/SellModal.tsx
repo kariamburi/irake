@@ -1719,11 +1719,7 @@ export default function SellModal({
     }, [items, typeSel, category]);
 
     // Skip pack/unit step for lease/service (same as before)
-    useEffect(() => {
-        if (step === 2 && (typeSel === "lease" || typeSel === "service")) {
-            setStep(3);
-        }
-    }, [step, typeSel]);
+
 
     // Step 2
     const [unit, setUnit] = useState<string>("");
@@ -1919,12 +1915,30 @@ export default function SellModal({
             }
             return;
         }
+
+
+        // ✅ skip step 2 when going forward for lease/service
+        if (step === 1 && (typeSel === "lease" || typeSel === "service")) {
+            setStep(3);
+            return;
+        }
+
+
+
         if (step < 4) setStep(step + 1);
     }, [step, canNext, typeSel, name, rate, billingUnit, photos.length, placeText, coords, landPolygon.length]);
 
     const onBack = useCallback(() => {
-        if (step > 0) setStep(step - 1);
-    }, [step]);
+        if (step <= 0) return;
+
+        // ✅ from step 3 go back to step 1 (because step 2 is skipped)
+        if (step === 3 && (typeSel === "lease" || typeSel === "service")) {
+            setStep(1);
+            return;
+        }
+
+        setStep(step - 1);
+    }, [step, typeSel]);
 
     // Upload -> Firestore create (unchanged except using same category/name)
     const createProduct = useCallback(async () => {
