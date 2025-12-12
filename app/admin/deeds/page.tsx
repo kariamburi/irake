@@ -15,7 +15,7 @@ import {
     updateDoc,
     doc,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { app, db } from "@/lib/firebase";
 import { DeedDoc, toDeed } from "@/lib/fire-queries";
 import {
     IoAlertCircleOutline,
@@ -29,6 +29,7 @@ import {
     IoTrashOutline,
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 const EKARI = {
     forest: "#233F39",
@@ -349,11 +350,15 @@ export default function AdminDeedsPage() {
         if (!ok) return;
         setBusyId(row.id);
         try {
-            await updateDoc(doc(db, "deeds", row.id), {
-                status: "deleted",
-                visibility: "hidden",
-                updatedAt: new Date().toISOString(),
-            });
+
+            const fn = httpsCallable(getFunctions(app), "deleteDeedCascade");
+            await fn({ deedId: row.id });
+
+            // await updateDoc(doc(db, "deeds", row.id), {
+            //   status: "deleted",
+            //    visibility: "hidden",
+            //    updatedAt: new Date().toISOString(),
+            // });
         } catch (e: any) {
             alert(e?.message || "Failed to delete deed.");
         } finally {

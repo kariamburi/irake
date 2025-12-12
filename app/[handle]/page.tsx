@@ -23,7 +23,7 @@ import {
   QueryDocumentSnapshot,
   writeBatch,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { app, db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import {
@@ -58,6 +58,7 @@ import SmartAvatar from "../components/SmartAvatar";
 import { deleteObject, getStorage, listAll, ref as sRef } from "firebase/storage";
 import SellerReviewsSection from "../components/SellerReviewsSection";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 const EKARI = {
   forest: "#233F39",
@@ -240,40 +241,16 @@ function DeedProcessingGate({
               ? 1
               : 0;
 
-  async function deleteMuxIfAny(d?: DeedDoc | null) {
-    if (!d?.media) return;
-    const muxIds = d.media
-      .map((m) => (m as any)?.muxAssetId)
-      .filter(Boolean) as string[];
-    for (const assetId of muxIds) {
-      try {
-        await fetch(`https://us-central1-ekarihub-aed5a.cloudfunctions.net/muxDeleteAsset?assetId=${encodeURIComponent(assetId)}`, {
-          method: "DELETE",
-        });
-      } catch { }
-    }
-  }
-
-  async function deleteStorageIfAny(d?: DeedDoc | null) {
-    try {
-      if (!d?.authorId || !d?.id) return;
-      const storage = getStorage();
-      const folder = sRef(storage, `deeds/${d.authorId}/${d.id}`);
-      async function deleteFolder(r: ReturnType<typeof sRef>) {
-        const { items, prefixes } = await listAll(r);
-        await Promise.all(items.map((it) => deleteObject(it).catch(() => { })));
-        await Promise.all(prefixes.map((p) => deleteFolder(p)));
-      }
-      await deleteFolder(folder);
-    } catch { }
-  }
 
   async function performHardDelete() {
     if (!deedId || !deed) return;
     try {
       setBusyDelete(true);
-      await Promise.allSettled([deleteMuxIfAny(deed), deleteStorageIfAny(deed)]);
-      await deleteDoc(doc(db, "deeds", deedId));
+      const fn = httpsCallable(getFunctions(app), "deleteDeedCascade");
+      await fn({ deedId: deedId });
+
+      // await Promise.allSettled([deleteMuxIfAny(deed), deleteStorageIfAny(deed)]);
+      //await deleteDoc(doc(db, "deeds", deedId));
       if (typeof window !== "undefined") {
         try {
           localStorage.removeItem("lastUploadedDeedId");

@@ -136,24 +136,35 @@ export default function EventDetailsPage() {
   }, [uid]);
 
   // Event + counts (supports stats/counts + top-level rsvps)
+  // Event + counts (always prefer counts.* first)
   useEffect(() => {
     if (!eventId) {
       setLoadingEv(false);
       return;
     }
+
+    const pickNum = (...vals: any[]) => {
+      for (const v of vals) {
+        const n = Number(v);
+        if (Number.isFinite(n) && n >= 0) return n;
+      }
+      return 0;
+    };
+
     const unsub = onSnapshot(
       doc(db, "events", eventId),
       (snap) => {
         const exists = snap.exists();
-        const data = (exists ? (snap.data() as EventItem) : (null as any)) || {};
-        const stats = (data.stats || data.counts || {}) as any;
+        const data = (exists ? (snap.data() as any) : null) || {};
+
         setCounts({
-          likes: Number(stats.likes ?? 0),
-          saves: Number(stats.saves ?? 0),
-          shares: Number(stats.shares ?? 0),
-          rsvps: Number(stats.rsvps ?? data.rsvps ?? 0),
+          likes: pickNum(data?.counts?.likes, data?.stats?.likes, data?.likes),
+          saves: pickNum(data?.counts?.saves, data?.stats?.saves, data?.saves),
+          shares: pickNum(data?.counts?.shares, data?.stats?.shares, data?.shares),
+          rsvps: pickNum(data?.counts?.rsvps, data?.stats?.rsvps, data?.rsvps), // ✅ THIS fixes “0 going”
         });
-        setEv(exists ? { id: snap.id, ...data } : null);
+
+        setEv(exists ? { id: snap.id, ...(data as any) } : null);
         setLoadingEv(false);
       },
       (err) => {
@@ -162,8 +173,10 @@ export default function EventDetailsPage() {
         setLoadingEv(false);
       }
     );
+
     return unsub;
   }, [eventId]);
+
 
   // RSVPs avatars
   useEffect(() => {
@@ -280,7 +293,8 @@ export default function EventDetailsPage() {
     q
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
       : "#";
-
+  const organizerId = (ev as any)?.organizerId || null;
+  const isOrganizer = !!uid && !!organizerId && uid === organizerId;
   return (
     <AppShell>
       <div className="min-h-screen w-full bg-white">
@@ -436,21 +450,23 @@ export default function EventDetailsPage() {
                           </div>
                         ))}
                       </div>
+
                       <div
                         className="text-sm font-semibold"
                         style={{ color: EKARI.text }}
                       >
                         {counts.rsvps || 0} going
                       </div>
-                      <button
-                        onClick={() =>
-                          router.push(`/nexus/event/${eventId}/people`)
-                        }
-                        className="ml-auto text-xs font-extrabold px-3 py-1.5 rounded-full border hover:bg-gray-50"
-                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                      >
-                        See all
-                      </button>
+                      {isOrganizer && (
+                        <button
+                          onClick={() => router.push(`/nexus/event/${eventId}/people`)}
+                          className="ml-auto text-xs font-extrabold px-3 py-1.5 rounded-full border hover:bg-gray-50"
+                          style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                        >
+                          See all
+                        </button>
+                      )}
+
                     </div>
                   </div>
                 </div>
@@ -568,7 +584,7 @@ export default function EventDetailsPage() {
                     {!!ev.registrationUrl && !going && (
                       <button
                         onClick={onRegister}
-                        className="sm:ml-auto h-12 w-full sm:w-auto rounded-xl flex items-center justify-center gap-2 text-white font-black"
+                        className="sm:ml-auto text-sm h-12 w-full sm:w-auto px-3 rounded-xl flex items-center justify-center gap-2 text-white font-black"
                         style={{ backgroundColor: EKARI.gold }}
                       >
                         <IoOpenOutline size={18} color="#fff" />
