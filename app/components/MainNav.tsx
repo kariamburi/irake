@@ -165,7 +165,7 @@ export function LeftRailCompact() {
             />
 
             <RailLink
-                href="/messages"
+                href="/bonga"
                 icon={<IoChatbubbleOutline />}
                 label="Bonga"
                 badgeCount={uid ? unreadDM : 0}
@@ -277,7 +277,7 @@ export function LeftNavDesktop({
             },
             {
                 label: "Bonga",
-                href: "/messages",
+                href: "/bonga",
                 icon: <IoChatbubbleOutline />,
                 requiresAuth: true,
                 badgeCount: authUid ? unreadDM : 0,

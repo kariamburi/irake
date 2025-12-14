@@ -856,7 +856,7 @@ export default function VerificationPage() {
                             size={18}
                             className="opacity-80"
                           />
-                          <span className="font-semibold">ID front side</span>
+                          <span className="font-semibold">(National ID/ Driving Lisence/ Passport) front side</span>
                         </span>
                         <span className="mt-0.5 text-[11px] text-slate-500">
                           Image file (JPG, PNG). Use a clear photo.
@@ -891,7 +891,7 @@ export default function VerificationPage() {
                             size={18}
                             className="opacity-80"
                           />
-                          <span className="font-semibold">ID back side</span>
+                          <span className="font-semibold">(National ID/ Driving Lisence/ Passport) back side</span>
                         </span>
                         <span className="mt-0.5 text-[11px] text-slate-500">
                           Image file (JPG, PNG). Make sure details are visible.

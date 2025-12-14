@@ -53,6 +53,7 @@ import {
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SellerReviewsSection from "@/app/components/SellerReviewsSection";
+import { createPortal } from "react-dom";
 
 /* ================== Types ================== */
 export type CurrencyCode = "KES" | "USD";
@@ -187,6 +188,34 @@ function loadGoogleMaps(apiKey?: string): Promise<typeof google | null> {
         script.onerror = (e) => reject(e);
         document.head.appendChild(script);
     });
+}
+function useAuthorProfile(authorId?: string) {
+
+    const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
+
+    useEffect(() => {
+        if (!authorId) {
+            setProfile(null);
+            return;
+        }
+
+        const ref = doc(db, "users", authorId);
+        const unsub = onSnapshot(ref, (snap) => {
+            const data = snap.data() as any | undefined;
+            if (!data) {
+                setProfile(null);
+                return;
+            }
+            setProfile({
+                handle: data?.handle,
+                photoURL: data?.photoURL,
+            });
+        });
+
+        return () => unsub();
+    }, [authorId]);
+
+    return profile;
 }
 
 /**
@@ -461,6 +490,9 @@ export default function ProductDetailsClient({
     const [reviewers, setReviewers] = useState<Record<string, ReviewerLite>>({});
     const reviewersRef = useRef<Record<string, ReviewerLite>>({});
     const [myHelpful, setMyHelpful] = useState<Record<string, true>>({});
+    //  const [authorProfile, setAuthorProfile] = useState<any>({});
+    const [msgLoading, setMsgLoading] = useState(false);
+
 
     useEffect(() => {
         reviewersRef.current = reviewers;
@@ -478,7 +510,6 @@ export default function ProductDetailsClient({
                 }
                 const p = { id: pSnap.id, ...(pSnap.data() as any) } as ProductDoc;
                 setProduct(p);
-
                 if (p.sellerId) {
                     const uRef = doc(dbi, "users", p.sellerId);
                     const uSnap = await getDoc(uRef);
@@ -543,6 +574,19 @@ export default function ProductDetailsClient({
         });
         return () => unsub();
     }, [dbi, productid]);
+    async function fetchUserLite(uid: string) {
+        const snap = await getDoc(doc(dbi, "users", uid));
+        const d = snap.exists() ? (snap.data() as any) : null;
+        return {
+            handle: d?.handle || "",
+            photoURL: d?.photoURL || "",
+            name:
+                (d?.firstName ? `${d.firstName} ${d?.surname || ""}`.trim() : "") ||
+                d?.displayName ||
+                d?.handle ||
+                "Seller",
+        };
+    }
 
     // ===== My helpful votes =====
     useEffect(() => {
@@ -684,6 +728,8 @@ export default function ProductDetailsClient({
         [reviews, me]
     );
     const [rvVisible, setRvVisible] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+
     const [rvStars, setRvStars] = useState(5);
     const [rvText, setRvText] = useState("");
 
@@ -849,28 +895,36 @@ export default function ProductDetailsClient({
         }
     }
     const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
+
     // message click
-    const handleMessageClick = (seller: any) => {
-        if (!auth.currentUser?.uid) {
-            router.replace("/login");
-            return;
+    const handleMessageClick = async () => {
+        const uid = auth.currentUser?.uid;
+        const peerId = product?.sellerId;
+
+        if (!uid) return router.replace("/login");
+        if (!peerId) return;
+        if (uid === peerId) return;
+
+        if (msgLoading) return;
+        setMsgLoading(true);
+
+        try {
+            // fetch only now
+            const peer = await fetchUserLite(peerId);
+
+            const threadId = makeThreadId(uid, peerId);
+            const qs = new URLSearchParams();
+            qs.set("peerId", peerId);
+            if (peer.name) qs.set("peerName", peer.name);
+            if (peer.photoURL) qs.set("peerPhotoURL", peer.photoURL);
+            if (peer.handle) qs.set("peerHandle", peer.handle);
+
+            router.push(`/messages/${encodeURIComponent(threadId)}?${qs.toString()}`);
+        } finally {
+            setMsgLoading(false);
         }
-        if (auth.currentUser?.uid === seller.id) return;
-
-        const peerId = seller.id;
-        const peerName = seller.name || seller.handle || "";
-        const peerPhotoURL = seller.photoURL || "";
-        const peerHandle = seller.handle || "";
-
-        const threadId = makeThreadId(auth.currentUser?.uid, peerId);
-        const qs = new URLSearchParams();
-        qs.set("peerId", peerId);
-        if (peerName) qs.set("peerName", peerName);
-        if (peerPhotoURL) qs.set("peerPhotoURL", peerPhotoURL);
-        if (peerHandle) qs.set("peerHandle", peerHandle);
-
-        router.push(`/messages/${encodeURIComponent(threadId)}?${qs.toString()}`);
     };
+
 
     // ===== Render =====
     return (
@@ -1142,13 +1196,25 @@ export default function ProductDetailsClient({
                 <div className="mt-3">
                     {!isOwner ? (
                         <button
-                            onClick={() => handleMessageClick(seller)}
-                            className="w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white hover:opacity-95 transition"
+                            onClick={() => handleMessageClick()}
+                            disabled={msgLoading}
+                            className={`w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white transition
+                        ${msgLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-95"}`}
                             style={{ backgroundColor: EKARI.gold }}
                         >
-                            <IoChatbubbleEllipsesOutline size={18} />
-                            Message seller
+                            {msgLoading ? (
+                                <>
+                                    <span className="inline-block h-4 w-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
+                                    Opening…
+                                </>
+                            ) : (
+                                <>
+                                    <IoChatbubbleEllipsesOutline size={18} />
+                                    Message seller
+                                </>
+                            )}
                         </button>
+
                     ) : (
                         <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
                             This is you
@@ -1374,103 +1440,114 @@ export default function ProductDetailsClient({
             )}
 */}
             {/* ===== Fullscreen Modal ===== */}
-            {fsOpen && (
-                <div className="fixed inset-0 z-[60] bg-black/90 text-white">
-                    {/* top bar */}
-                    <div className="absolute top-0 left-0 right-0 h-12 px-3 flex items-center justify-between">
-                        <button
-                            onClick={closeFullscreen}
-                            className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
-                            aria-label="Close"
-                            title="Close"
-                        >
-                            <IoClose size={20} />
-                        </button>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => zoomBy(-0.2)}
-                                className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
-                                title="Zoom out"
-                            >
-                                <IoRemove size={18} />
-                            </button>
-                            <button
-                                onClick={() => setFsScale(1)}
-                                className="px-2 h-9 rounded-full bg-white/10 text-xs font-bold"
-                                title="Reset zoom"
-                            >
-                                {Math.round(fsScale * 100)}%
-                            </button>
-                            <button
-                                onClick={() => zoomBy(0.2)}
-                                className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
-                                title="Zoom in"
-                            >
-                                <IoAdd size={18} />
-                            </button>
+            {fsOpen &&
+                createPortal(
+                    <div className="fixed inset-0 z-[60] bg-black/90 text-white">
+                        {/* top bar */}
+                        <div className="absolute top-0 left-0 right-0 h-12 px-3 flex items-center justify-between">
                             <button
                                 onClick={closeFullscreen}
                                 className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
-                                title="Exit fullscreen"
+                                aria-label="Close"
+                                title="Close"
                             >
-                                <IoContractOutline size={18} />
+                                <IoClose size={20} />
                             </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => zoomBy(-0.2)}
+                                    className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                                    title="Zoom out"
+                                >
+                                    <IoRemove size={18} />
+                                </button>
+                                <button
+                                    onClick={() => setFsScale(1)}
+                                    className="px-2 h-9 rounded-full bg-white/10 text-xs font-bold"
+                                    title="Reset zoom"
+                                >
+                                    {Math.round(fsScale * 100)}%
+                                </button>
+                                <button
+                                    onClick={() => zoomBy(0.2)}
+                                    className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                                    title="Zoom in"
+                                >
+                                    <IoAdd size={18} />
+                                </button>
+                                <button
+                                    onClick={closeFullscreen}
+                                    className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                                    title="Exit fullscreen"
+                                >
+                                    <IoContractOutline size={18} />
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* image area */}
-                    <div
-                        className="h-full w-full flex items-center justify-center select-none"
-                        onWheel={onFsWheel}
-                        onDoubleClick={onFsDouble}
-                        onPointerDown={onFsPointerDown}
-                        onPointerMove={onFsPointerMove}
-                        onPointerUp={onFsPointerUp}
-                    >
+                        {/* image area */}
                         <div
-                            className="relative"
-                            style={{
-                                transform: `translate(${fsTx}px, ${fsTy}px) scale(${fsScale})`,
-                                transition: drag.current ? "none" : "transform 120ms ease",
-                            }}
+                            className="h-full w-full flex items-center justify-center select-none"
+                            onWheel={onFsWheel}
+                            onDoubleClick={onFsDouble}
+                            onPointerDown={onFsPointerDown}
+                            onPointerMove={onFsPointerMove}
+                            onPointerUp={onFsPointerUp}
                         >
-                            <Image
-                                src={images[fsIndex]}
-                                alt={`image ${fsIndex + 1}`}
-                                width={1600}
-                                height={1000}
-                                className="object-contain max-h-[80vh] md:max-h-[88vh] rounded"
-                                priority
-                            />
-                        </div>
+                            <div
+                                className="relative"
+                                style={{
+                                    transform: `translate(${fsTx}px, ${fsTy}px) scale(${fsScale})`,
+                                    transition: drag.current ? "none" : "transform 120ms ease",
+                                }}
+                            >
+                                {/* Activity Loader (Spinner) */}
+                                {isLoading ? (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <BouncingBallLoader />
+                                    </div>
+                                ) : (
+                                    <Image
+                                        src={images[fsIndex]}
+                                        alt={`image ${fsIndex + 1}`}
+                                        width={1600}
+                                        height={1000}
+                                        className="object-contain max-h-[80vh] md:max-h-[88vh] rounded"
+                                        priority
+                                        onLoadingComplete={() => setIsLoading(false)} // Set loading state to false after image is loaded
+                                    />
+                                )}
+                            </div>
 
-                        {/* prev/next */}
-                        {images.length > 1 && (
-                            <>
-                                <button
-                                    onClick={fsPrev}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
-                                    aria-label="Previous"
-                                >
-                                    <IoChevronBack size={22} />
-                                </button>
-                                <button
-                                    onClick={fsNext}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
-                                    aria-label="Next"
-                                >
-                                    <IoChevronForward size={22} />
-                                </button>
-                            </>
-                        )}
+                            {/* prev/next */}
+                            {images.length > 1 && (
+                                <>
+                                    <button
+                                        onClick={fsPrev}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
+                                        aria-label="Previous"
+                                    >
+                                        <IoChevronBack size={22} />
+                                    </button>
+                                    <button
+                                        onClick={fsNext}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
+                                        aria-label="Next"
+                                    >
+                                        <IoChevronForward size={22} />
+                                    </button>
+                                </>
+                            )}
 
-                        {/* counter */}
-                        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[12px] font-bold bg-white/10 rounded-full px-3 py-1">
-                            {fsIndex + 1} / {images.length}
+                            {/* counter */}
+                            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[12px] font-bold bg-white/10 rounded-full px-3 py-1">
+                                {fsIndex + 1} / {images.length}
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </div>,
+                    document.body
+                )}
+
         </main>
     );
 }

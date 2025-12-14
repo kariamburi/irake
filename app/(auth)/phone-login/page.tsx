@@ -1,7 +1,7 @@
 // app/phone-login/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -43,11 +43,8 @@ export default function PhoneLoginPage() {
         if (typeof window === "undefined") return;
         const sp = new URLSearchParams(window.location.search);
         const nextParam = sp.get("next");
-        if (nextParam && nextParam.startsWith("/")) {
-            setSafeNext(nextParam);
-        } else {
-            setSafeNext(null);
-        }
+        if (nextParam && nextParam.startsWith("/")) setSafeNext(nextParam);
+        else setSafeNext(null);
     }, []);
 
     useEffect(() => {
@@ -85,7 +82,7 @@ export default function PhoneLoginPage() {
                 setCaptchaReady(false);
             }
         })();
-        // We keep the verifier for the session to avoid double-init issues
+        // keep verifier for session
     }, [authBundle]);
 
     // Form state
@@ -109,9 +106,15 @@ export default function PhoneLoginPage() {
     const validPhone = useMemo(() => /^\+\d{8,15}$/.test(e164), [e164]);
     const validCode = useMemo(() => /^\d{6}$/.test(code), [code]);
 
+    // OTP focus handling (fix: allow manual entry by focusing hidden input)
+    const otpRef = useRef<HTMLInputElement | null>(null);
+    const focusOtp = () => {
+        // requestAnimationFrame helps on mobile safari / some browsers
+        requestAnimationFrame(() => otpRef.current?.focus());
+    };
+
     // Post-login route (mirror login/signup → home or /getstarted)
     useEffect(() => {
-        // Wait until auth is done and we actually have a signed-in user
         if (authLoading || !user) return;
 
         let alive = true;
@@ -121,24 +124,20 @@ export default function PhoneLoginPage() {
                 const snap = await getDoc(doc(db, "users", user.uid));
                 if (!alive) return;
 
-                // If user exists in "users" collection → go to /getstarted
-                // If user does NOT exist → go to onboarding
                 if (snap.exists()) {
-                    router.replace("/getstarted");
+                    router.replace(safeNext ?? "/getstarted");
                 } else {
                     router.replace("/onboarding");
                 }
             } catch {
-                // On error, treat as not-onboarded and send to onboarding
-                if (alive) router.replace("/getstarted");
+                if (alive) router.replace(safeNext ?? "/getstarted");
             }
         })();
 
         return () => {
             alive = false;
         };
-    }, [user, authLoading, router]);
-
+    }, [user, authLoading, router, safeNext]);
 
     const sendCode = async () => {
         if (!authBundle || !captchaReady || !validPhone || sending) return;
@@ -150,6 +149,9 @@ export default function PhoneLoginPage() {
             const conf = await signInWithPhoneNumber(authBundle.auth, e164, verifier);
             setConfirmation(conf);
             setCountdown(60);
+
+            // when moving to step 2, focus OTP input
+            setTimeout(() => focusOtp(), 0);
         } catch (err: any) {
             setErrorMsg(
                 err?.code === "auth/network-request-failed"
@@ -178,6 +180,8 @@ export default function PhoneLoginPage() {
                     ? "Invalid code. Try again."
                     : err?.message || "Something went wrong."
             );
+            // refocus to let user retype quickly
+            focusOtp();
         } finally {
             setVerifying(false);
         }
@@ -206,6 +210,9 @@ export default function PhoneLoginPage() {
                 background:
                     "radial-gradient(circle at top left, rgba(35,63,57,0.14), transparent 50%), radial-gradient(circle at bottom right, rgba(199,146,87,0.18), #F3F4F6)",
             }}
+            // optional: if user clicks empty space, and we’re on OTP step, focus input
+            onMouseDown={() => confirmation && focusOtp()}
+            onTouchStart={() => confirmation && focusOtp()}
         >
             <motion.div
                 className="w-full max-w-md mx-auto"
@@ -242,6 +249,15 @@ export default function PhoneLoginPage() {
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.28, ease: "easeOut" }}
+                    onMouseDown={(e) => {
+                        if (!confirmation) return;         // only in OTP step
+                        e.preventDefault();                // prevents focus loss / text selection
+                        focusOtp();
+                    }}
+                    onTouchStart={() => {
+                        if (!confirmation) return;
+                        focusOtp();
+                    }}
                 >
                     {/* Heading */}
                     <div className="mb-4">
@@ -294,9 +310,9 @@ export default function PhoneLoginPage() {
                                 />
                             </div>
 
-                            {/* Helper text */}
                             <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
-                                Include your country code, e.g. <span className="font-semibold">+2547…</span>
+                                Include your country code, e.g.{" "}
+                                <span className="font-semibold">+2547…</span>
                             </p>
 
                             {!!errorMsg && (
@@ -315,8 +331,7 @@ export default function PhoneLoginPage() {
                                 <div
                                     className="py-3 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
                                     style={{
-                                        opacity:
-                                            !validPhone || sending || disableAll ? 0.7 : 1,
+                                        opacity: !validPhone || sending || disableAll ? 0.7 : 1,
                                     }}
                                 >
                                     {sending ? (
@@ -349,11 +364,18 @@ export default function PhoneLoginPage() {
                                 <span style={{ color: EKARI.text }}>Verification code</span>
                             </label>
 
-                            {/* OTP boxes (visual only) */}
-                            <div className="mt-1 flex justify-between">
+                            {/* OTP boxes (click/tap to focus hidden input) */}
+                            <div
+                                className="mt-1 flex justify-between cursor-text"
+                                onMouseDown={(e) => {
+                                    e.preventDefault(); // keep focus stable
+                                    focusOtp();
+                                }}
+                                onTouchStart={() => focusOtp()}
+                            >
                                 {Array.from({ length: 6 }).map((_, i) => {
                                     const char = code[i] ?? "";
-                                    const active = i === code.length;
+                                    const active = i === code.length || (code.length === 6 && i === 5);
                                     return (
                                         <div
                                             key={i}
@@ -361,9 +383,7 @@ export default function PhoneLoginPage() {
                                             style={{
                                                 borderColor: char ? "#D1D5DB" : EKARI.hair,
                                                 backgroundColor: char ? "#FFFFFF" : "#F6F7FB",
-                                                boxShadow: active
-                                                    ? `0 0 0 1px ${EKARI.leaf} inset`
-                                                    : "none",
+                                                boxShadow: active ? `0 0 0 1px ${EKARI.leaf} inset` : "none",
                                             }}
                                         >
                                             <span
@@ -377,20 +397,21 @@ export default function PhoneLoginPage() {
                                 })}
                             </div>
 
-                            {/* Hidden input that actually captures the OTP */}
+                            {/* Hidden input that actually captures the OTP (NOT pointer-events-none) */}
                             <input
+                                ref={otpRef}
                                 autoFocus
                                 value={code}
                                 onChange={(e) =>
-                                    setCode(
-                                        e.target.value.replace(/[^\d]/g, "").slice(0, 6)
-                                    )
+                                    setCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))
                                 }
+                                onKeyDown={(e) => e.key === "Enter" && verifyCode()}
                                 inputMode="numeric"
                                 pattern="\d*"
                                 maxLength={6}
                                 aria-label="One-time code"
-                                className="absolute opacity-0 pointer-events-none h-0 w-0"
+                                // tiny but focusable (0x0 can be flaky)
+                                className="absolute opacity-0 left-0 top-0 w-px h-px"
                             />
 
                             {!!errorMsg && (
@@ -409,8 +430,7 @@ export default function PhoneLoginPage() {
                                 <div
                                     className="py-3 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
                                     style={{
-                                        opacity:
-                                            !validCode || verifying || disableAll ? 0.7 : 1,
+                                        opacity: !validCode || verifying || disableAll ? 0.7 : 1,
                                     }}
                                 >
                                     {verifying ? (
@@ -435,8 +455,7 @@ export default function PhoneLoginPage() {
                                     className="font-semibold underline-offset-4 hover:underline disabled:no-underline"
                                     style={{
                                         color: EKARI.text,
-                                        opacity:
-                                            countdown > 0 || disableAll ? 0.5 : 1,
+                                        opacity: countdown > 0 || disableAll ? 0.5 : 1,
                                     }}
                                 >
                                     Resend code{countdown > 0 ? ` (${countdown}s)` : ""}
@@ -454,10 +473,7 @@ export default function PhoneLoginPage() {
                     )}
 
                     {/* Legal */}
-                    <p
-                        className="mt-5 text-[11px] leading-5"
-                        style={{ color: EKARI.dim }}
-                    >
+                    <p className="mt-5 text-[11px] leading-5" style={{ color: EKARI.dim }}>
                         By continuing, you agree to our{" "}
                         <Link
                             href="/terms"

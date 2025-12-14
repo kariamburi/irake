@@ -692,7 +692,7 @@ function SkeletonCard({
         className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_22px_60px_rgba(0,0,0,.12)]"
         style={{ width: cardW, height: cardH, top: tabOffsetPx - 5 }}
       >
-        <div className="h-full w-full bg-white" />
+        <div className="h-full w-full lg:w-[375px] bg-white" />
       </article>
     </div>
   );

@@ -1,4 +1,4 @@
-// app/messages/page.tsx
+// app/bonga/page.tsx
 "use client";
 
 import React, {
@@ -166,7 +166,7 @@ export default function MessagesPage() {
     }
 
     setLoading(true);
-
+    console.log("uid:" + uid)
     const qy = query(
       collection(db, "userThreads", uid, "threads"),
       orderBy("updatedAt", "desc"),
@@ -186,11 +186,14 @@ export default function MessagesPage() {
               docs.map(async (d) => {
                 const m = d.data() as ThreadMirror;
                 try {
+
+
+                  console.log(m)
                   const [peer, lastMessage] = await Promise.all([
                     fetchPeer(m.peerId),
                     fetchLastMessage(m.threadId),
                   ]);
-
+                  console.log(m.peerId + "," + m.threadId)
                   return {
                     threadId: m.threadId,
                     peerId: m.peerId,
@@ -297,7 +300,7 @@ export default function MessagesPage() {
       peerPhotoURL,
       peerHandle,
     });
-    router.push(`/messages/${row.threadId}?${q.toString()}`);
+    router.push(`/bonga/${row.threadId}?${q.toString()}`);
   };
 
   /* ----------------------------- Derived UI data ----------------------------- */

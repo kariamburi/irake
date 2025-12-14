@@ -1,18 +1,21 @@
 "use client";
 
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-} from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Send, Image as ImageIcon, Sparkles } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
 import { useAuth } from "@/app/hooks/useAuth";
-import { storage } from "@/lib/firebase";
+import { storage, db } from "@/lib/firebase";
 import { ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+} from "firebase/firestore";
 
 /* ---------------------------- THEME & HELPERS ---------------------------- */
 const EKARI = {
@@ -41,27 +44,51 @@ type Msg = {
   createdAt: number;
 };
 
+type Conv = {
+  id: string;
+  title?: string;
+  pinned?: boolean;
+  archived?: boolean;
+  lastMessageAt?: any;
+  updatedAt?: any;
+  messageCount?: number;
+};
+
 const SUGGESTIONS = [
-  "Diagnose: spots on maize leaves",
+  // "Diagnose: spots on maize leaves",
   "Best fertilizer schedule for tomatoes",
   "Kenya export regulations for avocados",
 ];
 
+const WELCOME: Msg = {
+  id: "sys-welcome",
+  role: "assistant",
+  text:
+    "Hi! I’m ekari AI 🌿— your smart assistant on ekarihub here to help you diagnose crops and livestock, explore markets, understand local regulations and guide you through the entire agribusiness and green-living ecosystem with instant answers, smart insights, and photo analysis.",
+  createdAt: Date.now(),
+};
+
+function safeTsToMs(ts: any): number {
+  if (!ts) return Date.now();
+  if (typeof ts?.toDate === "function") return ts.toDate().getTime();
+  if (typeof ts?.seconds === "number") return ts.seconds * 1000;
+  if (typeof ts === "number") return ts;
+  return Date.now();
+}
+
 export default function Page() {
   const { user } = useAuth();
+
   const aiEndpoint =
     process.env.NEXT_PUBLIC_EKARI_AI_ENDPOINT ||
     "https://us-central1-ekarihub-aed5a.cloudfunctions.net/ekariAiChat";
 
-  const [messages, setMessages] = useState<Msg[]>([
-    {
-      id: "sys-welcome",
-      role: "assistant",
-      text:
-        "Hi! I’m ekari AI 🌿— your smart assistant on ekarihub here to help you diagnose crops and livestock, explore markets, understand local regulations and guide you through the entire agribusiness and green-living ecosystem with instant answers, smart insights, and photo analysis.",
-      createdAt: Date.now(),
-    },
-  ]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [convs, setConvs] = useState<Conv[]>([]);
+  const [loadingConvs, setLoadingConvs] = useState(false);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+
+  const [messages, setMessages] = useState<Msg[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
@@ -72,28 +99,89 @@ export default function Page() {
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToEnd = () =>
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-
+  const scrollToEnd = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(scrollToEnd, [messages]);
 
   useEffect(() => {
     return () => {
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-      }
+      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
     };
   }, []);
 
+  // ---------------------------- HISTORY: FETCH CONVERSATIONS ----------------------------
+  const fetchConversations = useCallback(async () => {
+    if (!user?.uid) {
+      setConvs([]);
+      return;
+    }
+    setLoadingConvs(true);
+    try {
+      const qy = query(
+        collection(db, "ekariAiConversations"),
+        where("uid", "==", user.uid),
+        orderBy("lastMessageAt", "desc"),
+        limit(50)
+      );
+      const snap = await getDocs(qy);
+      setConvs(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+    } finally {
+      setLoadingConvs(false);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // ---------------------------- HISTORY: LOAD MESSAGES ----------------------------
+  const loadConversation = useCallback(
+    async (convId: string) => {
+      if (!user?.uid) return;
+      setConversationId(convId);
+      setLoadingMsgs(true);
+      try {
+        const qy = query(
+          collection(db, "ekariAiConversations", convId, "messages"),
+          orderBy("createdAt", "asc"),
+          limit(200)
+        );
+        const snap = await getDocs(qy);
+        const loaded: Msg[] = snap.docs.map((d) => {
+          const m = d.data() as any;
+          return {
+            id: d.id,
+            role: m.role,
+            text: m.text || undefined,
+            imageUrl: m.imageUrl || null,
+            createdAt: safeTsToMs(m.createdAt),
+          };
+        });
+
+        // Optional: show welcome only when empty
+        setMessages(loaded.length ? loaded : [WELCOME]);
+      } finally {
+        setLoadingMsgs(false);
+      }
+    },
+    [user?.uid]
+  );
+
+  const startNewChat = useCallback(() => {
+    setConversationId(null);
+    setMessages([WELCOME]);
+    setInput("");
+    setPendingImage(null);
+    setPendingFile(null);
+  }, []);
+
+  // ---------------------------- SEND TO AI ----------------------------
   const sendToAI = useCallback(
     async (prompt: string, file?: File | null): Promise<string> => {
       try {
         let imageUrl: string | null = null;
 
         if (file) {
-          const key = `ekariAi/${user?.uid || "anon"}/${Date.now()}_${file.name || "image.jpg"
-            }`;
+          const key = `ekariAi/${user?.uid || "anon"}/${Date.now()}_${file.name || "image.jpg"}`;
           const ref = sRef(storage, key);
           await uploadBytes(ref, file);
           imageUrl = await getDownloadURL(ref);
@@ -101,13 +189,12 @@ export default function Page() {
 
         const res = await fetch(aiEndpoint, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text: prompt,
             imageUrl,
             uid: user?.uid || null,
+            conversationId,
           }),
         });
 
@@ -117,44 +204,42 @@ export default function Page() {
         }
 
         const data = await res.json();
-        return (
-          data.reply ||
-          "Sorry — I couldn't generate a response. Please try again."
-        );
+        if (data.conversationId) {
+          // update conv id for future sends
+          setConversationId(data.conversationId);
+        }
+
+        // refresh sidebar list after each send (so latest chat moves to top)
+        fetchConversations();
+
+        return data.reply || "Sorry — I couldn't generate a response. Please try again.";
       } catch (err) {
         console.error("Ekari AI error:", err);
         return "Sorry — something went wrong. Please check your connection and try again.";
       }
     },
-    [aiEndpoint, user?.uid]
+    [aiEndpoint, user?.uid, conversationId, fetchConversations]
   );
 
   const animateAssistantReply = useCallback((fullText: string) => {
     if (!fullText) return;
 
-    if (typingIntervalRef.current) {
-      clearInterval(typingIntervalRef.current);
-    }
+    if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
 
     const id = `ai_${Date.now()}`;
     const createdAt = Date.now();
 
-    setMessages((prev) => [
-      ...prev,
-      { id, role: "assistant", text: "", createdAt },
-    ]);
-
+    setMessages((prev) => [...prev, { id, role: "assistant", text: "", createdAt }]);
     setIsTyping(true);
 
     let index = 0;
     const step = Math.max(1, Math.floor(fullText.length / 120));
+
     const interval = setInterval(() => {
       index = Math.min(fullText.length, index + step);
 
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === id ? { ...m, text: fullText.slice(0, index) } : m
-        )
+        prev.map((m) => (m.id === id ? { ...m, text: fullText.slice(0, index) } : m))
       );
 
       if (index >= fullText.length) {
@@ -194,8 +279,10 @@ export default function Page() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setPendingImage(null);
+
     const fileToSend = pendingFile;
     setPendingFile(null);
+
     setSending(true);
 
     try {
@@ -214,22 +301,13 @@ export default function Page() {
         },
       ]);
     }
-  }, [
-    input,
-    pendingImage,
-    pendingFile,
-    sendToAI,
-    lastSentAt,
-    animateAssistantReply,
-  ]);
+  }, [input, pendingImage, pendingFile, sendToAI, lastSentAt, animateAssistantReply]);
 
   const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setPendingFile(file);
-    const url = URL.createObjectURL(file);
-    setPendingImage(url);
+    setPendingImage(URL.createObjectURL(file));
   };
 
   const mineBg = hexToRgba(EKARI.gold, 0.09);
@@ -237,224 +315,275 @@ export default function Page() {
   const theirsBg = "#FFFFFF";
   const theirsBrd = "#E5E7EB";
 
+  const activeConvTitle = useMemo(() => {
+    const c = convs.find((x) => x.id === conversationId);
+    return c?.title || "ekari AI";
+  }, [convs, conversationId]);
+
   return (
     <AppShell>
-      {/* Outer wrapper: lock to viewport & hide page scrolling */}
-      <div className="flex items-center h-full w-full overflow-hidden">
-        {/* Card: full-height, flex column, only middle scrolls */}
-        <div
-          className="
-            relative mx-auto flex h-full w-full max-w-5xl flex-col
-          
-            md:rounded-2xl md:border md:border-slate-200 md:shadow-sm
-            md:h-[calc(100vh-1rem)]
-            overflow-hidden
-          "
-        >
-          {/* Header / top bar (fixed within card) */}
-          <div className="border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl flex-shrink-0"
+      <div className="h-[calc(100vh-2rem)] w-full lg:w-[900px] overflow-hidden">
+        <div className="mx-auto h-full w-full max-w-5xl p-2">
+          <div className="flex h-full w-full gap-0 md:gap-3">
 
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
-              borderColor: "rgba(15,23,42,0.18)",
-              boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
-            }}
-          >
-            <div className="px-3 sm:px-4 py-3 flex items-center justify-between">
-              <div className="w-8 hidden sm:block" />
-
-              <div className="flex flex-col items-center w-full">
-                <div className="flex justify-center">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] px-3 py-1 border border-emerald-100">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    ekari AI • Agribusiness assistant
-                  </span>
-                </div>
+            {/* ---------------- Sidebar (desktop) ---------------- */}
+            <aside className="hidden md:flex w-72 flex-col rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl overflow-hidden">
+              <div className="p-3 border-b border-slate-200 flex items-center justify-between">
+                <div className="text-sm font-extrabold text-slate-900">History</div>
+                <button
+                  onClick={startNewChat}
+                  className="text-[12px] font-semibold rounded-full px-3 py-1 border border-slate-200 hover:bg-slate-50"
+                >
+                  New chat
+                </button>
               </div>
 
-              <div className="w-8 hidden sm:block" />
-            </div>
-
-            <div className="pb-3 px-3 sm:px-4">
-              <div className="max-w-3xl mx-auto flex flex-col gap-2">
-                <div className="mt-1 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                  {SUGGESTIONS.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setInput(s)}
-                      className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs whitespace-nowrap
-                                 bg-white border border-slate-200 hover:border-slate-300 text-slate-700
-                                 shadow-sm transition"
-                    >
-                      <Sparkles size={14} className="text-emerald-700" />
-                      <span>{s}</span>
-                    </button>
-                  ))}
-                </div>
+              <div className="p-2 flex-1 overflow-y-auto">
+                {loadingConvs ? (
+                  <div className="text-xs text-slate-500 p-2">Loading…</div>
+                ) : convs.length === 0 ? (
+                  <div className="text-xs text-slate-500 p-2">No chats yet.</div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {convs.map((c) => {
+                      const active = c.id === conversationId;
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => loadConversation(c.id)}
+                          className={[
+                            "text-left w-full rounded-xl px-3 py-2 border transition",
+                            active
+                              ? "bg-slate-900 text-white border-slate-900"
+                              : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800",
+                          ].join(" ")}
+                          title={c.title || "Chat"}
+                        >
+                          <div className="text-[13px] font-semibold truncate">
+                            {c.title || "New chat"}
+                          </div>
+                          <div className={["text-[11px] mt-0.5", active ? "text-white/70" : "text-slate-500"].join(" ")}>
+                            {typeof c.messageCount === "number" ? `${c.messageCount} msgs` : " "}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
+            </aside>
 
-          {/* Messages area: the ONLY scrollable region */}
-          <div className="flex-1 overflow-y-auto overscroll-contain">
-            <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 space-y-3">
-              {messages.map((msg) => {
-                const mine = msg.role === "user";
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${mine ? "justify-end" : "justify-start"
-                      }`}
-                  >
-                    <div
-                      className="max-w-[82%] rounded-2xl px-3.5 py-2.5 text-[15px] leading-relaxed border shadow-sm bg-white"
-                      style={{
-                        background: mine ? mineBg : theirsBg,
-                        borderColor: mine ? mineBorder : theirsBrd,
-                      }}
-                    >
-                      {msg.imageUrl && (
-                        <div className="mb-2 overflow-hidden rounded-xl">
-                          <Image
-                            src={msg.imageUrl}
-                            alt="upload"
-                            width={360}
-                            height={360}
-                            className="rounded-xl object-cover w-full h-auto"
-                          />
-                        </div>
-                      )}
-                      {!!msg.text && (
-                        <p className="whitespace-pre-wrap text-slate-900">
-                          {msg.text}
-                        </p>
-                      )}
+            {/* ---------------- Main Card ---------------- */}
+            <div className="relative flex h-full w-full flex-col md:rounded-2xl md:border md:border-slate-200 md:shadow-sm overflow-hidden bg-white">
+              {/* Header / top bar */}
+              <div
+                className="border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl flex-shrink-0"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
+                  borderColor: "rgba(15,23,42,0.18)",
+                  boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
+                }}
+              >
+                <div className="px-3 sm:px-4 py-3 flex items-center justify-between">
+                  <div className="w-8 hidden sm:block" />
+                  <div className="flex flex-col items-center w-full">
+                    <div className="flex justify-center">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] px-3 py-1 border border-emerald-100">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        {activeConvTitle} • Agribusiness assistant
+                      </span>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="w-8 hidden sm:block" />
+                </div>
 
-              {sending && !isTyping && (
-                <div className="flex justify-start">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-slate-200 px-3 py-1 text-[11px] text-slate-500 shadow-sm">
-                    <span className="flex gap-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.1s]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.2s]" />
-                    </span>
-                    <span>ekari AI is thinking…</span>
+                <div className="pb-3 px-3 sm:px-4">
+                  <div className="max-w-3xl mx-auto flex flex-col gap-2">
+                    <div className="mt-1 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                      {SUGGESTIONS.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setInput(s)}
+                          className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs whitespace-nowrap
+                                   bg-white border border-slate-200 hover:border-slate-300 text-slate-700
+                                   shadow-sm transition"
+                        >
+                          <Sparkles size={14} className="text-emerald-700" />
+                          <span>{s}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Mobile: quick actions */}
+                    <div className="md:hidden flex gap-2">
+                      <button
+                        onClick={startNewChat}
+                        className="text-[12px] font-semibold rounded-full px-3 py-1 border border-white/60 bg-white/80"
+                      >
+                        New chat
+                      </button>
+                      <button
+                        onClick={fetchConversations}
+                        className="text-[12px] font-semibold rounded-full px-3 py-1 border border-white/60 bg-white/80"
+                      >
+                        Refresh history
+                      </button>
+                    </div>
                   </div>
                 </div>
-              )}
-
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-slate-200 px-3 py-1 text-[11px] text-slate-500 shadow-sm">
-                    <span className="flex gap-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.1s]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.2s]" />
-                    </span>
-                    <span>ekari AI is typing…</span>
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-
-              <p className="mt-2 text-[11px] text-slate-400 text-center">
-                ekari AI provides guidance only and is not a substitute for a
-                certified agronomist or legal advisor.
-              </p>
-            </div>
-          </div>
-
-          {/* Pending image preview overlay (stays above scroll, below composer) */}
-          {pendingImage && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="absolute bottom-24 left-3 right-3 sm:left-6 sm:right-6 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xl max-w-xl mx-auto"
-            >
-              <div className="relative">
-                <Image
-                  src={pendingImage}
-                  alt="Preview"
-                  width={800}
-                  height={400}
-                  className="w-full h-36 sm:h-40 object-cover"
-                />
-                <button
-                  onClick={() => {
-                    setPendingImage(null);
-                    setPendingFile(null);
-                  }}
-                  className="absolute top-2 right-2 bg-white/90 hover:bg-white text-slate-700 border border-slate-200 transition rounded-full px-2 py-1 text-xs"
-                >
-                  Close
-                </button>
               </div>
-            </motion.div>
-          )}
 
-          {/* Composer / bottom bar (fixed within card) */}
-          <div className="border-t border-slate-200 bg-white flex-shrink-0">
-            <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-1">
-              <div className="flex items-end gap-2">
-                <label
-                  className="cursor-pointer bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-center
-                             hover:bg-slate-50 transition"
-                  title="Attach image"
-                >
-                  <ImageIcon size={18} className="text-slate-700" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImagePick}
-                  />
-                </label>
+              {/* Messages area */}
+              <div className="flex-1 overflow-y-auto overscroll-contain">
+                <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 space-y-3">
+                  {loadingMsgs ? (
+                    <div className="text-sm text-slate-500">Loading conversation…</div>
+                  ) : null}
 
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about crop issues, inputs, or rules…"
-                  className="flex-1 resize-none bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm
-                             placeholder-slate-400 focus:outline-none focus:ring-2
-                             focus:ring-[rgba(199,146,87,0.45)] max-h-32 min-h-[42px]"
-                  rows={1}
-                  onInput={(e) => {
-                    const ta = e.currentTarget;
-                    ta.style.height = "auto";
-                    ta.style.height = Math.min(ta.scrollHeight, 128) + "px";
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      onSend();
-                    }
-                  }}
-                />
+                  {messages.map((msg) => {
+                    const mine = msg.role === "user";
+                    return (
+                      <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className="max-w-[82%] rounded-2xl px-3.5 py-2.5 text-[15px] leading-relaxed border shadow-sm bg-white"
+                          style={{
+                            background: mine ? mineBg : theirsBg,
+                            borderColor: mine ? mineBorder : theirsBrd,
+                          }}
+                        >
+                          {msg.imageUrl && (
+                            <div className="mb-2 overflow-hidden rounded-xl">
+                              <Image
+                                src={msg.imageUrl}
+                                alt="upload"
+                                width={360}
+                                height={360}
+                                className="rounded-xl object-cover w-full h-auto"
+                              />
+                            </div>
+                          )}
+                          {!!msg.text && (
+                            <p className="whitespace-pre-wrap text-slate-900">{msg.text}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
 
-                <button
-                  onClick={onSend}
-                  disabled={
-                    sending || (!input.trim() && !pendingImage && !pendingFile)
-                  }
-                  className="p-3 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed
-                             active:scale-95 transition shadow"
-                  style={{ backgroundColor: EKARI.gold }}
-                  aria-label="Send"
-                >
-                  {sending ? (
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                  ) : (
-                    <Send size={16} />
+                  {sending && !isTyping && (
+                    <div className="flex justify-start">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-slate-200 px-3 py-1 text-[11px] text-slate-500 shadow-sm">
+                        <span className="flex gap-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.1s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.2s]" />
+                        </span>
+                        <span>ekari AI is thinking…</span>
+                      </div>
+                    </div>
                   )}
-                </button>
+
+                  {isTyping && (
+                    <div className="flex justify-start">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-white/80 border border-slate-200 px-3 py-1 text-[11px] text-slate-500 shadow-sm">
+                        <span className="flex gap-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.1s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0.2s]" />
+                        </span>
+                        <span>ekari AI is typing…</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+
+                  <p className="mt-2 text-[11px] text-slate-400 text-center">
+                    ekari AI provides guidance only and is not a substitute for a certified agronomist or legal advisor.
+                  </p>
+                </div>
+              </div>
+
+              {/* Pending image preview overlay */}
+              {pendingImage && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="absolute bottom-24 left-3 right-3 sm:left-6 sm:right-6 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xl max-w-xl mx-auto"
+                >
+                  <div className="relative">
+                    <Image
+                      src={pendingImage}
+                      alt="Preview"
+                      width={800}
+                      height={400}
+                      className="w-full h-36 sm:h-40 object-cover"
+                    />
+                    <button
+                      onClick={() => {
+                        setPendingImage(null);
+                        setPendingFile(null);
+                      }}
+                      className="absolute top-2 right-2 bg-white/90 hover:bg-white text-slate-700 border border-slate-200 transition rounded-full px-2 py-1 text-xs"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Composer */}
+              <div className="border-t border-slate-200 bg-white flex-shrink-0">
+                <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 flex flex-col gap-1">
+                  <div className="flex items-end gap-2">
+                    <label
+                      className="cursor-pointer bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-center hover:bg-slate-50 transition"
+                      title="Attach image"
+                    >
+                      <ImageIcon size={18} className="text-slate-700" />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
+                    </label>
+
+                    <textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Ask about crop issues, inputs, or rules…"
+                      className="flex-1 resize-none bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm
+                                 placeholder-slate-400 focus:outline-none focus:ring-2
+                                 focus:ring-[rgba(199,146,87,0.45)] max-h-32 min-h-[42px]"
+                      rows={1}
+                      onInput={(e) => {
+                        const ta = e.currentTarget;
+                        ta.style.height = "auto";
+                        ta.style.height = Math.min(ta.scrollHeight, 128) + "px";
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          onSend();
+                        }
+                      }}
+                    />
+
+                    <button
+                      onClick={onSend}
+                      disabled={sending || (!input.trim() && !pendingImage && !pendingFile)}
+                      className="p-3 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition shadow"
+                      style={{ backgroundColor: EKARI.gold }}
+                      aria-label="Send"
+                    >
+                      {sending ? (
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                      ) : (
+                        <Send size={16} />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
+            {/* end main */}
           </div>
         </div>
       </div>
