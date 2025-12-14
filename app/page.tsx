@@ -689,10 +689,10 @@ function SkeletonCard({
   return (
     <div className="relative mt-1 mb-1">
       <article
-        className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_22px_60px_rgba(0,0,0,.12)]"
-        style={{ width: cardW, height: cardH, top: tabOffsetPx - 5 }}
+        className="relative w-full lg:w-[400px] overflow-hidden rounded-[28px] bg-black shadow-[0_22px_60px_rgba(0,0,0,.12)]"
+        style={{ height: cardH, top: tabOffsetPx - 5 }}
       >
-        <div className="h-full w-full lg:w-[375px] bg-white" />
+
       </article>
     </div>
   );

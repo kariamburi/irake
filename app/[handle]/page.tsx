@@ -760,7 +760,7 @@ function Header({
     if (peerPhotoURL) qs.set("peerPhotoURL", peerPhotoURL);
     if (peerHandle) qs.set("peerHandle", peerHandle);
 
-    router.push(`/messages/${encodeURIComponent(threadId)}?${qs.toString()}`);
+    router.push(`/bonga/${encodeURIComponent(threadId)}?${qs.toString()}`);
   };
 
   return (<>

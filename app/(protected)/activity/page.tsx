@@ -427,7 +427,7 @@ export default function ActivityPage() {
       peerHandle,
     });
     // fix: remove stray spaces around '?'
-    router.push(`/messages/${row?.threadId}?${q.toString()}`);
+    router.push(`/bonga/${row?.threadId}?${q.toString()}`);
   };
 
   // Group notifications by day bucket

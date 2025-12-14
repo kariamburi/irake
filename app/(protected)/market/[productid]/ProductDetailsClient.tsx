@@ -919,7 +919,7 @@ export default function ProductDetailsClient({
             if (peer.photoURL) qs.set("peerPhotoURL", peer.photoURL);
             if (peer.handle) qs.set("peerHandle", peer.handle);
 
-            router.push(`/messages/${encodeURIComponent(threadId)}?${qs.toString()}`);
+            router.push(`/bonga/${encodeURIComponent(threadId)}?${qs.toString()}`);
         } finally {
             setMsgLoading(false);
         }

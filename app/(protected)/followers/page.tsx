@@ -191,7 +191,7 @@ export default function FollowersPage() {
     });
     if (uid) {
       const threadId = makeThreadId(uid, row.userId);
-      router.push(`/messages/${threadId}?${q.toString()}`);
+      router.push(`/bonga/${threadId}?${q.toString()}`);
     }
 
   };
