@@ -90,14 +90,14 @@ export default function AppShell({
                 )}
             </div>
 
-            <div className="mx-auto max-w-[1400px] flex pb-0 pr-10">
+            <div className="w-full lg:mx-auto lg:max-w-[1400px] flex pb-0 pr-10">
                 <LeftRailCompact />
                 <LeftNavDesktop uid={uid} handle={effectiveHandle} />
 
                 {/* Center content */}
-                <main className="pl-5 flex-1 flex items-center justify-center">
+                <main className="lg:pl-5 flex-1 flex items-center justify-center">
                     <motion.div
-                        className="w-full max-w-5xl flex items-center justify-center"
+                        className="w-full lg:max-w-5xl flex items-center justify-center"
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25, ease: "easeOut" }}

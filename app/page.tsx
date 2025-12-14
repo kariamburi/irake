@@ -973,9 +973,10 @@ function VideoCard({
           "shadow-[0_22px_60px_rgba(0,0,0,.65)]",
           "bg-gradient-to-b from-[#0B1513] via-black to-black",
           "transition-transform duration-300 ease-out",
-          "md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]"
+          "md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]",
+          "w-full lg:w-[375px]"
         )}
-        style={{ top: tabOffsetPx - 5, width: cardW, height: cardH }}
+        style={{ top: tabOffsetPx - 5, height: cardH }}
       >
         {/* Loader overlay until mediaReady */}
         {!mediaReady && (
@@ -1119,6 +1120,7 @@ function VideoCard({
               className="cursor-pointer min-w-0 flex flex-col"
             >
               <div className="text-white/95 font-bold text-sm truncate">
+
                 {authorProfile?.handle
                   ? authorProfile.handle
                   : item.authorUsername
