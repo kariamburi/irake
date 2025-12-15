@@ -199,7 +199,8 @@ export default function Page() {
         });
 
         if (!res.ok) {
-          console.error("Ekari AI HTTP error:", res.status);
+          const body = await res.text().catch(() => "");
+          console.error("Ekari AI HTTP error:", res.status, body);
           return "Sorry — I couldn't process that request. Please try again.";
         }
 
@@ -322,7 +323,7 @@ export default function Page() {
 
   return (
     <AppShell>
-      <div className="h-[calc(100vh-2rem)] w-full lg:w-[900px] overflow-hidden">
+      <div className="h-[calc(100vh-2rem)] w-full lg:w-[980px] overflow-hidden">
         <div className="mx-auto h-full w-full max-w-5xl p-2">
           <div className="flex h-full w-full gap-0 md:gap-3">
 
@@ -354,7 +355,7 @@ export default function Page() {
                           className={[
                             "text-left w-full rounded-xl px-3 py-2 border transition",
                             active
-                              ? "bg-slate-900 text-white border-slate-900"
+                              ? "bg-[#233F39] text-white border-[#233F39]"
                               : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800",
                           ].join(" ")}
                           title={c.title || "Chat"}
@@ -378,12 +379,7 @@ export default function Page() {
               {/* Header / top bar */}
               <div
                 className="border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl flex-shrink-0"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
-                  borderColor: "rgba(15,23,42,0.18)",
-                  boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
-                }}
+
               >
                 <div className="px-3 sm:px-4 py-3 flex items-center justify-between">
                   <div className="w-8 hidden sm:block" />
@@ -400,7 +396,7 @@ export default function Page() {
 
                 <div className="pb-3 px-3 sm:px-4">
                   <div className="max-w-3xl mx-auto flex flex-col gap-2">
-                    <div className="mt-1 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                    {/*  <div className="mt-1 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                       {SUGGESTIONS.map((s, i) => (
                         <button
                           key={i}
@@ -415,7 +411,7 @@ export default function Page() {
                       ))}
                     </div>
 
-                    {/* Mobile: quick actions */}
+                   Mobile: quick actions */}
                     <div className="md:hidden flex gap-2">
                       <button
                         onClick={startNewChat}
@@ -436,7 +432,7 @@ export default function Page() {
 
               {/* Messages area */}
               <div className="flex-1 overflow-y-auto overscroll-contain">
-                <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 space-y-3">
+                <div className="max-w-3xl bg-gray-100 mx-auto px-3 sm:px-4 py-4 space-y-3">
                   {loadingMsgs ? (
                     <div className="text-sm text-slate-500">Loading conversation…</div>
                   ) : null}
