@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   collection,
+  doc,
+  getDoc,
   limit,
   onSnapshot,
   orderBy,
@@ -34,56 +36,14 @@ const EKARI = {
 
 type Notif = {
   id: string;
-  type?: "like" | "comment" | "follow" | string;
+  type?: "like" | "comment" | "follow" | "profile_view" | "payment_success" | string;
   byName?: string;
   title?: string;
   preview?: string;
   createdAt?: any;
   seen?: boolean;
-  // deepLink?: string;
-  // byHandle?: string;
-  // byId?: string;
-  // deedId?: string;
-  // listingId?: string;
+  meta?: Record<string, any>;
 };
-
-function tsToDate(ts: any): Date | null {
-  if (!ts) return null;
-  if (typeof ts?.toDate === "function") return ts.toDate();
-  if (typeof ts?.seconds === "number") return new Date(ts.seconds * 1000);
-  if (ts instanceof Date) return ts;
-  if (typeof ts === "number") return new Date(ts);
-  return null;
-}
-
-function shortTime(ts: any) {
-  const d = tsToDate(ts);
-  if (!d) return "";
-  const now = new Date();
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-
-  if (sameDay) {
-    const h = d.getHours();
-    const m = d.getMinutes().toString().padStart(2, "0");
-    const ampm = h >= 12 ? "PM" : "AM";
-    const hh = ((h + 11) % 12) + 1;
-    return `${hh}:${m} ${ampm}`;
-  }
-  const mon = d.toLocaleString(undefined, { month: "short" });
-  const day = d.getDate();
-  return `${mon} ${day}`;
-}
-
-function buildPreview(n: Notif) {
-  if (n.type === "like") return `${n.byName || "Someone"} liked your post.`;
-  if (n.type === "comment")
-    return `${n.byName || "Someone"} commented: ${n.preview || ""}`;
-  if (n.type === "follow") return `${n.byName || "Someone"} started following you.`;
-  return n.title || "New activity.";
-}
 
 /** Safer router.push wrapper */
 function pushSafe(router: ReturnType<typeof useRouter>, href?: string) {
@@ -96,28 +56,6 @@ function pushSafe(router: ReturnType<typeof useRouter>, href?: string) {
 }
 
 /** Compute where to navigate for a given notification */
-function routeForNotification(n: Notif): string | undefined {
-  const anyN = n as any;
-
-  if (anyN.deepLink && typeof anyN.deepLink === "string") {
-    return anyN.deepLink;
-  }
-
-  if (n.type === "follow") {
-    if (anyN.byHandle) return `/${anyN.byHandle}`;
-    //if (anyN.byId) return `/u/${anyN.byId}`;
-    return "/followers";
-  }
-
-  if (n.type === "comment" || n.type === "like") {
-    alert(anyN.byHandle)
-    if (anyN.deedId) return `${anyN.byHandle}/deed/${anyN.deedId}`;
-    if (anyN.listingId) return `/market/${anyN.listingId}`;
-    return "/activity";
-  }
-
-  return "/activity";
-}
 function hexToRgba(hex: string, alpha: number) {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
   if (!m) return hex;
@@ -151,6 +89,33 @@ export default function NotificationsPage() {
 
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [myHandle, setMyHandle] = useState<string>("");
+
+  useEffect(() => {
+    if (!uid) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", uid));
+        const data = snap.exists() ? (snap.data() as any) : null;
+
+        const h =
+          (data?.handle as string | undefined) ||
+          (data?.username as string | undefined) ||
+          "";
+
+        if (!cancelled) setMyHandle(h);
+      } catch {
+        if (!cancelled) setMyHandle("");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
 
   // live counts + previews
   useEffect(() => {
@@ -196,6 +161,9 @@ export default function NotificationsPage() {
         setNotifPreview(`${n.byName || "Someone"} checked out your profile 👀`);
       else if (n.type === "follow")
         setNotifPreview("");
+      else if (n.type === "payment_success")
+        setNotifPreview(n.preview || n.title || "Payment successful ✅");
+
       else setNotifPreview(n.title || "New activity on Ekarihub 🔔");
     });
 
@@ -307,7 +275,7 @@ export default function NotificationsPage() {
         ) : (
           <ul className="px-3 py-4 space-y-2">
             {items.map((n) => (
-              <NotificationItem key={n.id} n={n} onOpen={(href) => pushSafe(router, href)} />
+              <NotificationItem key={n.id} n={n} handle={myHandle} onOpen={(href) => pushSafe(router, href)} />
             ))}
           </ul>
 

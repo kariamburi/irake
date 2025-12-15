@@ -24,10 +24,6 @@ import {
     IoPencil,
     IoSwapVertical,
     IoTrashOutline,
-    IoHeartOutline,
-    IoEyeOutline,
-    IoShareOutline,
-    IoBookmarkOutline,
 } from "react-icons/io5";
 import SmartAvatar from "./SmartAvatar";
 import { useRouter } from "next/navigation";
@@ -66,8 +62,8 @@ const DEFAULT_EMOJIS = [
 /* ------------------------------------------------------------------ */
 function clipGraphemes(input: string, max: number) {
     try {
-        // @ts-ignore
-        if (typeof Intl !== "undefined" && (Intl as any).Segmenter) {
+        // @ts-ignore - Safari/older browsers may lack Segmenter
+        if (typeof Intl !== "undefined" && Intl.Segmenter) {
             // @ts-ignore
             const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
             const it = seg.segment(input)[Symbol.iterator]();
@@ -110,7 +106,7 @@ function computePosition(anchorRect: DOMRect, popupW = 288, popupH = 240, gap = 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    const left = Math.min(Math.max(8, anchorRect.right - popupW), vw - popupW - 8);
+    let left = Math.min(Math.max(8, anchorRect.right - popupW), vw - popupW - 8);
 
     const tryBottomTop = anchorRect.bottom + gap;
     const tryTopTop = anchorRect.top - gap - popupH;
@@ -122,7 +118,10 @@ function computePosition(anchorRect: DOMRect, popupW = 288, popupH = 240, gap = 
     return { top, left, placement: "top" };
 }
 
-function useGlobalClickAway(refs: Array<React.RefObject<HTMLElement | null>>, onAway: () => void) {
+function useGlobalClickAway(
+    refs: Array<React.RefObject<HTMLElement | null>>,
+    onAway: () => void
+) {
     useEffect(() => {
         const onDown = (e: MouseEvent) => {
             const t = e.target as Node;
@@ -148,6 +147,7 @@ function EmojiPopup({
     const popRef = useRef<HTMLDivElement>(null);
     const [pos, setPos] = useState<Pos | null>(null);
 
+    // Esc to close
     useEffect(() => {
         if (!open) return;
         const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -155,6 +155,7 @@ function EmojiPopup({
         return () => window.removeEventListener("keydown", onKey);
     }, [open, onClose]);
 
+    // Position calculations
     useEffect(() => {
         if (!open) return;
         const anchor = anchorRef.current;
@@ -169,7 +170,11 @@ function EmojiPopup({
         };
     }, [open, anchorRef]);
 
-    useGlobalClickAway([popRef as React.RefObject<HTMLElement | null>, anchorRef], () => open && onClose());
+    // Outside click (consider both popup & anchor)
+    useGlobalClickAway(
+        [popRef as React.RefObject<HTMLElement | null>, anchorRef],
+        () => open && onClose()
+    );
 
     if (!open || !pos) return null;
 
@@ -181,6 +186,7 @@ function EmojiPopup({
             className="fixed z-[1000]"
             style={{ top: pos.top, left: pos.left, width: 288 }}
         >
+            {/* caret */}
             <div
                 className={[
                     "absolute h-3 w-3 rotate-45 bg-white border border-gray-200",
@@ -188,6 +194,7 @@ function EmojiPopup({
                     "shadow-[0_1px_6px_rgba(0,0,0,.08)]",
                 ].join(" ")}
             />
+            {/* panel */}
             <div className="rounded-xl border border-gray-200 bg-white shadow-xl p-2">
                 <div className="grid grid-cols-8 gap-1 text-xl max-h-56 overflow-auto">
                     {DEFAULT_EMOJIS.map((e) => (
@@ -210,63 +217,26 @@ function EmojiPopup({
 }
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-function nfmt(n?: number) {
-    const v = Number(n ?? 0);
-    if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-    if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
-    return String(v);
-}
-
-/* ------------------------------------------------------------------ */
-/* Types & hooks                                                       */
+/* Types & small data hooks                                            */
 /* ------------------------------------------------------------------ */
 type SortMode = "newest" | "oldest";
 type UserLite = { uid?: string; photoURL?: string | null; handle?: string | null };
 
-// ✅ matches your backend collections
-type Tab = "comments" | "likes" | "views" | "shares";
-type ActivityCollection = "likes" | "views" | "shares";
-
-function useDeedMeta(deedId?: string, open?: boolean) {
-    const [meta, setMeta] = useState<{
-        createdAt?: any;
-        stats?: {
-            views?: number;
-            likes?: number;
-            comments?: number;
-            shares?: number;
-        };
-        allowComments?: boolean;
-        commentsEnabled?: boolean;
-    } | null>(null);
+function useDeedCommentsMeta(deedId?: string, open?: boolean) {
+    const [count, setCount] = useState(0);
+    const [enabled, setEnabled] = useState(true);
 
     useEffect(() => {
         if (!deedId || !open) return;
-        return onSnapshot(doc(db, "deeds", deedId), (s) => {
+        const unsub = onSnapshot(doc(db, "deeds", deedId), (s) => {
             const d = s.data() as any;
-            setMeta({
-                createdAt: d?.createdAt,
-                stats: d?.stats || {},
-                allowComments: d?.allowComments,
-                commentsEnabled: d?.commentsEnabled,
-            });
+            setCount(Number(d?.stats?.comments ?? 0));
+            setEnabled(d?.allowComments !== false && d?.commentsEnabled !== false);
         });
+        return () => unsub();
     }, [deedId, open]);
 
-    const posted =
-        meta?.createdAt instanceof Date
-            ? meta.createdAt
-            : typeof meta?.createdAt?.toMillis === "function"
-                ? new Date(meta.createdAt.toMillis())
-                : typeof meta?.createdAt === "number"
-                    ? new Date(meta.createdAt)
-                    : undefined;
-
-    const enabled = meta?.allowComments !== false && meta?.commentsEnabled !== false;
-
-    return { posted, stats: meta?.stats || {}, enabled };
+    return { count, enabled };
 }
 
 function useTopLevelComments(deedId?: string, open?: boolean, sort: SortMode = "newest") {
@@ -351,157 +321,15 @@ function useReplies(deedId?: string, parentId?: string, open?: boolean) {
     return { list, loadMore, hasMore: !!cursor };
 }
 
-function useDeedActivity(collectionName: ActivityCollection, deedId?: string, open?: boolean) {
-    const [items, setItems] = useState<any[]>([]);
-    const [cursor, setCursor] = useState<any>(null);
-    const [paging, setPaging] = useState(false);
-
-    useEffect(() => {
-        if (!open || !deedId) return;
-
-        const q0 = query(
-            collection(db, collectionName),
-            where("deedId", "==", deedId),
-            orderBy("createdAt", "desc"),
-            limit(30)
-        );
-
-        const unsub = onSnapshot(
-            q0,
-            (snap) => {
-                setItems(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
-                setCursor(snap.docs.length ? snap.docs[snap.docs.length - 1] : null);
-            },
-            () => {
-                setItems([]);
-                setCursor(null);
-            }
-        );
-
-        return () => unsub();
-    }, [collectionName, deedId, open]);
-
-    const loadMore = useCallback(async () => {
-        if (!deedId || !cursor || paging) return;
-        setPaging(true);
-        try {
-            const qMore = query(
-                collection(db, collectionName),
-                where("deedId", "==", deedId),
-                orderBy("createdAt", "desc"),
-                startAfter(cursor),
-                limit(30)
-            );
-            const snap = await getDocs(qMore);
-            setItems((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))]);
-            setCursor(snap.docs.length ? snap.docs[snap.docs.length - 1] : null);
-        } finally {
-            setPaging(false);
-        }
-    }, [collectionName, deedId, cursor, paging]);
-
-    return { items, loadMore, paging };
-}
-
 /* ------------------------------------------------------------------ */
-/* ✅ Views: unique users + total per user                              */
-/* - tab count still uses deeds.stats.views (total views)              */
-/* - list is deduped by userId (so no repeats)                         */
+/* RightRail (comments panel with TikTok-like emoji popup)            */
 /* ------------------------------------------------------------------ */
-type ViewItem = {
-    id: string;
-    deedId?: string;
-    userId?: string;
-    userHandle?: string | null;
-    createdAt?: any;
-    viewsByUser?: number;
-    lastViewedAt?: any;
-};
 
-function useDeedViewsUnique(deedId?: string, open?: boolean) {
-    const [items, setItems] = useState<ViewItem[]>([]);
-    const [paging, setPaging] = useState(false);
-
-    useEffect(() => {
-        if (!open || !deedId) return;
-
-        // Bigger window so dedupe works even with repeat views
-        const q0 = query(
-            collection(db, "views"),
-            where("deedId", "==", deedId),
-            orderBy("createdAt", "desc"),
-            limit(400)
-        );
-
-        const unsub = onSnapshot(
-            q0,
-            (snap) => {
-                const raw = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as ViewItem[];
-
-                const map = new Map<string, ViewItem>(); // userId -> (newest doc + count)
-                for (const v of raw) {
-                    const uid = (v.userId || "").trim();
-                    if (!uid) continue;
-
-                    const existing = map.get(uid);
-                    if (!existing) {
-                        map.set(uid, {
-                            ...v,
-                            viewsByUser: 1,
-                            lastViewedAt: v.createdAt,
-                        });
-                    } else {
-                        map.set(uid, {
-                            ...existing,
-                            viewsByUser: (existing.viewsByUser ?? 1) + 1,
-                            // keep existing doc fields (existing is newest because query is desc)
-                        });
-                    }
-                }
-
-                setItems(Array.from(map.values()));
-            },
-            () => setItems([])
-        );
-
-        return () => unsub();
-    }, [deedId, open]);
-
-    // For unique viewer list, “load more” would require multi-page merge.
-    // Keep button but no-op (or you can hide it in ActivityPanel for tab=views).
-    const loadMore = useCallback(async () => { }, []);
-    return { items, loadMore, paging };
-}
-
-function useUserLiteById(userId?: string) {
-    const [u, setU] = useState<{ handle?: string; photoURL?: string } | null>(null);
-
-    useEffect(() => {
-        if (!userId) {
-            setU(null);
-            return;
-        }
-        return onSnapshot(doc(db, "users", userId), (s) => {
-            const d = s.data() as any;
-            setU(d ? { handle: d?.handle, photoURL: d?.photoURL } : null);
-        });
-    }, [userId]);
-
-    return u;
-}
-
-/* ------------------------------------------------------------------ */
-/* RightRail                                                           */
-/* ------------------------------------------------------------------ */
 const EKARI = {
     forest: "#233F39",
     leaf: "#1F3A34",
-    gold: "#C79257",
-    hair: "#E5E7EB",
-    text: "#111827",
-    subtext: "#6B7280",
+    gold: "#C79257", hair: "#E5E7EB", text: "#111827", subtext: "#6B7280"
 };
-
 type RightRailProps = {
     open: boolean;
     deedId?: string;
@@ -523,38 +351,30 @@ export default function RightRail({
         return <aside className="hidden lg:flex w-0 shrink-0" aria-hidden />;
     }
 
+    const [sort, setSort] = useState<SortMode>("newest");
+    const { count, enabled } = useDeedCommentsMeta(deedId, open);
+    const { items, loadMore, paging } = useTopLevelComments(deedId, open, sort);
+
     const outer = [
         mode === "sidebar" ? "hidden lg:flex h-screen w-[400px] border-l" : "flex lg:hidden",
         "h-full flex-col",
         className || "",
     ].join(" ");
 
-    const [tab, setTab] = useState<Tab>("comments");
-
-    const { posted, stats, enabled } = useDeedMeta(deedId, open);
-
-    // comments
-    const [sort, setSort] = useState<SortMode>("newest");
-    const { items, loadMore, paging } = useTopLevelComments(deedId, open, sort);
-
-    // activity
-    const likesQ = useDeedActivity("likes", deedId, open);
-    const viewsQ = useDeedViewsUnique(deedId, open); // ✅ UPDATED (unique viewers list)
-    const sharesQ = useDeedActivity("shares", deedId, open);
-
+    // composer
     const [text, setText] = useState("");
     const [replyTo, setReplyTo] = useState<{ id: string; handle?: string | null } | null>(null);
     const [sending, setSending] = useState(false);
-
     const isGuest = !currentUser?.uid;
-    const canSend = tab === "comments" && !!currentUser?.uid && enabled && text.trim().length > 0 && !sending;
+    const canSend = !!currentUser?.uid && enabled && text.trim().length > 0 && !sending;
 
+    // emoji popup state
     const [showEmoji, setShowEmoji] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const emojiBtnRef = useRef<HTMLButtonElement>(null);
 
+    // reset when deed changes or panel closes
     useEffect(() => {
-        setTab("comments");
         setText("");
         setReplyTo(null);
         setSending(false);
@@ -594,134 +414,71 @@ export default function RightRail({
         setShowEmoji(false);
     };
 
-    const TabButton = ({
-        k,
-        label,
-        count,
-        icon,
-    }: {
-        k: Tab;
-        label: string;
-        count?: number;
-        icon: React.ReactNode;
-    }) => {
-        const active = tab === k;
-
-        return (
-            <button
-                type="button"
-                onClick={() => setTab(k)}
-                className={[
-                    "flex items-center justify-center gap-1.5",
-                    "w-full py-2 text-xs font-bold border-b-2 transition",
-                    active
-                        ? "text-gray-900 border-gray-900"
-                        : "text-gray-500 border-transparent hover:text-gray-800",
-                ].join(" ")}
-            >
-                <span className="text-base">{icon}</span>
-                <span>{label}</span>
-                <span className="text-gray-400 font-semibold">{nfmt(count)}</span>
-            </button>
-        );
-    };
-
-    const activeActivity =
-        tab === "likes" ? likesQ :
-            tab === "views" ? viewsQ :
-                tab === "shares" ? sharesQ :
-                    null;
-
     return (
         <aside className={outer} style={{ borderColor: EKARI.hair }} aria-live="polite">
             <div className="flex flex-col w-full h-full">
-                {/* Meta + Tabs header */}
-                <div className="border-b" style={{ borderColor: EKARI.hair }}>
-                    <div className="px-4 pt-4 pb-3">
-                        <div className="flex items-center justify-between">
-                            <div className="text-xs text-gray-500">Posted {posted ? posted.toLocaleString() : "—"}</div>
-                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100" aria-label="Close" type="button">
-                                <IoClose size={22} />
-                            </button>
-                        </div>
-
-                        <div className="mt-3 flex w-full border-b border-gray-200">
-                            <TabButton k="comments" label="Comments" count={stats?.comments} icon={<IoChatbubbleOutline />} />
-                            <TabButton k="likes" label="Likes" count={stats?.likes} icon={<IoHeartOutline />} />
-                            <TabButton k="views" label="Views" count={stats?.views} icon={<IoEyeOutline />} />
-                            <TabButton k="shares" label="Shares" count={stats?.shares} icon={<IoShareOutline />} />
-                        </div>
-
-
-                        {tab === "comments" && (
-                            <div className="mt-3 flex items-center justify-between">
-                                <button
-                                    onClick={() => setSort((s) => (s === "newest" ? "oldest" : "newest"))}
-                                    className="p-2 rounded-full hover:bg-gray-100"
-                                    title="Toggle sort"
-                                    aria-label="Toggle sort"
-                                    type="button"
-                                >
-                                    <IoSwapVertical size={20} />
-                                </button>
-
-                                <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
-                                    {stats?.comments ? `Comments · ${stats.comments}` : "Comments"}
-                                </div>
-
-                                <div className="w-10" />
-                            </div>
-                        )}
+                {/* Header */}
+                <div className="h-12 flex items-center justify-between px-3 border-b" style={{ borderColor: EKARI.hair }}>
+                    <button
+                        onClick={() => setSort((s) => (s === "newest" ? "oldest" : "newest"))}
+                        className="p-2 rounded-full hover:bg-gray-100"
+                        title="Toggle sort"
+                        aria-label="Toggle sort"
+                        type="button"
+                    >
+                        <IoSwapVertical size={20} />
+                    </button>
+                    <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
+                        {count > 0 ? `Comments · ${count}` : "Comments"}
                     </div>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100" aria-label="Close" type="button">
+                        <IoClose size={22} />
+                    </button>
                 </div>
 
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto">
-                    {tab === "comments" ? (
-                        !enabled ? (
-                            <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-500">
-                                <span className="text-4xl">🔒</span>
-                                <div className="font-semibold">Comments are turned off</div>
-                            </div>
-                        ) : items.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-500">
-                                <span className="text-4xl">
-                                    <IoChatbubbleOutline />
-                                </span>
-                                <div className="font-extrabold text-gray-900">Start the conversation</div>
-                                <div>Be the first to leave a comment.</div>
-                            </div>
-                        ) : (
-                            <ul className="px-3 py-2 space-y-3">
-                                {items.map((c) => (
-                                    <CommentRow
-                                        key={c.id}
-                                        deedId={deedId}
-                                        comment={c}
-                                        currentUser={currentUser}
-                                        onReply={(id, handle) => setReplyTo({ id, handle })}
-                                    />
-                                ))}
-                                <li className="py-2">
-                                    {paging ? (
-                                        <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
-                                            <Spinner size={14} className="border-gray-400 border-t-gray-600" /> Loading…
-                                        </div>
-                                    ) : (
-                                        <button onClick={loadMore} className="w-full text-sm text-gray-600 hover:text-gray-900" type="button">
-                                            Load more
-                                        </button>
-                                    )}
-                                </li>
-                            </ul>
-                        )
+                    {!enabled ? (
+                        <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-500">
+                            <span className="text-4xl">🔒</span>
+                            <div className="font-semibold">Comments are turned off</div>
+                        </div>
+                    ) : items.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-500">
+                            <span className="text-4xl">
+                                <IoChatbubbleOutline />
+                            </span>
+                            <div className="font-extrabold text-gray-900">Start the conversation</div>
+                            <div>Be the first to leave a comment.</div>
+                        </div>
                     ) : (
-                        <ActivityPanel tab={tab} queryData={activeActivity!} />
+                        <ul className="px-3 py-2 space-y-3">
+                            {items.map((c) => (
+                                <CommentRow
+                                    key={c.id}
+                                    deedId={deedId}
+                                    comment={c}
+                                    currentUser={currentUser}
+                                    onReply={(id, handle) => setReplyTo({ id, handle })}
+                                />
+                            ))}
+                            <li className="py-2">
+                                {paging ? (
+                                    <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
+                                        <Spinner size={14} className="border-gray-400 border-t-gray-600" /> Loading…
+                                    </div>
+                                ) : (
+                                    <button onClick={loadMore} className="w-full text-sm text-gray-600 hover:text-gray-900" type="button">
+                                        Load more
+                                    </button>
+                                )}
+                            </li>
+                        </ul>
                     )}
                 </div>
 
-                {/* Guest chip (only comments tab) */}
-                {tab === "comments" && enabled && isGuest && (
+                {/* Guest chip */}
+                {enabled && isGuest && (
                     <div className="px-3 py-2">
                         <div className="text-center text-xs font-bold text-gray-600 bg-gray-100 rounded-full py-2">
                             Sign in to join the conversation
@@ -729,202 +486,90 @@ export default function RightRail({
                     </div>
                 )}
 
-                {/* Composer (only comments tab) */}
-                {tab === "comments" && (
-                    <div className="border-t p-3" style={{ borderColor: EKARI.hair }}>
-                        {replyTo && (
-                            <div className="mb-2 flex items-center justify-between rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600">
-                                <span>Replying to {replyTo.handle ? `${replyTo.handle}` : "comment"}</span>
-                                <button onClick={() => setReplyTo(null)} className="p-1 rounded hover:bg-gray-200" aria-label="Cancel reply" type="button">
-                                    <IoClose size={14} />
-                                </button>
-                            </div>
-                        )}
+                {/* Composer */}
+                <div className="border-t p-3" style={{ borderColor: EKARI.hair }}>
+                    {replyTo && (
+                        <div className="mb-2 flex items-center justify-between rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600">
+                            <span>Replying to {replyTo.handle ? `${replyTo.handle}` : "comment"}</span>
+                            <button onClick={() => setReplyTo(null)} className="p-1 rounded hover:bg-gray-200" aria-label="Cancel reply" type="button">
+                                <IoClose size={14} />
+                            </button>
+                        </div>
+                    )}
 
-                        <div className="flex items-center items-end gap-2 relative">
-                            <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                                <img src={currentUser?.photoURL || "/avatar-placeholder.png"} alt="me" className="h-8 w-8 object-cover" />
-                            </div>
+                    <div className="flex items-center items-end gap-2 relative">
+                        <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={currentUser?.photoURL || "/avatar-placeholder.png"} alt="me" className="h-8 w-8 object-cover" />
+                        </div>
 
-                            <div className={["flex-1 bg-gray-100 items-center rounded-full px-3 py-2 flex items-end gap-2", sending ? "opacity-80" : ""].join(" ")}>
-                                <textarea
-                                    ref={textareaRef}
-                                    value={text}
-                                    onChange={(e) => setText(clipGraphemes(e.target.value, 400))}
-                                    className="flex-1 bg-transparent outline-none text-sm resize-none max-h-28"
-                                    placeholder={!enabled ? "Comments are off" : isGuest ? "Sign in to comment…" : "Add a comment…"}
-                                    disabled={!enabled || isGuest || sending}
-                                    rows={1}
-                                    aria-busy={sending}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" && !e.shiftKey) {
-                                            e.preventDefault();
-                                            if (!sending) send();
-                                        }
-                                    }}
-                                />
-
-                                <button
-                                    ref={emojiBtnRef}
-                                    type="button"
-                                    onClick={() => setShowEmoji((v) => !v)}
-                                    disabled={!enabled || isGuest || sending}
-                                    aria-haspopup="dialog"
-                                    aria-expanded={showEmoji}
-                                    title="Add emoji"
-                                    className={[
-                                        "h-8 w-8 rounded-full bg-white text-lg grid place-items-center",
-                                        "shadow border hover:bg-gray-50 disabled:opacity-50",
-                                    ].join(" ")}
-                                >
-                                    😊
-                                </button>
-                            </div>
-
-                            <button
-                                onClick={send}
-                                disabled={!canSend}
+                        <div className={["flex-1 bg-gray-100 items-center rounded-full px-3 py-2 flex items-end gap-2", sending ? "opacity-80" : ""].join(" ")}>
+                            <textarea
+                                ref={textareaRef}
+                                value={text}
+                                onChange={(e) => setText(clipGraphemes(e.target.value, 400))}
+                                className="flex-1 bg-transparent outline-none text-sm resize-none max-h-28"
+                                placeholder={!enabled ? "Comments are off" : isGuest ? "Sign in to comment…" : "Add a comment…"}
+                                disabled={!enabled || isGuest || sending}
+                                rows={1}
                                 aria-busy={sending}
-                                className={`ml-1 h-9 px-3 rounded-full text-white text-sm font-bold inline-flex items-center gap-2 ${canSend ? "bg-gray-900 hover:opacity-90" : "bg-gray-400 cursor-not-allowed"
-                                    }`}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                        e.preventDefault();
+                                        if (!sending) send();
+                                    }
+                                }}
+                            />
+
+                            {/* Emoji button (anchor) */}
+                            <button
+                                ref={emojiBtnRef}
                                 type="button"
+                                onClick={() => setShowEmoji((v) => !v)}
+                                disabled={!enabled || isGuest || sending}
+                                aria-haspopup="dialog"
+                                aria-expanded={showEmoji}
+                                title="Add emoji"
+                                className={[
+                                    "h-8 w-8 rounded-full bg-white text-lg grid place-items-center",
+                                    "shadow border hover:bg-gray-50 disabled:opacity-50",
+                                ].join(" ")}
                             >
-                                {sending ? <Spinner size={14} /> : null}
-                                {sending ? "Sending" : "Send"}
+                                😊
                             </button>
                         </div>
 
-                        <EmojiPopup
-                            anchorRef={emojiBtnRef as React.RefObject<HTMLElement | null>}
-                            open={showEmoji}
-                            onClose={() => setShowEmoji(false)}
-                            onSelect={(e) => {
-                                onEmojiPick(e);
-                                setShowEmoji(false);
-                            }}
-                        />
+                        <button
+                            onClick={send}
+                            disabled={!canSend}
+                            aria-busy={sending}
+                            className={`ml-1 h-9 px-3 rounded-full text-white text-sm font-bold inline-flex items-center gap-2 ${canSend ? "bg-gray-900 hover:opacity-90" : "bg-gray-400 cursor-not-allowed"
+                                }`}
+                            type="button"
+                        >
+                            {sending ? <Spinner size={14} /> : null}
+                            {sending ? "Sending" : "Send"}
+                        </button>
                     </div>
-                )}
+                </div>
             </div>
+
+            {/* Portal-based floating picker (like TikTok) */}
+            <EmojiPopup
+                anchorRef={emojiBtnRef as React.RefObject<HTMLElement | null>}
+                open={showEmoji}
+                onClose={() => setShowEmoji(false)}
+                onSelect={(e) => {
+                    onEmojiPick(e);
+                    setShowEmoji(false);
+                }}
+            />
         </aside>
     );
 }
 
 /* ------------------------------------------------------------------ */
-/* Activity panel (Likes / Views / Shares / Saves)                     */
-/* ------------------------------------------------------------------ */
-function ActivityPanel({
-    tab,
-    queryData,
-}: {
-    tab: Exclude<Tab, "comments">;
-    queryData: { items: any[]; loadMore: () => void; paging: boolean };
-}) {
-    const title =
-        tab === "likes" ? "Liked by" :
-            tab === "views" ? "Viewed by" :
-                tab === "shares" ? "Shared by" :
-                    "Saved by";
-
-    const showLoadMore = tab !== "views"; // ✅ views are unique-deduped; load more is a no-op
-
-    return (
-        <div className="p-3">
-            <div className="text-sm font-extrabold text-gray-900 mb-2">{title}</div>
-
-            {queryData.items.length === 0 ? (
-                <div className="py-10 text-center text-sm text-gray-500">No {tab} yet.</div>
-            ) : (
-                <>
-                    <ul className="space-y-2">
-                        {queryData.items.map((a: any) => (
-                            <ActivityRow
-                                key={a.id}
-                                userId={a.userId}
-                                fallbackHandle={a.userHandle}
-                                rightText={tab === "views" ? `${a.viewsByUser ?? 1} view${(a.viewsByUser ?? 1) > 1 ? "s" : ""}` : undefined}
-                            />
-                        ))}
-                    </ul>
-
-                    {showLoadMore && (
-                        <div className="pt-3">
-                            {queryData.paging ? (
-                                <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
-                                    <Spinner size={14} className="border-gray-400 border-t-gray-600" /> Loading…
-                                </div>
-                            ) : (
-                                <button onClick={queryData.loadMore} className="w-full text-sm text-gray-600 hover:text-gray-900" type="button">
-                                    Load more
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </>
-            )}
-        </div>
-    );
-}
-
-function ActivityRow({
-    userId,
-    fallbackHandle,
-    rightText,
-}: {
-    userId?: string;
-    fallbackHandle?: string | null;
-    rightText?: string;
-}) {
-    const u = useUserLiteById(userId);
-    const handle = (u?.handle || fallbackHandle || "").trim();
-    const photoURL = u?.photoURL || "/avatar-placeholder.png";
-    const router = useRouter();
-
-    const canOpen = !!handle;
-
-    const go = () => {
-        if (!canOpen) return;
-        const clean = handle.startsWith("@") ? handle : `@${handle}`;
-        router.push(`/${clean}/`);
-    };
-
-    return (
-        <li className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2">
-            <button
-                type="button"
-                onClick={go}
-                className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 shrink-0"
-                aria-label="Open profile"
-                disabled={!canOpen}
-            >
-                <img src={photoURL} alt={handle || "user"} className="h-full w-full object-cover" />
-            </button>
-
-            <div className="min-w-0 flex-1">
-                <button
-                    type="button"
-                    onClick={go}
-                    disabled={!canOpen}
-                    className="text-sm font-bold text-gray-800 hover:underline text-left truncate disabled:opacity-70"
-                >
-                    {handle || "Someone"}
-                </button>
-                {!userId && !handle && (
-                    <div className="text-[11px] text-gray-500">No userId stored on this event doc</div>
-                )}
-            </div>
-
-            {rightText && (
-                <div className="text-xs font-bold text-gray-500 whitespace-nowrap">
-                    {rightText}
-                </div>
-            )}
-        </li>
-    );
-}
-
-/* ------------------------------------------------------------------ */
-/* Comment rows + replies                                               */
+/* Rows                                                                */
 /* ------------------------------------------------------------------ */
 function CommentRow({
     deedId,
@@ -946,6 +591,7 @@ function CommentRow({
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
+    // NEW: emoji while editing
     const editTextareaRef = useRef<HTMLTextAreaElement>(null);
     const editEmojiBtnRef = useRef<HTMLButtonElement>(null);
     const [showEditEmoji, setShowEditEmoji] = useState(false);
@@ -984,6 +630,7 @@ function CommentRow({
         }
     };
 
+    // NEW: insert emoji into edit textarea at caret
     const onPickEditEmoji = (emoji: string) => {
         if (!editTextareaRef.current) return;
         const { nextValue, nextCursor } = insertAtCursor(editTextareaRef.current, emoji, 400);
@@ -994,59 +641,31 @@ function CommentRow({
         });
         setShowEditEmoji(false);
     };
-
     const router = useRouter();
+
     const goToProfile = useCallback(
         (handle?: string | null) => {
             const h = (handle || "").trim();
             if (!h) return;
+
+            // If your handles are stored without "@", this is perfect.
+            // If sometimes stored with "@", strip it:
             const clean = h.startsWith("@") ? h : "@" + h;
+
             router.push(`/${clean}/`);
+
         },
         [router]
     );
-
     const authorProfile = useAuthorProfile(comment.userId);
-    const avatar = authorProfile?.photoURL || "/avatar-placeholder.png";
-    function timeAgo(ts?: any) {
-        if (!ts) return "";
-
-        const d =
-            ts instanceof Date
-                ? ts
-                : typeof ts?.toMillis === "function"
-                    ? new Date(ts.toMillis())
-                    : typeof ts === "number"
-                        ? new Date(ts)
-                        : null;
-
-        if (!d) return "";
-
-        const sec = Math.floor((Date.now() - d.getTime()) / 1000);
-        if (sec < 60) return "now";
-
-        const min = Math.floor(sec / 60);
-        if (min < 60) return `${min}m`;
-
-        const hr = Math.floor(min / 60);
-        if (hr < 24) return `${hr}h`;
-
-        const day = Math.floor(hr / 24);
-        if (day < 7) return `${day}d`;
-
-        const wk = Math.floor(day / 7);
-        if (wk < 4) return `${wk}w`;
-
-        const mo = Math.floor(day / 30);
-        if (mo < 12) return `${mo}mo`;
-
-        const yr = Math.floor(day / 365);
-        return `${yr}y`;
-    }
+    const avatar =
+        authorProfile?.photoURL ||
+        "/avatar-placeholder.png";
 
     return (
         <li className="flex items-start gap-3">
             <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <button
                     type="button"
                     onClick={() => goToProfile(comment.userHandle)}
@@ -1059,23 +678,16 @@ function CommentRow({
             </div>
 
             <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                    {!!comment.userHandle && (
-                        <button
-                            type="button"
-                            onClick={() => goToProfile(comment.userHandle)}
-                            className="text-sm font-bold text-gray-700 hover:underline"
-                        >
-                            {comment.userHandle}
-                        </button>
-                    )}
-
-                    <span className="text-xs text-gray-400">
-                        {timeAgo(comment.createdAt)}
-                    </span>
-                </div>
-
-
+                {!!comment.userHandle && (
+                    <button
+                        type="button"
+                        onClick={() => goToProfile(comment.userHandle)}
+                        className="text-sm font-bold text-gray-600 hover:underline hover:text-gray-900 text-left"
+                        title={`View ${comment.userHandle}`}
+                    >
+                        {comment.userHandle}
+                    </button>
+                )}
                 {!isEditing ? (
                     <>
                         {!!comment.text && (
@@ -1098,6 +710,7 @@ function CommentRow({
                                 className="w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-gray-900 disabled:opacity-70"
                                 maxLength={800}
                             />
+                            {/* NEW: emoji anchor while editing */}
                             <button
                                 ref={editEmojiBtnRef}
                                 type="button"
@@ -1140,6 +753,7 @@ function CommentRow({
                             </button>
                         </div>
 
+                        {/* NEW: editing emoji popup */}
                         <EmojiPopup
                             anchorRef={editEmojiBtnRef as React.RefObject<HTMLElement | null>}
                             open={showEditEmoji}
@@ -1167,7 +781,6 @@ function CommentRow({
                             <IoPencil /> Edit
                         </button>
                     )}
-
                     {canModify && (
                         <button
                             onClick={deleteMine}
@@ -1193,6 +806,7 @@ function CommentRow({
     );
 }
 
+/** 🔥 NEW: live author profile for each deed */
 function useAuthorProfile(authorId?: string) {
     const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
 
@@ -1201,6 +815,7 @@ function useAuthorProfile(authorId?: string) {
             setProfile(null);
             return;
         }
+
         const ref = doc(db, "users", authorId);
         const unsub = onSnapshot(ref, (snap) => {
             const data = snap.data() as any | undefined;
@@ -1208,27 +823,21 @@ function useAuthorProfile(authorId?: string) {
                 setProfile(null);
                 return;
             }
-            setProfile({ handle: data?.handle, photoURL: data?.photoURL });
+
+            setProfile({
+                handle: data?.handle,
+                photoURL: data?.photoURL,
+            });
         });
+
         return () => unsub();
     }, [authorId]);
 
     return profile;
 }
 
-function RepliesList({
-    goToProfile,
-    deedId,
-    parentId,
-    currentUser,
-}: {
-    goToProfile: (handle: string) => void;
-    deedId: string;
-    parentId: string;
-    currentUser: UserLite;
-}) {
+function RepliesList({ goToProfile, deedId, parentId, currentUser }: { goToProfile: (handle: string) => void; deedId: string; parentId: string; currentUser: UserLite }) {
     const { list, loadMore, hasMore } = useReplies(deedId, parentId, true);
-
     return (
         <ul className="space-y-3">
             {list.map((r) => (
@@ -1245,21 +854,14 @@ function RepliesList({
     );
 }
 
-function ReplyRow({
-    reply,
-    currentUser,
-    goToProfile,
-}: {
-    reply: any;
-    currentUser: UserLite;
-    goToProfile: (handle: string) => void;
-}) {
+function ReplyRow({ reply, currentUser, goToProfile }: { goToProfile: (handle: string) => void; reply: any; currentUser: UserLite }) {
     const canModify = currentUser?.uid === reply?.userId;
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(reply?.text ?? "");
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
+    // NEW: emoji while editing a reply
     const editTextareaRef = useRef<HTMLTextAreaElement>(null);
     const editEmojiBtnRef = useRef<HTMLButtonElement>(null);
     const [showEditEmoji, setShowEditEmoji] = useState(false);
@@ -1298,6 +900,7 @@ function ReplyRow({
         }
     };
 
+    // NEW: insert emoji into reply edit textarea
     const onPickEditEmoji = (emoji: string) => {
         if (!editTextareaRef.current) return;
         const { nextValue, nextCursor } = insertAtCursor(editTextareaRef.current, emoji, 400);
@@ -1310,45 +913,14 @@ function ReplyRow({
     };
 
     const authorProfile = useAuthorProfile(reply.userId);
-    const avatar = authorProfile?.photoURL || "/avatar-placeholder.png";
-    function timeAgo(ts?: any) {
-        if (!ts) return "";
-
-        const d =
-            ts instanceof Date
-                ? ts
-                : typeof ts?.toMillis === "function"
-                    ? new Date(ts.toMillis())
-                    : typeof ts === "number"
-                        ? new Date(ts)
-                        : null;
-
-        if (!d) return "";
-
-        const sec = Math.floor((Date.now() - d.getTime()) / 1000);
-        if (sec < 60) return "now";
-
-        const min = Math.floor(sec / 60);
-        if (min < 60) return `${min}m`;
-
-        const hr = Math.floor(min / 60);
-        if (hr < 24) return `${hr}h`;
-
-        const day = Math.floor(hr / 24);
-        if (day < 7) return `${day}d`;
-
-        const wk = Math.floor(day / 7);
-        if (wk < 4) return `${wk}w`;
-
-        const mo = Math.floor(day / 30);
-        if (mo < 12) return `${mo}mo`;
-
-        const yr = Math.floor(day / 365);
-        return `${yr}y`;
-    }
+    const avatar =
+        authorProfile?.photoURL ||
+        "/avatar-placeholder.png";
     return (
         <li className="flex items-start gap-3">
             <div className="h-7 w-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+
                 <button
                     type="button"
                     onClick={() => goToProfile(reply.userHandle)}
@@ -1357,25 +929,22 @@ function ReplyRow({
                     disabled={!reply.userHandle}
                 >
                     <SmartAvatar src={avatar} alt={reply.userHandle} size={34} />
+
                 </button>
+
             </div>
 
             <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                    {!!reply.userHandle && (
-                        <button
-                            type="button"
-                            onClick={() => goToProfile(reply.userHandle)}
-                            className="text-xs font-bold text-gray-600 hover:underline"
-                        >
-                            {reply.userHandle}
-                        </button>
-                    )}
-
-                    <span className="text-[11px] text-gray-400">
-                        {timeAgo(reply.createdAt)}
-                    </span>
-                </div>
+                {!!reply.userHandle && (
+                    <button
+                        type="button"
+                        onClick={() => goToProfile(reply.userHandle)}
+                        className="text-xs font-bold text-gray-600 hover:underline hover:text-gray-900 text-left"
+                        title={`View ${reply.userHandle}`}
+                    >
+                        {reply.userHandle}
+                    </button>
+                )}
 
 
                 {!isEditing ? (
@@ -1400,6 +969,7 @@ function ReplyRow({
                                 className="w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-gray-900 disabled:opacity-70"
                                 maxLength={800}
                             />
+                            {/* NEW: emoji anchor while editing a reply */}
                             <button
                                 ref={editEmojiBtnRef}
                                 type="button"
@@ -1442,6 +1012,7 @@ function ReplyRow({
                             </button>
                         </div>
 
+                        {/* NEW: emoji popup for reply editing */}
                         <EmojiPopup
                             anchorRef={editEmojiBtnRef as React.RefObject<HTMLElement | null>}
                             open={showEditEmoji}

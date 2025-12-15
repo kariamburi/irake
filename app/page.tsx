@@ -1250,7 +1250,7 @@ function VideoCard({
         className={cn(
           "absolute z-10 flex flex-col items-center gap-1.5",
           "right-3 top-1/2 -translate-y-1/2",
-          "md:right-[-72px]",
+          "md:right-[-55px]",
           "transition-opacity duration-200",
           mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
@@ -1960,30 +1960,31 @@ function FeedShell() {
         </section>
 
         {/* Up/Down steppers */}
-        <div
-          className={[
-            "fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2 md:gap-3 transition-[right] duration-200",
-            commentsId ? `${railOffsetLg} ${railOffsetXl}` : "right-3 md:right-4",
-          ].join(" ")}
-        >
-          <button
-            onClick={goPrev}
-            disabled={atTop}
-            aria-label="Previous"
-            className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 md:p-3 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+        <div className="hidden lg:inline">
+          <div
+            className={[
+              "fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2 md:gap-3 transition-[right] duration-200",
+              commentsId ? `${railOffsetLg} ${railOffsetXl}` : "right-0 md:right-4",
+            ].join(" ")}
           >
-            <IoChevronUp size={18} />
-          </button>
-          <button
-            onClick={goNext}
-            disabled={atEnd}
-            aria-label="Next"
-            className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 md:p-3 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <IoChevronDown size={18} />
-          </button>
+            <button
+              onClick={goPrev}
+              disabled={atTop}
+              aria-label="Previous"
+              className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <IoChevronUp size={18} />
+            </button>
+            <button
+              onClick={goNext}
+              disabled={atEnd}
+              aria-label="Next"
+              className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <IoChevronDown size={18} />
+            </button>
+          </div>
         </div>
-
         {/* Mobile upload FAB */}
         <button
           className="lg:hidden fixed right-4 bottom-4 rounded-full shadow-md p-3 text-white"

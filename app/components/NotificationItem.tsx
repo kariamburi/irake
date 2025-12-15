@@ -6,6 +6,7 @@ import {
     IoPersonAdd,
     IoEye,
     IoNotificationsOutline,
+    IoCardOutline,
 } from "react-icons/io5";
 import { EKARI } from "../constants/constants";
 import { useRouter } from "next/navigation";
@@ -53,6 +54,15 @@ function notifMeta(n: Notif) {
                 chip: "bg-violet-50 text-violet-700",
                 label: "View",
             };
+        case "payment_success":
+            return {
+                icon: <IoCardOutline size={16} />,
+                iconBg: "bg-amber-600",
+                ring: "ring-amber-100",
+                chip: "bg-amber-50 text-amber-700",
+                label: "Payment",
+            };
+
         default:
             return {
                 icon: <IoNotificationsOutline size={16} />,
@@ -65,17 +75,13 @@ function notifMeta(n: Notif) {
 }
 type Notif = {
     id: string;
-    type?: "like" | "comment" | "follow" | string;
+    type?: "like" | "comment" | "follow" | "profile_view" | "payment_success" | string;
     byName?: string;
     title?: string;
     preview?: string;
     createdAt?: any;
     seen?: boolean;
-    // deepLink?: string;
-    // byHandle?: string;
-    // byId?: string;
-    // deedId?: string;
-    // listingId?: string;
+    meta?: Record<string, any>;
 };
 
 function tsToDate(ts: any): Date | null {
@@ -113,20 +119,16 @@ function buildPreview(n: Notif) {
     if (n.type === "comment")
         return `${n.byName || "Someone"} commented: ${n.preview || ""}`;
     if (n.type === "follow") return `${n.byName || "Someone"} started following you.`;
+    else if (n.type === "profile_view")
+        return `${n.byName || "Someone"} checked out your profile 👀`;
+    if (n.type === "payment_success") return n.preview || n.title || "Payment successful.";
+
     return n.title || "New activity.";
 }
 /** Safer router.push wrapper */
-function pushSafe(router: ReturnType<typeof useRouter>, href?: string) {
-    if (!href || typeof href !== "string") return;
-    try {
-        router.push(href);
-    } catch {
-        // no-op
-    }
-}
 
 /** Compute where to navigate for a given notification */
-function routeForNotification(n: Notif): string | undefined {
+function routeForNotification(n: Notif, handle?: string): string | undefined {
     const anyN = n as any;
 
     if (anyN.deepLink && typeof anyN.deepLink === "string") {
@@ -138,11 +140,25 @@ function routeForNotification(n: Notif): string | undefined {
         if (anyN.byId) return `${anyN.handle}`;
         return "/followers";
     }
-
+    if (n.type === "profile_view") {
+        if (anyN.handle) return `${anyN.handle}`;
+        if (anyN.byId) return `${anyN.handle}`;
+        return "/";
+    }
     if (n.type === "comment" || n.type === "like") {
         if (anyN.deedId) return `${anyN.handle}/deed/${anyN.deedId}`;
         if (anyN.listingId) return `/market/${anyN.listingId}`;
         return "/activity";
+    }
+    if (n.type === "payment_success") {
+        const kind = (anyN?.meta?.kind || "").toString();
+
+        if (kind === "wallet_topup") return handle ? `/${handle}/earnings` : "/";
+        if (kind === "donation") return handle ? `/${handle}/earnings` : "/";
+
+        if (kind === "account_verification") return "/account/verification"; // change to your route
+
+        return "/";
     }
 
     return "/activity";
@@ -151,12 +167,14 @@ function routeForNotification(n: Notif): string | undefined {
 /** Single modern/clean item */
 export function NotificationItem({
     n,
+    handle,
     onOpen,
 }: {
     n: Notif;
+    handle: string;
     onOpen: (href?: string) => void;
 }) {
-    const href = routeForNotification(n);
+    const href = routeForNotification(n, handle);
     const meta = notifMeta(n);
     const isUnread = n.seen === false;
 

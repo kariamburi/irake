@@ -3,19 +3,12 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { Send, Image as ImageIcon, Sparkles } from "lucide-react";
+import { Send, Image as ImageIcon } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
 import { useAuth } from "@/app/hooks/useAuth";
 import { storage, db } from "@/lib/firebase";
 import { ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-} from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 
 /* ---------------------------- THEME & HELPERS ---------------------------- */
 const EKARI = {
@@ -55,7 +48,6 @@ type Conv = {
 };
 
 const SUGGESTIONS = [
-  // "Diagnose: spots on maize leaves",
   "Best fertilizer schedule for tomatoes",
   "Kenya export regulations for avocados",
 ];
@@ -96,17 +88,27 @@ export default function Page() {
 
   const [lastSentAt, setLastSentAt] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
-  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ✅ Web-safe timer type (no NodeJS.Timeout)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingMsgIdRef = useRef<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollToEnd = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(scrollToEnd, [messages]);
 
-  useEffect(() => {
-    return () => {
-      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
-    };
+  const stopTyping = useCallback(() => {
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    typingMsgIdRef.current = null;
+    setIsTyping(false);
   }, []);
+
+  useEffect(() => {
+    return () => stopTyping();
+  }, [stopTyping]);
 
   // ---------------------------- HISTORY: FETCH CONVERSATIONS ----------------------------
   const fetchConversations = useCallback(async () => {
@@ -137,6 +139,7 @@ export default function Page() {
   const loadConversation = useCallback(
     async (convId: string) => {
       if (!user?.uid) return;
+      stopTyping();
       setConversationId(convId);
       setLoadingMsgs(true);
       try {
@@ -157,22 +160,22 @@ export default function Page() {
           };
         });
 
-        // Optional: show welcome only when empty
         setMessages(loaded.length ? loaded : [WELCOME]);
       } finally {
         setLoadingMsgs(false);
       }
     },
-    [user?.uid]
+    [user?.uid, stopTyping]
   );
 
   const startNewChat = useCallback(() => {
+    stopTyping();
     setConversationId(null);
     setMessages([WELCOME]);
     setInput("");
     setPendingImage(null);
     setPendingFile(null);
-  }, []);
+  }, [stopTyping]);
 
   // ---------------------------- SEND TO AI ----------------------------
   const sendToAI = useCallback(
@@ -205,12 +208,8 @@ export default function Page() {
         }
 
         const data = await res.json();
-        if (data.conversationId) {
-          // update conv id for future sends
-          setConversationId(data.conversationId);
-        }
+        if (data.conversationId) setConversationId(data.conversationId);
 
-        // refresh sidebar list after each send (so latest chat moves to top)
         fetchConversations();
 
         return data.reply || "Sorry — I couldn't generate a response. Please try again.";
@@ -222,36 +221,119 @@ export default function Page() {
     [aiEndpoint, user?.uid, conversationId, fetchConversations]
   );
 
-  const animateAssistantReply = useCallback((fullText: string) => {
-    if (!fullText) return;
+  /* ------------------- ChatGPT-like typing (smart timeout loop) ------------------- */
+  const animateAssistantReply = useCallback(
+    (fullText: string) => {
+      if (!fullText) return;
 
-    if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
+      // stop any existing animation
+      stopTyping();
 
-    const id = `ai_${Date.now()}`;
-    const createdAt = Date.now();
+      const id = `ai_${Date.now()}`;
+      typingMsgIdRef.current = id;
 
-    setMessages((prev) => [...prev, { id, role: "assistant", text: "", createdAt }]);
-    setIsTyping(true);
+      setMessages((prev) => [...prev, { id, role: "assistant", text: "", createdAt: Date.now() }]);
+      setIsTyping(true);
 
-    let index = 0;
-    const step = Math.max(1, Math.floor(fullText.length / 120));
+      let index = 0;
 
-    const interval = setInterval(() => {
-      index = Math.min(fullText.length, index + step);
+      const isPunct = (ch: string) => /[.,!?;:)]/.test(ch);
+      const isSpace = (ch: string) => /\s/.test(ch);
 
-      setMessages((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, text: fullText.slice(0, index) } : m))
-      );
+      const tick = () => {
+        const msgId = typingMsgIdRef.current;
+        if (!msgId) return;
 
-      if (index >= fullText.length) {
-        clearInterval(interval);
-        typingIntervalRef.current = null;
-        setIsTyping(false);
-      }
-    }, 18);
+        const total = fullText.length;
+        const progress = total ? index / total : 1;
 
-    typingIntervalRef.current = interval;
-  }, []);
+        // Speed curve: fast at start, slower near end
+        const baseDelay =
+          progress < 0.3 ? 12 : progress < 0.7 ? 18 : 26;
+
+        // Streamy chunk sizes: bigger early, smaller later
+        // Stream by WORDS: advance to next whitespace boundary (or end)
+        const nextWordBoundary = () => {
+          let i = index;
+
+          // If we're sitting on spaces/newlines, consume them quickly
+          while (i < total && /\s/.test(fullText[i])) i++;
+
+          // Now consume the word chars
+          while (i < total && !/\s/.test(fullText[i])) i++;
+
+          // Also include ONE trailing space if present (feels natural)
+          if (i < total && fullText[i] === " ") i++;
+
+          return Math.min(total, Math.max(i, index + 1));
+        };
+
+        const nextIndex = nextWordBoundary();
+
+        // “mixed”: occasional flicker on long words
+        const typedChunk = fullText.slice(index, nextIndex);
+        const longWord = typedChunk.replace(/\s/g, "").length >= 10;
+
+        const maybeStutter =
+          progress > 0.15 &&
+          longWord &&
+          Math.random() < 0.08 && // a bit more likely than chunk mode
+          nextIndex + 6 < total;
+
+
+        // compute punctuation pause from the last char we just typed
+        const lastTyped = fullText[nextIndex - 1] || "";
+        let extraPause = 0;
+        if (isPunct(lastTyped)) extraPause += 140;
+        if (lastTyped === "\n") extraPause += 180;
+
+        // update text
+        const slice = fullText.slice(0, nextIndex);
+
+        setMessages((prev) =>
+          prev.map((m) => (m.id === msgId ? { ...m, text: slice } : m))
+        );
+
+        index = nextIndex;
+
+        // done
+        if (index >= total) {
+          stopTyping();
+          return;
+        }
+
+        // optional stutter: briefly remove last 1–2 chars then restore next tick
+        if (maybeStutter) {
+          const back = Math.min(2, slice.length);
+          const flicker = slice.slice(0, slice.length - back);
+
+          typingTimerRef.current = setTimeout(() => {
+            const stillId = typingMsgIdRef.current;
+            if (!stillId) return;
+
+            setMessages((prev) =>
+              prev.map((m) => (m.id === stillId ? { ...m, text: flicker } : m))
+            );
+
+            // short "retype" after flicker
+            typingTimerRef.current = setTimeout(() => tick(), baseDelay + extraPause + 30);
+          }, 60);
+
+          return;
+        }
+
+        // normal schedule
+        typingTimerRef.current = setTimeout(
+          tick,
+          baseDelay + extraPause + (isSpace(lastTyped) ? 0 : 4)
+        );
+      };
+
+      // initial small human pause
+      typingTimerRef.current = setTimeout(tick, 180);
+    },
+    [stopTyping]
+  );
 
   const onSend = useCallback(async () => {
     const text = input.trim();
@@ -268,6 +350,9 @@ export default function Page() {
       return;
     }
     setLastSentAt(now);
+
+    // stop typing if user sends while bot is typing
+    stopTyping();
 
     const userMsg: Msg = {
       id: `user_${now}`,
@@ -302,7 +387,15 @@ export default function Page() {
         },
       ]);
     }
-  }, [input, pendingImage, pendingFile, sendToAI, lastSentAt, animateAssistantReply]);
+  }, [
+    input,
+    pendingImage,
+    pendingFile,
+    sendToAI,
+    lastSentAt,
+    animateAssistantReply,
+    stopTyping,
+  ]);
 
   const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -326,7 +419,6 @@ export default function Page() {
       <div className="h-[calc(100vh-2rem)] w-full lg:w-[980px] overflow-hidden">
         <div className="mx-auto h-full w-full max-w-5xl p-2">
           <div className="flex h-full w-full gap-0 md:gap-3">
-
             {/* ---------------- Sidebar (desktop) ---------------- */}
             <aside className="hidden md:flex w-72 flex-col rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl overflow-hidden">
               <div className="p-3 border-b border-slate-200 flex items-center justify-between">
@@ -335,7 +427,7 @@ export default function Page() {
                   onClick={startNewChat}
                   className="text-[12px] font-semibold rounded-full px-3 py-1 border border-slate-200 hover:bg-slate-50"
                 >
-                  New chat
+                  New Ask
                 </button>
               </div>
 
@@ -361,9 +453,14 @@ export default function Page() {
                           title={c.title || "Chat"}
                         >
                           <div className="text-[13px] font-semibold truncate">
-                            {c.title || "New chat"}
+                            {c.title || "New Ask"}
                           </div>
-                          <div className={["text-[11px] mt-0.5", active ? "text-white/70" : "text-slate-500"].join(" ")}>
+                          <div
+                            className={[
+                              "text-[11px] mt-0.5",
+                              active ? "text-white/70" : "text-slate-500",
+                            ].join(" ")}
+                          >
                             {typeof c.messageCount === "number" ? `${c.messageCount} msgs` : " "}
                           </div>
                         </button>
@@ -377,10 +474,7 @@ export default function Page() {
             {/* ---------------- Main Card ---------------- */}
             <div className="relative flex h-full w-full flex-col md:rounded-2xl md:border md:border-slate-200 md:shadow-sm overflow-hidden bg-white">
               {/* Header / top bar */}
-              <div
-                className="border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl flex-shrink-0"
-
-              >
+              <div className="border-b flex-shrink-0">
                 <div className="px-3 sm:px-4 py-3 flex items-center justify-between">
                   <div className="w-8 hidden sm:block" />
                   <div className="flex flex-col items-center w-full">
@@ -396,32 +490,16 @@ export default function Page() {
 
                 <div className="pb-3 px-3 sm:px-4">
                   <div className="max-w-3xl mx-auto flex flex-col gap-2">
-                    {/*  <div className="mt-1 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                      {SUGGESTIONS.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setInput(s)}
-                          className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs whitespace-nowrap
-                                   bg-white border border-slate-200 hover:border-slate-300 text-slate-700
-                                   shadow-sm transition"
-                        >
-                          <Sparkles size={14} className="text-emerald-700" />
-                          <span>{s}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                   Mobile: quick actions */}
                     <div className="md:hidden flex gap-2">
                       <button
                         onClick={startNewChat}
-                        className="text-[12px] font-semibold rounded-full px-3 py-1 border border-white/60 bg-white/80"
+                        className="text-[12px] font-semibold rounded-full px-3 py-1 border border-slate-200 bg-white"
                       >
-                        New chat
+                        New Ask
                       </button>
                       <button
                         onClick={fetchConversations}
-                        className="text-[12px] font-semibold rounded-full px-3 py-1 border border-white/60 bg-white/80"
+                        className="text-[12px] font-semibold rounded-full px-3 py-1 border border-slate-200 bg-white"
                       >
                         Refresh history
                       </button>
@@ -459,9 +537,7 @@ export default function Page() {
                               />
                             </div>
                           )}
-                          {!!msg.text && (
-                            <p className="whitespace-pre-wrap text-slate-900">{msg.text}</p>
-                          )}
+                          {!!msg.text && <p className="whitespace-pre-wrap text-slate-900">{msg.text}</p>}
                         </div>
                       </div>
                     );
@@ -578,6 +654,7 @@ export default function Page() {
                   </div>
                 </div>
               </div>
+
             </div>
             {/* end main */}
           </div>
