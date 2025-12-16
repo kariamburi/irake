@@ -72,6 +72,56 @@ const LABEL: Record<TabKey, string> = { forYou: "For You", following: "Following
 
 /* ---------- Visibility check (kept from your current file) ---------- */
 type Visibility = "public" | "followers" | "private";
+type UserSnap = {
+  userId: string;
+  name?: string | null;
+  handle?: string | null;
+  photoURL?: string | null;
+};
+
+async function getUserSnap(uid: string): Promise<UserSnap> {
+  const us = await getDoc(doc(db, "users", uid));
+  const u = (us.data() as any) || {};
+  return {
+    userId: uid,
+    name: u.firstName + " " + u.surname, // adjust to your schema
+    handle: u?.handle ?? null,
+    photoURL: u?.photoURL ?? null,
+  };
+}
+async function recordViewWeb(params: {
+  deedId: string;
+  uid?: string;
+}) {
+  const { deedId, uid } = params;
+
+  try {
+    const baseId = uid ?? getOrMakeDeviceId();
+    const viewId = `${deedId}_${baseId}`; // ✅ idempotent
+
+    const ref = doc(db, "views", viewId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) return;
+
+    const payload: any = { deedId, createdAt: serverTimestamp() };
+
+    if (uid) {
+      const us = await getUserSnap(uid);
+      payload.userId = uid;
+      payload.user = {
+        name: us.name ?? null,
+        handle: us.handle ?? null,
+        photoURL: us.photoURL ?? null,
+      };
+    } else {
+      payload.deviceId = baseId;
+    }
+
+    await setDoc(ref, payload);
+  } catch {
+    // ignore (never crash UX)
+  }
+}
 
 const canSee = (
   item: PlayerItem,
@@ -277,8 +327,17 @@ function useLikes(itemId: string, uid?: string) {
     if (!uid || !likeId) return;
     const ref = doc(db, "likes", likeId);
     const s = await getDoc(ref);
-    if (s.exists()) await deleteDoc(ref);
-    else await setDoc(ref, { deedId: itemId, userId: uid, createdAt: Date.now() });
+    if (s.exists()) { await deleteDoc(ref); }
+    else {
+      const userSnap = await getUserSnap(uid);
+      await setDoc(ref, {
+        deedId: itemId, userId: uid, user: {
+          name: userSnap.name ?? null,
+          handle: userSnap.handle ?? null,
+          photoURL: userSnap.photoURL ?? null,
+        }, createdAt: Date.now()
+      });
+    }
   };
 
   return { liked, count, toggle };
@@ -311,13 +370,18 @@ function useBookmarks(itemId: string, uid?: string) {
     if (!uid || !bookmarkId) return;
     const ref = doc(db, "bookmarks", bookmarkId);
     const s = await getDoc(ref);
-    if (s.exists()) await deleteDoc(ref);
-    else
+    if (s.exists()) { await deleteDoc(ref); }
+    else {
+      const userSnap = await getUserSnap(uid);
       await setDoc(ref, {
-        deedId: itemId,
-        userId: uid,
-        createdAt: serverTimestamp(),
+        deedId: itemId, userId: uid, user: {
+          name: userSnap.name ?? null,
+          handle: userSnap.handle ?? null,
+          photoURL: userSnap.photoURL ?? null,
+        }, createdAt: serverTimestamp()
       });
+    }
+
   };
 
   return { saved, toggle };
@@ -754,13 +818,57 @@ function VideoCard({
     }
     setDonateOpen(true);
   };
+  const viewLoggedRef = useRef(false);
+
+  useEffect(() => {
+    // reset when switching to another deed
+    viewLoggedRef.current = false;
+  }, [item.id]);
+
+  useEffect(() => {
+    if (viewLoggedRef.current) return;
+
+    // PHOTO: dwell for 2s
+    if (item.mediaType === "photo") {
+      const t = window.setTimeout(async () => {
+        if (viewLoggedRef.current) return;
+        viewLoggedRef.current = true;
+        await recordViewWeb({ deedId: item.id, uid });
+      }, 2000);
+
+      return () => window.clearTimeout(t);
+    }
+
+    // VIDEO: >= 3s watched OR >= 40% watched (like mobile)
+    if (item.mediaType === "video") {
+      const v = videoRef.current;
+      if (!v) return;
+
+      const onTime = async () => {
+        if (viewLoggedRef.current) return;
+
+        const watchedMs = (v.currentTime ?? 0) * 1000;
+        const durMs = (v.duration ?? 0) * 1000;
+        const ratio = durMs ? watchedMs / durMs : 0;
+
+        if (watchedMs >= 3000 || ratio >= 0.4) {
+          viewLoggedRef.current = true;
+          v.removeEventListener("timeupdate", onTime);
+          await recordViewWeb({ deedId: item.id, uid });
+        }
+      };
+
+      v.addEventListener("timeupdate", onTime);
+      return () => v.removeEventListener("timeupdate", onTime);
+    }
+  }, [item.id, item.mediaType, uid]);
 
   const onShare = async () => {
     const url = `${location.origin}/deed/${item.id}`;
     try {
       if (navigator.share) {
         await navigator.share({
-          title: item.text || "EkariHub",
+          title: item.text || "ekarihub",
           text: item.text || "",
           url,
         });
@@ -770,9 +878,20 @@ function VideoCard({
       }
       const baseId = uid ?? getOrMakeDeviceId();
       const sid = `${item.id}_${baseId}_${Date.now()}`;
+
       const payload: any = { deedId: item.id, createdAt: serverTimestamp() };
-      if (uid) payload.userId = uid;
-      else payload.deviceId = baseId;
+
+      if (uid) {
+        const userSnap = await getUserSnap(uid);
+        payload.userId = uid;
+        payload.user = {
+          name: userSnap.name ?? null,
+          handle: userSnap.handle ?? null,
+          photoURL: userSnap.photoURL ?? null,
+        };
+      } else {
+        payload.deviceId = baseId;
+      }
       await setDoc(doc(db, "shares", sid), payload);
     } catch { }
   };
@@ -1627,7 +1746,7 @@ function ChannelTabs({
                   key={k}
                   onClick={() => onChange(k)}
                   className={cn(
-                    "relative px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[60px] lg:w-[96px]",
+                    "relative px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[60px] lg:w-[80px]",
                     "rounded-full font-semibold flex-shrink-0 flex items-center justify-center transition",
                     isActive
                       ? "bg-[#233F39] text-white shadow-sm"
@@ -1650,14 +1769,7 @@ function ChannelTabs({
             <span>Dive In</span>
           </button>
 
-          {/* Search (desktop) */}
-          <button
-            onClick={() => router.push("/search")}
-            className="hidden lg:inline-flex items-center justify-center rounded-full border border-gray-200 bg-white/90 hover:bg-gray-50 shadow-sm p-2 flex-shrink-0"
-            aria-label="Search"
-          >
-            <IoSearch />
-          </button>
+
 
           {/* Data saver pill */}
           <button
@@ -1665,10 +1777,10 @@ function ChannelTabs({
             onClick={onToggleDataSaver}
             disabled={!uid}
             className={cn(
-              "ml-1 flex items-center gap-1 px-1.5 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm bg-white/90",
+              "ml-1 flex items-center gap-1 px-1.5 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm text-white",
               dataSaverOn
-                ? "text-emerald-700 border-emerald-200"
-                : "text-gray-700 border-gray-200 hover:bg-gray-50"
+                ? "text-emerald-700 border-white"
+                : "text-gray-700 border-gray-200 hover:text-gray-50"
             )}
             title={
               dataSaverOn
@@ -1681,6 +1793,14 @@ function ChannelTabs({
               style={{ backgroundColor: dataSaverOn ? "#16A34A" : "#9CA3AF" }}
             />
             <span>Data saver</span>
+          </button>
+          {/* Search (desktop) */}
+          <button
+            onClick={() => router.push("/search")}
+            className="hidden lg:inline-flex items-center justify-center rounded-full border border-white-200 text-white hover:text-green-50 shadow-sm p-2 flex-shrink-0"
+            aria-label="Search"
+          >
+            <IoSearch />
           </button>
         </div>
       </div>

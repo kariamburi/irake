@@ -116,43 +116,6 @@ const asArray = (v: unknown): string[] => {
   if (typeof v === "string") return v.split(",").map((s) => s.trim()).filter(Boolean);
   return [];
 };
-// Upsert hashtag docs whenever a deed uses tags
-async function upsertHashtagsForTags(tags: string[]) {
-  if (!tags || !tags.length) return;
-
-  // Normalize: strip leading #, trim, lower-case
-  const unique = Array.from(
-    new Set(
-      tags
-        .map((t) => String(t).trim().replace(/^#+/, "")) // remove leading #
-        .filter(Boolean)
-        .map((t) => t.toLowerCase())
-    )
-  );
-
-  if (!unique.length) return;
-
-  const batch = writeBatch(db);
-
-  for (const normalized of unique) {
-    // we can store the original tag label as capitalized or same as normalized
-    const tagLabel = normalized; // you can prettify if you want
-
-    const hashtagRef = doc(db, "hashtags", normalized);
-    batch.set(
-      hashtagRef,
-      {
-        tag: tagLabel,              // shown in UI
-        tagLower: normalized,       // for search
-        uses: increment(1),         // bump usage count
-        lastUsedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  }
-
-  await batch.commit();
-}
 
 /* ---------- page ---------- */
 export default function UploadPage() {
@@ -703,9 +666,7 @@ export default function UploadPage() {
 
         await updateDoc(deedRef, payload);
         // 👇 upsert hashtags after deed is saved
-        if (mergedTags.length) {
-          await upsertHashtagsForTags(mergedTags);
-        }
+
       }
 
       // =========================
@@ -775,9 +736,7 @@ export default function UploadPage() {
         });
 
         await updateDoc(deedRef!, payload);
-        if (mergedTags.length) {
-          await upsertHashtagsForTags(mergedTags);
-        }
+
 
         // Early exit for images
         if (typeof window !== "undefined") localStorage.removeItem(DRAFT_KEY);
@@ -878,9 +837,7 @@ export default function UploadPage() {
 
         await updateDoc(deedRef, payload);
         // 👇 upsert hashtags after deed is saved
-        if (mergedTags.length) {
-          await upsertHashtagsForTags(mergedTags);
-        }
+
       }
 
       // cleanup + navigate

@@ -92,42 +92,6 @@ const asArray = (v: unknown): string[] => {
   return [];
 };
 
-// Upsert hashtag docs whenever content uses tags
-async function upsertHashtagsForTags(tags: string[]) {
-  if (!tags || !tags.length) return;
-
-  // Normalize: strip leading #, trim, lower-case
-  const unique = Array.from(
-    new Set(
-      tags
-        .map((t) => String(t).trim().replace(/^#+/, "")) // remove leading #
-        .filter(Boolean)
-        .map((t) => t.toLowerCase())
-    )
-  );
-
-  if (!unique.length) return;
-
-  const batch = writeBatch(db);
-
-  for (const normalized of unique) {
-    const tagLabel = normalized; // you can prettify later if you want
-
-    const hashtagRef = doc(db, "hashtags", normalized);
-    batch.set(
-      hashtagRef,
-      {
-        tag: tagLabel,              // shown in UI
-        tagLower: normalized,       // for search
-        uses: increment(1),         // bump usage count
-        lastUsedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  }
-
-  await batch.commit();
-}
 /* ---------- Hashtag suggestions hook (same logic spirit as Upload page) ---------- */
 
 function useHashtagSuggestions(uid: string | null) {
@@ -635,9 +599,7 @@ function EventForm({
         visibility: "public",
       });
       // 👇 record hashtag usage, same style as Upload page
-      if (mergedTags.length) {
-        await upsertHashtagsForTags(mergedTags);
-      }
+
       setSaving(false);
       onDone();
     } catch (e: any) {
@@ -1038,9 +1000,7 @@ function DiscussionForm({ onDone, provideFooter }: { onDone: () => void; provide
         published: true,
       });
       // 👇 record hashtag usage, same style as Upload page
-      if (mergedTags.length) {
-        await upsertHashtagsForTags(mergedTags);
-      }
+
       setSaving(false);
       onDone();
     } catch (e: any) {

@@ -27,10 +27,42 @@ import {
     IoHeartOutline,
     IoEyeOutline,
     IoShareOutline,
-    IoBookmarkOutline,
 } from "react-icons/io5";
 import SmartAvatar from "./SmartAvatar";
 import { useRouter } from "next/navigation";
+
+/* ------------------------------------------------------------------ */
+/* Embedded user snapshot (new format)                                 */
+/* ------------------------------------------------------------------ */
+type UserEmbed = {
+    name?: string | null;
+    handle?: string | null;
+    photoURL?: string | null;
+};
+
+type ActivityDoc = {
+    id: string;
+    deedId?: string;
+    userId?: string;
+    deviceId?: string;
+    user?: UserEmbed | null;
+
+    // legacy fallbacks (older docs)
+    userHandle?: string | null;
+    userPhotoURL?: string | null;
+
+    createdAt?: any;
+};
+
+function pickHandle(a: any) {
+    return ((a?.user?.handle ?? a?.userHandle ?? "") as string).trim() || null;
+}
+function pickPhoto(a: any) {
+    return (a?.user?.photoURL ?? a?.userPhotoURL ?? null) || null;
+}
+function pickName(a: any) {
+    return (a?.user?.name ?? null) || null;
+}
 
 /* ------------------------------------------------------------------ */
 /* Tiny activity indicator                                             */
@@ -219,6 +251,33 @@ function nfmt(n?: number) {
     return String(v);
 }
 
+function timeAgo(ts?: any) {
+    if (!ts) return "";
+    const d =
+        ts instanceof Date
+            ? ts
+            : typeof ts?.toMillis === "function"
+                ? new Date(ts.toMillis())
+                : typeof ts === "number"
+                    ? new Date(ts)
+                    : null;
+    if (!d) return "";
+    const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (sec < 60) return "now";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+    const day = Math.floor(hr / 24);
+    if (day < 7) return `${day}d`;
+    const wk = Math.floor(day / 7);
+    if (wk < 4) return `${wk}w`;
+    const mo = Math.floor(day / 30);
+    if (mo < 12) return `${mo}mo`;
+    const yr = Math.floor(day / 365);
+    return `${yr}y`;
+}
+
 /* ------------------------------------------------------------------ */
 /* Types & hooks                                                       */
 /* ------------------------------------------------------------------ */
@@ -232,12 +291,7 @@ type ActivityCollection = "likes" | "views" | "shares";
 function useDeedMeta(deedId?: string, open?: boolean) {
     const [meta, setMeta] = useState<{
         createdAt?: any;
-        stats?: {
-            views?: number;
-            likes?: number;
-            comments?: number;
-            shares?: number;
-        };
+        stats?: { views?: number; likes?: number; comments?: number; shares?: number };
         allowComments?: boolean;
         commentsEnabled?: boolean;
     } | null>(null);
@@ -352,7 +406,7 @@ function useReplies(deedId?: string, parentId?: string, open?: boolean) {
 }
 
 function useDeedActivity(collectionName: ActivityCollection, deedId?: string, open?: boolean) {
-    const [items, setItems] = useState<any[]>([]);
+    const [items, setItems] = useState<ActivityDoc[]>([]);
     const [cursor, setCursor] = useState<any>(null);
     const [paging, setPaging] = useState(false);
 
@@ -404,28 +458,20 @@ function useDeedActivity(collectionName: ActivityCollection, deedId?: string, op
 }
 
 /* ------------------------------------------------------------------ */
-/* ✅ Views: unique users + total per user                              */
-/* - tab count still uses deeds.stats.views (total views)              */
-/* - list is deduped by userId (so no repeats)                         */
+/* ✅ Views: unique users list (dedup by userId OR deviceId)            */
 /* ------------------------------------------------------------------ */
-type ViewItem = {
-    id: string;
-    deedId?: string;
-    userId?: string;
-    userHandle?: string | null;
-    createdAt?: any;
+type ViewItem = ActivityDoc & {
     viewsByUser?: number;
     lastViewedAt?: any;
 };
 
 function useDeedViewsUnique(deedId?: string, open?: boolean) {
     const [items, setItems] = useState<ViewItem[]>([]);
-    const [paging, setPaging] = useState(false);
+    const [paging] = useState(false);
 
     useEffect(() => {
         if (!open || !deedId) return;
 
-        // Bigger window so dedupe works even with repeat views
         const q0 = query(
             collection(db, "views"),
             where("deedId", "==", deedId),
@@ -438,23 +484,21 @@ function useDeedViewsUnique(deedId?: string, open?: boolean) {
             (snap) => {
                 const raw = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as ViewItem[];
 
-                const map = new Map<string, ViewItem>(); // userId -> (newest doc + count)
+                const map = new Map<string, ViewItem>(); // key -> newest doc + count
+
                 for (const v of raw) {
                     const uid = (v.userId || "").trim();
-                    if (!uid) continue;
+                    const did = (v.deviceId || "").trim();
+                    const key = uid || (did ? `device:${did}` : "");
+                    if (!key) continue;
 
-                    const existing = map.get(uid);
+                    const existing = map.get(key);
                     if (!existing) {
-                        map.set(uid, {
-                            ...v,
-                            viewsByUser: 1,
-                            lastViewedAt: v.createdAt,
-                        });
+                        map.set(key, { ...v, viewsByUser: 1, lastViewedAt: v.createdAt });
                     } else {
-                        map.set(uid, {
+                        map.set(key, {
                             ...existing,
                             viewsByUser: (existing.viewsByUser ?? 1) + 1,
-                            // keep existing doc fields (existing is newest because query is desc)
                         });
                     }
                 }
@@ -467,8 +511,63 @@ function useDeedViewsUnique(deedId?: string, open?: boolean) {
         return () => unsub();
     }, [deedId, open]);
 
-    // For unique viewer list, “load more” would require multi-page merge.
-    // Keep button but no-op (or you can hide it in ActivityPanel for tab=views).
+    const loadMore = useCallback(async () => { }, []);
+    return { items, loadMore, paging };
+}
+/* ------------------------------------------------------------------ */
+/* ✅ Shares: unique users list (dedup by userId OR deviceId)           */
+/* ------------------------------------------------------------------ */
+type ShareItem = ActivityDoc & {
+    sharesByUser?: number;
+    lastSharedAt?: any;
+};
+
+function useDeedSharesUnique(deedId?: string, open?: boolean) {
+    const [items, setItems] = useState<ShareItem[]>([]);
+    const [paging] = useState(false);
+
+    useEffect(() => {
+        if (!open || !deedId) return;
+
+        const q0 = query(
+            collection(db, "shares"),
+            where("deedId", "==", deedId),
+            orderBy("createdAt", "desc"),
+            limit(400)
+        );
+
+        const unsub = onSnapshot(
+            q0,
+            (snap) => {
+                const raw = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as ShareItem[];
+
+                const map = new Map<string, ShareItem>(); // key -> newest doc + count
+
+                for (const s of raw) {
+                    const uid = (s.userId || "").trim();
+                    const did = (s.deviceId || "").trim();
+                    const key = uid || (did ? `device:${did}` : "");
+                    if (!key) continue;
+
+                    const existing = map.get(key);
+                    if (!existing) {
+                        map.set(key, { ...s, sharesByUser: 1, lastSharedAt: s.createdAt });
+                    } else {
+                        map.set(key, {
+                            ...existing,
+                            sharesByUser: (existing.sharesByUser ?? 1) + 1,
+                        });
+                    }
+                }
+
+                setItems(Array.from(map.values()));
+            },
+            () => setItems([])
+        );
+
+        return () => unsub();
+    }, [deedId, open]);
+
     const loadMore = useCallback(async () => { }, []);
     return { items, loadMore, paging };
 }
@@ -506,7 +605,7 @@ type RightRailProps = {
     open: boolean;
     deedId?: string;
     onClose: () => void;
-    currentUser: { uid?: string; photoURL?: string | null; handle?: string };
+    currentUser: { uid?: string; photoURL?: string | null; handle?: string | null; name?: string | null };
     mode?: "sidebar" | "sheet";
     className?: string;
 };
@@ -539,8 +638,8 @@ export default function RightRail({
 
     // activity
     const likesQ = useDeedActivity("likes", deedId, open);
-    const viewsQ = useDeedViewsUnique(deedId, open); // ✅ UPDATED (unique viewers list)
-    const sharesQ = useDeedActivity("shares", deedId, open);
+    const viewsQ = useDeedViewsUnique(deedId, open);
+    const sharesQ = useDeedSharesUnique(deedId, open);
 
     const [text, setText] = useState("");
     const [replyTo, setReplyTo] = useState<{ id: string; handle?: string | null } | null>(null);
@@ -566,16 +665,28 @@ export default function RightRail({
         setSending(true);
         try {
             const trimmed = clipGraphemes(text.trim(), 400);
+
             await addDoc(collection(db, "comments"), {
                 deedId,
                 userId: currentUser.uid,
-                userPhotoURL: currentUser.photoURL ?? null,
-                userHandle: currentUser.handle ?? null,
+
+                // ✅ unified snapshot (new)
+                user: {
+                    name: currentUser.name ?? null,
+                    handle: currentUser.handle ?? null,
+                    photoURL: currentUser.photoURL ?? null,
+                },
+
+                // (optional legacy fields, leave off if you want)
+                // userHandle: currentUser.handle ?? null,
+                // userPhotoURL: currentUser.photoURL ?? null,
+
                 text: trimmed,
                 imageUrl: null,
                 parentId: replyTo?.id ?? null,
                 createdAt: serverTimestamp(),
             });
+
             setText("");
             setReplyTo(null);
         } finally {
@@ -614,9 +725,7 @@ export default function RightRail({
                 className={[
                     "flex items-center justify-center gap-1.5",
                     "w-full py-2 text-xs font-bold border-b-2 transition",
-                    active
-                        ? "text-gray-900 border-gray-900"
-                        : "text-gray-500 border-transparent hover:text-gray-800",
+                    active ? "text-gray-900 border-gray-900" : "text-gray-500 border-transparent hover:text-gray-800",
                 ].join(" ")}
             >
                 <span className="text-base">{icon}</span>
@@ -627,10 +736,7 @@ export default function RightRail({
     };
 
     const activeActivity =
-        tab === "likes" ? likesQ :
-            tab === "views" ? viewsQ :
-                tab === "shares" ? sharesQ :
-                    null;
+        tab === "likes" ? likesQ : tab === "views" ? viewsQ : tab === "shares" ? sharesQ : null;
 
     return (
         <aside className={outer} style={{ borderColor: EKARI.hair }} aria-live="polite">
@@ -640,7 +746,12 @@ export default function RightRail({
                     <div className="px-4 pt-4 pb-3">
                         <div className="flex items-center justify-between">
                             <div className="text-xs text-gray-500">Posted {posted ? posted.toLocaleString() : "—"}</div>
-                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100" aria-label="Close" type="button">
+                            <button
+                                onClick={onClose}
+                                className="p-2 rounded-full hover:bg-gray-100"
+                                aria-label="Close"
+                                type="button"
+                            >
                                 <IoClose size={22} />
                             </button>
                         </div>
@@ -651,7 +762,6 @@ export default function RightRail({
                             <TabButton k="views" label="Views" count={stats?.views} icon={<IoEyeOutline />} />
                             <TabButton k="shares" label="Shares" count={stats?.shares} icon={<IoShareOutline />} />
                         </div>
-
 
                         {tab === "comments" && (
                             <div className="mt-3 flex items-center justify-between">
@@ -708,7 +818,11 @@ export default function RightRail({
                                             <Spinner size={14} className="border-gray-400 border-t-gray-600" /> Loading…
                                         </div>
                                     ) : (
-                                        <button onClick={loadMore} className="w-full text-sm text-gray-600 hover:text-gray-900" type="button">
+                                        <button
+                                            onClick={loadMore}
+                                            className="w-full text-sm text-gray-600 hover:text-gray-900"
+                                            type="button"
+                                        >
                                             Load more
                                         </button>
                                     )}
@@ -735,7 +849,12 @@ export default function RightRail({
                         {replyTo && (
                             <div className="mb-2 flex items-center justify-between rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600">
                                 <span>Replying to {replyTo.handle ? `${replyTo.handle}` : "comment"}</span>
-                                <button onClick={() => setReplyTo(null)} className="p-1 rounded hover:bg-gray-200" aria-label="Cancel reply" type="button">
+                                <button
+                                    onClick={() => setReplyTo(null)}
+                                    className="p-1 rounded hover:bg-gray-200"
+                                    aria-label="Cancel reply"
+                                    type="button"
+                                >
                                     <IoClose size={14} />
                                 </button>
                             </div>
@@ -743,10 +862,18 @@ export default function RightRail({
 
                         <div className="flex items-center items-end gap-2 relative">
                             <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                                <img src={currentUser?.photoURL || "/avatar-placeholder.png"} alt="me" className="h-8 w-8 object-cover" />
+                                <img
+                                    src={currentUser?.photoURL || "/avatar-placeholder.png"}
+                                    alt="me"
+                                    className="h-8 w-8 object-cover"
+                                />
                             </div>
 
-                            <div className={["flex-1 bg-gray-100 items-center rounded-full px-3 py-2 flex items-end gap-2", sending ? "opacity-80" : ""].join(" ")}>
+                            <div
+                                className={["flex-1 bg-gray-100 items-center rounded-full px-3 py-2 flex items-end gap-2", sending ? "opacity-80" : ""].join(
+                                    " "
+                                )}
+                            >
                                 <textarea
                                     ref={textareaRef}
                                     value={text}
@@ -772,10 +899,9 @@ export default function RightRail({
                                     aria-haspopup="dialog"
                                     aria-expanded={showEmoji}
                                     title="Add emoji"
-                                    className={[
-                                        "h-8 w-8 rounded-full bg-white text-lg grid place-items-center",
-                                        "shadow border hover:bg-gray-50 disabled:opacity-50",
-                                    ].join(" ")}
+                                    className={["h-8 w-8 rounded-full bg-white text-lg grid place-items-center", "shadow border hover:bg-gray-50 disabled:opacity-50"].join(
+                                        " "
+                                    )}
                                 >
                                     😊
                                 </button>
@@ -811,7 +937,7 @@ export default function RightRail({
 }
 
 /* ------------------------------------------------------------------ */
-/* Activity panel (Likes / Views / Shares / Saves)                     */
+/* Activity panel (Likes / Views / Shares)                             */
 /* ------------------------------------------------------------------ */
 function ActivityPanel({
     tab,
@@ -820,13 +946,9 @@ function ActivityPanel({
     tab: Exclude<Tab, "comments">;
     queryData: { items: any[]; loadMore: () => void; paging: boolean };
 }) {
-    const title =
-        tab === "likes" ? "Liked by" :
-            tab === "views" ? "Viewed by" :
-                tab === "shares" ? "Shared by" :
-                    "Saved by";
+    const title = tab === "likes" ? "Liked by" : tab === "views" ? "Viewed by" : tab === "shares" ? "Shared by" : "Activity";
 
-    const showLoadMore = tab !== "views"; // ✅ views are unique-deduped; load more is a no-op
+    const showLoadMore = tab !== "views"; // views are unique-deduped; load more is a no-op
 
     return (
         <div className="p-3">
@@ -841,8 +963,18 @@ function ActivityPanel({
                             <ActivityRow
                                 key={a.id}
                                 userId={a.userId}
+                                embeddedUser={a.user}
                                 fallbackHandle={a.userHandle}
-                                rightText={tab === "views" ? `${a.viewsByUser ?? 1} view${(a.viewsByUser ?? 1) > 1 ? "s" : ""}` : undefined}
+                                fallbackPhotoURL={a.userPhotoURL}
+                                fallbackDeviceId={a.deviceId}
+                                rightText={
+                                    tab === "views"
+                                        ? `${a.viewsByUser ?? 1} view${(a.viewsByUser ?? 1) > 1 ? "s" : ""}`
+                                        : tab === "shares"
+                                            ? `${a.sharesByUser ?? 1} share${(a.sharesByUser ?? 1) > 1 ? "s" : ""}`
+                                            : undefined
+                                }
+
                             />
                         ))}
                     </ul>
@@ -868,18 +1000,31 @@ function ActivityPanel({
 
 function ActivityRow({
     userId,
+    embeddedUser,
     fallbackHandle,
+    fallbackPhotoURL,
+    fallbackDeviceId,
     rightText,
 }: {
     userId?: string;
+    embeddedUser?: UserEmbed | null;
     fallbackHandle?: string | null;
+    fallbackPhotoURL?: string | null;
+    fallbackDeviceId?: string | null;
     rightText?: string;
 }) {
-    const u = useUserLiteById(userId);
-    const handle = (u?.handle || fallbackHandle || "").trim();
-    const photoURL = u?.photoURL || "/avatar-placeholder.png";
-    const router = useRouter();
+    // Only fetch if embedded data is missing
+    const hasHandle = !!((embeddedUser?.handle ?? fallbackHandle ?? "").trim());
+    const hasPhoto = !!((embeddedUser?.photoURL ?? fallbackPhotoURL ?? "").trim());
+    const needsFetch = !!userId && (!hasHandle || !hasPhoto);
 
+    const u = useUserLiteById(needsFetch ? userId : undefined);
+    const embeddedName = (embeddedUser?.name ?? null) as string | null;
+    const handle = ((embeddedUser?.handle ?? fallbackHandle ?? u?.handle ?? "") as string).trim();
+    const photoURL =
+        (embeddedUser?.photoURL ?? fallbackPhotoURL ?? u?.photoURL ?? "/avatar-placeholder.png") || "/avatar-placeholder.png";
+    const name = (embeddedName ?? u?.handle ?? null) as string | null;
+    const router = useRouter();
     const canOpen = !!handle;
 
     const go = () => {
@@ -907,18 +1052,22 @@ function ActivityRow({
                     disabled={!canOpen}
                     className="text-sm font-bold text-gray-800 hover:underline text-left truncate disabled:opacity-70"
                 >
-                    {handle || "Someone"}
+
+                    <div className="text-sm font-extrabold text-gray-900 truncate">{name || "Someone"}</div>
+                    <div className="text-[12px] font-semibold text-gray-500 truncate">
+                        {handle || (fallbackDeviceId ? "Guest viewer" : "Someone")}
+                    </div>
                 </button>
-                {!userId && !handle && (
-                    <div className="text-[11px] text-gray-500">No userId stored on this event doc</div>
+
+                {!userId && !handle && fallbackDeviceId && (
+                    <div className="text-[11px] text-gray-500">Anonymous device activity</div>
+                )}
+                {!userId && !handle && !fallbackDeviceId && (
+                    <div className="text-[11px] text-gray-500">No user data stored on this event doc</div>
                 )}
             </div>
 
-            {rightText && (
-                <div className="text-xs font-bold text-gray-500 whitespace-nowrap">
-                    {rightText}
-                </div>
-            )}
+            {rightText && <div className="text-xs font-bold text-gray-500 whitespace-nowrap">{rightText}</div>}
         </li>
     );
 }
@@ -934,11 +1083,11 @@ function CommentRow({
 }: {
     deedId: string;
     comment: any;
-    currentUser: UserLite;
+    currentUser: UserLite & { name?: string | null };
     onReply: (id: string, handle?: string | null) => void;
 }) {
     const [open, setOpen] = useState(false);
-    const { list, loadMore, hasMore } = useReplies(deedId, comment.id, open);
+    useReplies(deedId, comment.id, open); // keep snapshot subscription behavior
     const canModify = currentUser?.uid === comment?.userId;
 
     const [isEditing, setIsEditing] = useState(false);
@@ -1006,75 +1155,40 @@ function CommentRow({
         [router]
     );
 
+    const embeddedHandle = ((comment?.user?.handle ?? comment?.userHandle ?? "") as string).trim() || null;
+    const embeddedPhoto = pickPhoto(comment);
+
     const authorProfile = useAuthorProfile(comment.userId);
-    const avatar = authorProfile?.photoURL || "/avatar-placeholder.png";
-    function timeAgo(ts?: any) {
-        if (!ts) return "";
-
-        const d =
-            ts instanceof Date
-                ? ts
-                : typeof ts?.toMillis === "function"
-                    ? new Date(ts.toMillis())
-                    : typeof ts === "number"
-                        ? new Date(ts)
-                        : null;
-
-        if (!d) return "";
-
-        const sec = Math.floor((Date.now() - d.getTime()) / 1000);
-        if (sec < 60) return "now";
-
-        const min = Math.floor(sec / 60);
-        if (min < 60) return `${min}m`;
-
-        const hr = Math.floor(min / 60);
-        if (hr < 24) return `${hr}h`;
-
-        const day = Math.floor(hr / 24);
-        if (day < 7) return `${day}d`;
-
-        const wk = Math.floor(day / 7);
-        if (wk < 4) return `${wk}w`;
-
-        const mo = Math.floor(day / 30);
-        if (mo < 12) return `${mo}mo`;
-
-        const yr = Math.floor(day / 365);
-        return `${yr}y`;
-    }
+    const avatar = embeddedPhoto || authorProfile?.photoURL || "/avatar-placeholder.png";
 
     return (
         <li className="flex items-start gap-3">
             <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
                 <button
                     type="button"
-                    onClick={() => goToProfile(comment.userHandle)}
+                    onClick={() => goToProfile(embeddedHandle)}
                     className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0 cursor-pointer"
                     aria-label="Open profile"
-                    disabled={!comment.userHandle}
+                    disabled={!embeddedHandle}
                 >
-                    <SmartAvatar src={avatar} alt={comment.userHandle} size={34} />
+                    <SmartAvatar src={avatar} alt={embeddedHandle ?? "user"} size={34} />
                 </button>
             </div>
 
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                    {!!comment.userHandle && (
+                    {!!embeddedHandle && (
                         <button
                             type="button"
-                            onClick={() => goToProfile(comment.userHandle)}
+                            onClick={() => goToProfile(embeddedHandle)}
                             className="text-sm font-bold text-gray-700 hover:underline"
                         >
-                            {comment.userHandle}
+                            {embeddedHandle}
                         </button>
                     )}
 
-                    <span className="text-xs text-gray-400">
-                        {timeAgo(comment.createdAt)}
-                    </span>
+                    <span className="text-xs text-gray-400">{timeAgo(comment.createdAt)}</span>
                 </div>
-
 
                 {!isEditing ? (
                     <>
@@ -1150,7 +1264,7 @@ function CommentRow({
                 )}
 
                 <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
-                    <button onClick={() => onReply(comment.id, comment.userHandle ?? null)} className="font-semibold hover:text-gray-900" type="button">
+                    <button onClick={() => onReply(comment.id, embeddedHandle)} className="font-semibold hover:text-gray-900" type="button">
                         Reply
                     </button>
                     <button onClick={() => setOpen((v) => !v)} className="hover:text-gray-900" type="button">
@@ -1309,74 +1423,36 @@ function ReplyRow({
         setShowEditEmoji(false);
     };
 
+    const handle = ((reply?.user?.handle ?? reply?.userHandle ?? "") as string).trim() || null;
+    const embeddedPhoto = pickPhoto(reply);
+
     const authorProfile = useAuthorProfile(reply.userId);
-    const avatar = authorProfile?.photoURL || "/avatar-placeholder.png";
-    function timeAgo(ts?: any) {
-        if (!ts) return "";
+    const avatar = embeddedPhoto || authorProfile?.photoURL || "/avatar-placeholder.png";
 
-        const d =
-            ts instanceof Date
-                ? ts
-                : typeof ts?.toMillis === "function"
-                    ? new Date(ts.toMillis())
-                    : typeof ts === "number"
-                        ? new Date(ts)
-                        : null;
-
-        if (!d) return "";
-
-        const sec = Math.floor((Date.now() - d.getTime()) / 1000);
-        if (sec < 60) return "now";
-
-        const min = Math.floor(sec / 60);
-        if (min < 60) return `${min}m`;
-
-        const hr = Math.floor(min / 60);
-        if (hr < 24) return `${hr}h`;
-
-        const day = Math.floor(hr / 24);
-        if (day < 7) return `${day}d`;
-
-        const wk = Math.floor(day / 7);
-        if (wk < 4) return `${wk}w`;
-
-        const mo = Math.floor(day / 30);
-        if (mo < 12) return `${mo}mo`;
-
-        const yr = Math.floor(day / 365);
-        return `${yr}y`;
-    }
     return (
         <li className="flex items-start gap-3">
             <div className="h-7 w-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
                 <button
                     type="button"
-                    onClick={() => goToProfile(reply.userHandle)}
+                    onClick={() => (handle ? goToProfile(handle) : null)}
                     className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0 cursor-pointer"
                     aria-label="Open profile"
-                    disabled={!reply.userHandle}
+                    disabled={!handle}
                 >
-                    <SmartAvatar src={avatar} alt={reply.userHandle} size={34} />
+                    <SmartAvatar src={avatar} alt={handle ?? "user"} size={34} />
                 </button>
             </div>
 
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                    {!!reply.userHandle && (
-                        <button
-                            type="button"
-                            onClick={() => goToProfile(reply.userHandle)}
-                            className="text-xs font-bold text-gray-600 hover:underline"
-                        >
-                            {reply.userHandle}
+                    {!!handle && (
+                        <button type="button" onClick={() => goToProfile(handle)} className="text-xs font-bold text-gray-600 hover:underline">
+                            {handle}
                         </button>
                     )}
 
-                    <span className="text-[11px] text-gray-400">
-                        {timeAgo(reply.createdAt)}
-                    </span>
+                    <span className="text-[11px] text-gray-400">{timeAgo(reply.createdAt)}</span>
                 </div>
-
 
                 {!isEditing ? (
                     <>
