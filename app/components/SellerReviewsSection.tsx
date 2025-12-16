@@ -1,15 +1,9 @@
 "use client";
 
-import React, {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     collection,
     doc,
-    getDoc,
     onSnapshot,
     orderBy,
     query,
@@ -18,6 +12,8 @@ import {
     where,
     deleteDoc,
     getFirestore,
+    getDoc,
+    setDoc,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import {
@@ -32,21 +28,24 @@ import {
 } from "react-icons/io5";
 import { db } from "@/lib/firebase";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+
+type ReviewUser = {
+    id: string; // reviewer uid
+    handle: string;
+    name: string;
+    photoURL: string | null;
+};
 
 type Review = {
-    id: string;
+    id: string; // doc id (reviewUserId)
     userId: string;
+    user?: ReviewUser; // ✅ embedded snapshot
     rating: number;
     text?: string | null;
     helpfulCount?: number;
     createdAt?: any;
     updatedAt?: any;
-};
-
-type ReviewerLite = {
-    id: string;
-    name: string;
-    photoURL: string | null;
 };
 
 const EKARI = {
@@ -59,11 +58,7 @@ const EKARI = {
 };
 
 // 👉 seller-based paths
-const sellerReviewDocRef = (
-    dbi: any,
-    sellerId: string,
-    reviewUserId: string
-) =>
+const sellerReviewDocRef = (dbi: any, sellerId: string, reviewUserId: string) =>
     doc(dbi, "users", String(sellerId), "reviews", String(reviewUserId));
 
 const sellerVoteRef = (
@@ -71,8 +66,37 @@ const sellerVoteRef = (
     sellerId: string,
     reviewUserId: string,
     voterId: string
-) =>
-    doc(dbi, "reviewVotes", `${sellerId}_${reviewUserId}_${voterId}`);
+) => doc(dbi, "reviewVotes", `${sellerId}_${reviewUserId}_${voterId}`);
+
+function buildNameFromUserDoc(ud: any) {
+    const first = String(ud?.firstName || "").trim();
+    const sur = String(ud?.surname || ud?.lastName || "").trim();
+    const joined = `${first} ${sur}`.trim();
+    return (
+        joined ||
+        String(ud?.displayName || "").trim() ||
+        String(ud?.name || "").trim() ||
+        String(ud?.handle || "").trim() ||
+        "User"
+    );
+}
+
+async function fetchMyReviewUser(uid: string, dbi: any): Promise<ReviewUser> {
+    // Best-effort: read from users/{uid} once, fall back safely
+    try {
+        const us = await getDoc(doc(dbi, "users", uid));
+        const ud = us.exists() ? (us.data() as any) : {};
+        const handle = String(ud?.handle || "").trim() || uid;
+        return {
+            id: uid,
+            handle,
+            name: buildNameFromUserDoc(ud),
+            photoURL: ud?.photoURL || ud?.photo || ud?.imageUrl || null,
+        };
+    } catch {
+        return { id: uid, handle: uid, name: "User", photoURL: null };
+    }
+}
 
 type Props = {
     sellerId: string;
@@ -81,21 +105,16 @@ type Props = {
 export default function SellerReviewsSection({ sellerId }: Props) {
     const auth = getAuth();
     const dbi = getFirestore();
+    const router = useRouter();
 
     const [reviews, setReviews] = useState<Review[]>([]);
     const [avgRating, setAvgRating] = useState(0);
     const [reviewCount, setReviewCount] = useState(0);
-    const [reviewers, setReviewers] = useState<Record<string, ReviewerLite>>({});
-    const reviewersRef = useRef<Record<string, ReviewerLite>>({});
     const [myHelpful, setMyHelpful] = useState<Record<string, true>>({});
 
     const [rvVisible, setRvVisible] = useState(false);
     const [rvStars, setRvStars] = useState(5);
     const [rvText, setRvText] = useState("");
-
-    useEffect(() => {
-        reviewersRef.current = reviewers;
-    }, [reviewers]);
 
     const me = auth.currentUser;
     const isOwner = me?.uid === sellerId;
@@ -109,60 +128,21 @@ export default function SellerReviewsSection({ sellerId }: Props) {
             orderBy("createdAt", "desc")
         );
 
-        const unsub = onSnapshot(qRef, async (snap) => {
+        const unsub = onSnapshot(qRef, (snap) => {
             const rows = snap.docs.map((d) => ({
                 id: d.id,
                 ...(d.data() as any),
             })) as Review[];
+
             setReviews(rows);
 
             if (rows.length) {
-                const total = rows.reduce(
-                    (s, r) => s + (Number(r.rating) || 0),
-                    0
-                );
+                const total = rows.reduce((s, r) => s + (Number(r.rating) || 0), 0);
                 setAvgRating(total / rows.length);
                 setReviewCount(rows.length);
             } else {
                 setAvgRating(0);
                 setReviewCount(0);
-            }
-
-            // cache missing reviewer meta
-            const missing = rows
-                .map((r) => r.userId)
-                .filter((uid, i, a) => a.indexOf(uid) === i)
-                .filter((uid) => !reviewersRef.current[uid]);
-
-            if (missing.length) {
-                const next: Record<string, ReviewerLite> = {};
-                await Promise.all(
-                    missing.map(async (uid) => {
-                        try {
-                            const us = await getDoc(doc(dbi, "users", uid));
-                            const ud = us.data() || {};
-                            const name =
-                                (ud.firstName
-                                    ? `${ud.firstName} ${ud.surname || ""}`.trim()
-                                    : null) ||
-                                ud.displayName ||
-                                ud.handle ||
-                                "User";
-                            next[uid] = {
-                                id: uid,
-                                name,
-                                photoURL: ud.photoURL || null,
-                            };
-                        } catch {
-                            next[uid] = {
-                                id: uid,
-                                name: "User",
-                                photoURL: null,
-                            };
-                        }
-                    })
-                );
-                setReviewers((prev) => ({ ...prev, ...next }));
             }
         });
 
@@ -177,7 +157,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
         const qVotes = query(
             collection(db, "reviewVotes"),
             where("userId", "==", user.uid),
-            where("listingId", "==", sellerId) // we still keep the field name "listingId"
+            where("listingId", "==", sellerId) // kept for compatibility
         );
 
         const unsub = onSnapshot(qVotes, (snap) => {
@@ -197,10 +177,15 @@ export default function SellerReviewsSection({ sellerId }: Props) {
         [reviews, me]
     );
 
+    const goProfile = (handle?: string) => {
+        const h = String(handle || "").trim();
+        if (!h) return;
+        router.push(`/${encodeURIComponent(h)}`);
+    };
+
     const openReview = () => {
         if (!me) return alert("Please sign in to leave a review.");
-        if (isOwner)
-            return alert("You can’t review your own seller profile.");
+        if (isOwner) return alert("You can’t review your own seller profile.");
 
         if (myReview) {
             setRvStars(myReview.rating || 5);
@@ -221,18 +206,23 @@ export default function SellerReviewsSection({ sellerId }: Props) {
         const text = rvText.trim() || null;
 
         try {
+            const userSnap = await fetchMyReviewUser(user.uid, dbi);
+
             const rRef = sellerReviewDocRef(dbi, sellerId, user.uid);
             await runTransaction(dbi, async (tx) => {
                 const snap = await tx.get(rRef);
+
                 if (snap.exists()) {
                     tx.update(rRef, {
                         rating,
                         text,
+                        user: userSnap, // ✅ embed snapshot
                         updatedAt: serverTimestamp(),
                     });
                 } else {
                     tx.set(rRef, {
                         userId: user.uid,
+                        user: userSnap, // ✅ embed snapshot
                         rating,
                         text,
                         helpfulCount: 0,
@@ -241,6 +231,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                     });
                 }
             });
+
             setRvVisible(false);
         } catch (e: any) {
             alert(e?.message || "Failed. Try again.");
@@ -258,59 +249,6 @@ export default function SellerReviewsSection({ sellerId }: Props) {
         }
     };
 
-    async function markHelpful(
-        subjectId: string,
-        reviewUserId: string,
-        voterId: string
-    ) {
-        const rRef = sellerReviewDocRef(dbi, subjectId, reviewUserId);
-        const vRef = sellerVoteRef(dbi, subjectId, reviewUserId, voterId);
-
-        await runTransaction(dbi, async (tx) => {
-            const vSnap = await tx.get(vRef);
-            if (vSnap.exists()) return;
-
-            const rSnap = await tx.get(rRef);
-            if (!rSnap.exists()) return;
-
-            const cur = rSnap.data() || {};
-            const curCount = Number(cur.helpfulCount || 0);
-
-            tx.set(vRef, {
-                listingId: String(subjectId), // field name kept for compatibility
-                reviewUserId,
-                userId: voterId,
-                createdAt: serverTimestamp(),
-                type: "seller",
-            });
-            tx.update(rRef, { helpfulCount: curCount + 1 });
-        });
-    }
-
-    async function unmarkHelpful(
-        subjectId: string,
-        reviewUserId: string,
-        voterId: string
-    ) {
-        const rRef = sellerReviewDocRef(dbi, subjectId, reviewUserId);
-        const vRef = sellerVoteRef(dbi, subjectId, reviewUserId, voterId);
-
-        await runTransaction(dbi, async (tx) => {
-            const vSnap = await tx.get(vRef);
-            if (!vSnap.exists()) return;
-
-            const rSnap = await tx.get(rRef);
-            if (!rSnap.exists()) return;
-
-            const cur = rSnap.data() || {};
-            const curCount = Number(cur.helpfulCount || 0);
-
-            tx.delete(vRef);
-            tx.update(rRef, {
-                helpfulCount: Math.max(0, curCount - 1),
-            });
-        });
-    }
 
     const toggleHelpful = async (reviewUserId: string) => {
         const user = auth.currentUser;
@@ -318,40 +256,46 @@ export default function SellerReviewsSection({ sellerId }: Props) {
         if (!sellerId) return;
         if (user.uid === reviewUserId) return;
 
+        const vRef = sellerVoteRef(dbi, sellerId, reviewUserId, user.uid);
+
         try {
             if (myHelpful[reviewUserId]) {
-                await unmarkHelpful(sellerId, reviewUserId, user.uid);
+                // ✅ remove vote (Cloud Function decrements)
+                await deleteDoc(vRef);
             } else {
-                await markHelpful(sellerId, reviewUserId, user.uid);
+                // ✅ add vote (Cloud Function increments)
+                await setDoc(vRef, {
+                    listingId: String(sellerId),
+                    reviewUserId: String(reviewUserId),
+                    userId: String(user.uid),
+                    type: "seller",
+                    createdAt: serverTimestamp(),
+                });
             }
         } catch (e: any) {
             if (e?.code === "permission-denied") {
-                console.warn("Voting not allowed.");
+                console.warn("Voting not allowed by rules.");
                 return;
             }
             alert(e?.message || "Failed. Try again.");
         }
     };
 
+
     return (
         <>
             {/* Reviews card */}
             <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
                 <div className="flex items-center justify-between">
-                    <h3 className="font-black text-[color:var(--text,#0F172A)] text-lg">
-                        Reviews
-                    </h3>
+                    <h3 className="font-black text-[color:var(--text,#0F172A)] text-lg">Reviews</h3>
+
                     {!isOwner && (
                         <button
                             onClick={openReview}
                             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-extrabold text-white hover:opacity-95"
                             style={{ backgroundColor: EKARI.forest }}
                         >
-                            {myReview ? (
-                                <IoCreateOutline size={16} />
-                            ) : (
-                                <IoStarOutline size={16} />
-                            )}
+                            {myReview ? <IoCreateOutline size={16} /> : <IoStarOutline size={16} />}
                             {myReview ? "Edit Review" : "Leave Review"}
                         </button>
                     )}
@@ -366,37 +310,27 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                             <div className="flex items-center">
                                 {Array.from({ length: 5 }).map((_, i) =>
                                     i < Math.round(avgRating) ? (
-                                        <IoStar
-                                            key={i}
-                                            className="text-amber-400"
-                                            size={16}
-                                        />
+                                        <IoStar key={i} className="text-amber-400" size={16} />
                                     ) : (
-                                        <IoStarOutline
-                                            key={i}
-                                            className="text-gray-300"
-                                            size={16}
-                                        />
+                                        <IoStarOutline key={i} className="text-gray-300" size={16} />
                                     )
                                 )}
                             </div>
                         </div>
                         <div className="text-sm font-semibold text-[color:var(--dim,#6B7280)]">
-                            {reviewCount}{" "}
-                            {reviewCount === 1 ? "review" : "reviews"}
+                            {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
                         </div>
                     </div>
                 )}
 
                 {reviews.length === 0 ? (
-                    <p className="text-[color:var(--dim,#6B7280)] text-sm mt-2">
-                        No reviews yet.
-                    </p>
+                    <p className="text-[color:var(--dim,#6B7280)] text-sm mt-2">No reviews yet.</p>
                 ) : (
                     <div className="space-y-4 mt-3">
                         {reviews.map((r) => {
-                            const u = reviewers[r.userId];
+                            const u = r.user; // ✅ from review doc now
                             const mine = me?.uid === r.userId;
+
                             const ts = r.updatedAt || r.createdAt;
                             const d =
                                 ts?.toDate?.() instanceof Date
@@ -406,95 +340,76 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                                         : undefined;
 
                             return (
-                                <div
-                                    key={r.id}
-                                    className="pb-3 border-b border-[color:var(--hair,#E5E7EB)]"
-                                >
+                                <div key={r.id} className="pb-3 border-b border-[color:var(--hair,#E5E7EB)]">
                                     <div className="flex gap-3">
                                         {/* avatar */}
-                                        <img
-                                            src={
-                                                u?.photoURL ||
-                                                "/avatar-placeholder.png"
-                                            }
-                                            alt={u?.name || "User"}
-                                            className="rounded-full h-8 w-8 object-cover bg-[#F3F4F6] border border-[color:var(--hair,#E5E7EB)]"
-                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => goProfile(u?.handle)}
+                                            className="shrink-0 rounded-full"
+                                            title="View profile"
+                                        >
+                                            <img
+                                                src={u?.photoURL || "/avatar-placeholder.png"}
+                                                alt={u?.name || "User"}
+                                                className="rounded-full h-8 w-8 object-cover bg-[#F3F4F6] border border-[color:var(--hair,#E5E7EB)]"
+                                            />
+                                        </button>
+
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between">
-                                                <p className="font-extrabold text-[color:var(--text,#0F172A)] truncate">
-                                                    {u?.name || "User"}
-                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => goProfile(u?.handle)}
+                                                    className="min-w-0 text-left hover:opacity-80"
+                                                    title="View profile"
+                                                >
+                                                    <p className="font-extrabold text-[color:var(--text,#0F172A)] truncate">
+                                                        {u?.name || "Someone"}
+                                                    </p>
+
+                                                </button>
+
                                                 <span className="text-[11px] text-[color:var(--dim,#6B7280)]">
-                                                    {d
-                                                        ? d.toLocaleDateString()
-                                                        : ""}
+                                                    {d ? d.toLocaleDateString() : ""}
                                                 </span>
                                             </div>
 
                                             <div className="mt-1 flex items-center">
-                                                {Array.from({ length: 5 }).map(
-                                                    (_, i) =>
-                                                        i <
-                                                            (r.rating || 0) ? (
-                                                            <IoStar
-                                                                key={i}
-                                                                className="text-amber-400"
-                                                                size={14}
-                                                            />
-                                                        ) : (
-                                                            <IoStarOutline
-                                                                key={i}
-                                                                className="text-gray-300"
-                                                                size={14}
-                                                            />
-                                                        )
+                                                {Array.from({ length: 5 }).map((_, i) =>
+                                                    i < (r.rating || 0) ? (
+                                                        <IoStar key={i} className="text-amber-400" size={14} />
+                                                    ) : (
+                                                        <IoStarOutline key={i} className="text-gray-300" size={14} />
+                                                    )
                                                 )}
                                             </div>
 
                                             {!!r.text && (
-                                                <p className="mt-2 text-sm text-[color:var(--text,#0F172A)]">
-                                                    {r.text}
-                                                </p>
+                                                <p className="mt-2 text-sm text-[color:var(--text,#0F172A)]">{r.text}</p>
                                             )}
 
                                             <div className="mt-2 flex items-center gap-2">
                                                 {!mine && (
                                                     <button
-                                                        onClick={() =>
-                                                            toggleHelpful(
-                                                                r.userId
-                                                            )
-                                                        }
-                                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-extrabold transition
-${myHelpful[r.userId]
-                                                                ? "bg-green-50 border-green-600 text-green-700"
-                                                                : "bg-[#F6F7F7] border-[color:var(--hair,#E5E7EB)] text-[color:var(--text,#0F172A)]"
+                                                        onClick={() => toggleHelpful(r.userId)}
+                                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-extrabold transition ${myHelpful[r.userId]
+                                                            ? "bg-green-50 border-green-600 text-green-700"
+                                                            : "bg-[#F6F7F7] border-[color:var(--hair,#E5E7EB)] text-[color:var(--text,#0F172A)]"
                                                             } hover:opacity-90`}
                                                         title="Mark as helpful"
                                                     >
-                                                        {myHelpful[r.userId] ? (
-                                                            <IoThumbsUp
-                                                                size={14}
-                                                            />
-                                                        ) : (
-                                                            <IoThumbsUpOutline
-                                                                size={14}
-                                                            />
-                                                        )}
-                                                        Helpful •{" "}
-                                                        {r.helpfulCount ?? 0}
+                                                        {myHelpful[r.userId] ? <IoThumbsUp size={14} /> : <IoThumbsUpOutline size={14} />}
+                                                        Helpful • {r.helpfulCount ?? 0}
                                                     </button>
                                                 )}
+
                                                 {mine && (
                                                     <span
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-extrabold opacity-60 cursor-not-allowed bg-[#F6F7F7] border-[color:var(--hair,#E5E7EB)] text-[color:var(--dim,#6B7280)]"
                                                         title="You can't vote your own review"
                                                     >
-                                                        <IoThumbsUpOutline
-                                                            size={14}
-                                                        />{" "}
-                                                        Helpful
+                                                        <IoThumbsUpOutline size={14} /> Helpful
                                                     </span>
                                                 )}
                                             </div>
@@ -526,6 +441,7 @@ ${myHelpful[r.userId]
                         >
                             {/* drag handle */}
                             <div className="w-12 h-1.5 rounded-full bg-gray-300 mx-auto mt-3 mb-2" />
+
                             {/* header */}
                             <div className="px-5 pb-3 flex items-center justify-between border-b border-gray-200">
                                 <h4 className="font-black text-base text-[color:var(--text,#0F172A)]">
@@ -542,12 +458,9 @@ ${myHelpful[r.userId]
 
                             {/* scrollable body */}
                             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-
                                 {/* rating stars */}
                                 <div>
-                                    <div className="text-xs font-bold text-[color:var(--dim,#6B7280)]">
-                                        Your rating
-                                    </div>
+                                    <div className="text-xs font-bold text-[color:var(--dim,#6B7280)]">Your rating</div>
                                     <div className="mt-3 flex items-center gap-3">
                                         {Array.from({ length: 5 }).map((_, i) => {
                                             const idx = i + 1;
@@ -615,9 +528,7 @@ ${myHelpful[r.userId]
                         </div>
                     </div>,
                     document.body
-                )
-            }
-
+                )}
         </>
     );
 }
