@@ -1,13 +1,7 @@
 // app/bonga/page.tsx
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -58,6 +52,12 @@ type ThreadMirror = {
   peerId: string;
   unread?: number;
   updatedAt?: any;
+
+  // ✅ add this so list can render without extra reads
+  lastMessage?: LastMessage;
+
+  // (optional, if you ever decide to denormalize peer fields too)
+  peer?: UserLite;
 };
 
 type RowData = {
@@ -107,6 +107,14 @@ function previewOf(last?: LastMessage) {
   return "";
 }
 
+function nameOf(peer: UserLite | null | undefined) {
+  const first = (peer?.firstName || "").trim();
+  const handle = (peer?.handle || "").replace(/^@+/, "").trim();
+  if (first) return first;
+  if (handle) return `@${handle}`;
+  return "User";
+}
+
 /* ----------------------------- Page ----------------------------- */
 export default function MessagesPage() {
   const { user } = useAuth();
@@ -140,9 +148,9 @@ export default function MessagesPage() {
     }
   }, []);
 
-  const fetchLastMessage = useCallback(async (threadId: string) => {
-    if (threadCache.current.has(threadId))
-      return threadCache.current.get(threadId);
+  const fetchLastMessageFromThread = useCallback(async (threadId: string) => {
+    // ✅ still cached, but now it’s only a fallback
+    if (threadCache.current.has(threadId)) return threadCache.current.get(threadId);
     try {
       const tSnap = await getDoc(doc(db, "threads", threadId));
       const data = tSnap.data() as any;
@@ -158,7 +166,6 @@ export default function MessagesPage() {
 
   // initial + live list
   useEffect(() => {
-    // if not logged in, don't hang on loading
     if (!uid) {
       setRows([]);
       setLoading(false);
@@ -166,7 +173,7 @@ export default function MessagesPage() {
     }
 
     setLoading(true);
-    console.log("uid:" + uid)
+
     const qy = query(
       collection(db, "userThreads", uid, "threads"),
       orderBy("updatedAt", "desc"),
@@ -179,40 +186,38 @@ export default function MessagesPage() {
         (async () => {
           try {
             const docs = snap.docs;
-            const lastDoc = docs.length > 0 ? docs[docs.length - 1] : null;
-            setCursor(lastDoc);
+            setCursor(docs.length > 0 ? docs[docs.length - 1] : null);
+
+            // ✅ IMPORTANT: lastMessage may have changed — don’t keep stale cached values
+            // (still safe even with mirror usage)
+            for (const d of docs) {
+              const m = d.data() as ThreadMirror;
+              threadCache.current.delete(m.threadId);
+            }
 
             const base: RowData[] = await Promise.all(
               docs.map(async (d) => {
                 const m = d.data() as ThreadMirror;
-                try {
 
+                // ✅ Prefer mirror lastMessage (fast + always fresh if you write it on send)
+                const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
 
-                  console.log(m)
-                  const [peer, lastMessage] = await Promise.all([
-                    fetchPeer(m.peerId),
-                    fetchLastMessage(m.threadId),
-                  ]);
-                  console.log(m.peerId + "," + m.threadId)
-                  return {
-                    threadId: m.threadId,
-                    peerId: m.peerId,
-                    peer: peer ?? null,
-                    lastMessage,
-                    unread: m.unread ?? 0,
-                    updatedAt: (d.data() as any).updatedAt,
-                  };
-                } catch (innerErr) {
-                  console.error("Error resolving row data:", innerErr);
-                  return {
-                    threadId: m.threadId,
-                    peerId: m.peerId,
-                    peer: null,
-                    lastMessage: undefined,
-                    unread: m.unread ?? 0,
-                    updatedAt: (d.data() as any).updatedAt,
-                  };
-                }
+                const [peer, lastMessageFallback] = await Promise.all([
+                  // if you ever store peer in mirror, you can use: (m.peer ?? fetchPeer(m.peerId))
+                  fetchPeer(m.peerId),
+                  mirrorLast ? Promise.resolve(undefined) : fetchLastMessageFromThread(m.threadId),
+                ]);
+
+                const lastMessage = mirrorLast ?? lastMessageFallback;
+
+                return {
+                  threadId: m.threadId,
+                  peerId: m.peerId,
+                  peer: peer ?? null,
+                  lastMessage,
+                  unread: m.unread ?? 0,
+                  updatedAt: (d.data() as any).updatedAt,
+                };
               })
             );
 
@@ -233,62 +238,55 @@ export default function MessagesPage() {
     );
 
     return () => unsub();
-  }, [uid, fetchPeer, fetchLastMessage]);
+  }, [uid, fetchPeer, fetchLastMessageFromThread]);
 
-  const loadMore = useCallback(
-    async () => {
-      if (!uid || !cursor || paging) return;
-      setPaging(true);
-      try {
-        const qMore = query(
-          collection(db, "userThreads", uid, "threads"),
-          orderBy("updatedAt", "desc"),
-          startAfter(cursor),
-          limit(25)
-        );
-        const snap = await getDocs(qMore);
-        const docs = snap.docs;
-        const lastDoc = docs.length > 0 ? docs[docs.length - 1] : null;
-        setCursor(lastDoc);
+  const loadMore = useCallback(async () => {
+    if (!uid || !cursor || paging) return;
+    setPaging(true);
+    try {
+      const qMore = query(
+        collection(db, "userThreads", uid, "threads"),
+        orderBy("updatedAt", "desc"),
+        startAfter(cursor),
+        limit(25)
+      );
+      const snap = await getDocs(qMore);
+      const docs = snap.docs;
+      setCursor(docs.length > 0 ? docs[docs.length - 1] : null);
 
-        const extra: RowData[] = await Promise.all(
-          docs.map(async (d) => {
-            const m = d.data() as ThreadMirror;
-            try {
-              const [peer, lastMessage] = await Promise.all([
-                fetchPeer(m.peerId),
-                fetchLastMessage(m.threadId),
-              ]);
-              return {
-                threadId: m.threadId,
-                peerId: m.peerId,
-                peer: peer ?? null,
-                lastMessage,
-                unread: m.unread ?? 0,
-                updatedAt: (d.data() as any).updatedAt,
-              };
-            } catch (innerErr) {
-              console.error("Error resolving extra row data:", innerErr);
-              return {
-                threadId: m.threadId,
-                peerId: m.peerId,
-                peer: null,
-                lastMessage: undefined,
-                unread: m.unread ?? 0,
-                updatedAt: (d.data() as any).updatedAt,
-              };
-            }
-          })
-        );
-        setRows((prev) => [...prev, ...extra]);
-      } catch (err) {
-        console.error("loadMore messages error:", err);
-      } finally {
-        setPaging(false);
-      }
-    },
-    [uid, cursor, paging, fetchPeer, fetchLastMessage]
-  );
+      const extra: RowData[] = await Promise.all(
+        docs.map(async (d) => {
+          const m = d.data() as ThreadMirror;
+
+          threadCache.current.delete(m.threadId);
+
+          const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
+
+          const [peer, lastMessageFallback] = await Promise.all([
+            fetchPeer(m.peerId),
+            mirrorLast ? Promise.resolve(undefined) : fetchLastMessageFromThread(m.threadId),
+          ]);
+
+          const lastMessage = mirrorLast ?? lastMessageFallback;
+
+          return {
+            threadId: m.threadId,
+            peerId: m.peerId,
+            peer: peer ?? null,
+            lastMessage,
+            unread: m.unread ?? 0,
+            updatedAt: (d.data() as any).updatedAt,
+          };
+        })
+      );
+
+      setRows((prev) => [...prev, ...extra]);
+    } catch (err) {
+      console.error("loadMore messages error:", err);
+    } finally {
+      setPaging(false);
+    }
+  }, [uid, cursor, paging, fetchPeer, fetchLastMessageFromThread]);
 
   const openThread = (row: RowData) => {
     const peerName = row.peer?.firstName ?? "";
@@ -303,7 +301,6 @@ export default function MessagesPage() {
     router.push(`/bonga/${row.threadId}?${q.toString()}`);
   };
 
-  /* ----------------------------- Derived UI data ----------------------------- */
   const filtered = useMemo(() => {
     const term = qStr.trim().toLowerCase();
     let list = rows;
@@ -322,17 +319,12 @@ export default function MessagesPage() {
     });
   }, [rows, qStr, tab]);
 
-  // Shared ring color for focusable elements
   const ringStyle: React.CSSProperties = { ["--tw-ring-color" as any]: EKARI.forest };
 
-  // If not logged in, show simple state instead of hanging
   if (!uid) {
     return (
       <AppShell>
-        <div
-          className="min-h-screen flex items-center justify-center px-6 text-center"
-          style={{ backgroundColor: EKARI.sand }}
-        >
+        <div className="min-h-screen flex items-center justify-center px-6 text-center" style={{ backgroundColor: EKARI.sand }}>
           <div>
             <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
               Sign in to view your messages
@@ -345,8 +337,6 @@ export default function MessagesPage() {
       </AppShell>
     );
   }
-
-  /* ----------------------------- UI ----------------------------- */
 
   return (
     <AppShell>
@@ -374,9 +364,7 @@ export default function MessagesPage() {
           <div className="px-4 pb-3 space-y-2">
             <div className="flex items-center gap-2">
               <button
-                className={clsx(
-                  "h-8 px-3 rounded-full text-xs font-extrabold transition"
-                )}
+                className="h-8 px-3 rounded-full text-xs font-extrabold transition"
                 onClick={() => setTab("all")}
                 style={{
                   backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
@@ -386,9 +374,7 @@ export default function MessagesPage() {
                 All
               </button>
               <button
-                className={clsx(
-                  "h-8 px-3 rounded-full text-xs font-extrabold transition"
-                )}
+                className="h-8 px-3 rounded-full text-xs font-extrabold transition"
                 onClick={() => setTab("unread")}
                 style={{
                   backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
@@ -425,11 +411,7 @@ export default function MessagesPage() {
                   ✕
                 </button>
               ) : (
-                <IoSearchOutline
-                  size={16}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                  style={{ color: "#94A3B8" }}
-                />
+                <IoSearchOutline size={16} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "#94A3B8" }} />
               )}
             </div>
           </div>
@@ -437,39 +419,29 @@ export default function MessagesPage() {
 
         {/* Content */}
         {loading ? (
-          <div
-            className="py-16 flex items-center justify-center"
-            style={{ color: EKARI.dim }}
-          >
+          <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
             <span className="ml-2">
               <BouncingBallLoader />
             </span>
           </div>
         ) : filtered.length === 0 ? (
           <div className="px-6 py-16 text-center">
-            <div
-              className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center"
-              style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}
-            >
+            <div className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center" style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}>
               💬
             </div>
             <div className="font-extrabold" style={{ color: EKARI.text }}>
               No conversations found
             </div>
             <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-              {qStr
-                ? "Try clearing the search or filters."
-                : "Start a chat from a profile to see it here."}
+              {qStr ? "Try clearing the search or filters." : "Start a chat from a profile to see it here."}
             </div>
           </div>
         ) : (
           <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
             {filtered.map((item) => {
-              const name = item.peer?.firstName || item.peer?.handle || "User";
-              const last = previewOf(item.lastMessage) || "Say hi";
-              const when = shortTime(
-                item.lastMessage?.createdAt ?? item.updatedAt
-              );
+              const name = nameOf(item.peer);
+              const last = previewOf(item.lastMessage) || ""; // ✅ no fake “Say hi” if we actually have none
+              const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
               const hasUnread = (item.unread ?? 0) > 0;
 
               return (
@@ -481,65 +453,36 @@ export default function MessagesPage() {
                     aria-label={`Open chat with ${name}`}
                     style={ringStyle}
                   >
-                    {/* Avatar + unread dot */}
                     <div className="relative">
-                      <SmartAvatar
-                        src={item.peer?.photoURL || ""}  // ✅ always a string
-                        alt={name}
-                        size={46}
-                        className={clsx(hasUnread && "ring-2")}
-                      />
+                      <SmartAvatar src={item.peer?.photoURL || ""} alt={name} size={46} className={clsx(hasUnread && "ring-2")} />
                       {hasUnread && (
                         <span
                           className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
                           title="Unread"
-                          style={{
-                            backgroundColor: EKARI.forest,
-                            borderColor: EKARI.sand,
-                          }}
+                          style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
                         />
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <div
-                          className={clsx(
-                            "truncate text-[15px]",
-                            hasUnread ? "font-black" : "font-extrabold"
-                          )}
-                          style={{ color: EKARI.text }}
-                        >
+                        <div className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")} style={{ color: EKARI.text }}>
                           {name}
                         </div>
-                        <div
-                          className="ml-auto text-[11px]"
-                          style={{ color: EKARI.dim }}
-                        >
+                        <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
                           {when}
                         </div>
                       </div>
 
                       <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                        <div
-                          className={clsx(
-                            "truncate text-[13px]",
-                            hasUnread ? "font-semibold" : "font-normal"
-                          )}
-                          style={{
-                            color: hasUnread ? EKARI.text : EKARI.dim,
-                          }}
-                        >
-                          {last}
+                        <div className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")} style={{ color: hasUnread ? EKARI.text : EKARI.dim }}>
+                          {last || <span style={{ color: "#94A3B8" }}>No messages yet</span>}
                         </div>
 
                         {hasUnread && (
                           <span
                             className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                            style={{
-                              backgroundColor: EKARI.forest,
-                              color: EKARI.sand,
-                            }}
+                            style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
                           >
                             {item.unread > 99 ? "99+" : item.unread}
                           </span>
@@ -547,11 +490,7 @@ export default function MessagesPage() {
                       </div>
                     </div>
 
-                    <IoChevronForward
-                      size={18}
-                      style={{ color: EKARI.sub }}
-                      className="hidden sm:block"
-                    />
+                    <IoChevronForward size={18} style={{ color: EKARI.sub }} className="hidden sm:block" />
                   </motion.button>
                 </li>
               );
@@ -571,13 +510,6 @@ export default function MessagesPage() {
                 color: EKARI.text,
                 backgroundColor: EKARI.sand,
               }}
-              onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor =
-                "rgba(35,63,57,0.05)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = EKARI.sand)
-              }
             >
               {paging ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
             </button>

@@ -30,6 +30,7 @@ import {
   endBefore,
   startAfter,
   DocumentSnapshot,
+  increment,
 } from "firebase/firestore";
 import { ref as rtdbRef, onValue, getDatabase } from "firebase/database";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
@@ -99,6 +100,11 @@ type ThreadMirror = {
   peerId: string;
   unread?: number;
   updatedAt?: any;
+
+  // ✅ mirror lastMessage (preferred)
+  lastMessage?: LastMessage;
+
+  // (optional future) peer?: UserLite;
 };
 
 type RowData = {
@@ -190,6 +196,16 @@ function participantsArray(a: string, b: string) {
   return [a, b].sort();
 }
 
+function normalizeUser(raw: any): UserLite | null {
+  if (!raw) return null;
+  return {
+    firstName: raw.firstName ?? raw.name ?? "",
+    surname: raw.surname ?? raw.lastName ?? "",
+    handle: raw.handle ?? raw.username ?? "",
+    photoURL: raw.photoURL ?? raw.photo ?? raw.imageUrl ?? "",
+  };
+}
+
 /* ================================================================ */
 
 export default function BongaThreadLayoutPage() {
@@ -216,13 +232,14 @@ export default function BongaThreadLayoutPage() {
 
   // caches
   const userCache = useRef<Map<string, UserLite | null>>(new Map());
-  const threadCache = useRef<Map<string, LastMessage | undefined>>(new Map());
+  const threadCache = useRef<Map<string, LastMessage | undefined>>(new Map()); // threads/{id}.lastMessage fallback cache
 
   const fetchPeer = useCallback(async (peerId: string) => {
     if (userCache.current.has(peerId)) return userCache.current.get(peerId)!;
     try {
       const snap = await getDoc(doc(db, "users", peerId));
-      const data = (snap.exists() ? (snap.data() as any) : null) as UserLite | null;
+      const raw = snap.exists() ? (snap.data() as any) : null;
+      const data = normalizeUser(raw);
       userCache.current.set(peerId, data);
       return data;
     } catch (err) {
@@ -232,7 +249,8 @@ export default function BongaThreadLayoutPage() {
     }
   }, []);
 
-  const fetchLastMessage = useCallback(async (tId: string) => {
+  // fallback only (if mirror lastMessage missing)
+  const fetchLastMessageFromThread = useCallback(async (tId: string) => {
     if (threadCache.current.has(tId)) return threadCache.current.get(tId);
     try {
       const tSnap = await getDoc(doc(db, "threads", tId));
@@ -247,7 +265,7 @@ export default function BongaThreadLayoutPage() {
     }
   }, []);
 
-  // Sidebar live list
+  // Sidebar live list (prefer mirror lastMessage)
   useEffect(() => {
     if (!uid) {
       setRows([]);
@@ -256,6 +274,7 @@ export default function BongaThreadLayoutPage() {
     }
 
     setRowsLoading(true);
+
     const qy = query(
       collection(db, "userThreads", uid, "threads"),
       orderBy("updatedAt", "desc"),
@@ -270,13 +289,24 @@ export default function BongaThreadLayoutPage() {
             const docs = snap.docs;
             setCursor(docs.length ? docs[docs.length - 1] : null);
 
+            // prevent stale fallback cache if thread updated
+            for (const d of docs) {
+              const m = d.data() as ThreadMirror;
+              threadCache.current.delete(m.threadId);
+            }
+
             const base: RowData[] = await Promise.all(
               docs.map(async (d) => {
                 const m = d.data() as ThreadMirror;
-                const [peer, lastMessage] = await Promise.all([
+                const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
+
+                const [peer, lastFallback] = await Promise.all([
                   fetchPeer(m.peerId),
-                  fetchLastMessage(m.threadId),
+                  mirrorLast ? Promise.resolve(undefined) : fetchLastMessageFromThread(m.threadId),
                 ]);
+
+                const lastMessage = mirrorLast ?? lastFallback;
+
                 return {
                   threadId: m.threadId,
                   peerId: m.peerId,
@@ -305,7 +335,7 @@ export default function BongaThreadLayoutPage() {
     );
 
     return () => unsub();
-  }, [uid, fetchPeer, fetchLastMessage]);
+  }, [uid, fetchPeer, fetchLastMessageFromThread]);
 
   const loadMoreRows = useCallback(async () => {
     if (!uid || !cursor || pagingRows) return;
@@ -324,10 +354,17 @@ export default function BongaThreadLayoutPage() {
       const extra: RowData[] = await Promise.all(
         docs.map(async (d) => {
           const m = d.data() as ThreadMirror;
-          const [peer, lastMessage] = await Promise.all([
+          threadCache.current.delete(m.threadId);
+
+          const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
+
+          const [peer, lastFallback] = await Promise.all([
             fetchPeer(m.peerId),
-            fetchLastMessage(m.threadId),
+            mirrorLast ? Promise.resolve(undefined) : fetchLastMessageFromThread(m.threadId),
           ]);
+
+          const lastMessage = mirrorLast ?? lastFallback;
+
           return {
             threadId: m.threadId,
             peerId: m.peerId,
@@ -345,7 +382,7 @@ export default function BongaThreadLayoutPage() {
     } finally {
       setPagingRows(false);
     }
-  }, [uid, cursor, pagingRows, fetchPeer, fetchLastMessage]);
+  }, [uid, cursor, pagingRows, fetchPeer, fetchLastMessageFromThread]);
 
   const filteredRows = useMemo(() => {
     const term = qStr.trim().toLowerCase();
@@ -415,18 +452,15 @@ export default function BongaThreadLayoutPage() {
 
   const headerRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
-  const [headerH, setHeaderH] = useState(54);
   const [composerH, setComposerH] = useState(92);
   const [showJump, setShowJump] = useState(false);
 
   useLayoutEffect(() => {
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) {
-        if (e.target === headerRef.current) setHeaderH(Math.round(e.contentRect.height));
         if (e.target === composerRef.current) setComposerH(Math.round(e.contentRect.height));
       }
     });
-    if (headerRef.current) ro.observe(headerRef.current);
     if (composerRef.current) ro.observe(composerRef.current);
     return () => ro.disconnect();
   }, []);
@@ -447,24 +481,32 @@ export default function BongaThreadLayoutPage() {
     })();
   }, [uid, threadId, peerId]);
 
-  // ensure thread + mirror + unread reset
+  // ensure thread exists + reset unread (DO NOT overwrite lastMessage)
   useEffect(() => {
     if (!uid || !threadId || !peerId) return;
+
     (async () => {
       try {
         await updateDoc(doc(db, "threads", threadId), { updatedAt: serverTimestamp() });
       } catch {
-        await setDoc(doc(db, "threads", threadId), {
-          participants: participantsArray(uid, peerId),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
+        await setDoc(
+          doc(db, "threads", threadId),
+          {
+            participants: participantsArray(uid, peerId),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
+
+      // ✅ just mark read in mirror; don't set fake lastMessage
       await setDoc(
         doc(db, "userThreads", uid, "threads", threadId),
         { threadId, peerId, updatedAt: serverTimestamp(), unread: 0 },
         { merge: true }
-      );
+      ).catch(() => { });
+
       setThreadReady(true);
     })();
   }, [uid, peerId, threadId]);
@@ -474,12 +516,13 @@ export default function BongaThreadLayoutPage() {
     if (!peerId) return;
     const uRef = doc(db, "users", peerId);
     const unsub = onSnapshot(uRef, (snap) => {
-      const data = snap.data() || {};
+      const raw = snap.data() || {};
+      const data = normalizeUser(raw) || {};
       setPeer((prev) => ({
         ...prev,
         ...data,
-        followersCount: data?.followersCount ?? 0,
-        followingCount: data?.followingCount ?? 0,
+        followersCount: (raw as any)?.followersCount ?? 0,
+        followingCount: (raw as any)?.followingCount ?? 0,
       }));
     });
     return () => unsub();
@@ -494,10 +537,7 @@ export default function BongaThreadLayoutPage() {
       setPeer((p) => ({
         ...(p || {}),
         online: v.state === "online",
-        lastActiveAt:
-          typeof v.lastChanged === "number"
-            ? new Date(v.lastChanged)
-            : p?.lastActiveAt ?? null,
+        lastActiveAt: typeof v.lastChanged === "number" ? new Date(v.lastChanged) : p?.lastActiveAt ?? null,
       }));
     });
     return () => off();
@@ -509,7 +549,7 @@ export default function BongaThreadLayoutPage() {
     const tRef = doc(db, "threads", threadId);
     const unsub = onSnapshot(tRef, (snap) => {
       const data = snap.data() || {};
-      const typing = (data.typing || {}) as Record<string, boolean>;
+      const typing = (data as any).typing || {};
       setPeerTyping(!!typing[peerId]);
     });
     return () => unsub();
@@ -553,11 +593,13 @@ export default function BongaThreadLayoutPage() {
         setLoading(false);
 
         // mark read (mirror)
-        setDoc(
-          doc(db, "userThreads", uid, "threads", threadId),
-          { unread: 0, updatedAt: serverTimestamp() },
-          { merge: true }
-        ).catch(() => { });
+        if (uid) {
+          setDoc(
+            doc(db, "userThreads", uid, "threads", threadId),
+            { unread: 0, updatedAt: serverTimestamp() },
+            { merge: true }
+          ).catch(() => { });
+        }
 
         scrollToBottom("auto");
       },
@@ -586,6 +628,7 @@ export default function BongaThreadLayoutPage() {
       clearTimeout(t);
       t = setTimeout(() => {
         if (!uid || !threadId) return;
+        // NOTE: this overwrites thread.typing (single key) — OK for 1:1 chat
         setDoc(
           doc(db, "threads", threadId),
           { typing: { [uid]: val }, updatedAt: serverTimestamp() },
@@ -623,6 +666,39 @@ export default function BongaThreadLayoutPage() {
     }
   }, [oldestDoc, paging, threadId]);
 
+  const upsertMirrors = useCallback(
+    async (payload: { lastMessage: NonNullable<LastMessage> }) => {
+      if (!uid || !peerId || !threadId) return;
+
+      // sender mirror
+      await setDoc(
+        doc(db, "userThreads", uid, "threads", threadId),
+        {
+          threadId,
+          peerId,
+          updatedAt: serverTimestamp(),
+          unread: 0,
+          lastMessage: payload.lastMessage,
+        },
+        { merge: true }
+      );
+
+      // recipient mirror (unread++)
+      await setDoc(
+        doc(db, "userThreads", peerId, "threads", threadId),
+        {
+          threadId,
+          peerId: uid,
+          updatedAt: serverTimestamp(),
+          unread: increment(1),
+          lastMessage: payload.lastMessage,
+        },
+        { merge: true }
+      );
+    },
+    [uid, peerId, threadId]
+  );
+
   const sendText = useCallback(
     async (text: string) => {
       if (!uid || !peerId) return;
@@ -638,24 +714,34 @@ export default function BongaThreadLayoutPage() {
         readBy: { [uid]: true },
       });
 
+      const lastMsg: NonNullable<LastMessage> = {
+        type: "text",
+        text: t,
+        from: uid,
+        to: peerId,
+        createdAt: serverTimestamp(),
+      };
+
       await updateDoc(doc(db, "threads", threadId), {
         updatedAt: serverTimestamp(),
-        lastMessage: {
-          text: t,
-          type: "text",
-          from: uid,
-          to: peerId,
-          createdAt: serverTimestamp(),
-        },
+        lastMessage: lastMsg,
+      }).catch(async () => {
+        // if thread doc didn't exist somehow
+        await setDoc(
+          doc(db, "threads", threadId),
+          {
+            participants: participantsArray(uid, peerId),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            lastMessage: lastMsg,
+          },
+          { merge: true }
+        );
       });
 
-      await setDoc(
-        doc(db, "userThreads", uid, "threads", threadId),
-        { updatedAt: serverTimestamp(), unread: 0 },
-        { merge: true }
-      );
+      await upsertMirrors({ lastMessage: lastMsg });
     },
-    [uid, peerId, threadId]
+    [uid, peerId, threadId, upsertMirrors]
   );
 
   const onSend = useCallback(async () => {
@@ -673,7 +759,9 @@ export default function BongaThreadLayoutPage() {
   const onImageChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     setPreview(URL.createObjectURL(file));
+
     try {
       if (!uid || !peerId) return;
 
@@ -696,10 +784,30 @@ export default function BongaThreadLayoutPage() {
         uploading: false,
       });
 
+      const lastMsg: NonNullable<LastMessage> = {
+        type: "image",
+        from: uid,
+        to: peerId,
+        createdAt: serverTimestamp(),
+      };
+
       await updateDoc(doc(db, "threads", threadId), {
         updatedAt: serverTimestamp(),
-        lastMessage: { type: "image", from: uid, to: peerId, createdAt: serverTimestamp() },
+        lastMessage: lastMsg,
+      }).catch(async () => {
+        await setDoc(
+          doc(db, "threads", threadId),
+          {
+            participants: participantsArray(uid, peerId),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            lastMessage: lastMsg,
+          },
+          { merge: true }
+        );
       });
+
+      await upsertMirrors({ lastMessage: lastMsg });
 
       scrollToBottom("smooth");
     } finally {
@@ -718,14 +826,11 @@ export default function BongaThreadLayoutPage() {
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
-    const adjust = () => {
-      ta.style.height = "40px";
-      ta.style.height = Math.min(160, ta.scrollHeight) + "px";
-    };
-    adjust();
+    ta.style.height = "40px";
+    ta.style.height = Math.min(160, ta.scrollHeight) + "px";
   }, [input]);
 
-  const headerTitle = peer?.firstName || peerNameFromQs || peer?.handle || "Message";
+  const headerTitle = peer?.firstName || peerNameFromQs || peer?.handle || peerHandleFromQs || "Message";
   const onlineNow = !!peer?.online;
   const lastActiveAny = peer?.lastActiveAt;
   const hasMessages = items.length > 0;
@@ -772,7 +877,6 @@ export default function BongaThreadLayoutPage() {
     </div>
   );
 
-  // ------------------- UI -------------------
   if (!uid) {
     return (
       <AppShell>
@@ -802,9 +906,11 @@ export default function BongaThreadLayoutPage() {
               {/* Sidebar header */}
               <div className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur" style={{ borderColor: EKARI.hair }}>
                 <div className="h-14 px-4 flex items-center justify-between">
-                  <div className="font-black text-[18px]" style={{ color: EKARI.text }}>Chats</div>
+                  <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
+                    Chats
+                  </div>
                   <button
-                    onClick={() => router.push("/messages")}
+                    onClick={() => router.push("/bonga")}
                     className="text-xs font-extrabold px-3 py-1.5 rounded-full hover:bg-black/5"
                     style={{ color: EKARI.text }}
                   >
@@ -880,7 +986,9 @@ export default function BongaThreadLayoutPage() {
                     <div className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center" style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}>
                       💬
                     </div>
-                    <div className="font-extrabold" style={{ color: EKARI.text }}>No conversations</div>
+                    <div className="font-extrabold" style={{ color: EKARI.text }}>
+                      No conversations
+                    </div>
                     <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
                       {qStr ? "Try a different search." : "Start a chat from a profile to see it here."}
                     </div>
@@ -889,7 +997,7 @@ export default function BongaThreadLayoutPage() {
                   <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
                     {filteredRows.map((item) => {
                       const name = item.peer?.firstName || item.peer?.handle || "User";
-                      const last = previewOf(item.lastMessage) || "Say hi";
+                      const last = previewOf(item.lastMessage) || "No messages yet";
                       const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
                       const hasUnread = (item.unread ?? 0) > 0;
                       const active = item.threadId === threadId;
@@ -907,12 +1015,7 @@ export default function BongaThreadLayoutPage() {
                             style={ringStyle}
                           >
                             <div className="relative">
-                              <SmartAvatar
-                                src={item.peer?.photoURL || ""}
-                                alt={name}
-                                size={46}
-                                className={clsx(hasUnread && "ring-2")}
-                              />
+                              <SmartAvatar src={item.peer?.photoURL || ""} alt={name} size={46} className={clsx(hasUnread && "ring-2")} />
                               {hasUnread && (
                                 <span
                                   className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
@@ -924,10 +1027,7 @@ export default function BongaThreadLayoutPage() {
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <div
-                                  className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
-                                  style={{ color: EKARI.text }}
-                                >
+                                <div className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")} style={{ color: EKARI.text }}>
                                   {name}
                                 </div>
                                 <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
@@ -936,10 +1036,7 @@ export default function BongaThreadLayoutPage() {
                               </div>
 
                               <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                                <div
-                                  className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")}
-                                  style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
-                                >
+                                <div className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")} style={{ color: hasUnread ? EKARI.text : EKARI.dim }}>
                                   {last}
                                 </div>
 
@@ -969,11 +1066,7 @@ export default function BongaThreadLayoutPage() {
                       onClick={loadMoreRows}
                       disabled={pagingRows || !cursor}
                       className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                      style={{
-                        borderColor: EKARI.hair,
-                        color: EKARI.text,
-                        backgroundColor: EKARI.sand,
-                      }}
+                      style={{ borderColor: EKARI.hair, color: EKARI.text, backgroundColor: EKARI.sand }}
                     >
                       {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
                     </button>
@@ -991,12 +1084,10 @@ export default function BongaThreadLayoutPage() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="h-14 px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
-                  <div className="font-black text-[18px]" style={{ color: EKARI.text }}>Chats</div>
-                  <button
-                    className="p-2 rounded-lg hover:bg-black/5"
-                    onClick={() => setSidebarOpen(false)}
-                    aria-label="Close sidebar"
-                  >
+                  <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
+                    Chats
+                  </div>
+                  <button className="p-2 rounded-lg hover:bg-black/5" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
                     <IoClose size={20} color={EKARI.text} />
                   </button>
                 </div>
@@ -1056,7 +1147,7 @@ export default function BongaThreadLayoutPage() {
                     <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
                       {filteredRows.map((item) => {
                         const name = item.peer?.firstName || item.peer?.handle || "User";
-                        const last = previewOf(item.lastMessage) || "Say hi";
+                        const last = previewOf(item.lastMessage) || "No messages yet";
                         const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
                         const hasUnread = (item.unread ?? 0) > 0;
                         const active = item.threadId === threadId;
@@ -1070,10 +1161,7 @@ export default function BongaThreadLayoutPage() {
                               <div className="relative">
                                 <SmartAvatar src={item.peer?.photoURL || ""} alt={name} size={44} className={clsx(hasUnread && "ring-2")} />
                                 {hasUnread && (
-                                  <span
-                                    className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                                    style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                                  />
+                                  <span className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2" style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }} />
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -1081,15 +1169,16 @@ export default function BongaThreadLayoutPage() {
                                   <div className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")} style={{ color: EKARI.text }}>
                                     {name}
                                   </div>
-                                  <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>{when}</div>
+                                  <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
+                                    {when}
+                                  </div>
                                 </div>
                                 <div className="mt-0.5 flex items-center gap-2 min-w-0">
                                   <div className="truncate text-[13px]" style={{ color: hasUnread ? EKARI.text : EKARI.dim }}>
                                     {last}
                                   </div>
                                   {hasUnread && (
-                                    <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                                      style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}>
+                                    <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold" style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}>
                                       {item.unread > 99 ? "99+" : item.unread}
                                     </span>
                                   )}
@@ -1107,30 +1196,18 @@ export default function BongaThreadLayoutPage() {
           )}
 
           {/* ================= Right Chat Panel ================= */}
-          <main className="h-full bg-white">
+          <main className="h-full bg-white relative">
             <div className="h-full flex flex-col">
               {/* Top header (chat) */}
-              <div
-                ref={headerRef}
-                className="border-b bg-white z-30"
-                style={{ borderColor: EKARI.hair }}
-              >
+              <div ref={headerRef} className="border-b bg-white z-30" style={{ borderColor: EKARI.hair }}>
                 <div className="h-[54px] px-3 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     {/* mobile menu */}
-                    <button
-                      className="md:hidden p-2 rounded-lg hover:bg-black/5"
-                      onClick={() => setSidebarOpen(true)}
-                      aria-label="Open chats"
-                    >
+                    <button className="md:hidden p-2 rounded-lg hover:bg-black/5" onClick={() => setSidebarOpen(true)} aria-label="Open chats">
                       <IoMenu size={20} color={EKARI.text} />
                     </button>
 
-                    <button
-                      onClick={() => router.back()}
-                      className="hidden md:inline-flex p-2 rounded-lg hover:bg-black/5"
-                      aria-label="Back"
-                    >
+                    <button onClick={() => router.back()} className="hidden md:inline-flex p-2 rounded-lg hover:bg-black/5" aria-label="Back">
                       <IoArrowBack size={20} color={EKARI.text} />
                     </button>
 
@@ -1143,31 +1220,27 @@ export default function BongaThreadLayoutPage() {
                           />
                         )}
                         <Image
-                          src={peer?.photoURL || peerPhotoURLFromQs || selectedRow?.peer?.photoURL || "/avatar-placeholder.png"}
+                          src={
+                            peer?.photoURL ||
+                            peerPhotoURLFromQs ||
+                            selectedRow?.peer?.photoURL ||
+                            "/avatar-placeholder.png"
+                          }
                           alt={headerTitle}
                           fill
                           className="object-cover"
                           sizes="36px"
                         />
-
                       </div>
 
                       <div className="min-w-0">
-                        <div className="font-extrabold text-slate-900 text-sm truncate">
-                          {headerTitle}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}
-                        </div>
+                        <div className="font-extrabold text-slate-900 text-sm truncate">{headerTitle}</div>
+                        <div className="text-xs text-slate-500">{peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}</div>
                       </div>
                     </div>
                   </div>
 
-                  <button
-                    className="p-2 rounded-lg hover:bg-black/5"
-                    aria-label="Report"
-                    title="Report conversation"
-                  >
+                  <button className="p-2 rounded-lg hover:bg-black/5" aria-label="Report" title="Report conversation">
                     <IoFlagOutline size={18} color={EKARI.dim} />
                   </button>
                 </div>
@@ -1223,10 +1296,7 @@ export default function BongaThreadLayoutPage() {
                       const showAvatar = !mine && isLastInGroup;
 
                       return (
-                        <div
-                          key={msg.id}
-                          className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${rowMt} ${rowMb}`}
-                        >
+                        <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${rowMt} ${rowMb}`}>
                           {!mine && (
                             <div className="w-7 flex justify-center">
                               {showAvatar ? (
@@ -1286,11 +1356,7 @@ export default function BongaThreadLayoutPage() {
                               )}
                             </div>
 
-                            {isLastInGroup && (
-                              <div className="mt-1 text-[11px] text-slate-500 px-1">
-                                {formatMsgTime(msg.createdAt)}
-                              </div>
-                            )}
+                            {isLastInGroup && <div className="mt-1 text-[11px] text-slate-500 px-1">{formatMsgTime(msg.createdAt)}</div>}
                           </div>
                         </div>
                       );
@@ -1323,10 +1389,7 @@ export default function BongaThreadLayoutPage() {
               >
                 <div className="w-full px-3">
                   <div className="flex items-end gap-2 py-2 relative">
-                    <div
-                      className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2"
-                      style={{ borderColor: EKARI.hair }}
-                    >
+                    <div className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2" style={{ borderColor: EKARI.hair }}>
                       <textarea
                         ref={textareaRef}
                         value={input}
@@ -1362,6 +1425,7 @@ export default function BongaThreadLayoutPage() {
                             onClick={() => setPreview(null)}
                             aria-label="Remove preview"
                             title="Remove preview"
+                            type="button"
                           >
                             ×
                           </button>
@@ -1402,13 +1466,7 @@ export default function BongaThreadLayoutPage() {
                           )}
                         </button>
 
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={onImageChosen}
-                        />
+                        <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onImageChosen} />
 
                         <button
                           className="w-9 h-9 rounded-full flex items-center justify-center"
