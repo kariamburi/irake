@@ -61,12 +61,9 @@ const EKARI = {
 const sellerReviewDocRef = (dbi: any, sellerId: string, reviewUserId: string) =>
     doc(dbi, "users", String(sellerId), "reviews", String(reviewUserId));
 
-const sellerVoteRef = (
-    dbi: any,
-    sellerId: string,
-    reviewUserId: string,
-    voterId: string
-) => doc(dbi, "reviewVotes", `${sellerId}_${reviewUserId}_${voterId}`);
+const sellerVoteRef = (dbi: any, sellerId: string, reviewId: string, voterId: string) =>
+    doc(dbi, "users", String(sellerId), "reviews", String(reviewId), "votes", String(voterId));
+
 
 function buildNameFromUserDoc(ud: any) {
     const first = String(ud?.firstName || "").trim();
@@ -154,23 +151,24 @@ export default function SellerReviewsSection({ sellerId }: Props) {
         const user = auth.currentUser;
         if (!user || !sellerId) return;
 
-        const qVotes = query(
-            collection(db, "reviewVotes"),
-            where("userId", "==", user.uid),
-            where("listingId", "==", sellerId) // kept for compatibility
-        );
+        const unsubs: Array<() => void> = [];
+        const next: Record<string, true> = {};
 
-        const unsub = onSnapshot(qVotes, (snap) => {
-            const map: Record<string, true> = {};
-            snap.forEach((d) => {
-                const rv = d.data() as any;
-                if (rv?.reviewUserId) map[String(rv.reviewUserId)] = true;
+        reviews.forEach((r) => {
+            const voteDoc = doc(dbi, "users", sellerId, "reviews", r.id, "votes", user.uid);
+
+            const unsub = onSnapshot(voteDoc, (snap) => {
+                if (snap.exists()) next[r.id] = true;
+                else delete next[r.id];
+                setMyHelpful({ ...next });
             });
-            setMyHelpful(map);
+
+            unsubs.push(unsub);
         });
 
-        return () => unsub();
-    }, [auth.currentUser, sellerId]);
+        return () => unsubs.forEach((u) => u());
+    }, [dbi, auth.currentUser, sellerId, reviews]);
+
 
     const myReview = useMemo(
         () => (me ? reviews.find((r) => r.userId === me.uid) : undefined),
@@ -250,36 +248,24 @@ export default function SellerReviewsSection({ sellerId }: Props) {
     };
 
 
-    const toggleHelpful = async (reviewUserId: string) => {
+    const toggleHelpful = async (reviewId: string) => {
         const user = auth.currentUser;
         if (!user) return alert("Please log in first.");
         if (!sellerId) return;
-        if (user.uid === reviewUserId) return;
+        if (user.uid === reviewId) return;
 
-        const vRef = sellerVoteRef(dbi, sellerId, reviewUserId, user.uid);
+        const vRef = sellerVoteRef(dbi, sellerId, reviewId, user.uid);
 
-        try {
-            if (myHelpful[reviewUserId]) {
-                // ✅ remove vote (Cloud Function decrements)
-                await deleteDoc(vRef);
-            } else {
-                // ✅ add vote (Cloud Function increments)
-                await setDoc(vRef, {
-                    listingId: String(sellerId),
-                    reviewUserId: String(reviewUserId),
-                    userId: String(user.uid),
-                    type: "seller",
-                    createdAt: serverTimestamp(),
-                });
-            }
-        } catch (e: any) {
-            if (e?.code === "permission-denied") {
-                console.warn("Voting not allowed by rules.");
-                return;
-            }
-            alert(e?.message || "Failed. Try again.");
+        if (myHelpful[reviewId]) {
+            await deleteDoc(vRef);
+        } else {
+            await setDoc(vRef, {
+                userId: user.uid,
+                createdAt: serverTimestamp(),
+            });
         }
     };
+
 
 
     return (
@@ -392,7 +378,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                                             <div className="mt-2 flex items-center gap-2">
                                                 {!mine && (
                                                     <button
-                                                        onClick={() => toggleHelpful(r.userId)}
+                                                        onClick={() => toggleHelpful(r.id)}
                                                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-extrabold transition ${myHelpful[r.userId]
                                                             ? "bg-green-50 border-green-600 text-green-700"
                                                             : "bg-[#F6F7F7] border-[color:var(--hair,#E5E7EB)] text-[color:var(--text,#0F172A)]"

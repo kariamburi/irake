@@ -30,10 +30,13 @@ import {
   endBefore,
   startAfter,
   DocumentSnapshot,
-  increment,
 } from "firebase/firestore";
 import { ref as rtdbRef, onValue, getDatabase } from "firebase/database";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import {
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
 import {
   IoArrowBack,
   IoSend,
@@ -53,6 +56,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SmartAvatar from "@/app/components/SmartAvatar";
+import { Button } from "@/components/ui/button";
 
 /* --- Emoji grid (no dependency) --- */
 const EmojiPickerList = [
@@ -100,11 +104,7 @@ type ThreadMirror = {
   peerId: string;
   unread?: number;
   updatedAt?: any;
-
-  // ✅ mirror lastMessage (preferred)
-  lastMessage?: LastMessage;
-
-  // (optional future) peer?: UserLite;
+  lastMessage?: LastMessage; // preferred if present
 };
 
 type RowData = {
@@ -206,6 +206,24 @@ function normalizeUser(raw: any): UserLite | null {
   };
 }
 
+function parseThreadAndQsFromUrl() {
+  if (typeof window === "undefined") return null;
+
+  const url = new URL(window.location.href);
+  const parts = url.pathname.split("/").filter(Boolean); // ["bonga","<threadId>"]
+  const idx = parts.indexOf("bonga");
+  const tId = idx >= 0 ? (parts[idx + 1] || "") : "";
+  const qs = url.searchParams;
+
+  return {
+    threadId: tId,
+    peerId: qs.get("peerId") || "",
+    peerName: qs.get("peerName") || "",
+    peerPhotoURL: qs.get("peerPhotoURL") || "",
+    peerHandle: qs.get("peerHandle") || "",
+  };
+}
+
 /* ================================================================ */
 
 export default function BongaThreadLayoutPage() {
@@ -215,16 +233,64 @@ export default function BongaThreadLayoutPage() {
 
   const { user } = useAuth();
   const uid = user?.uid || "";
+
   const rtdb = getDatabase();
 
-  const threadId = params.threadId;
+  // URL segment threadId (deep link / initial)
+  const routeThreadId = params.threadId;
 
-  // sidebar ui
+  // initial querystring values (deep link / refresh)
+  const initialPeerId = sp.get("peerId") || "";
+  const initialPeerName = sp.get("peerName") || "";
+  const initialPeerPhotoURL = sp.get("peerPhotoURL") || "";
+  const initialPeerHandle = sp.get("peerHandle") || "";
+
+  // ✅ Single-page selection state
+  const [activeThreadId, setActiveThreadId] = useState(routeThreadId);
+  const [activePeerId, setActivePeerId] = useState(initialPeerId);
+  const [activePeerQs, setActivePeerQs] = useState({
+    peerName: initialPeerName,
+    peerPhotoURL: initialPeerPhotoURL,
+    peerHandle: initialPeerHandle,
+  });
+
+  // keep in sync if user directly navigates to a new /bonga/<id> (hard navigation)
+  useEffect(() => {
+    setActiveThreadId(routeThreadId);
+    if (initialPeerId) setActivePeerId(initialPeerId);
+    setActivePeerQs({
+      peerName: initialPeerName,
+      peerPhotoURL: initialPeerPhotoURL,
+      peerHandle: initialPeerHandle,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeThreadId]);
+
+  // ✅ handle back/forward between threads because we use pushState
+  useEffect(() => {
+    const onPop = () => {
+      const parsed = parseThreadAndQsFromUrl();
+      if (!parsed) return;
+
+      if (parsed.threadId) setActiveThreadId(parsed.threadId);
+      setActivePeerId(parsed.peerId || "");
+      setActivePeerQs({
+        peerName: parsed.peerName || "",
+        peerPhotoURL: parsed.peerPhotoURL || "",
+        peerHandle: parsed.peerHandle || "",
+      });
+    };
+
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  /* ---------------- Sidebar UI ---------------- */
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [qStr, setQStr] = useState("");
 
-  // sidebar data
+  /* ---------------- Sidebar data ---------------- */
   const [rows, setRows] = useState<RowData[]>([]);
   const [rowsLoading, setRowsLoading] = useState(true);
   const [pagingRows, setPagingRows] = useState(false);
@@ -232,7 +298,7 @@ export default function BongaThreadLayoutPage() {
 
   // caches
   const userCache = useRef<Map<string, UserLite | null>>(new Map());
-  const threadCache = useRef<Map<string, LastMessage | undefined>>(new Map()); // threads/{id}.lastMessage fallback cache
+  const threadCache = useRef<Map<string, LastMessage | undefined>>(new Map()); // fallback threads/{id}.lastMessage cache
 
   const fetchPeer = useCallback(async (peerId: string) => {
     if (userCache.current.has(peerId)) return userCache.current.get(peerId)!;
@@ -401,27 +467,33 @@ export default function BongaThreadLayoutPage() {
     });
   }, [rows, qStr, tab]);
 
+  // ✅ smooth open: update local state + pushState (no Next navigation)
   const openThreadFromSidebar = (row: RowData) => {
-    const peerName = row.peer?.firstName ?? "";
-    const peerPhotoURL = row.peer?.photoURL ?? "";
-    const peerHandle = row.peer?.handle ?? "";
+    setActiveThreadId(row.threadId);
+    setActivePeerId(row.peerId);
+    setActivePeerQs({
+      peerName: row.peer?.firstName ?? "",
+      peerPhotoURL: row.peer?.photoURL ?? "",
+      peerHandle: row.peer?.handle ?? "",
+    });
+
     const q = new URLSearchParams({
       peerId: row.peerId,
-      peerName,
-      peerPhotoURL,
-      peerHandle,
+      peerName: row.peer?.firstName ?? "",
+      peerPhotoURL: row.peer?.photoURL ?? "",
+      peerHandle: row.peer?.handle ?? "",
     });
-    router.push(`/bonga/${row.threadId}?${q.toString()}`);
+
+    const nextUrl = `/bonga/${row.threadId}?${q.toString()}`;
+    window.history.pushState({}, "", nextUrl);
+
     setSidebarOpen(false);
   };
 
-  // ---------- RIGHT CHAT PANEL (thread) ----------
-  const peerIdFromQs = sp.get("peerId") || "";
-  const peerNameFromQs = sp.get("peerName") || "";
-  const peerPhotoURLFromQs = sp.get("peerPhotoURL") || "";
-  const peerHandleFromQs = sp.get("peerHandle") || "";
+  /* ---------------- Right Chat Panel ---------------- */
 
-  const [peerId, setPeerId] = useState<string>(peerIdFromQs);
+  const selectedRow = rows.find((r) => r.threadId === activeThreadId);
+
   const [peer, setPeer] = useState<{
     photoURL?: string;
     handle?: string;
@@ -458,7 +530,9 @@ export default function BongaThreadLayoutPage() {
   useLayoutEffect(() => {
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) {
-        if (e.target === composerRef.current) setComposerH(Math.round(e.contentRect.height));
+        if (e.target === composerRef.current) {
+          setComposerH(Math.round(e.contentRect.height));
+        }
       }
     });
     if (composerRef.current) ro.observe(composerRef.current);
@@ -468,8 +542,8 @@ export default function BongaThreadLayoutPage() {
   // derive peerId from thread participants if missing
   useEffect(() => {
     (async () => {
-      if (peerId || !uid || !threadId) return;
-      const snap = await getDoc(doc(db, "threads", threadId));
+      if (activePeerId || !uid || !activeThreadId) return;
+      const snap = await getDoc(doc(db, "threads", activeThreadId));
       if (!snap.exists()) {
         setLoading(false);
         return;
@@ -477,22 +551,24 @@ export default function BongaThreadLayoutPage() {
       const data = snap.data() as any;
       const parts: string[] = data?.participants || [];
       const other = parts.find((p) => p !== uid) || "";
-      setPeerId(other);
+      setActivePeerId(other);
     })();
-  }, [uid, threadId, peerId]);
+  }, [uid, activeThreadId, activePeerId]);
 
-  // ensure thread exists + reset unread (DO NOT overwrite lastMessage)
+  // ensure thread exists + mark read in my mirror (do NOT write lastMessage on client)
   useEffect(() => {
-    if (!uid || !threadId || !peerId) return;
+    if (!uid || !activeThreadId || !activePeerId) return;
+
+    let cancelled = false;
 
     (async () => {
       try {
-        await updateDoc(doc(db, "threads", threadId), { updatedAt: serverTimestamp() });
+        await updateDoc(doc(db, "threads", activeThreadId), { updatedAt: serverTimestamp() });
       } catch {
         await setDoc(
-          doc(db, "threads", threadId),
+          doc(db, "threads", activeThreadId),
           {
-            participants: participantsArray(uid, peerId),
+            participants: participantsArray(uid, activePeerId),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           },
@@ -500,21 +576,26 @@ export default function BongaThreadLayoutPage() {
         );
       }
 
-      // ✅ just mark read in mirror; don't set fake lastMessage
+      // ✅ mark my mirror read (unread=0)
       await setDoc(
-        doc(db, "userThreads", uid, "threads", threadId),
-        { threadId, peerId, updatedAt: serverTimestamp(), unread: 0 },
+        doc(db, "userThreads", uid, "threads", activeThreadId),
+        { threadId: activeThreadId, peerId: activePeerId, updatedAt: serverTimestamp(), unread: 0 },
         { merge: true }
       ).catch(() => { });
 
-      setThreadReady(true);
+      if (!cancelled) setThreadReady(true);
     })();
-  }, [uid, peerId, threadId]);
+
+    return () => {
+      cancelled = true;
+      setThreadReady(false);
+    };
+  }, [uid, activePeerId, activeThreadId]);
 
   // peer public info
   useEffect(() => {
-    if (!peerId) return;
-    const uRef = doc(db, "users", peerId);
+    if (!activePeerId) return;
+    const uRef = doc(db, "users", activePeerId);
     const unsub = onSnapshot(uRef, (snap) => {
       const raw = snap.data() || {};
       const data = normalizeUser(raw) || {};
@@ -526,34 +607,37 @@ export default function BongaThreadLayoutPage() {
       }));
     });
     return () => unsub();
-  }, [peerId]);
+  }, [activePeerId]);
 
   // presence via RTDB
   useEffect(() => {
-    if (!peerId) return;
-    const sRef = rtdbRef(rtdb, `/status/${peerId}`);
+    if (!activePeerId) return;
+    const sRef = rtdbRef(rtdb, `/status/${activePeerId}`);
     const off = onValue(sRef, (snap) => {
       const v = snap.val() || {};
       setPeer((p) => ({
         ...(p || {}),
         online: v.state === "online",
-        lastActiveAt: typeof v.lastChanged === "number" ? new Date(v.lastChanged) : p?.lastActiveAt ?? null,
+        lastActiveAt:
+          typeof v.lastChanged === "number"
+            ? new Date(v.lastChanged)
+            : p?.lastActiveAt ?? null,
       }));
     });
     return () => off();
-  }, [peerId, rtdb]);
+  }, [activePeerId, rtdb]);
 
   // typing (from thread doc)
   useEffect(() => {
-    if (!threadId || !peerId) return;
-    const tRef = doc(db, "threads", threadId);
+    if (!activeThreadId || !activePeerId) return;
+    const tRef = doc(db, "threads", activeThreadId);
     const unsub = onSnapshot(tRef, (snap) => {
       const data = snap.data() || {};
       const typing = (data as any).typing || {};
-      setPeerTyping(!!typing[peerId]);
+      setPeerTyping(!!typing[activePeerId]);
     });
     return () => unsub();
-  }, [threadId, peerId]);
+  }, [activeThreadId, activePeerId]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     requestAnimationFrame(() => {
@@ -575,11 +659,11 @@ export default function BongaThreadLayoutPage() {
 
   // messages live
   useEffect(() => {
-    if (!threadReady || !threadId) return;
+    if (!threadReady || !activeThreadId) return;
     setLoading(true);
 
     const qy = query(
-      collection(db, "threads", threadId, "messages"),
+      collection(db, "threads", activeThreadId, "messages"),
       orderBy("createdAt", "asc"),
       limitToLast(25)
     );
@@ -592,10 +676,10 @@ export default function BongaThreadLayoutPage() {
         setOldestDoc(snap.docs[0] ?? null);
         setLoading(false);
 
-        // mark read (mirror)
+        // mark read (my mirror)
         if (uid) {
           setDoc(
-            doc(db, "userThreads", uid, "threads", threadId),
+            doc(db, "userThreads", uid, "threads", activeThreadId),
             { unread: 0, updatedAt: serverTimestamp() },
             { merge: true }
           ).catch(() => { });
@@ -607,7 +691,7 @@ export default function BongaThreadLayoutPage() {
     );
 
     return () => unsub();
-  }, [threadReady, threadId, uid, scrollToBottom]);
+  }, [threadReady, activeThreadId, uid, scrollToBottom]);
 
   // follow new msgs if at bottom
   useEffect(() => {
@@ -622,28 +706,27 @@ export default function BongaThreadLayoutPage() {
     scrollToBottom("auto");
   }, [composerH, scrollToBottom]);
 
+  // ✅ typing update uses field-path (does not overwrite typing map)
   const setTypingDebounced = useMemo(() => {
     let t: any;
     return (val: boolean) => {
       clearTimeout(t);
       t = setTimeout(() => {
-        if (!uid || !threadId) return;
-        // NOTE: this overwrites thread.typing (single key) — OK for 1:1 chat
-        setDoc(
-          doc(db, "threads", threadId),
-          { typing: { [uid]: val }, updatedAt: serverTimestamp() },
-          { merge: true }
-        ).catch(() => { });
+        if (!uid || !activeThreadId) return;
+        updateDoc(doc(db, "threads", activeThreadId), {
+          [`typing.${uid}`]: val,
+          updatedAt: serverTimestamp(),
+        }).catch(() => { });
       }, val ? 0 : 600);
     };
-  }, [threadId, uid]);
+  }, [activeThreadId, uid]);
 
   const loadMore = useCallback(async () => {
     if (!oldestDoc || paging) return;
     setPaging(true);
     try {
       const qOld = query(
-        collection(db, "threads", threadId, "messages"),
+        collection(db, "threads", activeThreadId, "messages"),
         orderBy("createdAt", "asc"),
         endBefore(oldestDoc),
         limitToLast(25)
@@ -664,84 +747,26 @@ export default function BongaThreadLayoutPage() {
     } finally {
       setPaging(false);
     }
-  }, [oldestDoc, paging, threadId]);
+  }, [oldestDoc, paging, activeThreadId]);
 
-  const upsertMirrors = useCallback(
-    async (payload: { lastMessage: NonNullable<LastMessage> }) => {
-      if (!uid || !peerId || !threadId) return;
-
-      // sender mirror
-      await setDoc(
-        doc(db, "userThreads", uid, "threads", threadId),
-        {
-          threadId,
-          peerId,
-          updatedAt: serverTimestamp(),
-          unread: 0,
-          lastMessage: payload.lastMessage,
-        },
-        { merge: true }
-      );
-
-      // recipient mirror (unread++)
-      await setDoc(
-        doc(db, "userThreads", peerId, "threads", threadId),
-        {
-          threadId,
-          peerId: uid,
-          updatedAt: serverTimestamp(),
-          unread: increment(1),
-          lastMessage: payload.lastMessage,
-        },
-        { merge: true }
-      );
-    },
-    [uid, peerId, threadId]
-  );
+  /* ---------- SEND (client only writes messages; Cloud Function handles mirrors/lastMessage) ---------- */
 
   const sendText = useCallback(
     async (text: string) => {
-      if (!uid || !peerId) return;
+      if (!uid || !activePeerId || !activeThreadId) return;
       const t = text.trim();
       if (!t) return;
 
-      await addDoc(collection(db, "threads", threadId, "messages"), {
+      await addDoc(collection(db, "threads", activeThreadId, "messages"), {
         text: t,
         from: uid,
-        to: peerId,
+        to: activePeerId,
         type: "text",
         createdAt: serverTimestamp(),
         readBy: { [uid]: true },
       });
-
-      const lastMsg: NonNullable<LastMessage> = {
-        type: "text",
-        text: t,
-        from: uid,
-        to: peerId,
-        createdAt: serverTimestamp(),
-      };
-
-      await updateDoc(doc(db, "threads", threadId), {
-        updatedAt: serverTimestamp(),
-        lastMessage: lastMsg,
-      }).catch(async () => {
-        // if thread doc didn't exist somehow
-        await setDoc(
-          doc(db, "threads", threadId),
-          {
-            participants: participantsArray(uid, peerId),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            lastMessage: lastMsg,
-          },
-          { merge: true }
-        );
-      });
-
-      await upsertMirrors({ lastMessage: lastMsg });
     },
-    [uid, peerId, threadId, upsertMirrors]
+    [uid, activePeerId, activeThreadId]
   );
 
   const onSend = useCallback(async () => {
@@ -763,53 +788,32 @@ export default function BongaThreadLayoutPage() {
     setPreview(URL.createObjectURL(file));
 
     try {
-      if (!uid || !peerId) return;
+      if (!uid || !activePeerId || !activeThreadId) return;
 
-      const msgDoc = await addDoc(collection(db, "threads", threadId, "messages"), {
+      // create message placeholder
+      const msgDoc = await addDoc(collection(db, "threads", activeThreadId, "messages"), {
         from: uid,
-        to: peerId,
+        to: activePeerId,
         type: "image" as const,
         createdAt: serverTimestamp(),
         readBy: { [uid]: true },
         uploading: true,
       });
 
-      const path = `threads/${threadId}/images/${msgDoc.id}/original-${file.name}`;
+      const path = `threads/${activeThreadId}/images/${msgDoc.id}/original-${file.name}`;
       const blobRef = storageRef(storage, path);
       await uploadBytes(blobRef, file);
       const url = await getDownloadURL(blobRef);
 
-      await updateDoc(doc(db, "threads", threadId, "messages", msgDoc.id), {
+      await updateDoc(doc(db, "threads", activeThreadId, "messages", msgDoc.id), {
         imageUrl: url,
         uploading: false,
       });
 
-      const lastMsg: NonNullable<LastMessage> = {
-        type: "image",
-        from: uid,
-        to: peerId,
-        createdAt: serverTimestamp(),
-      };
-
-      await updateDoc(doc(db, "threads", threadId), {
-        updatedAt: serverTimestamp(),
-        lastMessage: lastMsg,
-      }).catch(async () => {
-        await setDoc(
-          doc(db, "threads", threadId),
-          {
-            participants: participantsArray(uid, peerId),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            lastMessage: lastMsg,
-          },
-          { merge: true }
-        );
-      });
-
-      await upsertMirrors({ lastMessage: lastMsg });
-
       scrollToBottom("smooth");
+    } catch (err) {
+      console.error("Image send failed:", err);
+      // best-effort: if we can detect msg id, mark error (skipped here for simplicity)
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
       setTimeout(() => setPreview(null), 1200);
@@ -830,7 +834,13 @@ export default function BongaThreadLayoutPage() {
     ta.style.height = Math.min(160, ta.scrollHeight) + "px";
   }, [input]);
 
-  const headerTitle = peer?.firstName || peerNameFromQs || peer?.handle || peerHandleFromQs || "Message";
+  const headerTitle =
+    peer?.firstName ||
+    activePeerQs.peerName ||
+    peer?.handle ||
+    activePeerQs.peerHandle ||
+    "Message";
+
   const onlineNow = !!peer?.online;
   const lastActiveAny = peer?.lastActiveAt;
   const hasMessages = items.length > 0;
@@ -880,7 +890,10 @@ export default function BongaThreadLayoutPage() {
   if (!uid) {
     return (
       <AppShell>
-        <div className="min-h-screen flex items-center justify-center px-6 text-center" style={{ backgroundColor: EKARI.sand }}>
+        <div
+          className="min-h-screen flex items-center justify-center px-6 text-center"
+          style={{ backgroundColor: EKARI.sand }}
+        >
           <div>
             <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
               Sign in to view your chats
@@ -893,8 +906,6 @@ export default function BongaThreadLayoutPage() {
       </AppShell>
     );
   }
-
-  const selectedRow = rows.find((r) => r.threadId === threadId);
 
   return (
     <AppShell>
@@ -994,13 +1005,13 @@ export default function BongaThreadLayoutPage() {
                     </div>
                   </div>
                 ) : (
-                  <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
+                  <ul className="divide-y p-2" style={{ borderColor: EKARI.hair }}>
                     {filteredRows.map((item) => {
                       const name = item.peer?.firstName || item.peer?.handle || "User";
                       const last = previewOf(item.lastMessage) || "No messages yet";
                       const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
                       const hasUnread = (item.unread ?? 0) > 0;
-                      const active = item.threadId === threadId;
+                      const active = item.threadId === activeThreadId;
 
                       return (
                         <li key={item.threadId}>
@@ -1150,7 +1161,7 @@ export default function BongaThreadLayoutPage() {
                         const last = previewOf(item.lastMessage) || "No messages yet";
                         const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
                         const hasUnread = (item.unread ?? 0) > 0;
-                        const active = item.threadId === threadId;
+                        const active = item.threadId === activeThreadId;
 
                         return (
                           <li key={item.threadId}>
@@ -1222,7 +1233,7 @@ export default function BongaThreadLayoutPage() {
                         <Image
                           src={
                             peer?.photoURL ||
-                            peerPhotoURLFromQs ||
+                            activePeerQs.peerPhotoURL ||
                             selectedRow?.peer?.photoURL ||
                             "/avatar-placeholder.png"
                           }
@@ -1302,7 +1313,12 @@ export default function BongaThreadLayoutPage() {
                               {showAvatar ? (
                                 <div className="relative w-7 h-7 rounded-full overflow-hidden bg-gray-200">
                                   <Image
-                                    src={peer?.photoURL || peerPhotoURLFromQs || selectedRow?.peer?.photoURL || "/avatar-placeholder.png"}
+                                    src={
+                                      peer?.photoURL ||
+                                      activePeerQs.peerPhotoURL ||
+                                      selectedRow?.peer?.photoURL ||
+                                      "/avatar-placeholder.png"
+                                    }
                                     alt="avatar"
                                     fill
                                     className="object-cover"
@@ -1356,7 +1372,11 @@ export default function BongaThreadLayoutPage() {
                               )}
                             </div>
 
-                            {isLastInGroup && <div className="mt-1 text-[11px] text-slate-500 px-1">{formatMsgTime(msg.createdAt)}</div>}
+                            {isLastInGroup && (
+                              <div className="mt-1 text-[11px] text-slate-500 px-1">
+                                {formatMsgTime(msg.createdAt)}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -1490,7 +1510,7 @@ export default function BongaThreadLayoutPage() {
                       </div>
                     </div>
 
-                    <button
+                    <Button
                       onClick={onSend}
                       disabled={!input.trim()}
                       className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
@@ -1499,7 +1519,7 @@ export default function BongaThreadLayoutPage() {
                       style={{ backgroundColor: EKARI.gold }}
                     >
                       <IoSend size={18} color="#fff" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>

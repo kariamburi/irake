@@ -134,11 +134,23 @@ export default function MessagesPage() {
   const userCache = useRef<Map<string, UserLite | null>>(new Map());
   const threadCache = useRef<Map<string, LastMessage | undefined>>(new Map());
 
+  function normalizeUser(raw: any): UserLite | null {
+    if (!raw) return null;
+    return {
+      firstName: raw.firstName ?? raw.name ?? "",
+      surname: raw.surname ?? raw.lastName ?? "",
+      handle: raw.handle ?? raw.username ?? "",
+      photoURL: raw.photoURL ?? raw.photo ?? raw.imageUrl ?? "",
+    };
+  }
+
   const fetchPeer = useCallback(async (peerId: string) => {
     if (userCache.current.has(peerId)) return userCache.current.get(peerId)!;
     try {
+
       const snap = await getDoc(doc(db, "users", peerId));
-      const data = (snap.exists() ? (snap.data() as any) : null) as UserLite | null;
+      const raw = snap.exists() ? snap.data() : null;
+      const data = normalizeUser(raw);
       userCache.current.set(peerId, data);
       return data;
     } catch (err) {
@@ -147,6 +159,7 @@ export default function MessagesPage() {
       return null;
     }
   }, []);
+
 
   const fetchLastMessageFromThread = useCallback(async (threadId: string) => {
     // ✅ still cached, but now it’s only a fallback
@@ -173,7 +186,6 @@ export default function MessagesPage() {
     }
 
     setLoading(true);
-
     const qy = query(
       collection(db, "userThreads", uid, "threads"),
       orderBy("updatedAt", "desc"),
