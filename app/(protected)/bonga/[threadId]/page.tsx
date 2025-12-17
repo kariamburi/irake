@@ -32,11 +32,7 @@ import {
   DocumentSnapshot,
 } from "firebase/firestore";
 import { ref as rtdbRef, onValue, getDatabase } from "firebase/database";
-import {
-  getDownloadURL,
-  ref as storageRef,
-  uploadBytes,
-} from "firebase/storage";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import {
   IoArrowBack,
   IoSend,
@@ -813,7 +809,6 @@ export default function BongaThreadLayoutPage() {
       scrollToBottom("smooth");
     } catch (err) {
       console.error("Image send failed:", err);
-      // best-effort: if we can detect msg id, mark error (skipped here for simplicity)
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
       setTimeout(() => setPreview(null), 1200);
@@ -909,13 +904,23 @@ export default function BongaThreadLayoutPage() {
 
   return (
     <AppShell>
-      <div className="h-[calc(100vh-0rem)] w-full overflow-hidden" style={{ backgroundColor: EKARI.sand }}>
-        <div className="h-full grid md:grid-cols-[360px_1fr]">
+      {/* ✅ IMPORTANT: min-h-0 fixes sidebar list “disappearing” in grid/flex layouts */}
+      <div
+        className="h-[calc(100vh-0rem)] w-full overflow-hidden min-h-0"
+        style={{ backgroundColor: EKARI.sand }}
+      >
+        <div className="h-full min-h-0 grid md:grid-cols-[360px_1fr]">
           {/* ================= Sidebar (Desktop) ================= */}
-          <aside className="hidden md:flex h-full border-r bg-white" style={{ borderColor: EKARI.hair }}>
-            <div className="h-full w-full flex flex-col">
+          <aside
+            className="hidden md:flex h-full min-h-0 border-r bg-white"
+            style={{ borderColor: EKARI.hair }}
+          >
+            <div className="h-full min-h-0 w-full flex flex-col">
               {/* Sidebar header */}
-              <div className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur" style={{ borderColor: EKARI.hair }}>
+              <div
+                className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur"
+                style={{ borderColor: EKARI.hair }}
+              >
                 <div className="h-14 px-4 flex items-center justify-between">
                   <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
                     Chats
@@ -987,14 +992,18 @@ export default function BongaThreadLayoutPage() {
               </div>
 
               {/* Sidebar list */}
-              <div className="flex-1 overflow-y-auto">
+              {/* ✅ IMPORTANT: min-h-0 here makes the scroll area work */}
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {rowsLoading ? (
                   <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
                     <BouncingBallLoader />
                   </div>
                 ) : filteredRows.length === 0 ? (
                   <div className="px-6 py-16 text-center">
-                    <div className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center" style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}>
+                    <div
+                      className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center"
+                      style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}
+                    >
                       💬
                     </div>
                     <div className="font-extrabold" style={{ color: EKARI.text }}>
@@ -1026,7 +1035,12 @@ export default function BongaThreadLayoutPage() {
                             style={ringStyle}
                           >
                             <div className="relative">
-                              <SmartAvatar src={item.peer?.photoURL || ""} alt={name} size={46} className={clsx(hasUnread && "ring-2")} />
+                              <SmartAvatar
+                                src={item.peer?.photoURL || ""}
+                                alt={name}
+                                size={46}
+                                className={clsx(hasUnread && "ring-2")}
+                              />
                               {hasUnread && (
                                 <span
                                   className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
@@ -1038,7 +1052,10 @@ export default function BongaThreadLayoutPage() {
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <div className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")} style={{ color: EKARI.text }}>
+                                <div
+                                  className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
+                                  style={{ color: EKARI.text }}
+                                >
                                   {name}
                                 </div>
                                 <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
@@ -1047,7 +1064,10 @@ export default function BongaThreadLayoutPage() {
                               </div>
 
                               <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                                <div className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")} style={{ color: hasUnread ? EKARI.text : EKARI.dim }}>
+                                <div
+                                  className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")}
+                                  style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
+                                >
                                   {last}
                                 </div>
 
@@ -1077,7 +1097,11 @@ export default function BongaThreadLayoutPage() {
                       onClick={loadMoreRows}
                       disabled={pagingRows || !cursor}
                       className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                      style={{ borderColor: EKARI.hair, color: EKARI.text, backgroundColor: EKARI.sand }}
+                      style={{
+                        borderColor: EKARI.hair,
+                        color: EKARI.text,
+                        backgroundColor: EKARI.sand,
+                      }}
                     >
                       {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
                     </button>
@@ -1089,16 +1113,23 @@ export default function BongaThreadLayoutPage() {
 
           {/* ================= Mobile Sidebar Drawer ================= */}
           {sidebarOpen && (
-            <div className="md:hidden fixed inset-0 z-[80] bg-black/40" onClick={() => setSidebarOpen(false)}>
+            <div
+              className="md:hidden fixed inset-0 z-[80] bg-black/40"
+              onClick={() => setSidebarOpen(false)}
+            >
               <div
-                className="absolute left-0 top-0 bottom-0 w-[88%] max-w-[360px] bg-white shadow-xl"
+                className="absolute left-0 top-0 bottom-0 w-[88%] max-w-[360px] bg-white shadow-xl flex flex-col min-h-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="h-14 px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
                   <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
                     Chats
                   </div>
-                  <button className="p-2 rounded-lg hover:bg-black/5" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
+                  <button
+                    className="p-2 rounded-lg hover:bg-black/5"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-label="Close sidebar"
+                  >
                     <IoClose size={20} color={EKARI.text} />
                   </button>
                 </div>
@@ -1144,12 +1175,17 @@ export default function BongaThreadLayoutPage() {
                         ✕
                       </button>
                     ) : (
-                      <IoSearchOutline size={16} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "#94A3B8" }} />
+                      <IoSearchOutline
+                        size={16}
+                        className="absolute right-3 top-1/2 -translate-y-1/2"
+                        style={{ color: "#94A3B8" }}
+                      />
                     )}
                   </div>
                 </div>
 
-                <div className="h-[calc(100%-56px-84px)] overflow-y-auto">
+                {/* ✅ make this flex-1 min-h-0 so list never “vanishes” */}
+                <div className="flex-1 min-h-0 overflow-y-auto">
                   {rowsLoading ? (
                     <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
                       <BouncingBallLoader />
@@ -1166,18 +1202,32 @@ export default function BongaThreadLayoutPage() {
                         return (
                           <li key={item.threadId}>
                             <button
-                              className={clsx("w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-black/5", active && "bg-black/5")}
+                              className={clsx(
+                                "w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-black/5",
+                                active && "bg-black/5"
+                              )}
                               onClick={() => openThreadFromSidebar(item)}
                             >
                               <div className="relative">
-                                <SmartAvatar src={item.peer?.photoURL || ""} alt={name} size={44} className={clsx(hasUnread && "ring-2")} />
+                                <SmartAvatar
+                                  src={item.peer?.photoURL || ""}
+                                  alt={name}
+                                  size={44}
+                                  className={clsx(hasUnread && "ring-2")}
+                                />
                                 {hasUnread && (
-                                  <span className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2" style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }} />
+                                  <span
+                                    className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
+                                    style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
+                                  />
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <div className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")} style={{ color: EKARI.text }}>
+                                  <div
+                                    className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
+                                    style={{ color: EKARI.text }}
+                                  >
                                     {name}
                                   </div>
                                   <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
@@ -1189,7 +1239,10 @@ export default function BongaThreadLayoutPage() {
                                     {last}
                                   </div>
                                   {hasUnread && (
-                                    <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold" style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}>
+                                    <span
+                                      className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
+                                      style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
+                                    >
                                       {item.unread > 99 ? "99+" : item.unread}
                                     </span>
                                   )}
@@ -1207,18 +1260,26 @@ export default function BongaThreadLayoutPage() {
           )}
 
           {/* ================= Right Chat Panel ================= */}
-          <main className="h-full bg-white relative">
-            <div className="h-full flex flex-col">
+          <main className="h-full min-h-0 bg-white relative">
+            <div className="h-full min-h-0 flex flex-col">
               {/* Top header (chat) */}
               <div ref={headerRef} className="border-b bg-white z-30" style={{ borderColor: EKARI.hair }}>
                 <div className="h-[54px] px-3 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     {/* mobile menu */}
-                    <button className="md:hidden p-2 rounded-lg hover:bg-black/5" onClick={() => setSidebarOpen(true)} aria-label="Open chats">
+                    <button
+                      className="md:hidden p-2 rounded-lg hover:bg-black/5"
+                      onClick={() => setSidebarOpen(true)}
+                      aria-label="Open chats"
+                    >
                       <IoMenu size={20} color={EKARI.text} />
                     </button>
 
-                    <button onClick={() => router.back()} className="hidden md:inline-flex p-2 rounded-lg hover:bg-black/5" aria-label="Back">
+                    <button
+                      onClick={() => router.back()}
+                      className="hidden md:inline-flex p-2 rounded-lg hover:bg-black/5"
+                      aria-label="Back"
+                    >
                       <IoArrowBack size={20} color={EKARI.text} />
                     </button>
 
@@ -1246,7 +1307,9 @@ export default function BongaThreadLayoutPage() {
 
                       <div className="min-w-0">
                         <div className="font-extrabold text-slate-900 text-sm truncate">{headerTitle}</div>
-                        <div className="text-xs text-slate-500">{peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}</div>
+                        <div className="text-xs text-slate-500">
+                          {peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1258,13 +1321,14 @@ export default function BongaThreadLayoutPage() {
               </div>
 
               {/* Messages scroller */}
+              {/* ✅ min-h-0 + extra paddingBottom so messages never hide behind composer */}
               <div
                 ref={listRef}
-                className="flex-1 overflow-y-auto bg-gray-50"
+                className="flex-1 min-h-0 overflow-y-auto bg-gray-50"
                 style={{
                   paddingTop: 8,
-                  paddingBottom: composerH + 8,
-                  scrollPaddingBottom: composerH + 8,
+                  paddingBottom: composerH + 16, // ⬅️ extra breathing room
+                  scrollPaddingBottom: composerH + 16,
                   scrollbarGutter: "stable both-edges",
                 } as React.CSSProperties}
               >
@@ -1275,7 +1339,7 @@ export default function BongaThreadLayoutPage() {
                 ) : !hasMessages ? (
                   <EmptyState />
                 ) : (
-                  <div className="px-4 py-4">
+                  <div className="px-4 py-4 pb-0">
                     {oldestDoc && (
                       <div className="mb-2 flex justify-center">
                         <button
@@ -1307,7 +1371,10 @@ export default function BongaThreadLayoutPage() {
                       const showAvatar = !mine && isLastInGroup;
 
                       return (
-                        <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${rowMt} ${rowMb}`}>
+                        <div
+                          key={msg.id}
+                          className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${rowMt} ${rowMb}`}
+                        >
                           {!mine && (
                             <div className="w-7 flex justify-center">
                               {showAvatar ? (
@@ -1409,7 +1476,10 @@ export default function BongaThreadLayoutPage() {
               >
                 <div className="w-full px-3">
                   <div className="flex items-end gap-2 py-2 relative">
-                    <div className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                    <div
+                      className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2"
+                      style={{ borderColor: EKARI.hair }}
+                    >
                       <textarea
                         ref={textareaRef}
                         value={input}
@@ -1486,7 +1556,13 @@ export default function BongaThreadLayoutPage() {
                           )}
                         </button>
 
-                        <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onImageChosen} />
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={onImageChosen}
+                        />
 
                         <button
                           className="w-9 h-9 rounded-full flex items-center justify-center"
