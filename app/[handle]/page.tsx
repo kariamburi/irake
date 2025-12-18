@@ -59,6 +59,7 @@ import { deleteObject, getStorage, listAll, ref as sRef } from "firebase/storage
 import SellerReviewsSection from "../components/SellerReviewsSection";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import OpenInAppBanner from "../components/OpenInAppBanner";
 
 const EKARI = {
   forest: "#233F39",
@@ -2291,9 +2292,21 @@ export default function HandleProfilePage() {
     return false;
   }, [user, router]);
 
+
+  const cleanHandle = decoded.replace(/^@/, "");
+  const webUrl = `https://ekarihub.com/${cleanHandle}`;
+  const appUrl = `ekarihub:///${cleanHandle}`;
+
   return (
     <AppShell>
-
+      <OpenInAppBanner
+        webUrl={webUrl}
+        appUrl={appUrl}
+        title="Open this profile in ekarihub"
+        subtitle="Faster loading, messaging, and full features."
+        playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+        appStoreUrl="https://apps.apple.com" // replace later
+      />
       {/* Processing Gate now ONLY blocks for profile owner */}
       {isOwner && <DeedProcessingGate authorUid={uid ?? null} handle={handleWithAt} />}
 
