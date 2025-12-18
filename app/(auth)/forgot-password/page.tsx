@@ -69,7 +69,11 @@ export default function ForgotPasswordPage() {
         setLoading(true);
         setErrorMsg("");
         try {
-            await sendPasswordResetEmail(authBundle!.auth, email.trim());
+            await sendPasswordResetEmail(authBundle!.auth, email.trim(), {
+                url: "https://ekarihub.com/reset-password",
+                handleCodeInApp: false,
+            });
+
             setSent(true);
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));
