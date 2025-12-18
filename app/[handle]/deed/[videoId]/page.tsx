@@ -37,6 +37,7 @@ import RightRail from "@/app/components/RightRail";
 import { useAuth } from "@/app/hooks/useAuth";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { cn } from "@/lib/utils";
+import OpenInAppBanner from "@/app/components/OpenInAppBanner";
 
 type Item = any;
 
@@ -647,9 +648,24 @@ export default function PlayerByHandlePage() {
             </div>
         );
     }
+    const webUrl =
+        typeof window !== "undefined"
+            ? window.location.href
+            : `https://ekarihub.com/${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(deedId)}`;
+
+    // ✅ Your deep link (matches what you want)
+    const appUrl = `ekarihub://${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(deedId)}`;
 
     return (
         <div className="fixed inset-0 bg-black text-white">
+            <OpenInAppBanner
+                webUrl={webUrl}
+                appUrl={appUrl}
+                title="Open this profile in ekarihub"
+                subtitle="Faster loading, messaging, and full features."
+                playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+                appStoreUrl="https://apps.apple.com" // replace later
+            />
             {/* Top-left: Back */}
             <div className="absolute left-3 top-3 z-50 flex items-center gap-2">
                 <button

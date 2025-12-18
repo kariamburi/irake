@@ -54,6 +54,7 @@ import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { DonateDialogWeb } from "./components/DonateDialogWeb";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import OpenInAppBanner from "./components/OpenInAppBanner";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -84,7 +85,7 @@ async function getUserSnap(uid: string): Promise<UserSnap> {
   const u = (us.data() as any) || {};
   return {
     userId: uid,
-    name: u.firstName + " " + u.surname, // adjust to your schema
+    name: [u.firstName, u.surname].filter(Boolean).join(" ") || null,
     handle: u?.handle ?? null,
     photoURL: u?.photoURL ?? null,
   };
@@ -864,7 +865,11 @@ function VideoCard({
   }, [item.id, item.mediaType, uid]);
 
   const onShare = async () => {
-    const url = `${location.origin}/deed/${item.id}`;
+    const handle = authorProfile?.handle || item.authorUsername;
+    const url = handle
+      ? `${location.origin}/${encodeURIComponent(handle.startsWith("@") ? handle : `@${handle}`)}/deed/${item.id}`
+      : `${location.origin}/`; // fallback
+
     try {
       if (navigator.share) {
         await navigator.share({
@@ -1975,7 +1980,10 @@ function FeedShell() {
     if (!uid) router.push("/getstarted?next=/studio/upload");
     else router.push("/studio/upload");
   };
-  const TAB_BAR_H = 56; // px — tweak to taste
+  const TAB_BAR_H = 56;
+  const FLOAT_BANNER_H = 76;
+  const MOBILE_TOP_OFFSET = TAB_BAR_H + FLOAT_BANNER_H;
+
   return (
     <MuteProvider>
       <AppShell
@@ -1993,6 +2001,12 @@ function FeedShell() {
           />
         }
       >
+        <OpenInAppBanner
+          webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
+          appUrl="ekarihub://"
+          title="Open ekarihub in the app"
+          subtitle="Best experience in the app."
+        />
 
         {/* Feed scroller */}
         <section
@@ -2002,6 +2016,7 @@ function FeedShell() {
           style={{
             height: "100svh",
             scrollSnapType: "y mandatory" as any,
+            paddingTop: FLOAT_BANNER_H, // ✅ makes room for floating banner
             overscrollBehaviorY: "contain",
           }}
         >

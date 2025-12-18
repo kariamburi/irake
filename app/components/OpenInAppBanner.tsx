@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 
 const EKARI = {
     forest: "#233F39",
@@ -42,13 +42,17 @@ export default function OpenInAppBanner({
     appUrl,
     playStoreUrl = "https://play.google.com/store/apps/details?id=com.ekarihub.app",
     appStoreUrl = "https://apps.apple.com", // replace with your real App Store link later
-    title = "Open in ekarihub",
+    title = "Open in ekarihub App",
     subtitle = "Get the best experience in the app.",
 }: Props) {
     const [visible, setVisible] = useState(false);
     const [showInstall, setShowInstall] = useState(false);
+    const [exiting, setExiting] = useState(false);
 
-    const ua = useMemo(() => (typeof navigator !== "undefined" ? navigator.userAgent : ""), []);
+    const ua = useMemo(
+        () => (typeof navigator !== "undefined" ? navigator.userAgent : ""),
+        []
+    );
     const os = useMemo(() => getOS(ua), [ua]);
     const mobile = useMemo(() => isProbablyMobile(ua), [ua]);
 
@@ -67,8 +71,16 @@ export default function OpenInAppBanner({
         }
     }, [mobile]);
 
+    const closeAnimated = useCallback(() => {
+        setExiting(true);
+        window.setTimeout(() => {
+            setVisible(false);
+            setExiting(false);
+        }, 220); // match wrapper transition duration
+    }, []);
+
     const dismiss = () => {
-        setVisible(false);
+        closeAnimated();
         try {
             const key = "ekari:openInApp:dismissedUntil";
             const hours12 = 12 * 60 * 60 * 1000;
@@ -86,8 +98,8 @@ export default function OpenInAppBanner({
         // If app opens, page typically becomes hidden/blurred.
         const onVis = () => {
             if (document.visibilityState === "hidden") {
-                // app likely opened → keep banner hidden
-                setVisible(false);
+                // app likely opened → animate out
+                closeAnimated();
             }
         };
         document.addEventListener("visibilitychange", onVis, { once: true });
@@ -98,7 +110,6 @@ export default function OpenInAppBanner({
         // After 900ms if we’re still here, show install options
         window.setTimeout(() => {
             const elapsed = Date.now() - started;
-            // If still visible on page, likely failed
             if (document.visibilityState !== "hidden" && elapsed >= 800) {
                 setShowInstall(true);
             }
@@ -107,21 +118,38 @@ export default function OpenInAppBanner({
 
     if (!visible) return null;
 
+    const entering = visible && !exiting;
+
     return (
         <div
             style={{
-                position: "sticky",
-                top: 0,
-                zIndex: 50,
+                // ✅ floating fixed banner
+                position: "fixed",
+                top: 12,
+                left: "50%",
+                transform: `translateX(-50%) translateY(${entering ? "0px" : "-14px"})`,
+                zIndex: 1000,
+
+                width: "min(960px, calc(100vw - 24px))",
+                borderRadius: 16,
+
                 background: "rgba(255,255,255,0.92)",
                 backdropFilter: "blur(10px)",
-                borderBottom: `1px solid ${EKARI.hair}`,
+                border: `1px solid ${EKARI.hair}`,
+
+                // ✅ elevation / shadow
+                boxShadow:
+                    "0 10px 25px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.08)",
+
+                // ✅ entrance/exit animation
+                opacity: entering ? 1 : 0,
+                transition:
+                    "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease",
+                willChange: "transform, opacity",
             }}
         >
             <div
                 style={{
-                    maxWidth: 960,
-                    margin: "0 auto",
                     padding: "10px 12px",
                     display: "flex",
                     alignItems: "center",
@@ -147,64 +175,90 @@ export default function OpenInAppBanner({
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 900, color: EKARI.ink, fontSize: 14, lineHeight: "18px" }}>
+                    <div
+                        style={{
+                            fontWeight: 900,
+                            color: EKARI.ink,
+                            fontSize: 14,
+                            lineHeight: "18px",
+                        }}
+                    >
                         {title}
                     </div>
                     <div style={{ color: EKARI.dim, fontSize: 12, lineHeight: "16px" }}>
                         {subtitle}
                     </div>
 
-                    {showInstall && (
-                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            {os !== "ios" && (
-                                <a
-                                    href={playStoreUrl}
-                                    style={{
-                                        textDecoration: "none",
-                                        padding: "8px 10px",
-                                        borderRadius: 10,
-                                        background: "#111827",
-                                        color: "white",
-                                        fontWeight: 800,
-                                        fontSize: 12,
-                                    }}
-                                >
-                                    Install on Google Play
-                                </a>
-                            )}
-                            {os !== "android" && (
-                                <a
-                                    href={appStoreUrl}
-                                    style={{
-                                        textDecoration: "none",
-                                        padding: "8px 10px",
-                                        borderRadius: 10,
-                                        background: "#111827",
-                                        color: "white",
-                                        fontWeight: 800,
-                                        fontSize: 12,
-                                    }}
-                                >
-                                    Install on App Store
-                                </a>
-                            )}
-                            <a
-                                href={webUrl}
+                    {/* ✅ Animated install section */}
+                    <div
+                        style={{
+                            maxHeight: showInstall ? 120 : 0,
+                            opacity: showInstall ? 1 : 0,
+                            transform: showInstall ? "translateY(0)" : "translateY(-6px)",
+                            overflow: "hidden",
+                            transition:
+                                "max-height 220ms ease, opacity 180ms ease, transform 180ms ease",
+                        }}
+                    >
+                        {showInstall && (
+                            <div
                                 style={{
-                                    textDecoration: "none",
-                                    padding: "8px 10px",
-                                    borderRadius: 10,
-                                    background: "transparent",
-                                    border: `1px solid ${EKARI.hair}`,
-                                    color: EKARI.ink,
-                                    fontWeight: 800,
-                                    fontSize: 12,
+                                    marginTop: 8,
+                                    display: "flex",
+                                    gap: 8,
+                                    flexWrap: "wrap",
                                 }}
                             >
-                                Continue on web
-                            </a>
-                        </div>
-                    )}
+                                {os !== "ios" && (
+                                    <a
+                                        href={playStoreUrl}
+                                        style={{
+                                            textDecoration: "none",
+                                            padding: "8px 10px",
+                                            borderRadius: 10,
+                                            background: "#111827",
+                                            color: "white",
+                                            fontWeight: 800,
+                                            fontSize: 12,
+                                        }}
+                                    >
+                                        Install on Google Play
+                                    </a>
+                                )}
+                                {os !== "android" && (
+                                    <a
+                                        href={appStoreUrl}
+                                        style={{
+                                            textDecoration: "none",
+                                            padding: "8px 10px",
+                                            borderRadius: 10,
+                                            background: "#111827",
+                                            color: "white",
+                                            fontWeight: 800,
+                                            fontSize: 12,
+                                        }}
+                                    >
+                                        Install on App Store
+                                    </a>
+                                )}
+                                <a
+                                    href={webUrl}
+                                    style={{
+                                        textDecoration: "none",
+                                        padding: "8px 10px",
+                                        borderRadius: 10,
+                                        background: "transparent",
+                                        border: `1px solid ${EKARI.hair}`,
+                                        color: EKARI.ink,
+                                        fontWeight: 800,
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    Continue on web
+                                </a>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -219,7 +273,11 @@ export default function OpenInAppBanner({
                             fontWeight: 900,
                             cursor: "pointer",
                             whiteSpace: "nowrap",
+                            transition: "transform 120ms ease, filter 120ms ease",
                         }}
+                        onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
+                        onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
                     >
                         Open
                     </button>
@@ -235,7 +293,11 @@ export default function OpenInAppBanner({
                             color: EKARI.dim,
                             fontWeight: 900,
                             cursor: "pointer",
+                            transition: "transform 120ms ease, background 120ms ease",
                         }}
+                        onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
+                        onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
                     >
                         ✕
                     </button>
