@@ -727,61 +727,8 @@ export default function ProductDetailsClient({
         () => (me ? reviews.find((r) => r.userId === me.uid) : undefined),
         [reviews, me]
     );
-    const [rvVisible, setRvVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const [rvStars, setRvStars] = useState(5);
-    const [rvText, setRvText] = useState("");
-
-    const openReview = () => {
-        if (!me) return alert("Please sign in to leave a review.");
-        if (me.uid === product?.sellerId) return alert("You can’t review your own listing.");
-        if (myReview) {
-            setRvStars(myReview.rating || 5);
-            setRvText(myReview.text || "");
-        } else {
-            setRvStars(5);
-            setRvText("");
-        }
-        setRvVisible(true);
-    };
-
-    const submitReview = async () => {
-        const user = auth.currentUser;
-        if (!user) return alert("Please sign in.");
-        const rating = Math.max(1, Math.min(5, Math.round(rvStars || 5)));
-        const text = rvText.trim() || null;
-        try {
-            const rRef = reviewDocRef(dbi, productid, user.uid);
-            await setDoc(
-                rRef,
-                myReview
-                    ? { rating, text, updatedAt: serverTimestamp() }
-                    : {
-                        userId: user.uid,
-                        rating,
-                        text,
-                        helpfulCount: 0,
-                        createdAt: serverTimestamp(),
-                        updatedAt: null,
-                    },
-                { merge: !!myReview }
-            );
-            setRvVisible(false);
-        } catch (e: any) {
-            alert(e?.message || "Failed. Try again.");
-        }
-    };
-
-    const deleteMyReview = async () => {
-        if (!myReview || !me) return;
-        try {
-            await deleteDoc(reviewDocRef(dbi, productid, me.uid));
-            setRvVisible(false);
-        } catch (e: any) {
-            alert(e?.message || "Failed. Try again.");
-        }
-    };
 
     async function markHelpful(listingId: string, reviewUserId: string, voterId: string) {
         const rRef = reviewDocRef(dbi, listingId, reviewUserId);
@@ -818,25 +765,7 @@ export default function ProductDetailsClient({
         });
     }
 
-    const toggleHelpful = async (reviewUserId: string) => {
-        const user = auth.currentUser;
-        if (!user) return alert("Please log in first.");
-        if (user.uid === reviewUserId) return; // extra safety
 
-        try {
-            if (myHelpful[reviewUserId]) {
-                await unmarkHelpful(String(productid), reviewUserId, user.uid);
-            } else {
-                await markHelpful(String(productid), reviewUserId, user.uid);
-            }
-        } catch (e: any) {
-            if (e?.code === "permission-denied") {
-                console.warn("Voting not allowed (likely self-vote).");
-                return;
-            }
-            alert(e?.message || "Failed. Try again.");
-        }
-    };
 
     // ===== Loading / missing =====
     if (loading)
@@ -895,6 +824,17 @@ export default function ProductDetailsClient({
         }
     }
     const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
+    const buildListingContextQs = (p: ProductDoc) => {
+        const qs = new URLSearchParams();
+        qs.set("listingId", p.id);
+        qs.set("listingName", p.name || "");
+        qs.set("listingImage", (p.imageUrls?.[0] || p.imageUrl || "") as string);
+        qs.set("listingPrice", String(p.price ?? ""));
+        qs.set("listingCurrency", String(p.currency ?? "KES"));
+        qs.set("listingType", String(p.type ?? "marketListing"));
+        qs.set("listingUrl", `/market/${encodeURIComponent(p.id)}`);
+        return qs;
+    };
 
     // message click
     const handleMessageClick = async () => {
@@ -909,15 +849,21 @@ export default function ProductDetailsClient({
         setMsgLoading(true);
 
         try {
-            // fetch only now
             const peer = await fetchUserLite(peerId);
-
             const threadId = makeThreadId(uid, peerId);
+
+            // existing peer qs
             const qs = new URLSearchParams();
             qs.set("peerId", peerId);
             if (peer.name) qs.set("peerName", peer.name);
             if (peer.photoURL) qs.set("peerPhotoURL", peer.photoURL);
             if (peer.handle) qs.set("peerHandle", peer.handle);
+
+            // ✅ add listing context qs
+            if (product) {
+                const lqs = buildListingContextQs(product);
+                lqs.forEach((v, k) => qs.set(k, v));
+            }
 
             router.push(`/bonga/${encodeURIComponent(threadId)}?${qs.toString()}`);
         } finally {

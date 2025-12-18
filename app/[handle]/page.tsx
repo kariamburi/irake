@@ -1821,7 +1821,7 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
               >
                 <div className="flex items-start gap-3">
                   <button
-                    onClick={() => router.push(`/events/${e.id}`)}
+                    onClick={() => router.push(`/nexus/events/${e.id}`)}
                     className="flex-1 min-w-0 text-left"
                   >
                     <div className="flex items-start gap-3">
@@ -2102,7 +2102,7 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
                 className="border border-gray-200 rounded-xl bg-white shadow-sm p-4"
               >
                 <button
-                  onClick={() => router.push(`/discussions/${item.id}`)}
+                  onClick={() => router.push(`/nexus/discussions/${item.id}`)}
                   className="block w-full text-left"
                 >
                   <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">

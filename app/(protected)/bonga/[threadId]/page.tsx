@@ -89,12 +89,6 @@ type UserLite = {
   photoURL?: string;
 };
 
-type LastMessage =
-  | { type: "text"; text: string; from: string; to: string; createdAt: any }
-  | { type: "image"; from: string; to: string; createdAt: any }
-  | { type: "audio"; from: string; to: string; createdAt: any }
-  | undefined;
-
 type ThreadMirror = {
   threadId: string;
   peerId: string;
@@ -112,6 +106,23 @@ type RowData = {
   updatedAt?: any;
 };
 
+type ListingCtx = {
+  id: string;
+  name?: string;
+  image?: string;
+  price?: number;
+  currency?: "KES" | "USD" | string;
+  type?: string;        // "marketListing" | "tree" | "arableLand" etc
+  url?: string;         // "/market/<id>"
+};
+
+type LastMessage =
+  | { type: "text"; text: string; from: string; to: string; createdAt: any }
+  | { type: "image"; from: string; to: string; createdAt: any }
+  | { type: "audio"; from: string; to: string; createdAt: any }
+  | { type: "product"; from: string; to: string; createdAt: any; listing?: ListingCtx }
+  | undefined;
+
 type Message = {
   id: string;
   text?: string;
@@ -122,9 +133,11 @@ type Message = {
   from: string;
   to: string;
   createdAt: any;
-  type: "text" | "image" | "audio";
+  type: "text" | "image" | "audio" | "product";
+  listing?: ListingCtx;          // ✅
   readBy?: Record<string, boolean>;
 };
+
 
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
@@ -171,8 +184,10 @@ function previewOf(last?: LastMessage) {
   if (last.type === "text") return last.text || "";
   if (last.type === "image") return "📷 Photo";
   if (last.type === "audio") return "🎤 Voice message";
+  if (last.type === "product") return `🛒 ${last.listing?.name || "Product inquiry"}`;
   return "";
 }
+
 
 function lastSeenText(online?: boolean, lastActive?: any) {
   if (online) return "Online";
@@ -240,8 +255,8 @@ export default function BongaThreadLayoutPage() {
   const initialPeerName = sp.get("peerName") || "";
   const initialPeerPhotoURL = sp.get("peerPhotoURL") || "";
   const initialPeerHandle = sp.get("peerHandle") || "";
-
   // ✅ Single-page selection state
+  const [threadCtx, setThreadCtx] = useState<any>(null);
   const [activeThreadId, setActiveThreadId] = useState(routeThreadId);
   const [activePeerId, setActivePeerId] = useState(initialPeerId);
   const [activePeerQs, setActivePeerQs] = useState({
@@ -249,6 +264,43 @@ export default function BongaThreadLayoutPage() {
     peerPhotoURL: initialPeerPhotoURL,
     peerHandle: initialPeerHandle,
   });
+  const initialListing: ListingCtx | null = useMemo(() => {
+    const id = sp.get("listingId") || "";
+    if (!id) return null;
+
+    const priceRaw = sp.get("listingPrice");
+    const price = priceRaw ? Number(priceRaw) : undefined;
+
+    return {
+      id,
+      name: sp.get("listingName") || "",
+      image: sp.get("listingImage") || "",
+      price: Number.isFinite(price as any) ? price : undefined,
+      currency: (sp.get("listingCurrency") || "KES") as any,
+      type: sp.get("listingType") || "marketListing",
+      url: sp.get("listingUrl") || `/market/${encodeURIComponent(id)}`,
+    };
+  }, [sp]);
+  const threadContextListing: ListingCtx | null = useMemo(() => {
+    const l = threadCtx?.listing;
+    if (!l?.id) return null;
+    return {
+      id: String(l.id),
+      name: l.name || "",
+      image: l.image || "",
+      price: typeof l.price === "number" ? l.price : undefined,
+      currency: l.currency || "KES",
+      type: l.type || "marketListing",
+      url: l.url || `/market/${encodeURIComponent(String(l.id))}`,
+    };
+  }, [threadCtx]);
+
+  const [pendingListing, setPendingListing] = useState<ListingCtx | null>(initialListing);
+  useEffect(() => {
+    setPendingListing(initialListing);
+  }, [initialListing]);
+
+
 
   // keep in sync if user directly navigates to a new /bonga/<id> (hard navigation)
   useEffect(() => {
@@ -465,6 +517,7 @@ export default function BongaThreadLayoutPage() {
 
   // ✅ smooth open: update local state + pushState (no Next navigation)
   const openThreadFromSidebar = (row: RowData) => {
+    setPendingListing(null);
     setActiveThreadId(row.threadId);
     setActivePeerId(row.peerId);
     setActivePeerQs({
@@ -626,14 +679,21 @@ export default function BongaThreadLayoutPage() {
   // typing (from thread doc)
   useEffect(() => {
     if (!activeThreadId || !activePeerId) return;
+
     const tRef = doc(db, "threads", activeThreadId);
     const unsub = onSnapshot(tRef, (snap) => {
       const data = snap.data() || {};
+
       const typing = (data as any).typing || {};
       setPeerTyping(!!typing[activePeerId]);
+
+      // ✅ thread context
+      setThreadCtx((data as any).threadContext || null);
     });
+
     return () => unsub();
   }, [activeThreadId, activePeerId]);
+
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     requestAnimationFrame(() => {
@@ -751,29 +811,52 @@ export default function BongaThreadLayoutPage() {
     async (text: string) => {
       if (!uid || !activePeerId || !activeThreadId) return;
       const t = text.trim();
-      if (!t) return;
+      if (!t && !pendingListing) return;
+
+      const hasListing = !!pendingListing?.id;
 
       await addDoc(collection(db, "threads", activeThreadId, "messages"), {
-        text: t,
+        text: t || "",
+
         from: uid,
         to: activePeerId,
-        type: "text",
+
+        // ✅ make it explicit in message type for rendering + mirrors
+        type: hasListing ? "product" : "text",
+
+        // ✅ attach listing payload (small + safe)
+        listing: hasListing
+          ? {
+            id: pendingListing!.id,
+            name: pendingListing!.name || "",
+            image: pendingListing!.image || "",
+            price: typeof pendingListing!.price === "number" ? pendingListing!.price : null,
+            currency: pendingListing!.currency || "KES",
+            type: pendingListing!.type || "marketListing",
+            url: pendingListing!.url || `/market/${encodeURIComponent(pendingListing!.id)}`,
+          }
+          : null,
+
         createdAt: serverTimestamp(),
         readBy: { [uid]: true },
       });
+
+      // ✅ clear after sending so next msg is normal
+      if (hasListing) setPendingListing(null);
     },
-    [uid, activePeerId, activeThreadId]
+    [uid, activePeerId, activeThreadId, pendingListing]
   );
 
   const onSend = useCallback(async () => {
     const t = input.trim();
-    if (!t) return;
+    if (!t && !pendingListing?.id) return;
+
     await sendText(t);
     setInput("");
     setTypingDebounced(false);
     scrollToBottom("smooth");
     if (textareaRef.current) textareaRef.current.style.height = "40px";
-  }, [input, sendText, setTypingDebounced, scrollToBottom]);
+  }, [input, pendingListing, sendText, setTypingDebounced, scrollToBottom]);
 
   const onPickImage = () => fileInputRef.current?.click();
 
@@ -901,7 +984,7 @@ export default function BongaThreadLayoutPage() {
       </AppShell>
     );
   }
-
+  const ctxListing = threadCtx?.listing;
   return (
     <AppShell>
       {/* ✅ IMPORTANT: min-h-0 fixes sidebar list “disappearing” in grid/flex layouts */}
@@ -1184,6 +1267,46 @@ export default function BongaThreadLayoutPage() {
                   </div>
                 </div>
 
+
+                {ctxListing?.id && (
+                  <div
+                    className="border-b bg-white px-3 py-2"
+                    style={{ borderColor: EKARI.hair }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = ctxListing.url || `/market/${encodeURIComponent(ctxListing.id)}`;
+                        router.push(url);
+                      }}
+                      className="w-full flex items-center gap-2 rounded-xl border bg-gray-50 hover:bg-white transition p-2 text-left"
+                      style={{ borderColor: EKARI.hair }}
+                      title="Open product"
+                    >
+                      <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                        <Image
+                          src={ctxListing.image || "/avatar-placeholder.png"}
+                          alt={ctxListing.name || "Product"}
+                          fill
+                          className="object-cover"
+                          sizes="40px"
+                        />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-extrabold text-slate-900 truncate">
+                          {ctxListing.name || "Product"}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          Conversation about this item
+                        </div>
+                      </div>
+
+                      <IoChevronForward size={16} style={{ color: EKARI.dim }} />
+                    </button>
+                  </div>
+                )}
+
                 {/* ✅ make this flex-1 min-h-0 so list never “vanishes” */}
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   {rowsLoading ? (
@@ -1434,9 +1557,51 @@ export default function BongaThreadLayoutPage() {
                                     onLoad={() => scrollToBottom("auto")}
                                   />
                                 </a>
+                              ) : msg.type === "product" && msg.listing?.id ? (
+                                <div className="space-y-2">
+                                  {/* optional text */}
+                                  {!!msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
+
+                                  {/* product card */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const url = msg.listing?.url || `/market/${encodeURIComponent(msg.listing!.id)}`;
+                                      router.push(url);
+                                    }}
+                                    className="w-full text-left rounded-xl border bg-white/70 hover:bg-white transition p-2 flex items-center gap-2"
+                                    style={{ borderColor: EKARI.hair }}
+                                    title="Open product"
+                                  >
+                                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                                      <Image
+                                        src={msg.listing.image || "/product-placeholder.jpg"}
+                                        alt={msg.listing.name || "Product"}
+                                        fill
+                                        className="object-cover"
+                                        sizes="48px"
+                                      />
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-xs font-extrabold text-slate-900 truncate">
+                                        {msg.listing.name || "Product"}
+                                      </div>
+
+                                      <div className="text-[11px] text-slate-600 truncate">
+                                        {msg.listing.currency === "USD"
+                                          ? `USD ${(Number(msg.listing.price || 0)).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                                          : `KSh ${(Number(msg.listing.price || 0)).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`}
+                                      </div>
+                                    </div>
+
+                                    <IoChevronForward size={16} style={{ color: EKARI.dim }} />
+                                  </button>
+                                </div>
                               ) : (
                                 !!msg.text && <span>{msg.text}</span>
                               )}
+
                             </div>
 
                             {isLastInGroup && (
@@ -1480,6 +1645,53 @@ export default function BongaThreadLayoutPage() {
                       className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2"
                       style={{ borderColor: EKARI.hair }}
                     >
+                      {pendingListing && (
+                        <div className="mb-2 rounded-xl border bg-white p-2 flex items-center gap-2"
+                          style={{ borderColor: EKARI.hair }}>
+                          <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                            <Image
+                              src={pendingListing.image || "/product-placeholder.jpg"}
+                              alt={pendingListing.name || "Product"}
+                              fill
+                              className="object-cover"
+                              sizes="40px"
+                            />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-extrabold text-slate-900 truncate">
+                              {pendingListing.name || "Product inquiry"}
+                            </div>
+                            <div className="text-[11px] text-slate-500 truncate">
+                              {pendingListing.url}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="h-8 w-8 rounded-full hover:bg-black/5 text-slate-600 font-black"
+                            onClick={() => setPendingListing(null)}
+                            title="Remove product"
+                            aria-label="Remove product"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                      {!pendingListing?.id && threadContextListing?.id && (
+                        <div className="mb-2">
+                          <button
+                            type="button"
+                            onClick={() => setPendingListing(threadContextListing)}
+                            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold hover:bg-black/5"
+                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                            title="Attach last referenced product"
+                          >
+                            🛒 Attach product
+                          </button>
+                        </div>
+                      )}
+
                       <textarea
                         ref={textareaRef}
                         value={input}
@@ -1588,7 +1800,7 @@ export default function BongaThreadLayoutPage() {
 
                     <Button
                       onClick={onSend}
-                      disabled={!input.trim()}
+                      disabled={!input.trim() && !pendingListing?.id}
                       className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
                       title="Send"
                       type="button"
