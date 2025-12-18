@@ -846,6 +846,33 @@ export default function BongaThreadLayoutPage() {
     },
     [uid, activePeerId, activeThreadId, pendingListing]
   );
+  // ✅ Active presence for this thread (does NOT overwrite active map)
+  useEffect(() => {
+    if (!uid || !activeThreadId) return;
+
+    const tRef = doc(db, "threads", activeThreadId);
+
+    const setActive = (val: boolean) =>
+      updateDoc(tRef, {
+        [`active.${uid}`]: val ? serverTimestamp() : null, // or FieldValue.delete()
+      }).catch(() => { });
+
+    const onVisibility = () => setActive(!document.hidden);
+    const onBeforeUnload = () => setActive(false);
+
+    setActive(!document.hidden);
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      setActive(false);
+    };
+  }, [uid, activeThreadId]);
+
+
 
   const onSend = useCallback(async () => {
     const t = input.trim();
