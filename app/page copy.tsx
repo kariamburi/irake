@@ -23,6 +23,8 @@ import {
   IoTelescopeOutline,
   IoLogoUsd,
   IoMusicalNotesOutline,
+  IoExpandOutline,
+  IoClose,
 } from "react-icons/io5";
 import {
   collection,
@@ -52,6 +54,7 @@ import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { DonateDialogWeb } from "./components/DonateDialogWeb";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import OpenInAppBanner from "./components/OpenInAppBanner";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -70,6 +73,56 @@ const LABEL: Record<TabKey, string> = { forYou: "For You", following: "Following
 
 /* ---------- Visibility check (kept from your current file) ---------- */
 type Visibility = "public" | "followers" | "private";
+type UserSnap = {
+  userId: string;
+  name?: string | null;
+  handle?: string | null;
+  photoURL?: string | null;
+};
+
+async function getUserSnap(uid: string): Promise<UserSnap> {
+  const us = await getDoc(doc(db, "users", uid));
+  const u = (us.data() as any) || {};
+  return {
+    userId: uid,
+    name: [u.firstName, u.surname].filter(Boolean).join(" ") || null,
+    handle: u?.handle ?? null,
+    photoURL: u?.photoURL ?? null,
+  };
+}
+async function recordViewWeb(params: {
+  deedId: string;
+  uid?: string;
+}) {
+  const { deedId, uid } = params;
+
+  try {
+    const baseId = uid ?? getOrMakeDeviceId();
+    const viewId = `${deedId}_${baseId}`; // ✅ idempotent
+
+    const ref = doc(db, "views", viewId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) return;
+
+    const payload: any = { deedId, createdAt: serverTimestamp() };
+
+    if (uid) {
+      const us = await getUserSnap(uid);
+      payload.userId = uid;
+      payload.user = {
+        name: us.name ?? null,
+        handle: us.handle ?? null,
+        photoURL: us.photoURL ?? null,
+      };
+    } else {
+      payload.deviceId = baseId;
+    }
+
+    await setDoc(ref, payload);
+  } catch {
+    // ignore (never crash UX)
+  }
+}
 
 const canSee = (
   item: PlayerItem,
@@ -128,6 +181,8 @@ async function fetchPublicForYou(limitCount = 30) {
     const snap = await getDocs(qRef);
     const rows: PlayerItem[] = [];
     snap.forEach((d) => {
+
+
       const it = toPlayerItem(d.data(), d.id);
       if (it && it.visibility === "public") rows.push(it);
     });
@@ -180,54 +235,12 @@ function TopLoader({ active, color = "#233F39" }: { active: boolean; color?: str
 
 /* ---------- Server feeds (same contract as mobile) ---------- */
 async function fetchServerFeed(surface: TabKey, uid?: string) {
-  if (!uid) return []; // extra guard
+  if (!uid) return [];
 
-  try {
-    const feedDocRef = doc(db, `feeds/${uid}/surfaces/${surface}`);
-    const feedSnap = await getDoc(feedDocRef);
+  const uniq = (arr: string[]) =>
+    Array.from(new Set(arr.map(String).filter(Boolean)));
 
-    const now = Date.now();
-    let ids: string[] | null = null;
-
-    // 1) Try cache with TTL
-    if (feedSnap.exists()) {
-      const d = feedSnap.data() as any;
-      console.log("[feed] feedSnap data", { surface, uid, d });
-
-      const ttlSec = Number(d?.ttlSec ?? 60);
-      const updatedAtMs =
-        typeof d?.updatedAt?.toMillis === "function"
-          ? d.updatedAt.toMillis()
-          : 0;
-      const fresh = updatedAtMs && now - updatedAtMs < ttlSec * 1000;
-
-      if (fresh && Array.isArray(d.ids) && d.ids.length > 0) {
-        ids = d.ids as string[];
-      }
-    }
-
-    // 2) If no fresh ids, call refreshFeed and WAIT for it
-    if (!ids) {
-      const functions = getFunctions(app, "us-central1"); // set region if needed
-      const refreshFeed = httpsCallable<
-        { surface: TabKey },
-        { ids: string[] }
-      >(functions, "refreshFeed");
-
-      console.log("[feed] calling refreshFeed", { surface, uid });
-
-      const res = await refreshFeed({ surface });
-      ids = (res.data?.ids || []).filter(Boolean);
-
-      console.log("[feed] refreshFeed result", { surface, uid, ids });
-    }
-
-    if (!ids || !ids.length) {
-      console.log("[feed] no ids for surface", surface, "uid", uid);
-      return [];
-    }
-
-    // 3) Fetch deeds for these ids
+  const fetchDeedsByIds = async (ids: string[]) => {
     const base = collection(db, "deeds");
     const docs: { id: string; data: any }[] = [];
 
@@ -238,19 +251,100 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
     }
 
     const map = new Map(docs.map((x) => [x.id, x.data]));
+    const missing = ids.filter((id) => !map.has(id));
 
-    // 4) Map to PlayerItem[]
-    return ids
+    const items = ids
       .map((id) => toPlayerItem(map.get(id), id))
       .filter(Boolean) as PlayerItem[];
+
+    return { items, missing };
+  };
+
+  try {
+    const feedDocRef = doc(db, `feeds/${uid}/surfaces/${surface}`);
+    const feedSnap = await getDoc(feedDocRef);
+
+    const now = Date.now();
+    let ids: string[] | null = null;
+    let fromCache = false;
+
+    // 1) Try cache with TTL
+    if (feedSnap.exists()) {
+      const d = feedSnap.data() as any;
+      const ttlSec = Number(d?.ttlSec ?? 60);
+      const updatedAtMs =
+        typeof d?.updatedAt?.toMillis === "function" ? d.updatedAt.toMillis() : 0;
+
+      const fresh = updatedAtMs && now - updatedAtMs < ttlSec * 1000;
+
+      if (fresh && Array.isArray(d.ids) && d.ids.length > 0) {
+        ids = uniq(d.ids);
+        fromCache = true;
+      }
+    }
+
+    // 2) If no fresh ids, call refreshFeed (and still never crash if it fails)
+    if (!ids || !ids.length) {
+      const functions = getFunctions(app, "us-central1");
+      const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
+        functions,
+        "refreshFeed"
+      );
+
+      try {
+        const res = await refreshFeed({ surface });
+        ids = uniq(res.data?.ids || []);
+        fromCache = false;
+      } catch (e) {
+        console.warn("[feed] refreshFeed failed; falling back to stale cache", e);
+        // fallback to stale cache ids if any
+        if (feedSnap.exists()) {
+          const d = feedSnap.data() as any;
+          if (Array.isArray(d.ids) && d.ids.length) {
+            ids = uniq(d.ids);
+            fromCache = true;
+          }
+        }
+      }
+    }
+
+    if (!ids || !ids.length) return [];
+
+    // 3) Fetch deeds; tolerate deleted docs
+    const { items, missing } = await fetchDeedsByIds(ids);
+
+    // 4) If missing ids exist, self-heal + maybe force refresh
+    if (missing.length > 0) {
+      console.warn("[feed] missing/deleted deeds detected", { surface, missingCount: missing.length });
+
+
+      // (B) If too many are missing or feed got too small, force refresh once
+      const missingRatio = missing.length / Math.max(1, ids.length);
+      if (missingRatio >= 0.3 || items.length < 5) {
+        try {
+          const functions = getFunctions(app, "us-central1");
+          const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
+            functions,
+            "refreshFeed"
+          );
+          const res2 = await refreshFeed({ surface });
+          const ids2 = uniq(res2.data?.ids || []);
+          if (ids2.length) {
+            const { items: items2 } = await fetchDeedsByIds(ids2);
+            return items2;
+          }
+        } catch {
+          // ignore; return items we already have
+        }
+      }
+    }
+
+    return items;
   } catch (err) {
     console.error("[feed] error", err);
     return [];
   }
 }
-
-
-
 
 /* ---------- Likes / Comments / Bookmarks / Shares (unchanged) ---------- */
 function useLikes(itemId: string, uid?: string) {
@@ -275,8 +369,17 @@ function useLikes(itemId: string, uid?: string) {
     if (!uid || !likeId) return;
     const ref = doc(db, "likes", likeId);
     const s = await getDoc(ref);
-    if (s.exists()) await deleteDoc(ref);
-    else await setDoc(ref, { deedId: itemId, userId: uid, createdAt: Date.now() });
+    if (s.exists()) { await deleteDoc(ref); }
+    else {
+      const userSnap = await getUserSnap(uid);
+      await setDoc(ref, {
+        deedId: itemId, userId: uid, user: {
+          name: userSnap.name ?? null,
+          handle: userSnap.handle ?? null,
+          photoURL: userSnap.photoURL ?? null,
+        }, createdAt: Date.now()
+      });
+    }
   };
 
   return { liked, count, toggle };
@@ -309,13 +412,18 @@ function useBookmarks(itemId: string, uid?: string) {
     if (!uid || !bookmarkId) return;
     const ref = doc(db, "bookmarks", bookmarkId);
     const s = await getDoc(ref);
-    if (s.exists()) await deleteDoc(ref);
-    else
+    if (s.exists()) { await deleteDoc(ref); }
+    else {
+      const userSnap = await getUserSnap(uid);
       await setDoc(ref, {
-        deedId: itemId,
-        userId: uid,
-        createdAt: serverTimestamp(),
+        deedId: itemId, userId: uid, user: {
+          name: userSnap.name ?? null,
+          handle: userSnap.handle ?? null,
+          photoURL: userSnap.photoURL ?? null,
+        }, createdAt: serverTimestamp()
       });
+    }
+
   };
 
   return { saved, toggle };
@@ -687,10 +795,10 @@ function SkeletonCard({
   return (
     <div className="relative mt-1 mb-1">
       <article
-        className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_22px_60px_rgba(0,0,0,.12)]"
-        style={{ width: cardW, height: cardH, top: tabOffsetPx - 5 }}
+        className="relative w-full lg:w-[400px] overflow-hidden rounded-[28px] bg-black shadow-[0_22px_60px_rgba(0,0,0,.12)]"
+        style={{ height: cardH, top: tabOffsetPx - 5 }}
       >
-        <div className="h-full w-full bg-white" />
+
       </article>
     </div>
   );
@@ -727,7 +835,11 @@ function VideoCard({
   const [mediaReady, setMediaReady] = useState(item.mediaType !== "video");
   const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
   const firstFrameFiredRef = useRef(false);
-
+  // 🔥 NEW: fullscreen video ref + state
+  // 🔥 NEW: fullscreen media
+  const fsVideoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [fullscreenKind, setFullscreenKind] = useState<"video" | "photo" | null>(null);
   const { liked, count: likeCount, toggle: toggleLike } = useLikes(item.id, uid);
   const commentsCount = useCommentsCount(item.id);
   const { saved, toggle: toggleSave } = useBookmarks(item.id, uid);
@@ -748,13 +860,61 @@ function VideoCard({
     }
     setDonateOpen(true);
   };
+  const viewLoggedRef = useRef(false);
+
+  useEffect(() => {
+    // reset when switching to another deed
+    viewLoggedRef.current = false;
+  }, [item.id]);
+
+  useEffect(() => {
+    if (viewLoggedRef.current) return;
+
+    // PHOTO: dwell for 2s
+    if (item.mediaType === "photo") {
+      const t = window.setTimeout(async () => {
+        if (viewLoggedRef.current) return;
+        viewLoggedRef.current = true;
+        await recordViewWeb({ deedId: item.id, uid });
+      }, 2000);
+
+      return () => window.clearTimeout(t);
+    }
+
+    // VIDEO: >= 3s watched OR >= 40% watched (like mobile)
+    if (item.mediaType === "video") {
+      const v = videoRef.current;
+      if (!v) return;
+
+      const onTime = async () => {
+        if (viewLoggedRef.current) return;
+
+        const watchedMs = (v.currentTime ?? 0) * 1000;
+        const durMs = (v.duration ?? 0) * 1000;
+        const ratio = durMs ? watchedMs / durMs : 0;
+
+        if (watchedMs >= 3000 || ratio >= 0.4) {
+          viewLoggedRef.current = true;
+          v.removeEventListener("timeupdate", onTime);
+          await recordViewWeb({ deedId: item.id, uid });
+        }
+      };
+
+      v.addEventListener("timeupdate", onTime);
+      return () => v.removeEventListener("timeupdate", onTime);
+    }
+  }, [item.id, item.mediaType, uid]);
 
   const onShare = async () => {
-    const url = `${location.origin}/deed/${item.id}`;
+    const handle = authorProfile?.handle || item.authorUsername;
+    const url = handle
+      ? `${location.origin}/${encodeURIComponent(handle.startsWith("@") ? handle : `@${handle}`)}/deed/${item.id}`
+      : `${location.origin}/`; // fallback
+
     try {
       if (navigator.share) {
         await navigator.share({
-          title: item.text || "EkariHub",
+          title: item.text || "ekarihub",
           text: item.text || "",
           url,
         });
@@ -764,9 +924,20 @@ function VideoCard({
       }
       const baseId = uid ?? getOrMakeDeviceId();
       const sid = `${item.id}_${baseId}_${Date.now()}`;
+
       const payload: any = { deedId: item.id, createdAt: serverTimestamp() };
-      if (uid) payload.userId = uid;
-      else payload.deviceId = baseId;
+
+      if (uid) {
+        const userSnap = await getUserSnap(uid);
+        payload.userId = uid;
+        payload.user = {
+          name: userSnap.name ?? null,
+          handle: userSnap.handle ?? null,
+          photoURL: userSnap.photoURL ?? null,
+        };
+      } else {
+        payload.deviceId = baseId;
+      }
       await setDoc(doc(db, "shares", sid), payload);
     } catch { }
   };
@@ -846,6 +1017,42 @@ function VideoCard({
     initialMuted: muted,
   });
   useHls(videoRef, item.mediaUrl || undefined, { maxHeight: hlsMaxHeight });
+  // 🔥 NEW: HLS for fullscreen element (only does work when open)
+  // 🔥 HLS for fullscreen video only
+  useHls(
+    fsVideoRef,
+    fullscreenOpen && fullscreenKind === "video"
+      ? item.mediaUrl || undefined
+      : undefined,
+    { maxHeight: hlsMaxHeight }
+  );
+
+  // 🔥 Register fullscreen video with global mute when open
+  useEffect(() => {
+    if (!fullscreenOpen || fullscreenKind !== "video") return;
+
+    const v = fsVideoRef.current;
+    if (!v) return;
+
+    registerVideo(v);
+    (v as any).muted = muted;
+    playExclusive(v);
+
+    return () => {
+      pauseIfCurrent(v);
+      unregisterVideo(v);
+    };
+  }, [fullscreenOpen, fullscreenKind, registerVideo, unregisterVideo, muted]);
+
+  // 🔥 Keep fullscreen video in sync with global mute
+  useEffect(() => {
+    if (!fullscreenOpen || fullscreenKind !== "video") return;
+    const v = fsVideoRef.current;
+    if (!v) return;
+    (v as any).muted = muted;
+  }, [muted, fullscreenOpen, fullscreenKind]);
+
+
 
   useEffect(() => {
     const v = videoRef.current;
@@ -873,6 +1080,34 @@ function VideoCard({
   const soundAvatar = isLibrarySound ? (music?.coverUrl as string) : avatar;
 
   const [playing, setPlaying] = useState(false);
+
+  // 🔥 Caption + hashtag logic (TikTok-style)
+  const [captionExpanded, setCaptionExpanded] = useState(false);
+
+  const tags = useMemo(
+    () => (item.tags ?? []).filter(Boolean),
+    [item.tags]
+  );
+
+  const MAX_COLLAPSED_TAGS = 3;
+
+  const hasCaption = !!item.text;
+  const hasTags = tags.length > 0;
+
+  const captionTooLong = (item.text?.length ?? 0) > 80;
+  const tagsHidden = tags.length > MAX_COLLAPSED_TAGS;
+
+  // what we actually render
+  const visibleTags = captionExpanded ? tags : tags.slice(0, MAX_COLLAPSED_TAGS);
+
+  // should we show "… more"/"less" at all?
+  const showMoreToggle = captionTooLong || tagsHidden;
+
+  // Reset expanded state when the card changes to a new deed
+  useEffect(() => {
+    setCaptionExpanded(false);
+  }, [item.id]);
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -903,9 +1138,10 @@ function VideoCard({
           "shadow-[0_22px_60px_rgba(0,0,0,.65)]",
           "bg-gradient-to-b from-[#0B1513] via-black to-black",
           "transition-transform duration-300 ease-out",
-          "md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]"
+          "md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]",
+          "w-full lg:w-[375px]"
         )}
-        style={{ top: tabOffsetPx - 5, width: cardW, height: cardH }}
+        style={{ top: tabOffsetPx - 5, height: cardH }}
       >
         {/* Loader overlay until mediaReady */}
         {!mediaReady && (
@@ -917,7 +1153,7 @@ function VideoCard({
         {/* Top overlay controls */}
         {item.mediaType === "video" && (
           <>
-            <div className="absolute left-3 top-20 z-20 flex items-center gap-2">
+            <div className="absolute left-3 top-3 z-20 flex items-center gap-2">
               <button
                 onClick={toggleMute}
                 aria-label={
@@ -942,6 +1178,32 @@ function VideoCard({
             </button>
           </>
         )}
+        {/* 🔥 Fullscreen toggle for any media */}
+        {item.mediaUrl && (
+          <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (item.mediaType === "video") {
+                  const v = videoRef.current;
+                  if (v) {
+                    // pause inline video while fullscreen is open
+                    pauseIfCurrent(v);
+                  }
+                  setFullscreenKind("video");
+                } else if (item.mediaType === "photo") {
+                  setFullscreenKind("photo");
+                }
+                setFullscreenOpen(true);
+              }}
+              aria-label="Fullscreen preview"
+              title="Fullscreen"
+              className="rounded-full bg-black/40 text-white p-2 hover:bg-black/70 backdrop-blur-sm border border-white/20"
+            >
+              <IoExpandOutline size={18} />
+            </button>
+          </div>
+        )}
+
 
         {/* Media */}
         <div className="w-full h-full flex items-center justify-center bg-black">
@@ -1023,6 +1285,7 @@ function VideoCard({
               className="cursor-pointer min-w-0 flex flex-col"
             >
               <div className="text-white/95 font-bold text-sm truncate">
+
                 {authorProfile?.handle
                   ? authorProfile.handle
                   : item.authorUsername
@@ -1042,7 +1305,7 @@ function VideoCard({
             {showFollow && (
               <button
                 onClick={onFollowClick}
-                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-[#0F172A] bg-[#FDE68A] hover:bg-[#FCD34D] shadow-sm"
+                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-[#ffffff] bg-[#C79257] hover:bg-[#FCD34D] shadow-sm"
                 aria-label="Follow"
                 title="Follow"
               >
@@ -1051,11 +1314,74 @@ function VideoCard({
             )}
           </div>
 
-          {!!item.text && (
-            <p className="text-white/95 text-sm leading-5 line-clamp-3">
-              {item.text}
-            </p>
+          {/* Caption + hashtags (TikTok-style) */}
+
+          {/* Caption + hashtags (TikTok-style) */}
+          {(hasCaption || hasTags) && (
+            <motion.div
+              className="mt-1 w-full"
+              layout
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+            >
+              {/* Caption with inline toggle at end of last line */}
+              {hasCaption && (
+                <div className="relative pb-1 w-full">
+                  <motion.p
+                    layout
+                    className={cn(
+                      "text-white/95 w-full text-sm leading-5 cursor-pointer",
+                      captionExpanded ? "" : "line-clamp-2"
+                    )}
+                    onClick={() => setCaptionExpanded((v) => !v)}
+                  >
+                    {item.text}
+                  </motion.p>
+
+
+                </div>
+              )}
+
+              {/* Hashtag pills */}
+              {hasTags && (
+                <motion.div
+                  layout
+                  className="mt-1 w-full flex flex-wrap items-center gap-1.5"
+                >
+                  {visibleTags.map((tag: any) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="px-2 py-0.5 rounded-full border border-white/30 bg-black/30 text-[11px] text-white font-semibold hover:bg-black/60 transition-colors"
+                      onClick={() =>
+                        router.push(
+                          `/search?tag=${encodeURIComponent(tag)}&tab=Tags`
+                        )
+                      }
+
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                  {showMoreToggle && (
+                    <button
+                      type="button"
+                      onClick={() => setCaptionExpanded((v) => !v)}
+                      className={cn(
+
+                        "bg-gradient-to-l from-black via-black/80 to-transparent",
+                        "pl-2 text-[11px] text-white/90 font-semibold"
+                      )}
+                    >
+                      {captionExpanded ? "less" : "… more"}
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </motion.div>
           )}
+
+
+
 
           {/* Sound row */}
           <div className="mt-2 flex items-center gap-2">
@@ -1089,7 +1415,7 @@ function VideoCard({
         className={cn(
           "absolute z-10 flex flex-col items-center gap-1.5",
           "right-3 top-1/2 -translate-y-1/2",
-          "md:right-[-72px]",
+          "md:right-[-55px]",
           "transition-opacity duration-200",
           mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
@@ -1204,6 +1530,61 @@ function VideoCard({
           {formatCount(totalShares)}
         </div>
       </div>
+      {/* 🔥 Fullscreen preview overlay */}
+      {/* 🔥 Fullscreen preview overlay for video & photo */}
+      {fullscreenOpen && item.mediaUrl && (
+        <div className="fixed inset-0 z-[70] bg-black/95 flex items-center justify-center">
+          {/* Close button */}
+          <button
+            onClick={() => {
+              setFullscreenOpen(false);
+              setFullscreenKind(null);
+              // pause fullscreen video if open
+              const v = fsVideoRef.current;
+              if (v) pauseIfCurrent(v);
+            }}
+            className="absolute top-4 right-4 rounded-full bg-black/70 border border-white/30 p-2 text-white hover:bg-black/90"
+            aria-label="Close fullscreen"
+            title="Close"
+          >
+            <IoClose size={20} />
+          </button>
+
+
+          {/* Fullscreen VIDEO */}
+          {fullscreenKind === "video" &&
+            item.mediaType === "video" &&
+            item.mediaUrl && (
+              <video
+                ref={fsVideoRef}
+                poster={item.posterUrl || undefined}
+                playsInline
+                loop
+                controls
+                className="max-h-[92vh] max-w-[92vw] object-contain"
+                // For non-HLS sources, let the element own src directly
+                src={item.mediaUrl.endsWith(".m3u8") ? undefined : item.mediaUrl}
+                onClick={(e) => {
+                  const v = e.currentTarget;
+                  if (v.paused) playExclusive(v);
+                  else pauseIfCurrent(v);
+                }}
+              />
+            )}
+
+          {/* Fullscreen PHOTO */}
+          {fullscreenKind === "photo" &&
+            item.mediaType === "photo" &&
+            item.mediaUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.mediaUrl}
+                alt={item.text || "photo"}
+                className="max-h-[92vh] max-w-[92vw] object-contain rounded-2xl shadow-2xl"
+              />
+            )}
+        </div>
+      )}
 
       <DonateDialogWeb
         open={donateOpen}
@@ -1411,7 +1792,7 @@ function ChannelTabs({
                   key={k}
                   onClick={() => onChange(k)}
                   className={cn(
-                    "relative px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[60px] lg:w-[96px]",
+                    "relative px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[60px] lg:w-[80px]",
                     "rounded-full font-semibold flex-shrink-0 flex items-center justify-center transition",
                     isActive
                       ? "bg-[#233F39] text-white shadow-sm"
@@ -1434,14 +1815,7 @@ function ChannelTabs({
             <span>Dive In</span>
           </button>
 
-          {/* Search (desktop) */}
-          <button
-            onClick={() => router.push("/search")}
-            className="hidden lg:inline-flex items-center justify-center rounded-full border border-gray-200 bg-white/90 hover:bg-gray-50 shadow-sm p-2 flex-shrink-0"
-            aria-label="Search"
-          >
-            <IoSearch />
-          </button>
+
 
           {/* Data saver pill */}
           <button
@@ -1449,10 +1823,10 @@ function ChannelTabs({
             onClick={onToggleDataSaver}
             disabled={!uid}
             className={cn(
-              "ml-1 flex items-center gap-1 px-1.5 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm bg-white/90",
+              "ml-1 flex items-center gap-1 px-1.5 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm text-white",
               dataSaverOn
-                ? "text-emerald-700 border-emerald-200"
-                : "text-gray-700 border-gray-200 hover:bg-gray-50"
+                ? "text-emerald-700 border-white"
+                : "text-gray-700 border-gray-200 hover:text-gray-50"
             )}
             title={
               dataSaverOn
@@ -1465,6 +1839,14 @@ function ChannelTabs({
               style={{ backgroundColor: dataSaverOn ? "#16A34A" : "#9CA3AF" }}
             />
             <span>Data saver</span>
+          </button>
+          {/* Search (desktop) */}
+          <button
+            onClick={() => router.push("/search")}
+            className="hidden lg:inline-flex items-center justify-center rounded-full border border-white-200 text-white hover:text-green-50 shadow-sm p-2 flex-shrink-0"
+            aria-label="Search"
+          >
+            <IoSearch />
           </button>
         </div>
       </div>
@@ -1639,7 +2021,10 @@ function FeedShell() {
     if (!uid) router.push("/getstarted?next=/studio/upload");
     else router.push("/studio/upload");
   };
-  const TAB_BAR_H = 56; // px — tweak to taste
+  const TAB_BAR_H = 56;
+  const FLOAT_BANNER_H = 76;
+  const MOBILE_TOP_OFFSET = TAB_BAR_H + FLOAT_BANNER_H;
+
   return (
     <MuteProvider>
       <AppShell
@@ -1657,6 +2042,12 @@ function FeedShell() {
           />
         }
       >
+        <OpenInAppBanner
+          webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
+          appUrl="ekarihub://"
+          title="Open ekarihub in the app"
+          subtitle="Best experience in the app."
+        />
 
         {/* Feed scroller */}
         <section
@@ -1666,6 +2057,7 @@ function FeedShell() {
           style={{
             height: "100svh",
             scrollSnapType: "y mandatory" as any,
+            //  paddingTop: FLOAT_BANNER_H, // ✅ makes room for floating banner
             overscrollBehaviorY: "contain",
           }}
         >
@@ -1744,30 +2136,31 @@ function FeedShell() {
         </section>
 
         {/* Up/Down steppers */}
-        <div
-          className={[
-            "fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2 md:gap-3 transition-[right] duration-200",
-            commentsId ? `${railOffsetLg} ${railOffsetXl}` : "right-3 md:right-4",
-          ].join(" ")}
-        >
-          <button
-            onClick={goPrev}
-            disabled={atTop}
-            aria-label="Previous"
-            className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 md:p-3 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+        <div className="hidden lg:inline">
+          <div
+            className={[
+              "fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2 md:gap-3 transition-[right] duration-200",
+              commentsId ? `${railOffsetLg} ${railOffsetXl}` : "right-0 md:right-4",
+            ].join(" ")}
           >
-            <IoChevronUp size={18} />
-          </button>
-          <button
-            onClick={goNext}
-            disabled={atEnd}
-            aria-label="Next"
-            className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 md:p-3 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <IoChevronDown size={18} />
-          </button>
+            <button
+              onClick={goPrev}
+              disabled={atTop}
+              aria-label="Previous"
+              className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <IoChevronUp size={18} />
+            </button>
+            <button
+              onClick={goNext}
+              disabled={atEnd}
+              aria-label="Next"
+              className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <IoChevronDown size={18} />
+            </button>
+          </div>
         </div>
-
         {/* Mobile upload FAB */}
         <button
           className="lg:hidden fixed right-4 bottom-4 rounded-full shadow-md p-3 text-white"
