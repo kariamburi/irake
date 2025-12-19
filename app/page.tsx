@@ -2016,7 +2016,7 @@ function FeedShell() {
           style={{
             height: "100svh",
             scrollSnapType: "y mandatory" as any,
-            paddingTop: FLOAT_BANNER_H, // ✅ makes room for floating banner
+            //  paddingTop: FLOAT_BANNER_H, // ✅ makes room for floating banner
             overscrollBehaviorY: "contain",
           }}
         >
