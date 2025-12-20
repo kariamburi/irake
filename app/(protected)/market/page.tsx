@@ -29,6 +29,8 @@ import {
   IoStorefrontOutline,
   IoGitNetworkOutline,
   IoChatbubblesOutline,
+  IoHomeOutline,
+  IoCompassOutline,
 } from "react-icons/io5";
 
 import FilterModal, { distanceKm, Filters, toLower } from "@/app/components/FilterModal";
@@ -72,9 +74,26 @@ function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
 }
 
-/* ---------------- bottom tabs (match /) ---------------- */
+/* ---------------- bottom tabs (LIGHT) ---------------- */
 function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
   const router = useRouter();
+
+  const TabBtn = ({
+    label,
+    icon,
+    onClick,
+  }: {
+    label: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+  }) => (
+    <button onClick={onClick} className="flex flex-col items-center gap-1">
+      <div style={{ color: EKARI.text }}>{icon}</div>
+      <span className="text-[11px] font-semibold" style={{ color: EKARI.text }}>
+        {label}
+      </span>
+    </button>
+  );
 
   return (
     <div
@@ -84,19 +103,12 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
       <div
         className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
         style={{
-          backgroundColor: "#000000",
-          borderTop: "1px solid rgba(255,255,255,.10)",
+          backgroundColor: "#FFFFFF",
+          borderTop: `1px solid ${EKARI.hair}`,
         }}
       >
-        <button onClick={() => router.push("/")} className="flex flex-col items-center gap-1 text-white">
-          <IoPlay size={20} />
-          <span className="text-[11px] font-semibold">Deeds</span>
-        </button>
-
-        <button onClick={() => router.push("/market")} className="flex flex-col items-center gap-1 text-white">
-          <IoStorefrontOutline size={20} />
-          <span className="text-[11px] font-semibold">ekariMarket</span>
-        </button>
+        <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} onClick={() => router.push("/")} />
+        <TabBtn label="ekariMarket" icon={<IoCartOutline size={20} />} onClick={() => router.push("/market")} />
 
         <button
           onClick={onCreate}
@@ -107,15 +119,8 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
           <IoAdd size={26} color="#111827" />
         </button>
 
-        <button onClick={() => router.push("/nexus")} className="flex flex-col items-center gap-1 text-white">
-          <IoGitNetworkOutline size={20} />
-          <span className="text-[11px] font-semibold">Nexus</span>
-        </button>
-
-        <button onClick={() => router.push("/bonga")} className="flex flex-col items-center gap-1 text-white">
-          <IoChatbubblesOutline size={20} />
-          <span className="text-[11px] font-semibold">Bonga</span>
-        </button>
+        <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} onClick={() => router.push("/nexus")} />
+        <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} onClick={() => router.push("/bonga")} />
       </div>
     </div>
   );
@@ -200,7 +205,9 @@ export default function MarketPage() {
 
       const byRadius =
         filters.center && filters.radiusKm
-          ? byLocText.filter((p) => (p.location ? distanceKm(filters.center!, p.location) <= (filters.radiusKm as number) : false))
+          ? byLocText.filter((p) =>
+            p.location ? distanceKm(filters.center!, p.location) <= (filters.radiusKm as number) : false
+          )
           : byLocText;
 
       return byRadius;
@@ -211,7 +218,6 @@ export default function MarketPage() {
   const runInitialLoad = useCallback(async () => {
     try {
       unsubRef.current?.();
-
       if (!hasLoadedOnce.current) setInitialLoading(true);
 
       if (sort === "recent") {
@@ -317,84 +323,60 @@ export default function MarketPage() {
     [applyClientFilters, sort]
   );
 
-  /* ---------------- shared controls UI ---------------- */
+  /* ---------------- shared controls UI (LIGHT) ---------------- */
   const Controls = (
     <div className="w-full">
-      {/* Search row */}
       <div className="px-3 py-3 flex items-center gap-2">
         <div
-          className={cn(
-            "flex-1 h-10 rounded-full px-3 flex items-center gap-2 focus-within:ring-2",
-            isMobile ? "bg-white/10" : "bg-white"
-          )}
-          style={{
-            border: `1px solid ${isMobile ? "rgba(255,255,255,.12)" : EKARI.hair}`,
-            ...ringStyle,
-          }}
+          className="flex-1 h-10 rounded-full bg-white px-3 flex items-center gap-2 focus-within:ring-2"
+          style={{ border: `1px solid ${EKARI.hair}`, ...ringStyle }}
         >
-          <IoSearch size={18} style={{ color: isMobile ? "rgba(255,255,255,.75)" : EKARI.dim }} />
+          <IoSearch size={18} style={{ color: EKARI.dim }} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search products, services or lease…"
             className="flex-1 outline-none bg-transparent"
-            style={{ color: isMobile ? "#fff" : EKARI.text }}
+            style={{ color: EKARI.text }}
           />
           {!!search && (
             <button onClick={() => setSearch("")} aria-label="Clear search">
-              <IoCloseCircle size={18} style={{ color: isMobile ? "rgba(255,255,255,.75)" : EKARI.dim }} />
+              <IoCloseCircle size={18} style={{ color: EKARI.dim }} />
             </button>
           )}
         </div>
 
         <button
           onClick={() => setFilterOpen(true)}
-          className={cn(
-            "h-10 w-10 grid place-items-center rounded-full focus:ring-2",
-            isMobile ? "bg-white/10 hover:bg-white/15" : "hover:bg-black/[0.03]"
-          )}
-          style={{
-            border: `1px solid ${isMobile ? "rgba(255,255,255,.12)" : EKARI.hair}`,
-            ...ringStyle,
-          }}
+          className="h-10 w-10 grid place-items-center rounded-full hover:bg-black/[0.03] focus:ring-2"
+          style={{ border: `1px solid ${EKARI.hair}`, ...ringStyle }}
           aria-label="Open filters"
         >
-          <IoOptionsOutline size={18} style={{ color: isMobile ? "#fff" : EKARI.text }} />
+          <IoOptionsOutline size={18} style={{ color: EKARI.text }} />
         </button>
 
         <button
           onClick={() => setSort((s) => (s === "recent" ? "priceAsc" : s === "priceAsc" ? "priceDesc" : "recent"))}
-          className={cn(
-            "h-10 w-10 grid place-items-center rounded-full focus:ring-2",
-            isMobile ? "bg-white/10 hover:bg-white/15" : "hover:bg-black/[0.03]"
-          )}
-          style={{
-            border: `1px solid ${isMobile ? "rgba(255,255,255,.12)" : EKARI.hair}`,
-            ...ringStyle,
-          }}
+          className="h-10 w-10 grid place-items-center rounded-full hover:bg-black/[0.03] focus:ring-2"
+          style={{ border: `1px solid ${EKARI.hair}`, ...ringStyle }}
           aria-label="Toggle sort"
         >
           {sort === "recent" ? (
-            <IoTimeOutline size={18} style={{ color: isMobile ? "#fff" : EKARI.text }} />
+            <IoTimeOutline size={18} style={{ color: EKARI.text }} />
           ) : (
-            <IoSwapVerticalOutline size={18} style={{ color: isMobile ? "#fff" : EKARI.text }} />
+            <IoSwapVerticalOutline size={18} style={{ color: EKARI.text }} />
           )}
         </button>
       </div>
 
-      {/* chips */}
       {!!activeChips.length && (
         <div className="px-3 pb-3 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-2">
             {activeChips.map((c, i) => (
               <span
                 key={`${c}-${i}`}
-                className="shrink-0 text-xs font-bold rounded-full px-2.5 py-1"
-                style={{
-                  color: isMobile ? "#fff" : EKARI.text,
-                  background: isMobile ? "rgba(255,255,255,.10)" : "white",
-                  border: `1px solid ${isMobile ? "rgba(255,255,255,.12)" : EKARI.hair}`,
-                }}
+                className="shrink-0 text-xs font-bold bg-white rounded-full px-2.5 py-1"
+                style={{ color: EKARI.text, border: `1px solid ${EKARI.hair}` }}
               >
                 {c}
               </span>
@@ -405,31 +387,31 @@ export default function MarketPage() {
     </div>
   );
 
-  /* ---------------- mobile shell ---------------- */
+  /* ---------------- mobile shell (LIGHT) ---------------- */
   if (isMobile) {
     return (
       <>
-        <div className="fixed inset-0 bg-black">
-          {/* Top overlay header (TikTok-like) */}
-          <div className="sticky top-0 z-50">
-            <div
-              className="h-[56px] w-full px-3 flex items-center justify-between"
-              style={{
-                background: "linear-gradient(180deg, rgba(0,0,0,.75), rgba(0,0,0,0))",
-              }}
-            >
+        <div className="fixed inset-0 bg-white">
+          <div
+            className="sticky top-0 z-50 border-b"
+            style={{ backgroundColor: "rgba(255,255,255,0.95)", borderColor: EKARI.hair }}
+          >
+            <div className="h-[56px] w-full px-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <IoCartOutline size={20} color="#fff" />
-                <div className="font-black text-base text-white">ekariMarket</div>
+                <IoCartOutline size={20} style={{ color: EKARI.text }} />
+                <div className="font-black text-base" style={{ color: EKARI.text }}>
+                  ekariMarket
+                </div>
               </div>
 
               <button
                 onClick={() => setSellOpen(true)}
-                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black focus:ring-2"
                 style={{
-                  background: "rgba(255,255,255,.10)",
-                  border: "1px solid rgba(255,255,255,.12)",
-                  color: "#fff",
+                  background: "white",
+                  border: `1px solid ${EKARI.gold}`,
+                  color: EKARI.gold,
+                  ...ringStyle,
                 }}
               >
                 <IoPricetagOutline size={16} />
@@ -437,50 +419,41 @@ export default function MarketPage() {
               </button>
             </div>
 
-            {/* search/actions under top header */}
             {Controls}
 
-            {/* small stats */}
             {!initialLoading && (
-              <div className="px-3 pb-2 text-[12px]" style={{ color: "rgba(255,255,255,.75)" }}>
+              <div className="px-3 pb-2 text-[12px]" style={{ color: EKARI.dim }}>
                 {items.length} result{items.length === 1 ? "" : "s"}
                 {sort !== "recent" ? ` • ${sort === "priceAsc" ? "price ↑" : "price ↓"}` : ""}
-                <button onClick={onRefresh} className="ml-2 underline" style={{ color: "#fff" }}>
+                <button onClick={onRefresh} className="ml-2 underline" style={{ color: EKARI.forest }}>
                   refresh
                 </button>
               </div>
             )}
           </div>
 
-          {/* content */}
-          <div
-            className="w-full"
-            style={{
-              paddingBottom: "calc(84px + env(safe-area-inset-bottom))",
-            }}
-          >
+          <div style={{ paddingBottom: "calc(84px + env(safe-area-inset-bottom))" }}>
             {initialLoading && (
-              <div className="h-[240px] grid place-items-center" style={{ color: "rgba(255,255,255,.8)" }}>
+              <div className="h-[240px] grid place-items-center" style={{ color: EKARI.dim }}>
                 <BouncingBallLoader />
               </div>
             )}
 
             {!initialLoading && items.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div
-                  className="w-16 h-16 grid place-items-center rounded-full mb-3"
-                  style={{ backgroundColor: "rgba(255,255,255,.10)" }}
-                >
-                  <IoCartOutline size={28} style={{ color: EKARI.gold }} />
+                <div className="w-16 h-16 grid place-items-center rounded-full mb-3" style={{ backgroundColor: EKARI.hair }}>
+                  <IoCartOutline size={28} style={{ color: EKARI.forest }} />
                 </div>
-                <div className="text-lg font-black text-white">No Item found</div>
-                <div className="mt-1" style={{ color: "rgba(255,255,255,.75)" }}>
+                <div className="text-lg font-black" style={{ color: EKARI.text }}>
+                  No Item found
+                </div>
+                <div className="mt-1" style={{ color: EKARI.dim }}>
                   Try adjusting your search or filters.
                 </div>
                 <button
                   onClick={() => setFilterOpen(true)}
-                  className="mt-4 inline-flex items-center gap-2 px-4 h-11 rounded-full text-black font-black"
-                  style={{ backgroundColor: EKARI.gold }}
+                  className="mt-4 inline-flex items-center gap-2 px-4 h-11 rounded-full text-white font-black focus:ring-2"
+                  style={{ backgroundColor: EKARI.forest, ...ringStyle }}
                 >
                   <IoOptionsOutline size={18} />
                   Open Filters
@@ -488,21 +461,19 @@ export default function MarketPage() {
               </div>
             )}
 
-            {/* grid (mobile) */}
             <div className="px-3 grid grid-cols-2 gap-2">
               {items.map((p) => (
                 <ProductCard key={p.id} p={p} onClick={() => router.push(`/market/${p.id}`)} />
               ))}
             </div>
 
-            {/* load more */}
             {!initialLoading && lastDocRef.current && (
               <div className="py-6 grid place-items-center">
                 <button
                   onClick={loadMore}
                   disabled={paging}
-                  className="px-4 py-2 rounded-lg text-black font-black disabled:opacity-60"
-                  style={{ backgroundColor: EKARI.gold }}
+                  className="px-4 py-2 rounded-lg text-white font-black hover:opacity-90 disabled:opacity-60 focus:ring-2"
+                  style={{ backgroundColor: EKARI.forest, ...ringStyle }}
                 >
                   {paging ? <BouncingBallLoader /> : "Load more"}
                 </button>
@@ -510,11 +481,9 @@ export default function MarketPage() {
             )}
           </div>
 
-          {/* bottom tabs */}
           <MobileBottomTabs onCreate={() => setSellOpen(true)} />
         </div>
 
-        {/* Modals */}
         <FilterModal
           open={filterOpen}
           onClose={() => setFilterOpen(false)}
@@ -529,11 +498,10 @@ export default function MarketPage() {
     );
   }
 
-  /* ---------------- desktop shell ---------------- */
+  /* ---------------- desktop shell (already light) ---------------- */
   return (
     <AppShell>
       <div className="min-h-screen w-full">
-        {/* Top bar */}
         <div
           className="sticky top-0 z-10 backdrop-blur border-b"
           style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
@@ -546,25 +514,22 @@ export default function MarketPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSellOpen(true)}
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-black transition focus:ring-2"
-                style={{
-                  border: `1px solid ${EKARI.gold}`,
-                  color: EKARI.gold,
-                  ...ringStyle,
-                }}
-              >
-                <IoPricetagOutline size={18} />
-                <span>Sell / Lease</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setSellOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-black transition focus:ring-2"
+              style={{
+                border: `1px solid ${EKARI.gold}`,
+                color: EKARI.gold,
+                ...ringStyle,
+              }}
+            >
+              <IoPricetagOutline size={18} />
+              <span>Sell / Lease</span>
+            </button>
           </div>
 
           <div className="max-w-[1180px] mx-auto">{Controls}</div>
 
-          {/* Stats header */}
           {!initialLoading && (
             <div className="px-4 pb-3 max-w-[1180px] mx-auto text-xs" style={{ color: EKARI.dim }}>
               {items.length} result{items.length === 1 ? "" : "s"}
@@ -576,14 +541,12 @@ export default function MarketPage() {
           )}
         </div>
 
-        {/* Initial overlay */}
         {initialLoading && (
           <div className="h-[260px] grid place-items-center" style={{ color: EKARI.dim }}>
             <BouncingBallLoader />
           </div>
         )}
 
-        {/* Grid */}
         <div className="max-w-[1180px] mx-auto px-4 pt-3 pb-24">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {items.map((p) => (
@@ -591,7 +554,6 @@ export default function MarketPage() {
             ))}
           </div>
 
-          {/* Footer Load More */}
           {!initialLoading && lastDocRef.current && (
             <div className="py-8 grid place-items-center">
               <button
@@ -605,7 +567,6 @@ export default function MarketPage() {
             </div>
           )}
 
-          {/* Empty state */}
           {!initialLoading && items.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 grid place-items-center rounded-full mb-3" style={{ backgroundColor: EKARI.hair }}>
@@ -630,7 +591,6 @@ export default function MarketPage() {
         </div>
       </div>
 
-      {/* Modals */}
       <FilterModal
         open={filterOpen}
         onClose={() => setFilterOpen(false)}

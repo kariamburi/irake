@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   IoHeart,
@@ -28,6 +28,14 @@ import {
   IoCartOutline,
   IoCompassOutline,
   IoHomeOutline,
+  IoInformationCircleOutline,
+  IoPersonCircleOutline,
+  IoSparklesOutline,
+  IoChatbubbleOutline,
+  IoNotificationsOutline,
+  IoFilmOutline,
+  IoChevronForward,
+  IoMenu,
 } from "react-icons/io5";
 
 import {
@@ -58,6 +66,7 @@ import OpenInAppBanner from "./components/OpenInAppBanner";
 
 // 🔗 single source of truth for deed data
 import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
+import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -2122,6 +2131,177 @@ function FeedShell() {
     </MuteProvider>
   );
 }
+function useIsActivePath(href: string, alsoMatch: string[] = []) {
+  const pathname = usePathname() || "/";
+  const matches = [href, ...alsoMatch];
+  return matches.some(
+    (m) =>
+      pathname === m ||
+      (m !== "/" && pathname.startsWith(m + "/")) ||
+      (m === "/" && pathname === "/")
+  );
+}
+
+function badgeText(n?: number) {
+  if (!n || n <= 0) return "";
+  if (n > 999) return "999+";
+  if (n > 99) return "99+";
+  return String(n);
+}
+type MenuItem = {
+  key: string;
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  alsoMatch?: string[];
+  requiresAuth?: boolean;
+  badgeCount?: number;
+};
+
+
+function SideMenuSheet({
+  open,
+  onClose,
+  onNavigate,
+  items,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onNavigate: (href: string, requiresAuth?: boolean) => void;
+  items: MenuItem[];
+}) {
+  // lock scroll
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  // esc closes
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  return (
+    <div
+      className={cn(
+        "fixed inset-0 z-[120] transition",
+        open ? "pointer-events-auto" : "pointer-events-none"
+      )}
+      aria-hidden={!open}
+    >
+      {/* backdrop */}
+      <div
+        className={cn(
+          "absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity",
+          open ? "opacity-100" : "opacity-0"
+        )}
+        onClick={onClose}
+      />
+
+      {/* sheet */}
+      <div
+        className={cn(
+          "absolute left-0 top-0 h-full w-[86%] max-w-[340px]",
+          "bg-white shadow-2xl border-r",
+          "transition-transform duration-300 will-change-transform",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ borderColor: EKARI.hair }}
+        role="dialog"
+        aria-modal="true"
+      >
+        {/* header */}
+        <div className="h-[56px] px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
+          <div className="font-black" style={{ color: EKARI.text }}>Menu</div>
+          <button
+            onClick={onClose}
+            className="h-10 w-10 rounded-xl grid place-items-center border hover:bg-black/5"
+            style={{ borderColor: EKARI.hair }}
+            aria-label="Close menu"
+          >
+            <IoClose size={20} />
+          </button>
+        </div>
+
+        {/* items */}
+        <nav className="p-2 overflow-y-auto h-[calc(100%-56px)]">
+          {items.map((it) => (
+            <MenuRow
+              key={it.key}
+              item={it}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+function MenuRow({
+  item,
+  onNavigate,
+}: {
+  item: MenuItem;
+  onNavigate: (href: string, requiresAuth?: boolean) => void;
+}) {
+  const active = useIsActivePath(item.href, item.alsoMatch);
+  const bt = badgeText(item.badgeCount);
+  const showBadge = !!bt;
+
+  return (
+    <button
+      onClick={() => onNavigate(item.href, item.requiresAuth)}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition",
+        "hover:bg-black/5"
+      )}
+      style={{
+        color: EKARI.text,
+        backgroundColor: active ? "rgba(199,146,87,0.10)" : undefined,
+        border: active ? "1px solid rgba(199,146,87,0.35)" : "1px solid transparent",
+      }}
+    >
+      <span
+        className="relative h-10 w-10 rounded-xl grid place-items-center border bg-white"
+        style={{ borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair }}
+      >
+        <span style={{ color: active ? THEME.gold : THEME.forest }} className="text-[18px]">
+          {item.icon}
+        </span>
+
+        {showBadge && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[6px] rounded-full bg-red-600 text-white text-[11px] font-extrabold flex items-center justify-center shadow-sm">
+            {bt}
+          </span>
+        )}
+      </span>
+
+      <div className="flex-1 min-w-0">
+        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>
+          {item.label}
+        </div>
+        {item.requiresAuth && (
+          <div className="text-[11px]" style={{ color: EKARI.subtext }}>
+            Sign in required
+          </div>
+        )}
+      </div>
+
+      <IoChevronForward size={18} style={{ color: EKARI.subtext }} />
+    </button>
+  );
+}
+
 function MobileShell(props: any) {
   const {
     uid,
@@ -2143,6 +2323,103 @@ function MobileShell(props: any) {
     hlsMaxHeight,
     goUpload,
   } = props;
+
+  type MenuItem = {
+    key: string;
+    label: string;
+    href: string;
+    icon: React.ReactNode;
+    alsoMatch?: string[];
+    requiresAuth?: boolean;
+    badgeCount?: number;
+  };
+
+  function buildFullMenu(params: {
+    uid?: string;
+    handle?: string | null;
+    notifTotal?: number;
+    unreadDM?: number;
+  }) {
+    const { uid, handle, notifTotal, unreadDM } = params;
+
+    const profileHref =
+      handle && handle.trim().length > 0 ? `/${handle}` : "/getstarted";
+
+    const items: MenuItem[] = [
+      { key: "deeds", label: "Deeds", href: "/", icon: <IoHomeOutline /> },
+      { key: "market", label: "ekariMarket", href: "/market", icon: <IoCartOutline /> },
+      { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
+
+      {
+        key: "studio",
+        label: "Deed studio",
+        href: "/studio/upload",
+        icon: <IoFilmOutline />,
+        requiresAuth: true,
+      },
+      {
+        key: "notifications",
+        label: "Notifications",
+        href: "/notifications",
+        icon: <IoNotificationsOutline />,
+        requiresAuth: true,
+        badgeCount: uid ? notifTotal ?? 0 : 0,
+      },
+      {
+        key: "bonga",
+        label: "Bonga",
+        href: "/bonga",
+        icon: <IoChatbubbleOutline />,
+        requiresAuth: true,
+        badgeCount: uid ? unreadDM ?? 0 : 0,
+      },
+      { key: "ai", label: "ekari AI", href: "/ai", icon: <IoSparklesOutline /> },
+
+      // ✅ the two extra ones you have on desktop:
+      {
+        key: "profile",
+        label: "Profile",
+        href: profileHref,
+        icon: <IoPersonCircleOutline />,
+        requiresAuth: true,
+      },
+      {
+        key: "about",
+        label: "About ekarihub",
+        href: "/about",
+        icon: <IoInformationCircleOutline />,
+      },
+    ];
+
+    return items;
+  }
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // ✅ same hook used by LeftNavDesktop
+  const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
+
+  // if you have profile handle available here, pass it. If not, just null.
+  const handle = (profile as any)?.handle ?? null;
+
+  const fullMenu = useMemo(
+    () =>
+      buildFullMenu({
+        uid,
+        handle,
+        notifTotal,
+        unreadDM,
+      }),
+    [uid, handle, notifTotal, unreadDM]
+  );
+
+  const navigateFromMenu = (href: string, requiresAuth?: boolean) => {
+    setMenuOpen(false);
+    if (requiresAuth && !uid) {
+      window.location.href = `/getstarted?next=${encodeURIComponent(href)}`;
+      return;
+    }
+    window.location.href = href;
+  };
 
   // ✅ Full-bleed black background like TikTok / your app
   return (
@@ -2175,6 +2452,14 @@ function MobileShell(props: any) {
               background: "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,0))",
             }}
           >
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="h-10 w-10 rounded-full bg-white/15 grid place-items-center text-white backdrop-blur-md border border-white/10"
+              aria-label="Open menu"
+            >
+              <IoMenu size={20} />
+            </button>
+
             {/* Left: Dive In */}
             <button
               onClick={() => (window.location.href = "/dive")}
@@ -2253,6 +2538,56 @@ function MobileShell(props: any) {
           <div className="py-10 text-sm text-white/80 text-center">No deeds yet.</div>
         )}
       </section>
+      {/* MOBILE comments sheet */}
+      <div
+        className={cn(
+          "fixed inset-0 z-[90] transition",
+          commentsId ? "pointer-events-auto" : "pointer-events-none"
+        )}
+        aria-hidden={!commentsId}
+      >
+        {/* backdrop */}
+        <div
+          className={cn(
+            "absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity",
+            commentsId ? "opacity-100" : "opacity-0"
+          )}
+          onClick={closeComments}
+        />
+
+        {/* sheet */}
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 max-h-[88vh] h-[80vh]",
+            "rounded-t-2xl bg-white shadow-xl",
+            "transition-transform duration-300 will-change-transform",
+            commentsId ? "translate-y-0" : "translate-y-full"
+          )}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-gray-300" />
+
+          <RightRail
+            open={!!commentsId}
+            mode="sheet"
+            deedId={commentsId ?? undefined}
+            onClose={closeComments}
+            currentUser={{
+              uid: uid || undefined,
+              photoURL: profile?.photoURL ?? user?.photoURL ?? null,
+              handle: profile?.handle ?? null,
+              name: (user as any)?.displayName ?? null,
+            }}
+          />
+        </div>
+      </div>
+      <SideMenuSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onNavigate={navigateFromMenu}
+        items={fullMenu}
+      />
 
       {/* Bottom tabs like your app */}
       <MobileBottomTabs onUpload={goUpload} />

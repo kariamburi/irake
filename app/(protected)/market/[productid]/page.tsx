@@ -6,5 +6,5 @@ import ProductDetailsClient from "./ProductDetailsClient";
 
 export default function Page() {
   const params = useParams<{ productid: string }>();
-  return <AppShell><ProductDetailsClient params={params} /></AppShell>;
+  return <ProductDetailsClient params={params} />;
 }

@@ -17,6 +17,7 @@ import {
   DocumentSnapshot,
 } from "firebase/firestore";
 import { IoChevronForward, IoSearchOutline } from "react-icons/io5";
+import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
@@ -53,10 +54,8 @@ type ThreadMirror = {
   unread?: number;
   updatedAt?: any;
 
-  // ✅ add this so list can render without extra reads
+  // mirror snapshot
   lastMessage?: LastMessage;
-
-  // (optional, if you ever decide to denormalize peer fields too)
   peer?: UserLite;
 };
 
@@ -115,11 +114,33 @@ function nameOf(peer: UserLite | null | undefined) {
   return "User";
 }
 
+/* ---------------- responsive helpers ---------------- */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
+
 /* ----------------------------- Page ----------------------------- */
 export default function MessagesPage() {
   const { user } = useAuth();
   const uid = user?.uid;
   const router = useRouter();
+
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
 
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,6 +155,15 @@ export default function MessagesPage() {
   const userCache = useRef<Map<string, UserLite | null>>(new Map());
   const threadCache = useRef<Map<string, LastMessage | undefined>>(new Map());
 
+  const ringStyle: React.CSSProperties = {
+    ["--tw-ring-color" as any]: EKARI.forest,
+  };
+
+  const goBack = useCallback(() => {
+    if (window.history.length > 1) router.back();
+    else router.push("/");
+  }, [router]);
+
   function normalizeUser(raw: any): UserLite | null {
     if (!raw) return null;
     return {
@@ -147,7 +177,6 @@ export default function MessagesPage() {
   const fetchPeer = useCallback(async (peerId: string) => {
     if (userCache.current.has(peerId)) return userCache.current.get(peerId)!;
     try {
-
       const snap = await getDoc(doc(db, "users", peerId));
       const raw = snap.exists() ? snap.data() : null;
       const data = normalizeUser(raw);
@@ -160,9 +189,7 @@ export default function MessagesPage() {
     }
   }, []);
 
-
   const fetchLastMessageFromThread = useCallback(async (threadId: string) => {
-    // ✅ still cached, but now it’s only a fallback
     if (threadCache.current.has(threadId)) return threadCache.current.get(threadId);
     try {
       const tSnap = await getDoc(doc(db, "threads", threadId));
@@ -200,8 +227,7 @@ export default function MessagesPage() {
             const docs = snap.docs;
             setCursor(docs.length > 0 ? docs[docs.length - 1] : null);
 
-            // ✅ IMPORTANT: lastMessage may have changed — don’t keep stale cached values
-            // (still safe even with mirror usage)
+            // lastMessage may have changed — don’t keep stale cached values
             for (const d of docs) {
               const m = d.data() as ThreadMirror;
               threadCache.current.delete(m.threadId);
@@ -211,12 +237,10 @@ export default function MessagesPage() {
               docs.map(async (d) => {
                 const m = d.data() as ThreadMirror;
 
-                // ✅ Prefer mirror lastMessage (fast + always fresh if you write it on send)
                 const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
 
                 const [peer, lastMessageFallback] = await Promise.all([
-                  // if you ever store peer in mirror, you can use: (m.peer ?? fetchPeer(m.peerId))
-                  fetchPeer(m.peerId),
+                  (m.peer as any) ? Promise.resolve(m.peer as any) : fetchPeer(m.peerId),
                   mirrorLast ? Promise.resolve(undefined) : fetchLastMessageFromThread(m.threadId),
                 ]);
 
@@ -269,13 +293,12 @@ export default function MessagesPage() {
       const extra: RowData[] = await Promise.all(
         docs.map(async (d) => {
           const m = d.data() as ThreadMirror;
-
           threadCache.current.delete(m.threadId);
 
           const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
 
           const [peer, lastMessageFallback] = await Promise.all([
-            fetchPeer(m.peerId),
+            (m.peer as any) ? Promise.resolve(m.peer as any) : fetchPeer(m.peerId),
             mirrorLast ? Promise.resolve(undefined) : fetchLastMessageFromThread(m.threadId),
           ]);
 
@@ -331,12 +354,13 @@ export default function MessagesPage() {
     });
   }, [rows, qStr, tab]);
 
-  const ringStyle: React.CSSProperties = { ["--tw-ring-color" as any]: EKARI.forest };
-
   if (!uid) {
     return (
       <AppShell>
-        <div className="min-h-screen flex items-center justify-center px-6 text-center" style={{ backgroundColor: EKARI.sand }}>
+        <div
+          className="min-h-screen flex items-center justify-center px-6 text-center"
+          style={{ backgroundColor: EKARI.sand }}
+        >
           <div>
             <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
               Sign in to view your messages
@@ -350,183 +374,254 @@ export default function MessagesPage() {
     );
   }
 
-  return (
-    <AppShell>
-      <div className="p-1 min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
-        {/* Sticky header */}
-        <div
-          className="sticky top-0 z-20 backdrop-blur border-b"
-          style={{ backgroundColor: "rgba(255,255,255,0.85)", borderColor: EKARI.hair }}
-        >
-          <div className="h-14 px-4 flex items-center justify-between">
-            <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
+  const Header = (
+    <div
+      className={clsx("border-b", isDesktop ? "sticky top-0 z-20 backdrop-blur" : "sticky top-0 z-50")}
+      style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+    >
+      <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")} >
+        <div className="h-full flex items-center justify-between gap-2">
+          {/* Go back */}
+          <button
+            onClick={goBack}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            aria-label="Go back"
+          >
+            <ArrowLeft size={18} style={{ color: EKARI.text }} />
+          </button>
+
+          <div className="flex-1">
+            <div className="font-black text-[18px] leading-none" style={{ color: EKARI.text }}>
               Messages
             </div>
-            <button
-              onClick={() => router.push("/search")}
-              className="p-2 rounded-full transition hover:bg-black/5 focus:outline-none focus:ring-2"
-              aria-label="Search"
-              style={ringStyle}
-            >
-              <IoSearchOutline size={20} style={{ color: EKARI.text }} />
-            </button>
+            {isMobile && (
+              <div className="text-[11px] mt-0.5" style={{ color: EKARI.dim }}>
+                {rows.length} thread{rows.length === 1 ? "" : "s"}
+              </div>
+            )}
           </div>
 
-          {/* Filters & Search */}
-          <div className="px-4 pb-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <button
-                className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                onClick={() => setTab("all")}
-                style={{
-                  backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
-                  color: tab === "all" ? EKARI.sand : EKARI.text,
-                }}
-              >
-                All
-              </button>
-              <button
-                className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                onClick={() => setTab("unread")}
-                style={{
-                  backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
-                  color: tab === "unread" ? EKARI.sand : EKARI.text,
-                }}
-              >
-                Unread
-              </button>
+          <button
+            onClick={() => router.push("/search")}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            aria-label="Search"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+          >
+            <IoSearchOutline size={20} style={{ color: EKARI.text }} />
+          </button>
+        </div>
+      </div>
 
+      {/* Filters & Search */}
+      <div className={clsx(isDesktop ? "px-4 pb-3 max-w-[1180px] mx-auto" : "px-3 pb-3")}>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              className="h-8 px-3 rounded-full text-xs font-extrabold transition"
+              onClick={() => setTab("all")}
+              style={{
+                backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
+                color: tab === "all" ? EKARI.sand : EKARI.text,
+              }}
+            >
+              All
+            </button>
+            <button
+              className="h-8 px-3 rounded-full text-xs font-extrabold transition"
+              onClick={() => setTab("unread")}
+              style={{
+                backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
+                color: tab === "unread" ? EKARI.sand : EKARI.text,
+              }}
+            >
+              Unread
+            </button>
+
+            {isDesktop && (
               <span className="ml-auto text-xs" style={{ color: EKARI.dim }}>
                 {rows.length} thread{rows.length === 1 ? "" : "s"}
               </span>
-            </div>
-
-            <div className="relative">
-              <input
-                value={qStr}
-                onChange={(e) => setQStr(e.target.value)}
-                placeholder="Search by name, handle, or message…"
-                className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
-                aria-label="Filter messages"
-                style={{
-                  borderColor: EKARI.hair,
-                  ["--tw-ring-color" as any]: EKARI.forest,
-                }}
-              />
-              {qStr ? (
-                <button
-                  onClick={() => setQStr("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
-                  aria-label="Clear search"
-                  style={{ color: EKARI.dim }}
-                >
-                  ✕
-                </button>
-              ) : (
-                <IoSearchOutline size={16} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "#94A3B8" }} />
-              )}
-            </div>
+            )}
           </div>
-        </div>
 
-        {/* Content */}
-        {loading ? (
-          <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-            <span className="ml-2">
-              <BouncingBallLoader />
-            </span>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="px-6 py-16 text-center">
-            <div className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center" style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}>
-              💬
-            </div>
-            <div className="font-extrabold" style={{ color: EKARI.text }}>
-              No conversations found
-            </div>
-            <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-              {qStr ? "Try clearing the search or filters." : "Start a chat from a profile to see it here."}
-            </div>
-          </div>
-        ) : (
-          <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
-            {filtered.map((item) => {
-              const name = nameOf(item.peer);
-              const last = previewOf(item.lastMessage) || ""; // ✅ no fake “Say hi” if we actually have none
-              const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
-              const hasUnread = (item.unread ?? 0) > 0;
-
-              return (
-                <li key={item.threadId}>
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full px-4 py-3 flex items-center gap-3 transition text-left hover:bg-black/5 focus:bg-black/5 focus:outline-none focus:ring-2"
-                    onClick={() => openThread(item)}
-                    aria-label={`Open chat with ${name}`}
-                    style={ringStyle}
-                  >
-                    <div className="relative">
-                      <SmartAvatar src={item.peer?.photoURL || ""} alt={name} size={46} className={clsx(hasUnread && "ring-2")} />
-                      {hasUnread && (
-                        <span
-                          className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                          title="Unread"
-                          style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                        />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")} style={{ color: EKARI.text }}>
-                          {name}
-                        </div>
-                        <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
-                          {when}
-                        </div>
-                      </div>
-
-                      <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                        <div className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")} style={{ color: hasUnread ? EKARI.text : EKARI.dim }}>
-                          {last || <span style={{ color: "#94A3B8" }}>No messages yet</span>}
-                        </div>
-
-                        {hasUnread && (
-                          <span
-                            className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                            style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                          >
-                            {item.unread > 99 ? "99+" : item.unread}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <IoChevronForward size={18} style={{ color: EKARI.sub }} className="hidden sm:block" />
-                  </motion.button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {/* Load more */}
-        {filtered.length > 0 && (
-          <div className="p-4 grid place-items-center">
-            <button
-              onClick={loadMore}
-              disabled={paging || !cursor}
-              className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
+          <div className="relative">
+            <input
+              value={qStr}
+              onChange={(e) => setQStr(e.target.value)}
+              placeholder="Search by name, handle, or message…"
+              className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
+              aria-label="Filter messages"
               style={{
                 borderColor: EKARI.hair,
-                color: EKARI.text,
-                backgroundColor: EKARI.sand,
+                ["--tw-ring-color" as any]: EKARI.forest,
               }}
-            >
-              {paging ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
-            </button>
+            />
+            {qStr ? (
+              <button
+                onClick={() => setQStr("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
+                aria-label="Clear search"
+                style={{ color: EKARI.dim }}
+              >
+                ✕
+              </button>
+            ) : (
+              <IoSearchOutline
+                size={16}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: "#94A3B8" }}
+              />
+            )}
           </div>
-        )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const Content = (
+    <>
+      {loading ? (
+        <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
+          <span className="ml-2">
+            <BouncingBallLoader />
+          </span>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="px-6 py-16 text-center">
+          <div
+            className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center"
+            style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}
+          >
+            💬
+          </div>
+          <div className="font-extrabold" style={{ color: EKARI.text }}>
+            No conversations found
+          </div>
+          <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
+            {qStr ? "Try clearing the search or filters." : "Start a chat from a profile to see it here."}
+          </div>
+        </div>
+      ) : (
+        <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
+          {filtered.map((item) => {
+            const name = nameOf(item.peer);
+            const last = previewOf(item.lastMessage) || "";
+            const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
+            const hasUnread = (item.unread ?? 0) > 0;
+
+            return (
+              <li key={item.threadId}>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  className={clsx(
+                    "w-full flex items-center gap-3 transition text-left hover:bg-black/5 focus:bg-black/5 focus:outline-none focus:ring-2",
+                    isDesktop ? "px-4 py-3" : "px-3 py-3"
+                  )}
+                  onClick={() => openThread(item)}
+                  aria-label={`Open chat with ${name}`}
+                  style={ringStyle}
+                >
+                  <div className="relative">
+                    <SmartAvatar
+                      src={item.peer?.photoURL || ""}
+                      alt={name}
+                      size={46}
+                      className={clsx(hasUnread && "ring-2")}
+                    />
+                    {hasUnread && (
+                      <span
+                        className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
+                        title="Unread"
+                        style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
+                        style={{ color: EKARI.text }}
+                      >
+                        {name}
+                      </div>
+                      <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
+                        {when}
+                      </div>
+                    </div>
+
+                    <div className="mt-0.5 flex items-center gap-2 min-w-0">
+                      <div
+                        className={clsx(
+                          "truncate text-[13px]",
+                          hasUnread ? "font-semibold" : "font-normal"
+                        )}
+                        style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
+                      >
+                        {last || <span style={{ color: "#94A3B8" }}>No messages yet</span>}
+                      </div>
+
+                      {hasUnread && (
+                        <span
+                          className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
+                          style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
+                        >
+                          {item.unread > 99 ? "99+" : item.unread}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <IoChevronForward size={18} style={{ color: EKARI.sub }} className="hidden sm:block" />
+                </motion.button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* Load more */}
+      {filtered.length > 0 && (
+        <div className={clsx(isDesktop ? "p-6" : "p-4", "grid place-items-center")}>
+          <button
+            onClick={loadMore}
+            disabled={paging || !cursor}
+            className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
+            style={{
+              borderColor: EKARI.hair,
+              color: EKARI.text,
+              backgroundColor: EKARI.sand,
+            }}
+          >
+            {paging ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
+          </button>
+        </div>
+      )}
+
+      {/* Mobile: safe bottom spacer so last row doesn't touch browser bar */}
+      {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+    </>
+  );
+
+  // MOBILE: fixed inset like Market, no bottom tabs, just sticky header + list
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        <div className="overflow-y-auto overscroll-contain" style={{ height: "calc(100dvh - 56px)" }}>
+          {Content}
+        </div>
+      </div>
+    );
+  }
+
+  // DESKTOP: AppShell + max width container like Market desktop
+  return (
+    <AppShell>
+      <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        <div className="max-w-[1180px] mx-auto">{Content}</div>
       </div>
     </AppShell>
   );
