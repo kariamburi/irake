@@ -21,9 +21,8 @@ import {
   IoMusicalNotesOutline,
   IoExpandOutline,
   IoClose,
-  IoPhonePortrait,
-  IoPhonePortraitOutline,
 } from "react-icons/io5";
+
 import {
   collection,
   query,
@@ -39,15 +38,19 @@ import {
   documentId,
   serverTimestamp,
 } from "firebase/firestore";
+
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { app, db } from "@/lib/firebase";
 import { useAuth } from "./hooks/useAuth";
+
 import AppShell from "@/app/components/AppShell";
 import RightRail from "@/app/components/RightRail";
-import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 import { DonateDialogWeb } from "./components/DonateDialogWeb";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import OpenInAppBanner from "./components/OpenInAppBanner";
+
+// 🔗 single source of truth for deed data
+import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -68,41 +71,9 @@ const LABEL: Record<TabKey, string> = {
   nearby: "Nearby",
 };
 
-/* ---------- Types ---------- */
-type Visibility = "public" | "followers" | "private";
-type UserSnap = {
-  userId: string;
-  name?: string | null;
-  handle?: string | null;
-  photoURL?: string | null;
-};
-
-/* ---------- UI helpers ---------- */
+/* ---------- Utils ---------- */
 function cn(...xs: (string | false | null | undefined)[]) {
   return xs.filter(Boolean).join(" ");
-}
-
-/* ✅ Persistent boolean in localStorage */
-function useStoredBoolean(key: string, initial: boolean) {
-  const [value, setValue] = React.useState<boolean>(() => {
-    if (typeof window === "undefined") return initial;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw === null) return initial;
-      return raw === "1";
-    } catch {
-      return initial;
-    }
-  });
-
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(key, value ? "1" : "0");
-    } catch { }
-  }, [key, value]);
-
-  return [value, setValue] as const;
 }
 
 function formatCount(n: number) {
@@ -111,17 +82,35 @@ function formatCount(n: number) {
   return String(n);
 }
 
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
+
 /* ---------- Visibility ---------- */
-const canSee = (item: PlayerItem, uid?: string, following: Set<string> = new Set()): boolean => {
-  const v = (item.visibility ?? "public") as Visibility;
-  if (v === "public") return true;
-  if (!uid) return false;
-  if (item.authorId === uid) return true;
-  if (v === "followers") return following.has(item.authorId);
-  return false;
+type Visibility = "public" | "followers" | "private";
+
+type UserSnap = {
+  userId: string;
+  name?: string | null;
+  handle?: string | null;
+  photoURL?: string | null;
 };
 
-/* ---------- User helpers ---------- */
 async function getUserSnap(uid: string): Promise<UserSnap> {
   const us = await getDoc(doc(db, "users", uid));
   const u = (us.data() as any) || {};
@@ -138,7 +127,9 @@ function getOrMakeDeviceId(): string {
   try {
     let v = localStorage.getItem(k);
     if (!v || v.length < 16) {
-      v = crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36);
+      v =
+        (crypto?.randomUUID?.() ??
+          Math.random().toString(36).slice(2) + Date.now().toString(36));
       if (v.length < 16) v = v.padEnd(16, "x");
       localStorage.setItem(k, v);
     }
@@ -150,10 +141,9 @@ function getOrMakeDeviceId(): string {
 
 async function recordViewWeb(params: { deedId: string; uid?: string }) {
   const { deedId, uid } = params;
-
   try {
     const baseId = uid ?? getOrMakeDeviceId();
-    const viewId = `${deedId}_${baseId}`; // idempotent
+    const viewId = `${deedId}_${baseId}`; // ✅ idempotent
     const ref = doc(db, "views", viewId);
     const snap = await getDoc(ref);
     if (snap.exists()) return;
@@ -177,6 +167,15 @@ async function recordViewWeb(params: { deedId: string; uid?: string }) {
     // ignore
   }
 }
+
+const canSee = (item: PlayerItem, uid?: string, following: Set<string> = new Set()): boolean => {
+  const v = (item.visibility ?? "public") as Visibility;
+  if (v === "public") return true;
+  if (!uid) return false;
+  if (item.authorId === uid) return true;
+  if (v === "followers") return following.has(item.authorId);
+  return false;
+};
 
 /* ---------- Following ---------- */
 function useFollowing(uid?: string) {
@@ -225,7 +224,7 @@ async function fetchPublicForYou(limitCount = 30) {
   }
 }
 
-/* ---------- Loading indicator ---------- */
+/* ---------- Loader helpers ---------- */
 function useProgressIndicator(isLoading: boolean, minMs = 300, delayMs = 120) {
   const [show, setShow] = React.useState(false);
   const startRef = React.useRef<number | null>(null);
@@ -267,7 +266,7 @@ function TopLoader({ active, color = "#233F39" }: { active: boolean; color?: str
   );
 }
 
-/* ---------- Server feeds ---------- */
+/* ---------- Server feeds (same contract as mobile) ---------- */
 async function fetchServerFeed(surface: TabKey, uid?: string) {
   if (!uid) return [];
 
@@ -285,7 +284,11 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
 
     const map = new Map(docs.map((x) => [x.id, x.data]));
     const missing = ids.filter((id) => !map.has(id));
-    const items = ids.map((id) => toPlayerItem(map.get(id), id)).filter(Boolean) as PlayerItem[];
+
+    const items = ids
+      .map((id) => toPlayerItem(map.get(id), id))
+      .filter(Boolean) as PlayerItem[];
+
     return { items, missing };
   };
 
@@ -296,11 +299,12 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
     const now = Date.now();
     let ids: string[] | null = null;
 
-    // cache TTL
+    // 1) Try cache with TTL
     if (feedSnap.exists()) {
       const d = feedSnap.data() as any;
       const ttlSec = Number(d?.ttlSec ?? 60);
-      const updatedAtMs = typeof d?.updatedAt?.toMillis === "function" ? d.updatedAt.toMillis() : 0;
+      const updatedAtMs =
+        typeof d?.updatedAt?.toMillis === "function" ? d.updatedAt.toMillis() : 0;
       const fresh = updatedAtMs && now - updatedAtMs < ttlSec * 1000;
 
       if (fresh && Array.isArray(d.ids) && d.ids.length > 0) {
@@ -308,15 +312,15 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
       }
     }
 
-    // refresh if no fresh
+    // 2) Refresh
     if (!ids || !ids.length) {
       const functions = getFunctions(app, "us-central1");
       const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(functions, "refreshFeed");
       try {
         const res = await refreshFeed({ surface });
         ids = uniq(res.data?.ids || []);
-      } catch {
-        // fall back to stale cache
+      } catch (e) {
+        // stale fallback
         if (feedSnap.exists()) {
           const d = feedSnap.data() as any;
           if (Array.isArray(d.ids) && d.ids.length) ids = uniq(d.ids);
@@ -326,22 +330,28 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
 
     if (!ids || !ids.length) return [];
 
+    // 3) Fetch deeds
     const { items, missing } = await fetchDeedsByIds(ids);
 
-    // self heal if too many missing
+    // 4) Heal if too many missing
     if (missing.length > 0) {
       const missingRatio = missing.length / Math.max(1, ids.length);
       if (missingRatio >= 0.3 || items.length < 5) {
         try {
           const functions = getFunctions(app, "us-central1");
-          const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(functions, "refreshFeed");
+          const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
+            functions,
+            "refreshFeed"
+          );
           const res2 = await refreshFeed({ surface });
           const ids2 = uniq(res2.data?.ids || []);
           if (ids2.length) {
             const { items: items2 } = await fetchDeedsByIds(ids2);
             return items2;
           }
-        } catch { }
+        } catch {
+          // ignore
+        }
       }
     }
 
@@ -360,7 +370,9 @@ function useLikes(itemId: string, uid?: string) {
   useEffect(() => {
     let unsubSelf = () => { };
     if (likeId) unsubSelf = onSnapshot(doc(db, "likes", likeId), (s) => setLiked(s.exists()));
-    const unsubCount = onSnapshot(query(collection(db, "likes"), where("deedId", "==", itemId)), (s) => setCount(s.size));
+    const unsubCount = onSnapshot(query(collection(db, "likes"), where("deedId", "==", itemId)), (s) =>
+      setCount(s.size)
+    );
     return () => {
       unsubSelf();
       unsubCount();
@@ -467,17 +479,21 @@ function useShareTotalFromDeed(itemId: string) {
 function useFollowAuthor(authorId?: string, uid?: string) {
   const [following, setFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
+
   const followDocId = uid && authorId ? `${uid}_${authorId}` : undefined;
 
   useEffect(() => {
     let unsubSelf = () => { };
-    if (followDocId) unsubSelf = onSnapshot(doc(db, "follows", followDocId), (s) => setFollowing(s.exists()));
-
+    if (followDocId) {
+      unsubSelf = onSnapshot(doc(db, "follows", followDocId), (s) => setFollowing(s.exists()));
+    }
     if (!authorId) return () => unsubSelf();
 
-    const unsubCount = onSnapshot(query(collection(db, "follows"), where("followingId", "==", authorId)), (s) =>
-      setFollowersCount(s.size)
+    const unsubCount = onSnapshot(
+      query(collection(db, "follows"), where("followingId", "==", authorId)),
+      (s) => setFollowersCount(s.size)
     );
+
     return () => {
       unsubSelf();
       unsubCount();
@@ -487,6 +503,7 @@ function useFollowAuthor(authorId?: string, uid?: string) {
   const toggle = async () => {
     if (!uid || !authorId || !followDocId) return;
     if (uid === authorId) return;
+
     const ref = doc(db, "follows", followDocId);
     const s = await getDoc(ref);
     if (s.exists()) await deleteDoc(ref);
@@ -498,7 +515,6 @@ function useFollowAuthor(authorId?: string, uid?: string) {
 
 /* ---------- Video helpers ---------- */
 let CURRENT_PLAYING: HTMLVideoElement | null = null;
-
 function playExclusive(el: HTMLVideoElement) {
   if (CURRENT_PLAYING && CURRENT_PLAYING !== el) CURRENT_PLAYING.pause();
   CURRENT_PLAYING = el;
@@ -509,7 +525,11 @@ function pauseIfCurrent(el: HTMLVideoElement) {
   el.pause();
 }
 
-function useHls(videoRef: React.RefObject<HTMLVideoElement | null>, src?: string | null, opts: { maxHeight?: number } = {}) {
+function useHls(
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+  src?: string | null,
+  opts: { maxHeight?: number } = {}
+) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
@@ -530,7 +550,6 @@ function useHls(videoRef: React.RefObject<HTMLVideoElement | null>, src?: string
     (async () => {
       const mod = await import("hls.js");
       const Hls = mod.default;
-
       if (Hls?.isSupported()) {
         hls = new Hls({
           enableWorker: true,
@@ -567,8 +586,6 @@ function useHls(videoRef: React.RefObject<HTMLVideoElement | null>, src?: string
   }, [videoRef, src, opts.maxHeight]);
 }
 
-type PreloadMode = "none" | "light" | "aggressive";
-
 function VideoPreload({ src, poster }: { src: string; poster?: string | null }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   useHls(videoRef, src);
@@ -593,7 +610,16 @@ function VideoPreload({ src, poster }: { src: string; poster?: string | null }) 
   );
 }
 
-function AdjacentPreloadWeb({ items, activeIndex, mode = "light" }: { items: PlayerItem[]; activeIndex: number; mode?: PreloadMode }) {
+type PreloadMode = "none" | "light" | "aggressive";
+function AdjacentPreloadWeb({
+  items,
+  activeIndex,
+  mode = "light",
+}: {
+  items: PlayerItem[];
+  activeIndex: number;
+  mode?: PreloadMode;
+}) {
   if (mode === "none") return null;
 
   const candidates: PlayerItem[] = [];
@@ -601,8 +627,9 @@ function AdjacentPreloadWeb({ items, activeIndex, mode = "light" }: { items: Pla
     if (it && it.mediaType === "video" && it.mediaUrl) candidates.push(it);
   };
 
-  if (mode === "light") pushIfVideo(items[activeIndex + 1]);
-  else {
+  if (mode === "light") {
+    pushIfVideo(items[activeIndex + 1]);
+  } else {
     pushIfVideo(items[activeIndex + 1]);
     pushIfVideo(items[activeIndex - 1]);
     pushIfVideo(items[activeIndex + 2]);
@@ -634,7 +661,12 @@ function AdjacentPreloadWeb({ items, activeIndex, mode = "light" }: { items: Pla
 
 function useAutoPlay(
   ref: React.RefObject<HTMLVideoElement | null>,
-  opts: { root?: React.RefObject<Element | null>; threshold?: number; rootMargin?: string; initialMuted?: boolean } = {}
+  opts: {
+    root?: React.RefObject<Element | null>;
+    threshold?: number;
+    rootMargin?: string;
+    initialMuted?: boolean;
+  } = {}
 ) {
   const { root, threshold = 0.35, rootMargin = "-30% 0px -30% 0px", initialMuted } = opts;
 
@@ -694,24 +726,18 @@ type MuteContextType = {
   unregisterVideo: (el: HTMLVideoElement) => void;
 };
 const MuteContext = React.createContext<MuteContextType | null>(null);
-
 function useGlobalMute() {
   const ctx = React.useContext(MuteContext);
   if (!ctx) throw new Error("useGlobalMute must be used inside MuteProvider");
   return ctx;
 }
-
 function MuteProvider({ children }: { children: React.ReactNode }) {
   const [muted, setMutedState] = useState(true);
   const videos = useRef(new Set<HTMLVideoElement>());
-
   const applyToAll = React.useCallback((m: boolean) => {
-    videos.current.forEach((v) => {
-      (v as any).muted = m;
-    });
+    videos.current.forEach((v) => ((v as any).muted = m));
     CURRENT_PLAYING?.play().catch(() => { });
   }, []);
-
   const setMutedAndApply = React.useCallback(
     (m: boolean) => {
       setMutedState(m);
@@ -719,7 +745,6 @@ function MuteProvider({ children }: { children: React.ReactNode }) {
     },
     [applyToAll]
   );
-
   const toggleMute = React.useCallback(() => {
     setMutedState((prev) => {
       const next = !prev;
@@ -727,7 +752,6 @@ function MuteProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, [applyToAll]);
-
   const registerVideo = React.useCallback(
     (el: HTMLVideoElement) => {
       videos.current.add(el);
@@ -735,45 +759,53 @@ function MuteProvider({ children }: { children: React.ReactNode }) {
     },
     [muted]
   );
-
   const unregisterVideo = React.useCallback((el: HTMLVideoElement) => {
     videos.current.delete(el);
   }, []);
-
   const value = React.useMemo(
     () => ({ muted, toggleMute, setMuted: setMutedAndApply, registerVideo, unregisterVideo }),
     [muted, toggleMute, setMutedAndApply, registerVideo, unregisterVideo]
   );
-
   return <MuteContext.Provider value={value}>{children}</MuteContext.Provider>;
 }
 
-/* ---------- Card sizing ---------- */
+/* ---------- Sizing: desktop card vs mobile full screen ---------- */
 const CARD_ASPECT = 9 / 16;
 const CARD_ASPECT_INV = 16 / 9;
 
-function useDeedBox(railOpen: boolean, topOffsetPx = 0) {
-  const [box, setBox] = React.useState<{ w: number; h: number }>({ w: 360, h: 640 });
+function useDeedBox(params: {
+  railOpen: boolean;
+  topOffsetPx: number;
+  isMobile: boolean;
+}) {
+  const { railOpen, topOffsetPx, isMobile } = params;
+  const [box, setBox] = useState<{ w: number; h: number }>({ w: 360, h: 640 });
 
-  const recalc = React.useCallback(() => {
+  const recalc = useCallback(() => {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    const targetH = Math.max(320, vh - topOffsetPx);
+    // ✅ Mobile TikTok: full screen per item
+    if (isMobile) {
+      setBox({ w: vw, h: vh }); // FULL BLEED
+      return;
+    }
+
+    // Desktop: card sizing logic
+    const targetH = Math.max(520, vh - topOffsetPx);
     const targetW = Math.round(targetH * CARD_ASPECT);
 
     const railW = railOpen && vw >= 1024 ? 380 : 0;
-    const sideGutter = vw >= 1024 ? 64 : 24;
+    const sideGutter = vw >= 1024 ? 72 : 24;
     const usableW = Math.max(320, vw - railW - sideGutter * 2);
 
-    if (targetW <= usableW) {
-      setBox({ w: targetW, h: targetH });
-    } else {
+    if (targetW <= usableW) setBox({ w: targetW, h: targetH });
+    else {
       const w = Math.floor(usableW);
       const h = Math.floor(w / CARD_ASPECT_INV);
       setBox({ w, h });
     }
-  }, [railOpen, topOffsetPx]);
+  }, [railOpen, topOffsetPx, isMobile]);
 
   useEffect(() => {
     recalc();
@@ -784,47 +816,14 @@ function useDeedBox(railOpen: boolean, topOffsetPx = 0) {
   return box;
 }
 
-/* ---------- Skeleton ---------- */
-function SkeletonCard({ railOpen, tabOffsetPx = 0 }: { railOpen: boolean; tabOffsetPx?: number }) {
-  const { h: cardH } = useDeedBox(railOpen, tabOffsetPx);
-  return (
-    <div className="relative mt-1 mb-1">
-      <article
-        className="relative w-full lg:w-[400px] overflow-hidden rounded-[28px] bg-black shadow-[0_22px_60px_rgba(0,0,0,.12)]"
-        style={{ height: cardH, top: tabOffsetPx - 5 }}
-      />
-    </div>
-  );
-}
-
-/* ---------- Device helpers ---------- */
-function useIsDesktop() {
-  const [is, setIs] = React.useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const handler = () => setIs(mq.matches);
-    handler();
-    mq.addEventListener?.("change", handler);
-    return () => mq.removeEventListener?.("change", handler);
-  }, []);
-  return is;
-}
-
-function useIsMobile() {
-  const [is, setIs] = React.useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023px)");
-    const handler = () => setIs(mq.matches);
-    handler();
-    mq.addEventListener?.("change", handler);
-    return () => mq.removeEventListener?.("change", handler);
-  }, []);
-  return is;
-}
-
-/* ---------- Profile helpers ---------- */
+/* ---------- Profiles ---------- */
 function useUserProfile(uid?: string) {
-  const [profile, setProfile] = useState<{ handle?: string; photoURL?: string; dataSaverVideos?: boolean; uid?: string } | null>(null);
+  const [profile, setProfile] = useState<{
+    handle?: string;
+    photoURL?: string;
+    dataSaverVideos?: boolean;
+    uid?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!uid) {
@@ -834,7 +833,10 @@ function useUserProfile(uid?: string) {
     const ref = doc(db, "users", uid);
     const unsub = onSnapshot(ref, (snap) => {
       const data = snap.data() as any | undefined;
-      if (!data) return setProfile(null);
+      if (!data) {
+        setProfile(null);
+        return;
+      }
       setProfile({
         uid,
         handle: data?.handle,
@@ -852,12 +854,14 @@ function useNetworkProfile() {
   const [state, setState] = useState<{ effectiveType?: string; saveData?: boolean }>({});
 
   useEffect(() => {
-    if (typeof navigator === "undefined") return;
     const nav: any = navigator as any;
     const conn = nav.connection || nav.mozConnection || nav.webkitConnection || null;
     if (!conn) return;
 
-    const update = () => setState({ effectiveType: conn.effectiveType, saveData: !!conn.saveData });
+    const update = () => {
+      setState({ effectiveType: conn.effectiveType, saveData: !!conn.saveData });
+    };
+
     update();
     conn.addEventListener?.("change", update);
     return () => conn.removeEventListener?.("change", update);
@@ -877,7 +881,10 @@ function useAuthorProfile(authorId?: string) {
     const ref = doc(db, "users", authorId);
     const unsub = onSnapshot(ref, (snap) => {
       const data = snap.data() as any | undefined;
-      if (!data) return setProfile(null);
+      if (!data) {
+        setProfile(null);
+        return;
+      }
       setProfile({ handle: data?.handle, photoURL: data?.photoURL });
     });
     return () => unsub();
@@ -886,7 +893,83 @@ function useAuthorProfile(authorId?: string) {
   return profile;
 }
 
-/* ---------- Channel feed ---------- */
+/* ---------- Channel tabs ---------- */
+function ChannelTabs({
+  active,
+  commentsId,
+  uid,
+  onChange,
+  dataSaverOn,
+  onToggleDataSaver,
+}: {
+  active: TabKey;
+  commentsId: string;
+  uid: any;
+  onChange: (k: TabKey) => void;
+  dataSaverOn: boolean;
+  onToggleDataSaver: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <div className="relative h-full flex items-center">
+      <div className="mx-auto w-full px-3 flex items-center justify-center">
+        <div className={cn("flex w-full justify-center items-center gap-2", "overflow-x-auto no-scrollbar")}>
+          <div className="inline-flex items-center gap-1 rounded-full bg-white/85 border border-white/30 shadow-sm px-1 py-1 backdrop-blur-md">
+            {TABS.map((k) => {
+              const isActive = active === k;
+              return (
+                <button
+                  key={k}
+                  onClick={() => onChange(k)}
+                  className={cn(
+                    "relative px-2 lg:px-3 py-1.5 text-xs lg:text-sm w-[72px] lg:w-[92px]",
+                    "rounded-full font-semibold flex-shrink-0 flex items-center justify-center transition",
+                    isActive ? "bg-[#233F39] text-white shadow-sm" : "text-gray-800 hover:bg-white/60"
+                  )}
+                >
+                  <span className="relative z-10">{LABEL[k]}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => router.push("/dive")}
+            className="flex px-2 lg:px-3 py-1.5 text-xs lg:text-sm w-[92px] lg:w-[110px] gap-2 rounded-full items-center justify-center font-semibold border transition
+                       bg-white/85 text-gray-900 border-white/30 hover:bg-white flex-shrink-0 shadow-sm"
+          >
+            <IoTelescopeOutline />
+            <span>Dive In</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleDataSaver}
+            disabled={!uid}
+            className={cn(
+              "ml-1 flex items-center gap-2 px-2 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm",
+              "bg-black/30 text-white border-white/20 hover:bg-black/40 disabled:opacity-60"
+            )}
+            title="Data saver"
+          >
+            <span className="inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: dataSaverOn ? "#16A34A" : "#9CA3AF" }} />
+            <span>Data saver</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/search")}
+            className="hidden lg:inline-flex items-center justify-center rounded-full border border-white/25 text-white hover:bg-white/10 shadow-sm p-2 flex-shrink-0"
+            aria-label="Search"
+          >
+            <IoSearch />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Feed data ---------- */
 function useChannelFeed(tab: TabKey, uid?: string) {
   const following = useFollowing(uid);
   const [items, setItems] = useState<PlayerItem[]>([]);
@@ -915,108 +998,25 @@ function useChannelFeed(tab: TabKey, uid?: string) {
   return { items: visible, loading, reload: load };
 }
 
-/* ---------- Tabs ---------- */
-function ChannelTabs({
-  active,
-  commentsId,
-  profile,
-  uid,
-  onChange,
-  dataSaverOn,
-  userDataSaver,
-  onToggleDataSaver,
-  tikMobileUI,
-  onToggleTikMobileUI,
+/* ---------- Skeleton ---------- */
+function SkeletonCard({
+  cardH,
+  isMobile,
 }: {
-  active: TabKey;
-  commentsId: string;
-  profile: any;
-  uid: any;
-  onChange: (k: TabKey) => void;
-  dataSaverOn: boolean;
-  userDataSaver: boolean;
-  onToggleDataSaver: () => void;
-  tikMobileUI: boolean;
-  onToggleTikMobileUI: () => void;
+  cardH: number;
+  isMobile: boolean;
 }) {
-  const router = useRouter();
-  const isDesktop = useIsDesktop();
-
   return (
-    <div className="relative h-full flex items-center">
-      <div className="mx-auto w-full px-3 flex items-center justify-center">
-        <div className={cn("flex w-full justify-center items-center gap-2", "overflow-x-auto no-scrollbar", commentsId ? "lg:mr-0" : "lg:mr-[100px]")}>
-          <div className="inline-flex items-center gap-1 rounded-full bg-white/80 border border-gray-200 shadow-sm px-1 py-1 backdrop-blur-md">
-            {TABS.map((k) => {
-              const isActive = active === k;
-              return (
-                <button
-                  key={k}
-                  onClick={() => onChange(k)}
-                  className={cn(
-                    "relative px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[60px] lg:w-[80px]",
-                    "rounded-full font-semibold flex-shrink-0 flex items-center justify-center transition",
-                    isActive ? "bg-[#233F39] text-white shadow-sm" : "text-gray-700 hover:bg-gray-50"
-                  )}
-                >
-                  <span className="relative z-10">{LABEL[k]}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => router.push("/dive")}
-            className="flex px-1 lg:px-3 py-1.5 text-xs lg:text-sm w-[85px] lg:w-[100px] gap-2 rounded-full items-center justify-center font-semibold border transition
-                       bg-white/90 text-gray-800 border-gray-200 hover:bg-gray-50 flex-shrink-0 shadow-sm"
-          >
-            <IoTelescopeOutline />
-            <span>Dive In</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onToggleDataSaver}
-            disabled={!uid}
-            className={cn(
-              "ml-1 flex items-center gap-1 px-2 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm",
-              dataSaverOn ? "bg-emerald-600/15 text-white border-white/30" : "bg-white/90 text-gray-800 border-gray-200 hover:bg-gray-50"
-            )}
-            title={
-              dataSaverOn
-                ? "Data saver active – videos may preload less and cap resolution."
-                : "Data saver off – videos can use higher resolution and more aggressive preloading."
-            }
-          >
-            <span className="inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: dataSaverOn ? "#16A34A" : "#9CA3AF" }} />
-            <span>Data saver</span>
-          </button>
-
-          {/* ✅ Mobile-only Tik UI mode toggle */}
-          {!isDesktop && (
-            <button
-              type="button"
-              onClick={onToggleTikMobileUI}
-              className={cn(
-                "ml-1 flex items-center gap-1.5 px-2 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm",
-                tikMobileUI ? "bg-black/20 text-white border-white/30" : "bg-white/90 text-gray-800 border-gray-200 hover:bg-gray-50"
-              )}
-              title="Toggle TikTok-style mobile UI (bigger rail, better caption spacing, no hover play button)."
-            >
-              {tikMobileUI ? <IoPhonePortrait size={14} /> : <IoPhonePortraitOutline size={14} />}
-              <span>{tikMobileUI ? "Tik UI" : "Classic"}</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => router.push("/search")}
-            className="hidden lg:inline-flex items-center justify-center rounded-full border border-white-200 text-white hover:text-green-50 shadow-sm p-2 flex-shrink-0"
-            aria-label="Search"
-          >
-            <IoSearch />
-          </button>
-        </div>
-      </div>
+    <div className="relative w-full">
+      <article
+        className={cn(
+          "relative w-full overflow-hidden bg-black",
+          isMobile
+            ? "rounded-none"
+            : "lg:w-[375px] rounded-[28px] shadow-[0_22px_60px_rgba(0,0,0,.12)]"
+        )}
+        style={{ height: cardH }}
+      />
     </div>
   );
 }
@@ -1026,30 +1026,24 @@ function VideoCard({
   item,
   uid,
   scrollRootRef,
-  onFirstFrame,
   onOpenComments,
-  railOpen,
-  tabOffsetPx = 0,
+  isMobile,
+  cardH,
   dataSaverOn,
   hlsMaxHeight,
-  tikMobileUI,
 }: {
   item: PlayerItem;
   uid?: string;
   scrollRootRef: React.RefObject<Element | null>;
-  onFirstFrame?: () => void;
   onOpenComments: (deedId: string) => void;
-  railOpen: boolean;
-  tabOffsetPx?: number;
+  isMobile: boolean;
+  cardH: number;
   dataSaverOn?: boolean;
   hlsMaxHeight?: number;
-  tikMobileUI: boolean;
 }) {
-  const { h: cardH } = useDeedBox(railOpen, tabOffsetPx);
-
-  const isTik = tikMobileUI;
-
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const fsVideoRef = React.useRef<HTMLVideoElement | null>(null);
+
   const { muted, toggleMute, registerVideo, unregisterVideo } = useGlobalMute();
   const router = useRouter();
   const authorProfile = useAuthorProfile(item.authorId);
@@ -1058,7 +1052,6 @@ function VideoCard({
   const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
   const firstFrameFiredRef = useRef(false);
 
-  const fsVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [fullscreenKind, setFullscreenKind] = useState<"video" | "photo" | null>(null);
 
@@ -1070,16 +1063,119 @@ function VideoCard({
   const { following, followersCount, toggle: toggleFollow } = useFollowAuthor(item.authorId, uid);
 
   const [donateOpen, setDonateOpen] = useState(false);
-  const canSupport = !!item.authorId && uid !== item.authorId;
 
-  const onSupportClick = () => {
-    if (!uid) {
-      router.push("login/?next=/");
-      return;
+  const canSupport = !!item.authorId && uid !== item.authorId;
+  const showFollow = (!uid || uid !== item.authorId) && !following;
+
+  const avatar = authorProfile?.photoURL || item.authorPhotoURL || "/avatar-placeholder.png";
+  const music = item.music;
+  const isLibrarySound = music?.source === "library" && !!music?.coverUrl;
+  const soundLabel = isLibrarySound ? music?.title || "Library sound" : "Original sound";
+  const soundAvatar = isLibrarySound ? (music?.coverUrl as string) : avatar;
+
+  const [playing, setPlaying] = useState(false);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
+
+  const tags = useMemo(() => (item.tags ?? []).filter(Boolean), [item.tags]);
+  const MAX_COLLAPSED_TAGS = 3;
+
+  const hasCaption = !!item.text;
+  const hasTags = tags.length > 0;
+  const captionTooLong = (item.text?.length ?? 0) > 80;
+  const tagsHidden = tags.length > MAX_COLLAPSED_TAGS;
+  const visibleTags = captionExpanded ? tags : tags.slice(0, MAX_COLLAPSED_TAGS);
+  const showMoreToggle = captionTooLong || tagsHidden;
+
+  // fire first frame
+  const fireFirstFrameOnce = useCallback(() => {
+    if (firstFrameFiredRef.current) return;
+    firstFrameFiredRef.current = true;
+  }, []);
+
+  const handleVideoReady = () => {
+    const v = videoRef.current;
+    if (v && (v as any).videoWidth && (v as any).videoHeight) {
+      setFitMode((v as any).videoWidth > (v as any).videoHeight ? "contain" : "cover");
     }
-    setDonateOpen(true);
+    setMediaReady(true);
+    fireFirstFrameOnce();
   };
 
+  const handleImageReady: React.ReactEventHandler<HTMLImageElement> = (e) => {
+    const img = e.currentTarget;
+    if (img.naturalWidth && img.naturalHeight) {
+      setFitMode(img.naturalWidth > img.naturalHeight ? "contain" : "cover");
+    }
+    setMediaReady(true);
+    fireFirstFrameOnce();
+  };
+
+  // autoplay
+  useAutoPlay(videoRef, {
+    root: scrollRootRef,
+    threshold: isMobile ? 0.55 : 0.35,
+    rootMargin: isMobile ? "-10% 0px -10% 0px" : "-30% 0px -30% 0px",
+    initialMuted: muted,
+  });
+
+  useHls(videoRef, item.mediaUrl || undefined, { maxHeight: hlsMaxHeight });
+  useHls(
+    fsVideoRef,
+    fullscreenOpen && fullscreenKind === "video" ? item.mediaUrl || undefined : undefined,
+    { maxHeight: hlsMaxHeight }
+  );
+
+  // register inline video
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    registerVideo(v);
+    return () => unregisterVideo(v);
+  }, [registerVideo, unregisterVideo]);
+
+  useEffect(() => {
+    if (videoRef.current) (videoRef.current as any).muted = muted;
+  }, [muted]);
+
+  // fullscreen register
+  useEffect(() => {
+    if (!fullscreenOpen || fullscreenKind !== "video") return;
+    const v = fsVideoRef.current;
+    if (!v) return;
+    registerVideo(v);
+    (v as any).muted = muted;
+    playExclusive(v);
+    return () => {
+      pauseIfCurrent(v);
+      unregisterVideo(v);
+    };
+  }, [fullscreenOpen, fullscreenKind, registerVideo, unregisterVideo, muted]);
+
+  useEffect(() => {
+    if (!fullscreenOpen || fullscreenKind !== "video") return;
+    const v = fsVideoRef.current;
+    if (!v) return;
+    (v as any).muted = muted;
+  }, [muted, fullscreenOpen, fullscreenKind]);
+
+  // playing state
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    return () => {
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+    };
+  }, []);
+
+  // reset expanded on new item
+  useEffect(() => setCaptionExpanded(false), [item.id]);
+
+  // view logging (same logic)
   const viewLoggedRef = useRef(false);
   useEffect(() => {
     viewLoggedRef.current = false;
@@ -1120,6 +1216,13 @@ function VideoCard({
     }
   }, [item.id, item.mediaType, uid]);
 
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (playing) pauseIfCurrent(v);
+    else playExclusive(v);
+  };
+
   const onShare = async () => {
     const handle = authorProfile?.handle || item.authorUsername;
     const url = handle
@@ -1136,14 +1239,19 @@ function VideoCard({
 
       const baseId = uid ?? getOrMakeDeviceId();
       const sid = `${item.id}_${baseId}_${Date.now()}`;
-
       const payload: any = { deedId: item.id, createdAt: serverTimestamp() };
+
       if (uid) {
         const userSnap = await getUserSnap(uid);
         payload.userId = uid;
-        payload.user = { name: userSnap.name ?? null, handle: userSnap.handle ?? null, photoURL: userSnap.photoURL ?? null };
-      } else payload.deviceId = baseId;
-
+        payload.user = {
+          name: userSnap.name ?? null,
+          handle: userSnap.handle ?? null,
+          photoURL: userSnap.photoURL ?? null,
+        };
+      } else {
+        payload.deviceId = baseId;
+      }
       await setDoc(doc(db, "shares", sid), payload);
     } catch { }
   };
@@ -1164,134 +1272,36 @@ function VideoCard({
     if (!uid) return router.push("/getstarted?next=/");
     await toggleFollow();
   };
+  const onSupportClick = () => {
+    if (!uid) return router.push("login/?next=/");
+    setDonateOpen(true);
+  };
 
-  const handleToPath = (h?: string) => (h ? `/${encodeURIComponent(h.startsWith("@") ? h : `@${h}`)}` : null);
   const onViewProfileClick = () => {
     const handle = authorProfile?.handle || item.authorUsername;
-    const path = handleToPath(handle);
-    if (path) router.push(path);
+    if (!handle) return;
+    router.push(`/${encodeURIComponent(handle.startsWith("@") ? handle : `@${handle}`)}`);
   };
 
-  const fireFirstFrameOnce = React.useCallback(() => {
-    if (firstFrameFiredRef.current) return;
-    firstFrameFiredRef.current = true;
-    onFirstFrame?.();
-  }, [onFirstFrame]);
-
-  const handleVideoReady = () => {
-    const v = videoRef.current;
-    if (v && (v as any).videoWidth && (v as any).videoHeight) {
-      setFitMode((v as any).videoWidth > (v as any).videoHeight ? "contain" : "cover");
-    }
-    setMediaReady(true);
-    fireFirstFrameOnce();
-  };
-
-  const handleImageReady: React.ReactEventHandler<HTMLImageElement> = (e) => {
-    const img = e.currentTarget;
-    if (img.naturalWidth && img.naturalHeight) {
-      setFitMode(img.naturalWidth > img.naturalHeight ? "contain" : "cover");
-    }
-    setMediaReady(true);
-    fireFirstFrameOnce();
-  };
-
-  useAutoPlay(videoRef, { root: scrollRootRef, threshold: 0.35, rootMargin: "-30% 0px -30% 0px", initialMuted: muted });
-  useHls(videoRef, item.mediaUrl || undefined, { maxHeight: hlsMaxHeight });
-  useHls(fsVideoRef, fullscreenOpen && fullscreenKind === "video" ? item.mediaUrl || undefined : undefined, { maxHeight: hlsMaxHeight });
-
-  useEffect(() => {
-    if (!fullscreenOpen || fullscreenKind !== "video") return;
-    const v = fsVideoRef.current;
-    if (!v) return;
-
-    registerVideo(v);
-    (v as any).muted = muted;
-    playExclusive(v);
-
-    return () => {
-      pauseIfCurrent(v);
-      unregisterVideo(v);
-    };
-  }, [fullscreenOpen, fullscreenKind, registerVideo, unregisterVideo, muted]);
-
-  useEffect(() => {
-    if (!fullscreenOpen || fullscreenKind !== "video") return;
-    const v = fsVideoRef.current;
-    if (v) (v as any).muted = muted;
-  }, [muted, fullscreenOpen, fullscreenKind]);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    registerVideo(v);
-    return () => unregisterVideo(v);
-  }, [registerVideo, unregisterVideo]);
-
-  useEffect(() => {
-    if (videoRef.current) (videoRef.current as any).muted = muted;
-  }, [muted]);
-
-  const avatar = authorProfile?.photoURL || item.authorPhotoURL || "/avatar-placeholder.png";
-  const music = item.music;
-  const isLibrarySound = music?.source === "library" && !!music?.coverUrl;
-  const soundLabel = isLibrarySound ? music?.title || "Library sound" : "Original sound";
-  const soundAvatar = isLibrarySound ? (music?.coverUrl as string) : avatar;
-
-  const [playing, setPlaying] = useState(false);
-
-  // caption + hashtag
-  const [captionExpanded, setCaptionExpanded] = useState(false);
-  const tags = useMemo(() => (item.tags ?? []).filter(Boolean), [item.tags]);
-  const MAX_COLLAPSED_TAGS = 3;
-
-  const hasCaption = !!item.text;
-  const hasTags = tags.length > 0;
-  const captionTooLong = (item.text?.length ?? 0) > 80;
-  const tagsHidden = tags.length > MAX_COLLAPSED_TAGS;
-  const visibleTags = captionExpanded ? tags : tags.slice(0, MAX_COLLAPSED_TAGS);
-  const showMoreToggle = captionTooLong || tagsHidden;
-
-  useEffect(() => setCaptionExpanded(false), [item.id]);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    v.addEventListener("play", onPlay);
-    v.addEventListener("pause", onPause);
-    return () => {
-      v.removeEventListener("play", onPlay);
-      v.removeEventListener("pause", onPause);
-    };
-  }, []);
-
-  const togglePlay = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (playing) pauseIfCurrent(v);
-    else playExclusive(v);
-  };
-
-  const showFollow = (!uid || uid !== item.authorId) && !following;
-
-  // ✅ Mobile Tik UI: slightly bigger rail
-  const actionBtnSize = isTik ? "h-14 w-14" : "h-11 w-11 md:h-12 md:w-12";
-  const actionIconSize = isTik ? 26 : 22;
+  // ✅ MOBILE-ONLY TikTok UI mode tuning
+  const railBtn = isMobile ? "h-14 w-14" : "h-10 w-10";
+  const railIcon = isMobile ? 26 : 22;
+  const railCount = isMobile ? "text-[10px]" : "text-[10px]";
+  //const railTextColor = isMobile ? "text-white" : "md:text-gray-900 text-white";
+  const railTextColor = isMobile ? "text-white" : "text-white";
+  const railBg = isMobile ? "bg-white/10 border-white/15" : "bg-black/40 md:bg-white/95 border-white/30 md:border-gray-200";
 
   return (
-    <div className={cn("relative mt-1 mb-1", isTik ? "w-full" : "")}>
+    <div className={cn("relative w-full", isMobile ? "" : "py-1")}>
       <article
         className={cn(
-          "group relative overflow-hidden rounded-[28px]",
-          "shadow-[0_22px_60px_rgba(0,0,0,.65)]",
-          "bg-gradient-to-b from-[#0B1513] via-black to-black",
-          "transition-transform duration-300 ease-out",
-          "md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]",
-          isTik ? "w-[100vw] max-w-[100vw] rounded-none" : "w-full lg:w-[375px]"
+          "group relative overflow-hidden bg-black",
+          isMobile
+            ? "w-full rounded-none shadow-none"
+            : "w-full lg:w-[375px] rounded-[28px] shadow-[0_22px_60px_rgba(0,0,0,.65)] bg-gradient-to-b from-[#0B1513] via-black to-black",
+          !isMobile && "transition-transform duration-300 ease-out md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]"
         )}
-        style={{ top: tabOffsetPx - 5, height: cardH }}
+        style={{ height: cardH }}
       >
         {!mediaReady && (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40">
@@ -1299,6 +1309,7 @@ function VideoCard({
           </div>
         )}
 
+        {/* top controls */}
         {item.mediaType === "video" && (
           <>
             <div className="absolute left-3 top-3 z-20 flex items-center gap-2">
@@ -1311,14 +1322,14 @@ function VideoCard({
               </button>
             </div>
 
-            {/* ✅ Hide hover play button on mobile Tik UI */}
-            {!isTik && (
+            {/* ✅ hide desktop hover play button on mobile */}
+            {!isMobile && (
               <button
                 onClick={togglePlay}
                 aria-label={playing ? "Pause video" : "Play video"}
                 className={cn(
                   "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20",
-                  "rounded-full bg-black/40 text-white p-4 md:p-5 shadow-lg hover:bg-black/75",
+                  "rounded-full bg-black/40 text-white p-5 shadow-lg hover:bg-black/75",
                   "backdrop-blur-sm transition-opacity duration-200",
                   playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
                 )}
@@ -1329,6 +1340,7 @@ function VideoCard({
           </>
         )}
 
+        {/* fullscreen toggle */}
         {item.mediaUrl && (
           <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
             <button
@@ -1351,6 +1363,7 @@ function VideoCard({
           </div>
         )}
 
+        {/* media */}
         <div className="w-full h-full flex items-center justify-center bg-black">
           {item.mediaType === "video" && item.mediaUrl ? (
             <video
@@ -1360,7 +1373,10 @@ function VideoCard({
               loop
               controlsList="nodownload noremoteplayback"
               preload={dataSaverOn ? "metadata" : "auto"}
-              className={cn("max-h-full max-w-full", fitMode === "contain" ? "object-contain" : "object-cover")}
+              className={cn(
+                "h-full w-full",
+                fitMode === "contain" ? "object-contain" : "object-cover"
+              )}
               onClick={togglePlay}
               onLoadedMetadata={handleVideoReady}
               onLoadedData={handleVideoReady}
@@ -1371,7 +1387,7 @@ function VideoCard({
             <img
               src={item.mediaUrl}
               alt={item.text || "photo"}
-              className={cn("max-h-full max-w-full", fitMode === "contain" ? "object-contain" : "object-cover")}
+              className={cn("h-full w-full", fitMode === "contain" ? "object-contain" : "object-cover")}
               onLoad={handleImageReady}
             />
           ) : (
@@ -1382,17 +1398,18 @@ function VideoCard({
         {/* bottom overlay */}
         <div
           className={cn(
-            "absolute left-0 right-0 bottom-0 p-3 sm:p-4",
-            "bg-gradient-to-t from-black/80 via-black/40 to-transparent",
+            "absolute left-0 right-0 bottom-0",
+            "bg-gradient-to-t from-black/85 via-black/35 to-transparent",
             "transition-opacity duration-200",
-            mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
+            mediaReady ? "opacity-100" : "opacity-0 pointer-events-none",
+            isMobile ? "p-4 pb-6" : "p-4"
           )}
         >
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-2">
             <div
               onClick={onViewProfileClick}
               className={cn(
-                "relative h-9 w-9 rounded-full overflow-hidden bg-gray-200 shrink-0",
+                "relative h-10 w-10 rounded-full overflow-hidden bg-gray-200 shrink-0",
                 (authorProfile?.handle || item.authorUsername) ? "cursor-pointer" : "cursor-default"
               )}
             >
@@ -1413,170 +1430,163 @@ function VideoCard({
                     ? item.authorUsername
                     : (item.authorId ?? "").slice(0, 6)}
               </div>
-              <div className="items-center text-white/70 text-[11px]" title={`${followersCount} Follower${followersCount === 1 ? "" : "s"}`}>
-                {formatCount(followersCount)} Follower{followersCount === 1 ? "" : "s"}
+              <div className="text-white/70 text-[11px]" title={`${followersCount} followers`}>
+                {formatCount(followersCount)} Followers
               </div>
             </div>
 
             {showFollow && (
               <button
                 onClick={onFollowClick}
-                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-[#ffffff] bg-[#C79257] hover:bg-[#FCD34D] shadow-sm"
-                aria-label="Follow"
-                title="Follow"
+                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-white bg-[#C79257] hover:bg-[#FCD34D] shadow-sm"
               >
                 Follow
               </button>
             )}
           </div>
 
+          {/* ✅ TikTok-style caption spacing */}
           {(hasCaption || hasTags) && (
-            <motion.div className={cn("mt-1 w-full", isTik ? "pb-1" : "")} layout transition={{ type: "spring", stiffness: 260, damping: 26 }}>
+            <motion.div className="mt-1 w-full" layout transition={{ type: "spring", stiffness: 260, damping: 26 }}>
               {hasCaption && (
-                <div className={cn("relative w-full", isTik ? "pr-12" : "pb-1")}>
-                  {/* ✅ TikTok-style: 2 line clamp + inline aligned toggle */}
+                <div className="relative w-full">
                   <motion.p
                     layout
-                    className={cn("text-white/95 w-full text-sm leading-5", captionExpanded ? "" : "line-clamp-2", isTik ? "tracking-[0.1px]" : "", "cursor-pointer")}
+                    className={cn(
+                      "text-white/95 w-full text-[14px] leading-5",
+                      "cursor-pointer",
+                      captionExpanded ? "" : "line-clamp-2"
+                    )}
                     onClick={() => setCaptionExpanded((v) => !v)}
-                    style={{ wordBreak: "break-word" }}
                   >
                     {item.text}
                   </motion.p>
-
-                  {showMoreToggle && (
-                    <button
-                      type="button"
-                      onClick={() => setCaptionExpanded((v) => !v)}
-                      className={cn(
-                        "absolute right-0",
-                        captionExpanded ? "top-0" : "bottom-0",
-                        "text-[12px] font-semibold text-white/90",
-                        "px-1.5 py-0.5 rounded-md",
-                        "bg-black/35 hover:bg-black/55"
-                      )}
-                      aria-label={captionExpanded ? "Collapse caption" : "Expand caption"}
-                    >
-                      {captionExpanded ? "less" : "more"}
-                    </button>
-                  )}
                 </div>
               )}
 
               {hasTags && (
-                <motion.div layout className="mt-1 w-full flex flex-wrap items-center gap-1.5">
+                <motion.div layout className="mt-2 w-full flex flex-wrap items-center gap-2">
                   {visibleTags.map((tag: any) => (
                     <button
                       key={tag}
                       type="button"
-                      className="px-2 py-0.5 rounded-full border border-white/30 bg-black/30 text-[11px] text-white font-semibold hover:bg-black/60 transition-colors"
+                      className="px-2.5 py-1 rounded-full border border-white/25 bg-black/25 text-[12px] text-white font-semibold hover:bg-black/60 transition-colors"
                       onClick={() => router.push(`/search?tag=${encodeURIComponent(tag)}&tab=Tags`)}
                     >
                       #{tag}
                     </button>
                   ))}
+                  {showMoreToggle && (
+                    <button
+                      type="button"
+                      onClick={() => setCaptionExpanded((v) => !v)}
+                      className="text-[12px] text-white/90 font-semibold"
+                    >
+                      {captionExpanded ? "less" : "… more"}
+                    </button>
+                  )}
                 </motion.div>
               )}
             </motion.div>
           )}
 
-          <div className="mt-2 flex items-center gap-2">
+          {/* sound row */}
+          <div className="mt-3 flex items-center gap-2">
             {isLibrarySound && (
-              <div className="h-5 w-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0 border border-white/30">
+              <div className="h-6 w-6 rounded-full overflow-hidden bg-black/40 flex-shrink-0 border border-white/25">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={soundAvatar} alt={soundLabel} className="h-full w-full object-cover" />
               </div>
             )}
-            <div className="flex items-center gap-1 text-[11px] text-white/85 min-w-0">
-              <IoMusicalNotesOutline className="flex-shrink-0" size={14} />
-              <span className="truncate max-w-[180px] sm:max-w-[220px]">{soundLabel}</span>
-              {!isLibrarySound && <span className="hidden sm:inline opacity-80">• Original sound</span>}
+            <div className="flex items-center gap-2 text-[12px] text-white/85 min-w-0">
+              <IoMusicalNotesOutline className="flex-shrink-0" size={16} />
+              <span className="truncate max-w-[220px]">{soundLabel}</span>
             </div>
           </div>
         </div>
+
+        {/* action rail */}
+        <div
+          className={cn(
+            "absolute z-40 flex flex-col items-center gap-2",
+            "right-3 top-1/2 -translate-y-1/2",
+            "transition-opacity duration-200",
+            mediaReady ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          )}
+
+        >
+          {canSupport && (
+            <>
+              <button
+                aria-label="Uplift this deed"
+                title="Uplift this deed"
+                onClick={onSupportClick}
+                className={cn(
+                  railBtn,
+                  "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+                  railBg
+                )}
+              >
+                💰
+              </button>
+              <div className={cn("mt-0.5 leading-3 font-bold", railCount, railTextColor)}>Uplift</div>
+            </>
+          )}
+
+          <button
+            aria-label="Like"
+            aria-pressed={liked}
+            onClick={onLikeClick}
+            className={cn(
+              railBtn,
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+              railBg
+            )}
+          >
+            <IoHeart size={railIcon} style={{ color: likeCount ? THEME.forest : THEME.gold }} />
+          </button>
+          <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(likeCount)}</div>
+
+          <button
+            aria-label="Comments"
+            onClick={onCommentsClick}
+            className={cn(
+              railBtn,
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+              railBg
+            )}
+          >
+            <IoChatbubble size={railIcon} style={{ color: commentsCount ? THEME.forest : THEME.gold }} />
+          </button>
+          <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(commentsCount)}</div>
+
+          <button
+            aria-label="Save"
+            onClick={onSaveClick}
+            className={cn(
+              railBtn,
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+              railBg
+            )}
+          >
+            <IoBookmark size={railIcon} style={{ color: totalBookmarks ? THEME.forest : THEME.gold }} />
+          </button>
+          <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalBookmarks)}</div>
+
+          <button
+            aria-label="Share"
+            onClick={onShare}
+            className={cn(
+              railBtn,
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+              railBg
+            )}
+          >
+            <IoArrowRedo size={railIcon} style={{ color: totalShares ? THEME.forest : THEME.gold }} />
+          </button>
+          <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalShares)}</div>
+        </div>
       </article>
-
-      {/* action rail */}
-      <div
-        className={cn(
-          "absolute z-10 flex flex-col items-center gap-1.5",
-          "right-3 top-1/2 -translate-y-1/2",
-          "md:right-[-55px]",
-          "transition-opacity duration-200",
-          mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-      >
-        {canSupport && (
-          <>
-            <button
-              aria-label="Uplift this deed"
-              title="Uplift this deed"
-              onClick={onSupportClick}
-              className={cn(
-                actionBtnSize,
-                "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-                "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-              )}
-            >
-              💰
-            </button>
-            <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">Uplift</div>
-          </>
-        )}
-
-        <button
-          aria-label="Like"
-          aria-pressed={liked}
-          onClick={onLikeClick}
-          className={cn(
-            actionBtnSize,
-            "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-            "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-          )}
-        >
-          <IoHeart size={actionIconSize} className="transition-colors" style={{ color: likeCount ? THEME.forest : THEME.gold }} />
-        </button>
-        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">{formatCount(likeCount)}</div>
-
-        <button
-          aria-label="Comments"
-          onClick={onCommentsClick}
-          className={cn(
-            actionBtnSize,
-            "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-            "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-          )}
-        >
-          <IoChatbubble size={actionIconSize} className="transition-colors" style={{ color: commentsCount ? THEME.forest : THEME.gold }} />
-        </button>
-        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">{formatCount(commentsCount)}</div>
-
-        <button
-          aria-label="Save"
-          onClick={onSaveClick}
-          className={cn(
-            actionBtnSize,
-            "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-            "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-          )}
-        >
-          <IoBookmark size={actionIconSize} className="transition-colors" style={{ color: totalBookmarks ? THEME.forest : THEME.gold }} />
-        </button>
-        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">{formatCount(totalBookmarks)}</div>
-
-        <button
-          aria-label="Share"
-          onClick={onShare}
-          className={cn(
-            actionBtnSize,
-            "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
-            "bg-black/40 md:bg-white/95 backdrop-blur-sm border border-white/30 md:border-gray-200"
-          )}
-        >
-          <IoArrowRedo size={actionIconSize} className="transition-colors" style={{ color: totalShares ? THEME.forest : THEME.gold }} />
-        </button>
-        <div className="mt-0.5 text-[11px] md:text-[12px] leading-3 font-extrabold text-white md:text-gray-900">{formatCount(totalShares)}</div>
-      </div>
 
       {/* fullscreen */}
       {fullscreenOpen && item.mediaUrl && (
@@ -1630,20 +1640,22 @@ function VideoCard({
   );
 }
 
-/* ---------- Step scroll ---------- */
-function itemHeight(root: HTMLElement | null) {
-  if (!root) return window.innerHeight;
-  const first = root.querySelector('[data-snap-item="1"]') as HTMLElement | null;
-  return first?.offsetHeight ?? root.clientHeight;
-}
-
-function useStepScroll(rootRef: React.RefObject<HTMLElement | null>, getCount: () => number, enabled = true) {
+/* ---------- Step scroll (1 item per screen) ---------- */
+function useStepScroll(
+  rootRef: React.RefObject<HTMLElement | null>,
+  getCount: () => number,
+  enabled = true
+) {
   const lockRef = useRef(false);
   const indexRef = useRef(0);
   const [index, setIndex] = useState(0);
   const targetTopRef = useRef<number | null>(null);
 
-  const step = () => itemHeight(rootRef.current);
+  const step = () => {
+    const root = rootRef.current;
+    return root?.clientHeight ?? window.innerHeight;
+  };
+
   const isEditable = (t: EventTarget | null) => {
     const el = t as HTMLElement | null;
     if (!el) return false;
@@ -1774,16 +1786,19 @@ function FeedShell() {
   const { user } = useAuth();
   const uid = user?.uid;
 
+  const router = useRouter();
   const profile = useUserProfile(uid);
-  const { effectiveType, saveData } = useNetworkProfile();
 
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
+
+  const { effectiveType, saveData } = useNetworkProfile();
   const userDataSaver = !!profile?.dataSaverVideos;
   const isVerySlow = effectiveType === "2g" || effectiveType === "slow-2g";
   const isFast = effectiveType === "4g" || effectiveType === "5g";
   const globalDataSaverOn = !!saveData;
 
   const dataSaverOn = userDataSaver || globalDataSaverOn || isVerySlow;
-
   const preloadMode: PreloadMode = dataSaverOn ? "none" : isFast && !globalDataSaverOn ? "aggressive" : "light";
 
   let hlsMaxHeight: number | undefined;
@@ -1796,23 +1811,49 @@ function FeedShell() {
 
   const showTopLoader = useProgressIndicator(loading);
   const scrollerRef = useRef<HTMLDivElement>(null);
+
   const [commentsId, setCommentsId] = useState<string | null>(null);
 
-  const isDesktop = useIsDesktop();
-  const isMobile = useIsMobile();
+  // ✅ Mobile TikTok sizing: card = full screen
+  const TAB_BAR_H = 56;
+  const { h: cardH } = useDeedBox({
+    railOpen: !!commentsId,
+    topOffsetPx: TAB_BAR_H,
+    isMobile,
+  });
 
-  // ✅ Mobile-only Tik UI mode (persistent)
-  const [tikMobileUI, setTikMobileUI] = useStoredBoolean("__ekari_tik_ui_mobile__", true);
-  const tikMobileUIEnabled = isMobile && tikMobileUI;
+  const openComments = useCallback((id: string) => setCommentsId(id), []);
+  const closeComments = useCallback(() => setCommentsId(null), []);
 
-  const router = useRouter();
-  const [updatingDataSaver, setUpdatingDataSaver] = useState(false);
-
-  const toggleUserDataSaver = useCallback(async () => {
-    if (!uid) {
-      router.push("/getstarted?next=/");
-      return;
+  // lock body behind mobile sheet
+  useEffect(() => {
+    if (!isDesktop && commentsId) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
     }
+  }, [isDesktop, commentsId]);
+
+  // esc closes
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeComments();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [closeComments]);
+
+  // step scroll
+  const { goPrev, goNext, index } = useStepScroll(scrollerRef as any, () => items.length, true);
+  const atTop = index <= 0;
+  const atEnd = index >= Math.max(0, items.length - 1);
+
+  // data saver toggle
+  const [updatingDataSaver, setUpdatingDataSaver] = useState(false);
+  const toggleUserDataSaver = useCallback(async () => {
+    if (!uid) return router.push("/getstarted?next=/");
     if (updatingDataSaver) return;
     setUpdatingDataSaver(true);
     try {
@@ -1821,8 +1862,6 @@ function FeedShell() {
       setUpdatingDataSaver(false);
     }
   }, [uid, router, userDataSaver, updatingDataSaver]);
-
-  const toggleTikMobileUI = useCallback(() => setTikMobileUI((v) => !v), [setTikMobileUI]);
 
   const changeTab = useCallback(
     (k: TabKey) => {
@@ -1836,45 +1875,10 @@ function FeedShell() {
     [uid, router]
   );
 
-  useEffect(() => {
-    if (!isDesktop && commentsId) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = prev;
-      };
-    }
-  }, [isDesktop, commentsId]);
-
-  const openComments = useCallback((id: string) => setCommentsId(id), []);
-  const closeComments = useCallback(() => setCommentsId(null), []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeComments();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [closeComments]);
-
-  const { goPrev, goNext, index } = useStepScroll(scrollerRef as unknown as React.RefObject<HTMLElement>, () => items.length, true);
-
-  useEffect(() => {
-    if (!commentsId) return;
-    const current = items[index];
-    if (!current) return;
-    if (current.id !== commentsId) setCommentsId(current.id);
-  }, [index, items, commentsId]);
-
-  const atTop = index <= 0;
-  const atEnd = index >= Math.max(0, items.length - 1);
-
   const goUpload = () => {
     if (!uid) router.push("/getstarted?next=/studio/upload");
     else router.push("/studio/upload");
   };
-
-  const TAB_BAR_H = 56;
 
   return (
     <MuteProvider>
@@ -1893,6 +1897,9 @@ function FeedShell() {
           />
         }
       >
+        {/* ✅ nicer desktop background */}
+        <div className={cn("fixed inset-0 -z-10", isMobile ? "bg-black" : "bg-gradient-to-b from-gray-50 via-white to-gray-50")} />
+
         <OpenInAppBanner
           webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
           appUrl="ekarihub://"
@@ -1900,22 +1907,25 @@ function FeedShell() {
           subtitle="Best experience in the app."
         />
 
+        {/* scroller */}
         <section
           ref={scrollerRef}
           tabIndex={0}
           className={cn(
-            "w-full flex flex-col items-center gap-0 overflow-y-scroll no-scrollbar scroll-smooth outline-none",
-            tikMobileUIEnabled ? "bg-black" : ""
+            "w-full flex flex-col items-center overflow-y-scroll no-scrollbar scroll-smooth outline-none",
+            isMobile ? "bg-black" : "bg-transparent"
           )}
           style={{
             height: "100svh",
             scrollSnapType: "y mandatory" as any,
             overscrollBehaviorY: "contain",
+
           }}
         >
-          <div className="sticky p-0 top-0 z-30 w-full">
+          {/* sticky bar */}
+          <div className="sticky top-0 z-30 w-full">
             <div
-              className="h-full w-full p-1 border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl"
+              className="relative h-[56px] w-full p-1 border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl"
               style={{
                 background: "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
                 borderColor: "rgba(15,23,42,0.18)",
@@ -1924,67 +1934,78 @@ function FeedShell() {
             >
               <ChannelTabs
                 uid={uid}
-                profile={profile}
                 commentsId={commentsId ?? ""}
                 active={tab}
                 onChange={changeTab}
                 dataSaverOn={dataSaverOn}
-                userDataSaver={userDataSaver}
                 onToggleDataSaver={toggleUserDataSaver}
-                tikMobileUI={tikMobileUIEnabled}
-                onToggleTikMobileUI={toggleTikMobileUI}
               />
               <TopLoader active={showTopLoader} color="#FDE68A" />
             </div>
           </div>
 
+          {/* loading skeleton */}
           {showTopLoader && items.length === 0 && (
             <div
               data-snap-item="1"
-              className={cn("w-full flex items-center justify-center snap-start transition-[right] duration-200", commentsId ? "lg:mr-0" : "lg:mr-[100px]")}
-              style={{ height: `100svh`, scrollSnapStop: "always" }}
+              className="w-full snap-start"
+              style={{
+                height: cardH,
+                scrollSnapStop: "always",
+              }}
             >
-              <SkeletonCard railOpen={!!commentsId} tabOffsetPx={TAB_BAR_H} />
+              <SkeletonCard cardH={cardH} isMobile={isMobile} />
             </div>
           )}
 
-          {!loading && items.length === 0 && <div className="py-10 text-sm text-white/80">No deeds yet.</div>}
+          {!loading && items.length === 0 && (
+            <div className={cn("py-10 text-sm", isMobile ? "text-white/80" : "text-gray-600")}>
+              No deeds yet.
+            </div>
+          )}
 
+          {/* ✅ each deed is exactly one screen on mobile */}
           {items.map((item) => (
             <div
               key={item.id}
               data-snap-item="1"
               className={cn(
-                "w-full flex items-center justify-center snap-start transition-[right] duration-200",
-                commentsId ? "lg:mr-0" : "lg:mr-[100px]",
-                tikMobileUIEnabled ? "px-0" : ""
+                "w-full snap-start",
+                // ✅ center feed area on desktop
+                isMobile ? "" : "flex justify-center",
+                // ✅ add spacing so first card doesn't sit under the top bar
+                isMobile ? "" : "pt-[60px] mb-2"
               )}
-              style={{ height: `100svh`, scrollSnapStop: "always" }}
+              style={{
+                height: cardH,
+                scrollSnapStop: "always",
+              }}
             >
-              <VideoCard
-                item={item}
-                uid={uid}
-                scrollRootRef={scrollerRef}
-                onOpenComments={openComments}
-                railOpen={!!commentsId}
-                onFirstFrame={undefined}
-                tabOffsetPx={TAB_BAR_H}
-                dataSaverOn={dataSaverOn}
-                hlsMaxHeight={hlsMaxHeight}
-                tikMobileUI={tikMobileUIEnabled}
-              />
+              <div className={cn(isMobile ? "w-full" : "w-full max-w-[420px]")}>
+                <VideoCard
+                  item={item}
+                  uid={uid}
+                  scrollRootRef={scrollerRef}
+                  onOpenComments={openComments}
+                  isMobile={isMobile}
+                  cardH={cardH}
+                  dataSaverOn={dataSaverOn}
+                  hlsMaxHeight={hlsMaxHeight}
+                />
+              </div>
             </div>
+
           ))}
         </section>
 
-        {/* Desktop steppers */}
+        {/* desktop up/down */}
         <div className="hidden lg:inline">
-          <div className={cn("fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2 md:gap-3")}>
+          <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3">
             <button
               onClick={goPrev}
               disabled={atTop}
               aria-label="Previous"
-              className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+              className="rounded-full border border-gray-200 bg-white shadow p-2 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
             >
               <IoChevronUp size={18} />
             </button>
@@ -1992,30 +2013,36 @@ function FeedShell() {
               onClick={goNext}
               disabled={atEnd}
               aria-label="Next"
-              className="rounded-full border border-gray-200 bg-gray-200 shadow p-2 hover:bg-white disabled:opacity-40 disabled:pointer-events-none"
+              className="rounded-full border border-gray-200 bg-white shadow p-2 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
             >
               <IoChevronDown size={18} />
             </button>
           </div>
         </div>
 
-        {/* Mobile upload FAB */}
+        {/* mobile upload FAB */}
         <button
-          className="lg:hidden fixed right-4 bottom-4 rounded-full shadow-md p-3 text-white"
+          className="lg:hidden fixed right-4 bottom-4 rounded-full shadow-md p-4 text-white z-[55]"
           style={{ backgroundColor: EKARI.primary }}
           aria-label="Upload"
           onClick={goUpload}
         >
-          <IoAdd size={22} />
+          <IoAdd size={24} />
         </button>
 
-        {/* Mobile comments overlay */}
+        {/* mobile comments sheet */}
         <div
-          className={cn("lg:hidden fixed inset-0 z-[60] transition", commentsId ? "pointer-events-auto" : "pointer-events-none")}
+          className={cn(
+            "lg:hidden fixed inset-0 z-[60] transition",
+            commentsId ? "pointer-events-auto" : "pointer-events-none"
+          )}
           aria-hidden={!commentsId}
         >
           <div
-            className={cn("absolute inset-0 backdrop-blur-[2px] transition-opacity", commentsId ? "opacity-100" : "opacity-0")}
+            className={cn(
+              "absolute inset-0 backdrop-blur-[2px] transition-opacity",
+              commentsId ? "opacity-100" : "opacity-0"
+            )}
             onClick={closeComments}
           />
           <div
@@ -2049,7 +2076,7 @@ function FeedShell() {
   );
 }
 
-/* ---------- Root: Splash + decision + Feed ---------- */
+/* ---------- Root ---------- */
 export default function RootPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -2083,8 +2110,8 @@ export default function RootPage() {
       decidedRef.current = true;
 
       const minDelay = splashSeen ? Promise.resolve() : new Promise((r) => setTimeout(r, 600));
-
       let goFeed = true;
+
       try {
         if (user?.uid) {
           const snap = await getDoc(doc(db, "users", user.uid));
@@ -2113,13 +2140,17 @@ export default function RootPage() {
   if (phase === "splash" && !splashSeen) {
     return (
       <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: THEME.forest }}>
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 140, damping: 16, mass: 0.6 }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 140, damping: 16, mass: 0.6 }}
+        >
           <Image
             src="/ekarihub-logo-green.png"
             alt="ekarihub"
             width={320}
             height={86}
-            onError={(e) => (((e.currentTarget as any) as HTMLImageElement).src = "/ekarihub-logo.png")}
+            onError={(e) => ((e.currentTarget as HTMLImageElement).src = "/ekarihub-logo.png")}
             priority
           />
         </motion.div>
