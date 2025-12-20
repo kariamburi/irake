@@ -968,6 +968,7 @@ function Header({
                           : "Request verification"}
                       </span>
                     </Link>
+
                   ) : null}
 
                   {verificationStatus === "pending" && (
@@ -980,6 +981,7 @@ function Header({
                       <span>Verification pending review</span>
                     </button>
                   )}
+
                 </>
               ) : (
                 <>

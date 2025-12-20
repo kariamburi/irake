@@ -21,6 +21,13 @@ import {
   IoMusicalNotesOutline,
   IoExpandOutline,
   IoClose,
+  IoChatbubblesOutline,
+  IoGitNetworkOutline,
+  IoStorefrontOutline,
+  IoHome,
+  IoCartOutline,
+  IoCompassOutline,
+  IoHomeOutline,
 } from "react-icons/io5";
 
 import {
@@ -942,7 +949,7 @@ function ChannelTabs({
             <span>Dive In</span>
           </button>
 
-          <button
+          {/**  <button
             type="button"
             onClick={onToggleDataSaver}
             disabled={!uid}
@@ -954,7 +961,7 @@ function ChannelTabs({
           >
             <span className="inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: dataSaverOn ? "#16A34A" : "#9CA3AF" }} />
             <span>Data saver</span>
-          </button>
+          </button>*/}
 
           <button
             onClick={() => router.push("/search")}
@@ -1007,12 +1014,12 @@ function SkeletonCard({
   isMobile: boolean;
 }) {
   return (
-    <div className="relative w-full">
+    <div className="relative pt-[70px] mb-0">
       <article
         className={cn(
-          "relative w-full overflow-hidden bg-black",
+          "relative overflow-hidden bg-black",
           isMobile
-            ? "rounded-none"
+            ? "w-full rounded-none"
             : "lg:w-[375px] rounded-[28px] shadow-[0_22px_60px_rgba(0,0,0,.12)]"
         )}
         style={{ height: cardH }}
@@ -1402,7 +1409,7 @@ function VideoCard({
             "bg-gradient-to-t from-black/85 via-black/35 to-transparent",
             "transition-opacity duration-200",
             mediaReady ? "opacity-100" : "opacity-0 pointer-events-none",
-            isMobile ? "p-4 pb-6" : "p-4"
+            isMobile ? "p-4 pb-24" : "p-4"
           )}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -1515,6 +1522,7 @@ function VideoCard({
           )}
 
         >
+
           {canSupport && (
             <>
               <button
@@ -1585,6 +1593,20 @@ function VideoCard({
             <IoArrowRedo size={railIcon} style={{ color: totalShares ? THEME.forest : THEME.gold }} />
           </button>
           <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalShares)}</div>
+          {/* ✅ MOBILE: mute/unmute lives on rail so it never gets hidden */}
+          {isMobile && item.mediaType === "video" && (
+            <button
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute" : "Mute"}
+              className={cn(
+                railBtn,
+                "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+                railBg
+              )}
+            >
+              {muted ? <IoVolumeMute size={railIcon} /> : <IoVolumeHigh size={railIcon} />}
+            </button>
+          )}
         </div>
       </article>
 
@@ -1971,10 +1993,12 @@ function FeedShell() {
             {showTopLoader && items.length === 0 && (
               <div
                 data-snap-item="1"
-                className="w-full snap-start"
+                className="w-full snap-start flex items-center justify-center"
                 style={{
-                  height: cardH,
+                  height: cardH,                 // keeps your snap sizing
+                  minHeight: "100vh",            // ensures true screen-centering
                   scrollSnapStop: "always",
+                  // padding: "16px",
                 }}
               >
                 <SkeletonCard cardH={cardH} isMobile={isMobile} />
@@ -2250,18 +2274,23 @@ function MobileBottomTabs({ onUpload }: { onUpload: () => void }) {
       <div
         className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
         style={{
-          backgroundColor: "rgba(17,24,39,.92)",
-          borderTop: "1px solid rgba(255,255,255,.08)",
-          backdropFilter: "blur(12px)",
+          backgroundColor: "#000000", // ✅ pure black
+          borderTop: "1px solid rgba(255,255,255,.10)",
         }}
       >
-        <button onClick={() => router.push("/")} className="flex flex-col items-center gap-1 text-white/90">
-          <IoPlay size={20} />
+        <button
+          onClick={() => router.push("/")}
+          className="flex flex-col items-center gap-1 text-white"
+        >
+          <IoHomeOutline size={20} />
           <span className="text-[11px] font-semibold">Deeds</span>
         </button>
 
-        <button onClick={() => router.push("/market")} className="flex flex-col items-center gap-1 text-white/90">
-          <IoTelescopeOutline size={20} />
+        <button
+          onClick={() => router.push("/market")}
+          className="flex flex-col items-center gap-1 text-white"
+        >
+          <IoCartOutline size={20} />
           <span className="text-[11px] font-semibold">ekariMarket</span>
         </button>
 
@@ -2275,13 +2304,19 @@ function MobileBottomTabs({ onUpload }: { onUpload: () => void }) {
           <IoAdd size={26} color="#111827" />
         </button>
 
-        <button onClick={() => router.push("/nexus")} className="flex flex-col items-center gap-1 text-white/90">
-          <IoChevronUp size={20} />
+        <button
+          onClick={() => router.push("/nexus")}
+          className="flex flex-col items-center gap-1 text-white"
+        >
+          <IoCompassOutline size={20} />
           <span className="text-[11px] font-semibold">Nexus</span>
         </button>
 
-        <button onClick={() => router.push("/bonga")} className="flex flex-col items-center gap-1 text-white/90">
-          <IoChatbubble size={20} />
+        <button
+          onClick={() => router.push("/bonga")}
+          className="flex flex-col items-center gap-1 text-white"
+        >
+          <IoChatbubblesOutline size={20} />
           <span className="text-[11px] font-semibold">Bonga</span>
         </button>
       </div>
