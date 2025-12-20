@@ -1409,7 +1409,7 @@ function VideoCard({
             "bg-gradient-to-t from-black/85 via-black/35 to-transparent",
             "transition-opacity duration-200",
             mediaReady ? "opacity-100" : "opacity-0 pointer-events-none",
-            isMobile ? "p-4 pb-24" : "p-4"
+            isMobile ? "p-4 pb-16" : "p-4"
           )}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -1600,7 +1600,7 @@ function VideoCard({
               aria-label={muted ? "Unmute" : "Mute"}
               className={cn(
                 railBtn,
-                "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+                "grid place-items-center text-white rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
                 railBg
               )}
             >
@@ -2168,7 +2168,7 @@ function MobileShell(props: any) {
         }}
       >
         {/* Top overlay bar (tabs + icons) */}
-        <div className="sticky top-0 z-50">
+        <div className="sticky top-2 z-50">
           <div
             className="h-[56px] w-full px-3 flex items-center justify-between"
             style={{
@@ -2178,7 +2178,7 @@ function MobileShell(props: any) {
             {/* Left: Dive In */}
             <button
               onClick={() => (window.location.href = "/dive")}
-              className="px-3 py-2 rounded-full bg-white/15 text-white text-xs font-semibold backdrop-blur-md border border-white/10"
+              className="px-3 py-2 rounded-full bg-white/15 text-white text-[10px] lg:text-xs font-semibold backdrop-blur-md border border-white/10"
             >
               Dive In
             </button>
@@ -2192,7 +2192,7 @@ function MobileShell(props: any) {
                     key={k}
                     onClick={() => changeTab(k)}
                     className={cn(
-                      "px-3 py-2 rounded-full text-xs font-bold",
+                      "px-3 py-2 rounded-full text-[10px] lg:text-xs font-bold",
                       isActive ? "bg-white text-black" : "text-white/90"
                     )}
                   >
