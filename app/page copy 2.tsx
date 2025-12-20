@@ -1882,410 +1882,197 @@ function FeedShell() {
 
   return (
     <MuteProvider>
-      {isMobile ? (
-        <MobileShell
-          uid={uid}
-          user={user}
-          profile={profile}
-          tab={tab}
-          setTab={setTab}
-          items={items}
-          loading={loading}
-          commentsId={commentsId}
-          openComments={openComments}
-          closeComments={closeComments}
-          cardH={cardH}
-          scrollerRef={scrollerRef}
-          dataSaverOn={dataSaverOn}
-          toggleUserDataSaver={toggleUserDataSaver}
-          preloadMode={preloadMode}
-          index={index}
-          hlsMaxHeight={hlsMaxHeight}
-          goUpload={goUpload}
-          changeTab={changeTab}
+      <AppShell
+        rightRail={
+          <RightRail
+            open={!!commentsId}
+            mode="sidebar"
+            deedId={commentsId ?? undefined}
+            onClose={closeComments}
+            currentUser={{
+              uid: uid || undefined,
+              photoURL: profile?.photoURL ?? user?.photoURL ?? undefined,
+              handle: profile?.handle,
+            }}
+          />
+        }
+      >
+        {/* ✅ nicer desktop background */}
+        <div className={cn("fixed inset-0 -z-10", isMobile ? "bg-black" : "bg-gradient-to-b from-gray-50 via-white to-gray-50")} />
+
+        <OpenInAppBanner
+          webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
+          appUrl="ekarihub://"
+          title="Open ekarihub in the app"
+          subtitle="Best experience in the app."
         />
-      ) : (
-        <AppShell
-          rightRail={
+
+        {/* scroller */}
+        <section
+          ref={scrollerRef}
+          tabIndex={0}
+          className={cn(
+            "w-full flex flex-col items-center overflow-y-scroll no-scrollbar scroll-smooth outline-none",
+            isMobile ? "bg-black" : "bg-transparent"
+          )}
+          style={{
+            height: "100svh",
+            scrollSnapType: "y mandatory" as any,
+            overscrollBehaviorY: "contain",
+
+          }}
+        >
+          {/* sticky bar */}
+          <div className="sticky top-0 z-30 w-full">
+            <div
+              className="relative h-[56px] w-full p-1 border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl"
+              style={{
+                background: "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
+                borderColor: "rgba(15,23,42,0.18)",
+                boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
+              }}
+            >
+              <ChannelTabs
+                uid={uid}
+                commentsId={commentsId ?? ""}
+                active={tab}
+                onChange={changeTab}
+                dataSaverOn={dataSaverOn}
+                onToggleDataSaver={toggleUserDataSaver}
+              />
+              <TopLoader active={showTopLoader} color="#FDE68A" />
+            </div>
+          </div>
+
+          {/* loading skeleton */}
+          {showTopLoader && items.length === 0 && (
+            <div
+              data-snap-item="1"
+              className="w-full snap-start"
+              style={{
+                height: cardH,
+                scrollSnapStop: "always",
+              }}
+            >
+              <SkeletonCard cardH={cardH} isMobile={isMobile} />
+            </div>
+          )}
+
+          {!loading && items.length === 0 && (
+            <div className={cn("py-10 text-sm", isMobile ? "text-white/80" : "text-gray-600")}>
+              No deeds yet.
+            </div>
+          )}
+
+          {/* ✅ each deed is exactly one screen on mobile */}
+          {items.map((item) => (
+            <div
+              key={item.id}
+              data-snap-item="1"
+              className={cn(
+                "w-full snap-start",
+                // ✅ center feed area on desktop
+                isMobile ? "" : "flex justify-center",
+                // ✅ add spacing so first card doesn't sit under the top bar
+                isMobile ? "" : "pt-[60px] mb-2"
+              )}
+              style={{
+                height: cardH,
+                scrollSnapStop: "always",
+              }}
+            >
+              <div className={cn(isMobile ? "w-full" : "w-full max-w-[420px]")}>
+                <VideoCard
+                  item={item}
+                  uid={uid}
+                  scrollRootRef={scrollerRef}
+                  onOpenComments={openComments}
+                  isMobile={isMobile}
+                  cardH={cardH}
+                  dataSaverOn={dataSaverOn}
+                  hlsMaxHeight={hlsMaxHeight}
+                />
+              </div>
+            </div>
+
+          ))}
+        </section>
+
+        {/* desktop up/down */}
+        <div className="hidden lg:inline">
+          <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3">
+            <button
+              onClick={goPrev}
+              disabled={atTop}
+              aria-label="Previous"
+              className="rounded-full border border-gray-200 bg-white shadow p-2 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <IoChevronUp size={18} />
+            </button>
+            <button
+              onClick={goNext}
+              disabled={atEnd}
+              aria-label="Next"
+              className="rounded-full border border-gray-200 bg-white shadow p-2 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <IoChevronDown size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* mobile upload FAB */}
+        <button
+          className="lg:hidden fixed right-4 bottom-4 rounded-full shadow-md p-4 text-white z-[55]"
+          style={{ backgroundColor: EKARI.primary }}
+          aria-label="Upload"
+          onClick={goUpload}
+        >
+          <IoAdd size={24} />
+        </button>
+
+        {/* mobile comments sheet */}
+        <div
+          className={cn(
+            "lg:hidden fixed inset-0 z-[60] transition",
+            commentsId ? "pointer-events-auto" : "pointer-events-none"
+          )}
+          aria-hidden={!commentsId}
+        >
+          <div
+            className={cn(
+              "absolute inset-0 backdrop-blur-[2px] transition-opacity",
+              commentsId ? "opacity-100" : "opacity-0"
+            )}
+            onClick={closeComments}
+          />
+          <div
+            className={cn(
+              "absolute inset-x-0 bottom-0 max-h-[88vh] h-[80vh]",
+              "rounded-t-2xl bg-white shadow-xl",
+              "transition-transform duration-300 will-change-transform",
+              commentsId ? "translate-y-0" : "translate-y-full"
+            )}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-gray-300" />
             <RightRail
               open={!!commentsId}
-              mode="sidebar"
+              mode="sheet"
               deedId={commentsId ?? undefined}
               onClose={closeComments}
               currentUser={{
                 uid: uid || undefined,
-                photoURL: profile?.photoURL ?? user?.photoURL ?? undefined,
+                photoURL: user?.photoURL,
                 handle: profile?.handle,
               }}
             />
-          }
-        >
-          {/* ✅ nicer desktop background */}
-          <div className={cn("fixed inset-0 -z-10", isMobile ? "bg-black" : "bg-gradient-to-b from-gray-50 via-white to-gray-50")} />
-
-          <OpenInAppBanner
-            webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
-            appUrl="ekarihub://"
-            title="Open ekarihub in the app"
-            subtitle="Best experience in the app."
-          />
-
-          {/* scroller */}
-          <section
-            ref={scrollerRef}
-            tabIndex={0}
-            className={cn(
-              "w-full flex flex-col items-center overflow-y-scroll no-scrollbar scroll-smooth outline-none",
-              isMobile ? "bg-black" : "bg-transparent"
-            )}
-            style={{
-              height: "100svh",
-              scrollSnapType: "y mandatory" as any,
-              overscrollBehaviorY: "contain",
-
-            }}
-          >
-            {/* sticky bar */}
-            <div className="sticky top-0 z-30 w-full">
-              <div
-                className="relative h-[56px] w-full p-1 border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl"
-                style={{
-                  background: "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
-                  borderColor: "rgba(15,23,42,0.18)",
-                  boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
-                }}
-              >
-                <ChannelTabs
-                  uid={uid}
-                  commentsId={commentsId ?? ""}
-                  active={tab}
-                  onChange={changeTab}
-                  dataSaverOn={dataSaverOn}
-                  onToggleDataSaver={toggleUserDataSaver}
-                />
-                <TopLoader active={showTopLoader} color="#FDE68A" />
-              </div>
-            </div>
-
-            {/* loading skeleton */}
-            {showTopLoader && items.length === 0 && (
-              <div
-                data-snap-item="1"
-                className="w-full snap-start"
-                style={{
-                  height: cardH,
-                  scrollSnapStop: "always",
-                }}
-              >
-                <SkeletonCard cardH={cardH} isMobile={isMobile} />
-              </div>
-            )}
-
-            {!loading && items.length === 0 && (
-              <div className={cn("py-10 text-sm", isMobile ? "text-white/80" : "text-gray-600")}>
-                No deeds yet.
-              </div>
-            )}
-
-            {/* ✅ each deed is exactly one screen on mobile */}
-            {items.map((item) => (
-              <div
-                key={item.id}
-                data-snap-item="1"
-                className={cn(
-                  "w-full snap-start",
-                  // ✅ center feed area on desktop
-                  isMobile ? "" : "flex justify-center",
-                  // ✅ add spacing so first card doesn't sit under the top bar
-                  isMobile ? "" : "pt-[60px] mb-2"
-                )}
-                style={{
-                  height: cardH,
-                  scrollSnapStop: "always",
-                }}
-              >
-                <div className={cn(isMobile ? "w-full" : "w-full max-w-[420px]")}>
-                  <VideoCard
-                    item={item}
-                    uid={uid}
-                    scrollRootRef={scrollerRef}
-                    onOpenComments={openComments}
-                    isMobile={isMobile}
-                    cardH={cardH}
-                    dataSaverOn={dataSaverOn}
-                    hlsMaxHeight={hlsMaxHeight}
-                  />
-                </div>
-              </div>
-
-            ))}
-          </section>
-
-          {/* desktop up/down */}
-          <div className="hidden lg:inline">
-            <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3">
-              <button
-                onClick={goPrev}
-                disabled={atTop}
-                aria-label="Previous"
-                className="rounded-full border border-gray-200 bg-white shadow p-2 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <IoChevronUp size={18} />
-              </button>
-              <button
-                onClick={goNext}
-                disabled={atEnd}
-                aria-label="Next"
-                className="rounded-full border border-gray-200 bg-white shadow p-2 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <IoChevronDown size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* mobile upload FAB */}
-          <button
-            className="lg:hidden fixed right-4 bottom-4 rounded-full shadow-md p-4 text-white z-[55]"
-            style={{ backgroundColor: EKARI.primary }}
-            aria-label="Upload"
-            onClick={goUpload}
-          >
-            <IoAdd size={24} />
-          </button>
-
-          {/* mobile comments sheet */}
-          <div
-            className={cn(
-              "lg:hidden fixed inset-0 z-[60] transition",
-              commentsId ? "pointer-events-auto" : "pointer-events-none"
-            )}
-            aria-hidden={!commentsId}
-          >
-            <div
-              className={cn(
-                "absolute inset-0 backdrop-blur-[2px] transition-opacity",
-                commentsId ? "opacity-100" : "opacity-0"
-              )}
-              onClick={closeComments}
-            />
-            <div
-              className={cn(
-                "absolute inset-x-0 bottom-0 max-h-[88vh] h-[80vh]",
-                "rounded-t-2xl bg-white shadow-xl",
-                "transition-transform duration-300 will-change-transform",
-                commentsId ? "translate-y-0" : "translate-y-full"
-              )}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-gray-300" />
-              <RightRail
-                open={!!commentsId}
-                mode="sheet"
-                deedId={commentsId ?? undefined}
-                onClose={closeComments}
-                currentUser={{
-                  uid: uid || undefined,
-                  photoURL: user?.photoURL,
-                  handle: profile?.handle,
-                }}
-              />
-            </div>
-          </div>
-
-          <AdjacentPreloadWeb items={items} activeIndex={index} mode={preloadMode} />
-        </AppShell>)}
-    </MuteProvider>
-  );
-}
-function MobileShell(props: any) {
-  const {
-    uid,
-    user,
-    profile,
-    tab,
-    changeTab,
-    items,
-    loading,
-    commentsId,
-    openComments,
-    closeComments,
-    cardH,
-    scrollerRef,
-    dataSaverOn,
-    toggleUserDataSaver,
-    preloadMode,
-    index,
-    hlsMaxHeight,
-    goUpload,
-  } = props;
-
-  // ✅ Full-bleed black background like TikTok / your app
-  return (
-    <div className="fixed inset-0 bg-black">
-      {/* TikTok-style "Open app" bar */}
-      <OpenInAppBanner
-        webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
-        appUrl="ekarihub://"
-        title="Open ekarihub"
-        subtitle="Best experience in the app."
-      //variant="tiktok"
-      />
-
-      {/* Feed scroller */}
-      <section
-        ref={scrollerRef}
-        tabIndex={0}
-        className="w-full h-[100svh] overflow-y-scroll no-scrollbar scroll-smooth outline-none"
-        style={{
-          scrollSnapType: "y mandatory" as any,
-          overscrollBehaviorY: "contain",
-          paddingBottom: "calc(72px + env(safe-area-inset-bottom))", // ✅ keep above bottom tabs
-        }}
-      >
-        {/* Top overlay bar (tabs + icons) */}
-        <div className="sticky top-0 z-50">
-          <div
-            className="h-[56px] w-full px-3 flex items-center justify-between"
-            style={{
-              background: "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,0))",
-            }}
-          >
-            {/* Left: Dive In */}
-            <button
-              onClick={() => (window.location.href = "/dive")}
-              className="px-3 py-2 rounded-full bg-white/15 text-white text-xs font-semibold backdrop-blur-md border border-white/10"
-            >
-              Dive In
-            </button>
-
-            {/* Center: tabs */}
-            <div className="flex items-center gap-2 bg-white/15 rounded-full p-1 backdrop-blur-md border border-white/10">
-              {TABS.map((k) => {
-                const isActive = tab === k;
-                return (
-                  <button
-                    key={k}
-                    onClick={() => changeTab(k)}
-                    className={cn(
-                      "px-3 py-2 rounded-full text-xs font-bold",
-                      isActive ? "bg-white text-black" : "text-white/90"
-                    )}
-                  >
-                    {LABEL[k]}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Right: search + avatar */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => (window.location.href = "/search")}
-                className="h-10 w-10 rounded-full bg-white/15 grid place-items-center text-white backdrop-blur-md border border-white/10"
-                aria-label="Search"
-              >
-                <IoSearch size={18} />
-              </button>
-
-              <button
-                onClick={() => (window.location.href = uid ? "/profile" : "/getstarted?next=/")}
-                className="h-10 w-10 rounded-full overflow-hidden bg-white/10 border border-white/10"
-                aria-label="Profile"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={profile?.photoURL ?? user?.photoURL ?? "/avatar-placeholder.png"}
-                  alt="Me"
-                  className="h-full w-full object-cover"
-                />
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* Feed items (1 per screen) */}
-        {items.map((item: PlayerItem) => (
-          <div
-            key={item.id}
-            data-snap-item="1"
-            className="w-full snap-start"
-            style={{ height: cardH, scrollSnapStop: "always" }}
-          >
-            <VideoCard
-              item={item}
-              uid={uid}
-              scrollRootRef={scrollerRef}
-              onOpenComments={openComments}
-              isMobile={true}
-              cardH={cardH}
-              dataSaverOn={dataSaverOn}
-              hlsMaxHeight={hlsMaxHeight}
-            />
-          </div>
-        ))}
-
-        {!loading && items.length === 0 && (
-          <div className="py-10 text-sm text-white/80 text-center">No deeds yet.</div>
-        )}
-      </section>
-
-      {/* Bottom tabs like your app */}
-      <MobileBottomTabs onUpload={goUpload} />
-    </div>
-  );
-}
-
-function MobileBottomTabs({ onUpload }: { onUpload: () => void }) {
-  const router = useRouter();
-
-  return (
-    <div
-      className="fixed left-0 right-0 z-[60]"
-      style={{
-        bottom: 0,
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
-    >
-      <div
-        className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
-        style={{
-          backgroundColor: "rgba(17,24,39,.92)",
-          borderTop: "1px solid rgba(255,255,255,.08)",
-          backdropFilter: "blur(12px)",
-        }}
-      >
-        <button onClick={() => router.push("/")} className="flex flex-col items-center gap-1 text-white/90">
-          <IoPlay size={20} />
-          <span className="text-[11px] font-semibold">Deeds</span>
-        </button>
-
-        <button onClick={() => router.push("/market")} className="flex flex-col items-center gap-1 text-white/90">
-          <IoTelescopeOutline size={20} />
-          <span className="text-[11px] font-semibold">ekariMarket</span>
-        </button>
-
-        {/* Center + */}
-        <button
-          onClick={onUpload}
-          className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg"
-          style={{ backgroundColor: EKARI.primary }}
-          aria-label="Create"
-        >
-          <IoAdd size={26} color="#111827" />
-        </button>
-
-        <button onClick={() => router.push("/nexus")} className="flex flex-col items-center gap-1 text-white/90">
-          <IoChevronUp size={20} />
-          <span className="text-[11px] font-semibold">Nexus</span>
-        </button>
-
-        <button onClick={() => router.push("/bonga")} className="flex flex-col items-center gap-1 text-white/90">
-          <IoChatbubble size={20} />
-          <span className="text-[11px] font-semibold">Bonga</span>
-        </button>
-      </div>
-    </div>
+        <AdjacentPreloadWeb items={items} activeIndex={index} mode={preloadMode} />
+      </AppShell>
+    </MuteProvider>
   );
 }
 
