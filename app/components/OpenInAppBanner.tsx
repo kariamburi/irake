@@ -279,14 +279,22 @@ export default function OpenInAppBanner({
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: EKARI.sand,
-                            fontWeight: 900,
                             flexShrink: 0,
+                            overflow: "hidden",
                         }}
                         aria-hidden
                     >
-                        E
+                        <img
+                            src="/ekarihub-favicon-logo-green.png"
+                            alt="EkariHub"
+                            style={{
+                                width: 22,
+                                height: 22,
+                                objectFit: "contain",
+                            }}
+                        />
                     </div>
+
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div
@@ -447,20 +455,20 @@ export default function OpenInAppBanner({
                     onClick={tryOpenApp}
                     style={{
                         position: "fixed",
-                        right: 14,
-                        bottom: `calc(14px + env(safe-area-inset-bottom))`,
+                        right: 50,
+                        bottom: `calc(70px + env(safe-area-inset-bottom))`,
                         zIndex: 1000,
                         borderRadius: 999,
-                        padding: "10px 14px",
+                        padding: "6px 10px",
                         background: "rgba(255,255,255,0.16)",
                         color: "white",
-                        fontWeight: 900,
+                        fontWeight: 400,
                         border: "1px solid rgba(255,255,255,0.18)",
                         backdropFilter: "blur(10px)",
                         boxShadow: "0 10px 25px rgba(0,0,0,0.25)",
                         cursor: "pointer",
                     }}
-                    aria-label="Open EkariHub app"
+                    aria-label="Open ekarihub app"
                 >
                     Open app
                 </button>

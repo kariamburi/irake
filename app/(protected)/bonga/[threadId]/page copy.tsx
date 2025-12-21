@@ -112,8 +112,8 @@ type ListingCtx = {
   image?: string;
   price?: number;
   currency?: "KES" | "USD" | string;
-  type?: string; // "marketListing" | "tree" | "arableLand" etc
-  url?: string; // "/market/<id>"
+  type?: string;        // "marketListing" | "tree" | "arableLand" etc
+  url?: string;         // "/market/<id>"
 };
 
 type LastMessage =
@@ -134,14 +134,11 @@ type Message = {
   to: string;
   createdAt: any;
   type: "text" | "image" | "audio" | "product";
-  listing?: ListingCtx; // ✅
+  listing?: ListingCtx;          // ✅
   readBy?: Record<string, boolean>;
 };
 
 
-function useIsMobile() {
-  return useMediaQuery("(max-width: 1023px)");
-}
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
   if (typeof ts?.toDate === "function") return ts.toDate();
@@ -171,7 +168,6 @@ function shortTime(ts: any) {
   const day = d.getDate();
   return `${mon} ${day}`;
 }
-/* ---------------- responsive helpers ---------------- */
 
 function formatMsgTime(ts: any) {
   const d = tsToDate(ts);
@@ -191,6 +187,7 @@ function previewOf(last?: LastMessage) {
   if (last.type === "product") return `🛒 ${last.listing?.name || "Product inquiry"}`;
   return "";
 }
+
 
 function lastSeenText(online?: boolean, lastActive?: any) {
   if (online) return "Online";
@@ -238,34 +235,17 @@ function parseThreadAndQsFromUrl() {
   };
 }
 
-/* -------- responsive helpers -------- */
-function useMediaQuery(queryStr: string) {
-  const [matches, setMatches] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia(queryStr);
-    const onChange = () => setMatches(mq.matches);
-    onChange();
-    mq.addEventListener?.("change", onChange);
-    return () => mq.removeEventListener?.("change", onChange);
-  }, [queryStr]);
-  return matches;
-}
-function useIsDesktop() {
-  return useMediaQuery("(min-width: 768px)"); // md breakpoint
-}
-
 /* ================================================================ */
 
 export default function BongaThreadLayoutPage() {
   const router = useRouter();
   const params = useParams<{ threadId: string }>();
   const sp = useSearchParams();
-  const isMobile = useIsMobile();
+
   const { user } = useAuth();
   const uid = user?.uid || "";
 
   const rtdb = getDatabase();
-  const isDesktop = useIsDesktop();
 
   // URL segment threadId (deep link / initial)
   const routeThreadId = params.threadId;
@@ -275,7 +255,6 @@ export default function BongaThreadLayoutPage() {
   const initialPeerName = sp.get("peerName") || "";
   const initialPeerPhotoURL = sp.get("peerPhotoURL") || "";
   const initialPeerHandle = sp.get("peerHandle") || "";
-
   // ✅ Single-page selection state
   const [threadCtx, setThreadCtx] = useState<any>(null);
   const [activeThreadId, setActiveThreadId] = useState(routeThreadId);
@@ -285,7 +264,6 @@ export default function BongaThreadLayoutPage() {
     peerPhotoURL: initialPeerPhotoURL,
     peerHandle: initialPeerHandle,
   });
-
   const initialListing: ListingCtx | null = useMemo(() => {
     const id = sp.get("listingId") || "";
     if (!id) return null;
@@ -303,7 +281,6 @@ export default function BongaThreadLayoutPage() {
       url: sp.get("listingUrl") || `/market/${encodeURIComponent(id)}`,
     };
   }, [sp]);
-
   const threadContextListing: ListingCtx | null = useMemo(() => {
     const l = threadCtx?.listing;
     if (!l?.id) return null;
@@ -322,6 +299,8 @@ export default function BongaThreadLayoutPage() {
   useEffect(() => {
     setPendingListing(initialListing);
   }, [initialListing]);
+
+
 
   // keep in sync if user directly navigates to a new /bonga/<id> (hard navigation)
   useEffect(() => {
@@ -358,19 +337,6 @@ export default function BongaThreadLayoutPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [qStr, setQStr] = useState("");
-
-  // auto-close drawer on desktop
-  useEffect(() => {
-    if (isDesktop) setSidebarOpen(false);
-  }, [isDesktop]);
-
-  const onBack = useCallback(() => {
-    if (!isDesktop) {
-      router.push("/bonga");
-      return;
-    }
-    router.back();
-  }, [isDesktop, router]);
 
   /* ---------------- Sidebar data ---------------- */
   const [rows, setRows] = useState<RowData[]>([]);
@@ -728,6 +694,7 @@ export default function BongaThreadLayoutPage() {
     return () => unsub();
   }, [activeThreadId, activePeerId]);
 
+
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     requestAnimationFrame(() => {
       endRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -879,7 +846,6 @@ export default function BongaThreadLayoutPage() {
     },
     [uid, activePeerId, activeThreadId, pendingListing]
   );
-
   // ✅ Active presence for this thread (does NOT overwrite active map)
   useEffect(() => {
     if (!uid || !activeThreadId) return;
@@ -905,6 +871,8 @@ export default function BongaThreadLayoutPage() {
       setActive(false);
     };
   }, [uid, activeThreadId]);
+
+
 
   const onSend = useCallback(async () => {
     const t = input.trim();
@@ -1026,60 +994,32 @@ export default function BongaThreadLayoutPage() {
 
   if (!uid) {
     return (
-      <>
-        {isMobile ? (
-
-          <div
-            className="min-h-screen flex items-center justify-center px-6 text-center"
-            style={{ backgroundColor: EKARI.sand }}
-          >
-            <div>
-              <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
-                Sign in to view your chats
-              </div>
-              <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                Your conversations will appear here.
-              </div>
+      <AppShell>
+        <div
+          className="min-h-screen flex items-center justify-center px-6 text-center"
+          style={{ backgroundColor: EKARI.sand }}
+        >
+          <div>
+            <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
+              Sign in to view your chats
+            </div>
+            <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
+              Your conversations will appear here.
             </div>
           </div>
-
-        ) : (
-          <AppShell>
-            <div
-              className="min-h-screen flex items-center justify-center px-6 text-center"
-              style={{ backgroundColor: EKARI.sand }}
-            >
-              <div>
-                <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
-                  Sign in to view your chats
-                </div>
-                <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                  Your conversations will appear here.
-                </div>
-              </div>
-            </div>
-          </AppShell>
-        )}
-      </>
-
+        </div>
+      </AppShell>
     );
   }
-
   const ctxListing = threadCtx?.listing;
-
-  return (<>
-    {isMobile ? (
-
+  return (
+    <AppShell>
+      {/* ✅ IMPORTANT: min-h-0 fixes sidebar list “disappearing” in grid/flex layouts */}
       <div
         className="h-[calc(100vh-0rem)] w-full overflow-hidden min-h-0"
         style={{ backgroundColor: EKARI.sand }}
       >
-        <div
-          className={clsx(
-            "h-full min-h-0",
-            isDesktop ? "grid grid-cols-[360px_1fr]" : "flex flex-col"
-          )}
-        >
+        <div className="h-full min-h-0 grid md:grid-cols-[360px_1fr]">
           {/* ================= Sidebar (Desktop) ================= */}
           <aside
             className="hidden md:flex h-full min-h-0 border-r bg-white"
@@ -1289,7 +1229,6 @@ export default function BongaThreadLayoutPage() {
             >
               <div
                 className="absolute left-0 top-0 bottom-0 w-[88%] max-w-[360px] bg-white shadow-xl flex flex-col min-h-0"
-                style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="h-14 px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
@@ -1354,6 +1293,7 @@ export default function BongaThreadLayoutPage() {
                     )}
                   </div>
                 </div>
+
 
                 {ctxListing?.id && (
                   <div
@@ -1465,51 +1405,18 @@ export default function BongaThreadLayoutPage() {
                     </ul>
                   )}
                 </div>
-
-                {/* drawer load more */}
-                {filteredRows.length > 0 && (
-                  <div className="p-4 grid place-items-center border-t" style={{ borderColor: EKARI.hair }}>
-                    <button
-                      onClick={loadMoreRows}
-                      disabled={pagingRows || !cursor}
-                      className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                      style={{
-                        borderColor: EKARI.hair,
-                        color: EKARI.text,
-                        backgroundColor: EKARI.sand,
-                      }}
-                    >
-                      {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
           {/* ================= Right Chat Panel ================= */}
-          <main
-            className="h-full min-h-0 bg-white relative"
-            style={{
-              paddingBottom: isDesktop
-                ? 0
-                : `calc(${composerH}px + env(safe-area-inset-bottom))`,
-            }}
-          >
+          <main className="h-full min-h-0 bg-white relative">
             <div className="h-full min-h-0 flex flex-col">
               {/* Top header (chat) */}
               <div ref={headerRef} className="border-b bg-white z-30" style={{ borderColor: EKARI.hair }}>
                 <div className="h-[54px] px-3 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
-                    {/* Mobile: back + chats drawer */}
-                    <button
-                      className="md:hidden p-2 rounded-lg hover:bg-black/5"
-                      onClick={onBack}
-                      aria-label="Back to chats"
-                    >
-                      <IoArrowBack size={20} color={EKARI.text} />
-                    </button>
-
+                    {/* mobile menu */}
                     <button
                       className="md:hidden p-2 rounded-lg hover:bg-black/5"
                       onClick={() => setSidebarOpen(true)}
@@ -1518,9 +1425,8 @@ export default function BongaThreadLayoutPage() {
                       <IoMenu size={20} color={EKARI.text} />
                     </button>
 
-                    {/* Desktop: back */}
                     <button
-                      onClick={onBack}
+                      onClick={() => router.back()}
                       className="hidden md:inline-flex p-2 rounded-lg hover:bg-black/5"
                       aria-label="Back"
                     >
@@ -1571,7 +1477,7 @@ export default function BongaThreadLayoutPage() {
                 className="flex-1 min-h-0 overflow-y-auto bg-gray-50"
                 style={{
                   paddingTop: 8,
-                  paddingBottom: composerH + 16,
+                  paddingBottom: composerH + 16, // ⬅️ extra breathing room
                   scrollPaddingBottom: composerH + 16,
                   scrollbarGutter: "stable both-edges",
                 } as React.CSSProperties}
@@ -1680,8 +1586,10 @@ export default function BongaThreadLayoutPage() {
                                 </a>
                               ) : msg.type === "product" && msg.listing?.id ? (
                                 <div className="space-y-2">
+                                  {/* optional text */}
                                   {!!msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
 
+                                  {/* product card */}
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1720,6 +1628,7 @@ export default function BongaThreadLayoutPage() {
                               ) : (
                                 !!msg.text && <span>{msg.text}</span>
                               )}
+
                             </div>
 
                             {isLastInGroup && (
@@ -1748,13 +1657,10 @@ export default function BongaThreadLayoutPage() {
                 </button>
               )}
 
-              {/* Composer (sticky on desktop, fixed on mobile) */}
+              {/* Composer (sticky within right panel) */}
               <div
                 ref={composerRef}
-                className={clsx(
-                  "z-40 border-t bg-white",
-                  isDesktop ? "sticky bottom-0" : "fixed left-0 right-0 bottom-0"
-                )}
+                className="sticky bottom-0 z-40 border-t bg-white"
                 style={{
                   borderColor: EKARI.hair,
                   paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
@@ -1767,10 +1673,8 @@ export default function BongaThreadLayoutPage() {
                       style={{ borderColor: EKARI.hair }}
                     >
                       {pendingListing && (
-                        <div
-                          className="mb-2 rounded-xl border bg-white p-2 flex items-center gap-2"
-                          style={{ borderColor: EKARI.hair }}
-                        >
+                        <div className="mb-2 rounded-xl border bg-white p-2 flex items-center gap-2"
+                          style={{ borderColor: EKARI.hair }}>
                           <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                             <Image
                               src={pendingListing.image || "/product-placeholder.jpg"}
@@ -1801,7 +1705,6 @@ export default function BongaThreadLayoutPage() {
                           </button>
                         </div>
                       )}
-
                       {!pendingListing?.id && threadContextListing?.id && (
                         <div className="mb-2">
                           <button
@@ -1939,882 +1842,6 @@ export default function BongaThreadLayoutPage() {
           </main>
         </div>
       </div>
-
-    ) : (
-      <AppShell>
-        {/* ✅ IMPORTANT: min-h-0 fixes sidebar list “disappearing” in grid/flex layouts */}
-        <div
-          className="h-[calc(100vh-0rem)] w-full overflow-hidden min-h-0"
-          style={{ backgroundColor: EKARI.sand }}
-        >
-          <div
-            className={clsx(
-              "h-full min-h-0",
-              isDesktop ? "grid grid-cols-[360px_1fr]" : "flex flex-col"
-            )}
-          >
-            {/* ================= Sidebar (Desktop) ================= */}
-            <aside
-              className="hidden md:flex h-full min-h-0 border-r bg-white"
-              style={{ borderColor: EKARI.hair }}
-            >
-              <div className="h-full min-h-0 w-full flex flex-col">
-                {/* Sidebar header */}
-                <div
-                  className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <div className="h-14 px-4 flex items-center justify-between">
-                    <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
-                      Chats
-                    </div>
-                    <button
-                      onClick={() => router.push("/bonga")}
-                      className="text-xs font-extrabold px-3 py-1.5 rounded-full hover:bg-black/5"
-                      style={{ color: EKARI.text }}
-                    >
-                      All
-                    </button>
-                  </div>
-
-                  <div className="px-4 pb-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                        onClick={() => setTab("all")}
-                        style={{
-                          backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
-                          color: tab === "all" ? EKARI.sand : EKARI.text,
-                        }}
-                      >
-                        All
-                      </button>
-                      <button
-                        className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                        onClick={() => setTab("unread")}
-                        style={{
-                          backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
-                          color: tab === "unread" ? EKARI.sand : EKARI.text,
-                        }}
-                      >
-                        Unread
-                      </button>
-
-                      <span className="ml-auto text-xs" style={{ color: EKARI.dim }}>
-                        {rows.length} thread{rows.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        value={qStr}
-                        onChange={(e) => setQStr(e.target.value)}
-                        placeholder="Search chats…"
-                        className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
-                        aria-label="Filter chats"
-                        style={{ borderColor: EKARI.hair, ["--tw-ring-color" as any]: EKARI.forest }}
-                      />
-                      {qStr ? (
-                        <button
-                          onClick={() => setQStr("")}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
-                          aria-label="Clear search"
-                          style={{ color: EKARI.dim }}
-                        >
-                          ✕
-                        </button>
-                      ) : (
-                        <IoSearchOutline
-                          size={16}
-                          className="absolute right-3 top-1/2 -translate-y-1/2"
-                          style={{ color: "#94A3B8" }}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sidebar list */}
-                {/* ✅ IMPORTANT: min-h-0 here makes the scroll area work */}
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  {rowsLoading ? (
-                    <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-                      <BouncingBallLoader />
-                    </div>
-                  ) : filteredRows.length === 0 ? (
-                    <div className="px-6 py-16 text-center">
-                      <div
-                        className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center"
-                        style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}
-                      >
-                        💬
-                      </div>
-                      <div className="font-extrabold" style={{ color: EKARI.text }}>
-                        No conversations
-                      </div>
-                      <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                        {qStr ? "Try a different search." : "Start a chat from a profile to see it here."}
-                      </div>
-                    </div>
-                  ) : (
-                    <ul className="divide-y p-2" style={{ borderColor: EKARI.hair }}>
-                      {filteredRows.map((item) => {
-                        const name = item.peer?.firstName || item.peer?.handle || "User";
-                        const last = previewOf(item.lastMessage) || "No messages yet";
-                        const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
-                        const hasUnread = (item.unread ?? 0) > 0;
-                        const active = item.threadId === activeThreadId;
-
-                        return (
-                          <li key={item.threadId}>
-                            <motion.button
-                              whileTap={{ scale: 0.985 }}
-                              className={clsx(
-                                "w-full px-4 py-3 flex items-center gap-3 transition text-left hover:bg-black/5 focus:bg-black/5 focus:outline-none focus:ring-2",
-                                active && "bg-black/5"
-                              )}
-                              onClick={() => openThreadFromSidebar(item)}
-                              aria-label={`Open chat with ${name}`}
-                              style={ringStyle}
-                            >
-                              <div className="relative">
-                                <SmartAvatar
-                                  src={item.peer?.photoURL || ""}
-                                  alt={name}
-                                  size={46}
-                                  className={clsx(hasUnread && "ring-2")}
-                                />
-                                {hasUnread && (
-                                  <span
-                                    className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                                    title="Unread"
-                                    style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                                  />
-                                )}
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
-                                    style={{ color: EKARI.text }}
-                                  >
-                                    {name}
-                                  </div>
-                                  <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
-                                    {when}
-                                  </div>
-                                </div>
-
-                                <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                                  <div
-                                    className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")}
-                                    style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
-                                  >
-                                    {last}
-                                  </div>
-
-                                  {hasUnread && (
-                                    <span
-                                      className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                                      style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                                    >
-                                      {item.unread > 99 ? "99+" : item.unread}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <IoChevronForward size={18} style={{ color: EKARI.sub }} />
-                            </motion.button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-
-                  {/* Load more */}
-                  {filteredRows.length > 0 && (
-                    <div className="p-4 grid place-items-center">
-                      <button
-                        onClick={loadMoreRows}
-                        disabled={pagingRows || !cursor}
-                        className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                        style={{
-                          borderColor: EKARI.hair,
-                          color: EKARI.text,
-                          backgroundColor: EKARI.sand,
-                        }}
-                      >
-                        {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </aside>
-
-            {/* ================= Mobile Sidebar Drawer ================= */}
-            {sidebarOpen && (
-              <div
-                className="md:hidden fixed inset-0 z-[80] bg-black/40"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <div
-                  className="absolute left-0 top-0 bottom-0 w-[88%] max-w-[360px] bg-white shadow-xl flex flex-col min-h-0"
-                  style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="h-14 px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
-                    <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
-                      Chats
-                    </div>
-                    <button
-                      className="p-2 rounded-lg hover:bg-black/5"
-                      onClick={() => setSidebarOpen(false)}
-                      aria-label="Close sidebar"
-                    >
-                      <IoClose size={20} color={EKARI.text} />
-                    </button>
-                  </div>
-
-                  <div className="px-4 py-3 space-y-2 border-b" style={{ borderColor: EKARI.hair }}>
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                        onClick={() => setTab("all")}
-                        style={{
-                          backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
-                          color: tab === "all" ? EKARI.sand : EKARI.text,
-                        }}
-                      >
-                        All
-                      </button>
-                      <button
-                        className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                        onClick={() => setTab("unread")}
-                        style={{
-                          backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
-                          color: tab === "unread" ? EKARI.sand : EKARI.text,
-                        }}
-                      >
-                        Unread
-                      </button>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        value={qStr}
-                        onChange={(e) => setQStr(e.target.value)}
-                        placeholder="Search chats…"
-                        className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
-                        style={{ borderColor: EKARI.hair, ["--tw-ring-color" as any]: EKARI.forest }}
-                      />
-                      {qStr ? (
-                        <button
-                          onClick={() => setQStr("")}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
-                          style={{ color: EKARI.dim }}
-                        >
-                          ✕
-                        </button>
-                      ) : (
-                        <IoSearchOutline
-                          size={16}
-                          className="absolute right-3 top-1/2 -translate-y-1/2"
-                          style={{ color: "#94A3B8" }}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {ctxListing?.id && (
-                    <div
-                      className="border-b bg-white px-3 py-2"
-                      style={{ borderColor: EKARI.hair }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = ctxListing.url || `/market/${encodeURIComponent(ctxListing.id)}`;
-                          router.push(url);
-                        }}
-                        className="w-full flex items-center gap-2 rounded-xl border bg-gray-50 hover:bg-white transition p-2 text-left"
-                        style={{ borderColor: EKARI.hair }}
-                        title="Open product"
-                      >
-                        <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                          <Image
-                            src={ctxListing.image || "/avatar-placeholder.png"}
-                            alt={ctxListing.name || "Product"}
-                            fill
-                            className="object-cover"
-                            sizes="40px"
-                          />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-extrabold text-slate-900 truncate">
-                            {ctxListing.name || "Product"}
-                          </div>
-                          <div className="text-[11px] text-slate-500 truncate">
-                            Conversation about this item
-                          </div>
-                        </div>
-
-                        <IoChevronForward size={16} style={{ color: EKARI.dim }} />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* ✅ make this flex-1 min-h-0 so list never “vanishes” */}
-                  <div className="flex-1 min-h-0 overflow-y-auto">
-                    {rowsLoading ? (
-                      <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-                        <BouncingBallLoader />
-                      </div>
-                    ) : (
-                      <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
-                        {filteredRows.map((item) => {
-                          const name = item.peer?.firstName || item.peer?.handle || "User";
-                          const last = previewOf(item.lastMessage) || "No messages yet";
-                          const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
-                          const hasUnread = (item.unread ?? 0) > 0;
-                          const active = item.threadId === activeThreadId;
-
-                          return (
-                            <li key={item.threadId}>
-                              <button
-                                className={clsx(
-                                  "w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-black/5",
-                                  active && "bg-black/5"
-                                )}
-                                onClick={() => openThreadFromSidebar(item)}
-                              >
-                                <div className="relative">
-                                  <SmartAvatar
-                                    src={item.peer?.photoURL || ""}
-                                    alt={name}
-                                    size={44}
-                                    className={clsx(hasUnread && "ring-2")}
-                                  />
-                                  {hasUnread && (
-                                    <span
-                                      className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                                      style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                                    />
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
-                                      style={{ color: EKARI.text }}
-                                    >
-                                      {name}
-                                    </div>
-                                    <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
-                                      {when}
-                                    </div>
-                                  </div>
-                                  <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                                    <div className="truncate text-[13px]" style={{ color: hasUnread ? EKARI.text : EKARI.dim }}>
-                                      {last}
-                                    </div>
-                                    {hasUnread && (
-                                      <span
-                                        className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                                        style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                                      >
-                                        {item.unread > 99 ? "99+" : item.unread}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-
-                  {/* drawer load more */}
-                  {filteredRows.length > 0 && (
-                    <div className="p-4 grid place-items-center border-t" style={{ borderColor: EKARI.hair }}>
-                      <button
-                        onClick={loadMoreRows}
-                        disabled={pagingRows || !cursor}
-                        className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                        style={{
-                          borderColor: EKARI.hair,
-                          color: EKARI.text,
-                          backgroundColor: EKARI.sand,
-                        }}
-                      >
-                        {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ================= Right Chat Panel ================= */}
-            <main
-              className="h-full min-h-0 bg-white relative"
-              style={{
-                paddingBottom: isDesktop
-                  ? 0
-                  : `calc(${composerH}px + env(safe-area-inset-bottom))`,
-              }}
-            >
-              <div className="h-full min-h-0 flex flex-col">
-                {/* Top header (chat) */}
-                <div ref={headerRef} className="border-b bg-white z-30" style={{ borderColor: EKARI.hair }}>
-                  <div className="h-[54px] px-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {/* Mobile: back + chats drawer */}
-                      <button
-                        className="md:hidden p-2 rounded-lg hover:bg-black/5"
-                        onClick={onBack}
-                        aria-label="Back to chats"
-                      >
-                        <IoArrowBack size={20} color={EKARI.text} />
-                      </button>
-
-                      <button
-                        className="md:hidden p-2 rounded-lg hover:bg-black/5"
-                        onClick={() => setSidebarOpen(true)}
-                        aria-label="Open chats"
-                      >
-                        <IoMenu size={20} color={EKARI.text} />
-                      </button>
-
-                      {/* Desktop: back */}
-                      <button
-                        onClick={onBack}
-                        className="hidden md:inline-flex p-2 rounded-lg hover:bg-black/5"
-                        aria-label="Back"
-                      >
-                        <IoArrowBack size={20} color={EKARI.text} />
-                      </button>
-
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-100">
-                          {onlineNow && (
-                            <span
-                              className="absolute right-0.5 bottom-0.5 w-[14px] h-[14px] rounded-full border-2 z-10"
-                              style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }}
-                            />
-                          )}
-                          <Image
-                            src={
-                              peer?.photoURL ||
-                              activePeerQs.peerPhotoURL ||
-                              selectedRow?.peer?.photoURL ||
-                              "/avatar-placeholder.png"
-                            }
-                            alt={headerTitle}
-                            fill
-                            className="object-cover"
-                            sizes="36px"
-                          />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="font-extrabold text-slate-900 text-sm truncate">{headerTitle}</div>
-                          <div className="text-xs text-slate-500">
-                            {peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button className="p-2 rounded-lg hover:bg-black/5" aria-label="Report" title="Report conversation">
-                      <IoFlagOutline size={18} color={EKARI.dim} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Messages scroller */}
-                {/* ✅ min-h-0 + extra paddingBottom so messages never hide behind composer */}
-                <div
-                  ref={listRef}
-                  className="flex-1 min-h-0 overflow-y-auto bg-gray-50"
-                  style={{
-                    paddingTop: 8,
-                    paddingBottom: composerH + 16,
-                    scrollPaddingBottom: composerH + 16,
-                    scrollbarGutter: "stable both-edges",
-                  } as React.CSSProperties}
-                >
-                  {loading ? (
-                    <div className="h-full flex items-center justify-center" style={{ color: EKARI.dim }}>
-                      <BouncingBallLoader />
-                    </div>
-                  ) : !hasMessages ? (
-                    <EmptyState />
-                  ) : (
-                    <div className="px-4 py-4 pb-0">
-                      {oldestDoc && (
-                        <div className="mb-2 flex justify-center">
-                          <button
-                            onClick={loadMore}
-                            className="h-8 px-3 rounded-lg border text-xs font-bold transition hover:bg-black/5"
-                            disabled={paging}
-                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                          >
-                            {paging ? "Loading…" : "Load older"}
-                          </button>
-                        </div>
-                      )}
-
-                      {items.map((msg, i) => {
-                        const mine = msg.from === uid;
-
-                        const prev = items[i - 1];
-                        const next = items[i + 1];
-
-                        const prevSameSender = !!prev && prev.from === msg.from;
-                        const nextSameSender = !!next && next.from === msg.from;
-
-                        const isFirstInGroup = !prevSameSender;
-                        const isLastInGroup = !nextSameSender;
-
-                        const rowMt = isFirstInGroup ? "mt-3" : "mt-1";
-                        const rowMb = isLastInGroup ? "mb-1" : "mb-0";
-
-                        const showAvatar = !mine && isLastInGroup;
-
-                        return (
-                          <div
-                            key={msg.id}
-                            className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${rowMt} ${rowMb}`}
-                          >
-                            {!mine && (
-                              <div className="w-7 flex justify-center">
-                                {showAvatar ? (
-                                  <div className="relative w-7 h-7 rounded-full overflow-hidden bg-gray-200">
-                                    <Image
-                                      src={
-                                        peer?.photoURL ||
-                                        activePeerQs.peerPhotoURL ||
-                                        selectedRow?.peer?.photoURL ||
-                                        "/avatar-placeholder.png"
-                                      }
-                                      alt="avatar"
-                                      fill
-                                      className="object-cover"
-                                      sizes="28px"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="w-7 h-7" />
-                                )}
-                              </div>
-                            )}
-
-                            <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[78%]`}>
-                              <div
-                                style={{
-                                  background: mine ? mineBg : theirsBg,
-                                  borderColor: mine ? mineBorder : theirsBrd,
-                                }}
-                                className={[
-                                  "text-[15px] border shadow-sm px-3 py-2",
-                                  "max-w-full break-words whitespace-pre-wrap leading-5",
-                                  mine
-                                    ? isFirstInGroup
-                                      ? "rounded-2xl rounded-tr-md"
-                                      : "rounded-2xl rounded-tr-md rounded-br-md"
-                                    : isFirstInGroup
-                                      ? "rounded-2xl rounded-tl-md"
-                                      : "rounded-2xl rounded-tl-md rounded-bl-md",
-                                ].join(" ")}
-                              >
-                                {msg.uploading ? (
-                                  <div className="flex items-center gap-2 opacity-80">
-                                    <span className="w-3 h-3 rounded-full animate-pulse bg-slate-400" />
-                                    <span>Uploading…</span>
-                                  </div>
-                                ) : msg.error ? (
-                                  <span className="text-red-500">Failed to send</span>
-                                ) : msg.type === "image" && msg.imageUrl ? (
-                                  <a href={msg.imageUrl} target="_blank" rel="noreferrer" className="block">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={msg.imageUrl}
-                                      alt="Sent image"
-                                      className="rounded-xl bg-gray-100 max-w-full"
-                                      style={{ width: 280, height: "auto", objectFit: "cover" }}
-                                      onLoad={() => scrollToBottom("auto")}
-                                    />
-                                  </a>
-                                ) : msg.type === "product" && msg.listing?.id ? (
-                                  <div className="space-y-2">
-                                    {!!msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
-
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const url = msg.listing?.url || `/market/${encodeURIComponent(msg.listing!.id)}`;
-                                        router.push(url);
-                                      }}
-                                      className="w-full text-left rounded-xl border bg-white/70 hover:bg-white transition p-2 flex items-center gap-2"
-                                      style={{ borderColor: EKARI.hair }}
-                                      title="Open product"
-                                    >
-                                      <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                                        <Image
-                                          src={msg.listing.image || "/product-placeholder.jpg"}
-                                          alt={msg.listing.name || "Product"}
-                                          fill
-                                          className="object-cover"
-                                          sizes="48px"
-                                        />
-                                      </div>
-
-                                      <div className="min-w-0 flex-1">
-                                        <div className="text-xs font-extrabold text-slate-900 truncate">
-                                          {msg.listing.name || "Product"}
-                                        </div>
-
-                                        <div className="text-[11px] text-slate-600 truncate">
-                                          {msg.listing.currency === "USD"
-                                            ? `USD ${(Number(msg.listing.price || 0)).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
-                                            : `KSh ${(Number(msg.listing.price || 0)).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`}
-                                        </div>
-                                      </div>
-
-                                      <IoChevronForward size={16} style={{ color: EKARI.dim }} />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  !!msg.text && <span>{msg.text}</span>
-                                )}
-                              </div>
-
-                              {isLastInGroup && (
-                                <div className="mt-1 text-[11px] text-slate-500 px-1">
-                                  {formatMsgTime(msg.createdAt)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      <div ref={endRef} className="h-0" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Jump to latest */}
-                {showJump && hasMessages && (
-                  <button
-                    onClick={() => scrollToBottom("smooth")}
-                    className="absolute md:static md:hidden bottom-[88px] right-4 z-40 h-9 px-3 rounded-full text-sm font-extrabold shadow-md"
-                    style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                  >
-                    Jump to latest
-                  </button>
-                )}
-
-                {/* Composer (sticky on desktop, fixed on mobile) */}
-                <div
-                  ref={composerRef}
-                  className={clsx(
-                    "z-40 border-t bg-white",
-                    isDesktop ? "sticky bottom-0" : "fixed left-0 right-0 bottom-0"
-                  )}
-                  style={{
-                    borderColor: EKARI.hair,
-                    paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
-                  }}
-                >
-                  <div className="w-full px-3">
-                    <div className="flex items-end gap-2 py-2 relative">
-                      <div
-                        className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2"
-                        style={{ borderColor: EKARI.hair }}
-                      >
-                        {pendingListing && (
-                          <div
-                            className="mb-2 rounded-xl border bg-white p-2 flex items-center gap-2"
-                            style={{ borderColor: EKARI.hair }}
-                          >
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                              <Image
-                                src={pendingListing.image || "/product-placeholder.jpg"}
-                                alt={pendingListing.name || "Product"}
-                                fill
-                                className="object-cover"
-                                sizes="40px"
-                              />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="text-xs font-extrabold text-slate-900 truncate">
-                                {pendingListing.name || "Product inquiry"}
-                              </div>
-                              <div className="text-[11px] text-slate-500 truncate">
-                                {pendingListing.url}
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              className="h-8 w-8 rounded-full hover:bg-black/5 text-slate-600 font-black"
-                              onClick={() => setPendingListing(null)}
-                              title="Remove product"
-                              aria-label="Remove product"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        )}
-
-                        {!pendingListing?.id && threadContextListing?.id && (
-                          <div className="mb-2">
-                            <button
-                              type="button"
-                              onClick={() => setPendingListing(threadContextListing)}
-                              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold hover:bg-black/5"
-                              style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                              title="Attach last referenced product"
-                            >
-                              🛒 Attach product
-                            </button>
-                          </div>
-                        )}
-
-                        <textarea
-                          ref={textareaRef}
-                          value={input}
-                          onChange={(e) => {
-                            setInput(e.target.value);
-                            setTypingDebounced(!!e.target.value.trim());
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              onSend();
-                            }
-                          }}
-                          onBlur={() => setTypingDebounced(false)}
-                          placeholder="Message…"
-                          rows={1}
-                          className="w-full bg-transparent outline-none text-[15px] resize-none max-h-40 leading-5"
-                          style={{ height: 40 }}
-                        />
-
-                        {preview && (
-                          <div className="mt-2 relative">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={preview}
-                              alt="Preview"
-                              className="w-24 h-24 rounded-md object-cover border"
-                              onLoad={() => scrollToBottom("auto")}
-                              style={{ borderColor: EKARI.hair }}
-                            />
-                            <button
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs"
-                              onClick={() => setPreview(null)}
-                              aria-label="Remove preview"
-                              title="Remove preview"
-                              type="button"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-2">
-                          <button
-                            className="w-9 h-9 rounded-full flex items-center justify-center"
-                            title="Emoji"
-                            type="button"
-                            onClick={() => setShowEmoji((p) => !p)}
-                            style={{ backgroundColor: "#F3F4F6" }}
-                          >
-                            <IoHappyOutline size={20} color={EKARI.text} />
-                            {showEmoji && (
-                              <div
-                                className="absolute bottom-14 left-3 z-50 bg-white rounded-xl shadow-lg p-2 max-w-[260px] w-[240px] h-[180px] overflow-y-auto grid grid-cols-8 gap-1 border"
-                                onMouseLeave={() => setShowEmoji(false)}
-                                style={{ borderColor: EKARI.hair }}
-                              >
-                                {EmojiPickerList.map((emo) => (
-                                  <button
-                                    key={emo}
-                                    onClick={() => {
-                                      setInput((prev) => prev + emo);
-                                      setShowEmoji(false);
-                                      textareaRef.current?.focus();
-                                    }}
-                                    className="text-xl rounded-md hover:bg-black/5"
-                                    title={emo}
-                                    type="button"
-                                  >
-                                    {emo}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </button>
-
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={onImageChosen}
-                          />
-
-                          <button
-                            className="w-9 h-9 rounded-full flex items-center justify-center"
-                            title="Image"
-                            type="button"
-                            onClick={onPickImage}
-                            style={{ backgroundColor: "#F3F4F6" }}
-                          >
-                            <IoImageOutline size={20} color={EKARI.text} />
-                          </button>
-
-                          <button
-                            className="w-9 h-9 rounded-full flex items-center justify-center"
-                            title="Camera"
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            style={{ backgroundColor: "#F3F4F6" }}
-                          >
-                            <IoCameraOutline size={20} color={EKARI.text} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <Button
-                        onClick={onSend}
-                        disabled={!input.trim() && !pendingListing?.id}
-                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
-                        title="Send"
-                        type="button"
-                        style={{ backgroundColor: EKARI.gold }}
-                      >
-                        <IoSend size={18} color="#fff" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </main>
-          </div>
-        </div>
-      </AppShell>
-    )}
-  </>
-
+    </AppShell>
   );
 }

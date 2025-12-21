@@ -1328,7 +1328,7 @@ function VideoCard({
         {/* top controls */}
         {item.mediaType === "video" && (
           <>
-            <div className="absolute left-3 top-3 z-20 flex items-center gap-2">
+            <div className="absolute left-3 top-[50px] z-20 flex items-center gap-2">
               <button
                 onClick={toggleMute}
                 aria-label={muted ? "Unmute video (global)" : "Mute video (global)"}
@@ -1418,7 +1418,7 @@ function VideoCard({
             "bg-gradient-to-t from-black/85 via-black/35 to-transparent",
             "transition-opacity duration-200",
             mediaReady ? "opacity-100" : "opacity-0 pointer-events-none",
-            isMobile ? "p-4 pb-16" : "p-4"
+            isMobile ? "p-4 pb-16 mr-[60px]" : "p-4"
           )}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -1609,11 +1609,10 @@ function VideoCard({
               aria-label={muted ? "Unmute" : "Mute"}
               className={cn(
                 railBtn,
-                "grid place-items-center text-white rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
-                railBg
+                "grid place-items-center text-white  hover:scale-105 active:scale-95 transition"
               )}
             >
-              {muted ? <IoVolumeMute size={railIcon} /> : <IoVolumeHigh size={railIcon} />}
+              {muted ? <IoVolumeMute size={18} /> : <IoVolumeHigh size={18} />}
             </button>
           )}
         </div>
@@ -2450,7 +2449,7 @@ function MobileShell(props: any) {
           >
             <button
               onClick={() => setMenuOpen(true)}
-              className="h-9 w-9 rounded-full bg-white/15 grid place-items-center text-white backdrop-blur-md border border-white/10"
+              className="h-9 w-9 grid place-items-center text-white"
               aria-label="Open menu"
             >
               <IoMenu size={20} />
@@ -2459,7 +2458,7 @@ function MobileShell(props: any) {
             {/* Left: Dive In */}
             <button
               onClick={() => (window.location.href = "/dive")}
-              className="px-3 py-2 rounded-full bg-white/15 text-white text-[10px] lg:text-xs font-semibold backdrop-blur-md border border-white/10"
+              className="px-2 lg:px-3 py-2 rounded-full bg-white/15 text-white text-[10px] lg:text-xs font-semibold backdrop-blur-md border border-white/10"
             >
               Dive In
             </button>
@@ -2473,7 +2472,7 @@ function MobileShell(props: any) {
                     key={k}
                     onClick={() => changeTab(k)}
                     className={cn(
-                      "px-2 lg:px-3 py-2 w-[58px] lg:w-full rounded-full text-[10px] lg:text-xs font-bold",
+                      "px-1 lg:px-3 py-2 w-[56px] lg:w-full rounded-full text-[10px] lg:text-xs font-bold",
                       isActive ? "bg-white text-black" : "text-white/90"
                     )}
                   >

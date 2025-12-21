@@ -729,7 +729,7 @@ export default function PlayerByHandlePage() {
                 deedId
             )}`;
 
-    const appUrl = `ekarihub://${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(
+    const appUrl = `ekarihub:///${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(
         deedId
     )}`;
 

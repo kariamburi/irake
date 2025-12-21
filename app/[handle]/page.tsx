@@ -2322,7 +2322,8 @@ export default function HandleProfilePage() {
     return false;
   }, [user, router]);
 
-  const cleanHandle = decoded.replace(/^@/, "");
+
+  const cleanHandle = decoded.startsWith("@") ? decoded : `@${decoded}`;
   const webUrl = `https://ekarihub.com/${cleanHandle}`;
   const appUrl = `ekarihub:///${cleanHandle}`;
 
