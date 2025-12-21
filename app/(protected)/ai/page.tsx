@@ -491,7 +491,7 @@ export default function Page() {
         </div>
 
         {/* Content: messages + composer (reserve space for composer + safe area) */}
-        <div className="h-[calc(100dvh-56px)] flex flex-col">
+        <div className="h-[calc(100dvh-100px)] flex flex-col">
           {/* Messages */}
           <div className="flex-1 overflow-y-auto overscroll-contain bg-[#F6F7F9]">
             <div className="px-3 py-3 space-y-3">

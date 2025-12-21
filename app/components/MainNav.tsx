@@ -133,12 +133,13 @@ export function LeftRailCompact() {
 
     const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
 
-    return (
-        <aside
+    return (<>
+        {/* Logo pill 
+      <aside
             className="lg:hidden sticky top-0 h-screen w-[60px] shrink-0 border-r flex flex-col items-center py-3 gap-4 bg-white/95 backdrop-blur-sm"
             style={{ borderColor: EKARI.hair }}
         >
-            {/* Logo pill */}
+           
             <Link
                 href="/"
                 className="mt-1 rounded-2xl bg-gray-50 border border-gray-200 px-2 py-1 shadow-sm flex items-center justify-center"
@@ -146,7 +147,7 @@ export function LeftRailCompact() {
                 <Image src="/ekarihub-logo.png" alt="logo" width={24} height={24} />
             </Link>
 
-            {/* Main quick icons */}
+          
             <RailLink href="/search" icon={<IoSearch />} label="Search" />
             <RailLink href="/" icon={<IoHomeOutline />} label="Deeds" active />
             <RailLink href="/market" icon={<IoCartOutline />} label="Market" />
@@ -176,7 +177,9 @@ export function LeftRailCompact() {
             <div className="mt-auto mb-2 text-[9px] text-gray-400 select-none">
                 ekari
             </div>
-        </aside>
+        </aside>*/}
+    </>
+
     );
 }
 
