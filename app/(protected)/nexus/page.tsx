@@ -51,6 +51,7 @@ import {
   IoPersonCircleOutline,
   IoNotificationsOutline,
   IoMenu,
+  IoSparklesOutline,
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import AppShell from "@/app/components/AppShell";
@@ -1523,7 +1524,7 @@ export default function DivePage() {
         requiresAuth: true,
         badgeCount: uid ? unreadDM ?? 0 : 0,
       },
-
+      { key: "ai", label: "ekari AI", href: "/ai", icon: <IoSparklesOutline /> },
       { key: "profile", label: "Profile", href: profileHref, icon: <IoPersonCircleOutline />, requiresAuth: true },
       { key: "about", label: "About ekarihub", href: "/about", icon: <IoInformationCircleOutline /> },
     ],

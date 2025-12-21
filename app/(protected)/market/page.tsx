@@ -37,6 +37,7 @@ import {
   IoPersonCircleOutline,
   IoNotificationsOutline,
   IoMenu,
+  IoSparklesOutline,
 } from "react-icons/io5";
 
 import FilterModal, { distanceKm, Filters, toLower } from "@/app/components/FilterModal";
@@ -412,7 +413,7 @@ export default function MarketPage() {
         requiresAuth: true,
         badgeCount: uid ? unreadDM ?? 0 : 0,
       },
-
+      { key: "ai", label: "ekari AI", href: "/ai", icon: <IoSparklesOutline /> },
       { key: "profile", label: "Profile", href: profileHref, icon: <IoPersonCircleOutline />, requiresAuth: true },
       { key: "about", label: "About ekarihub", href: "/about", icon: <IoInformationCircleOutline /> },
     ],

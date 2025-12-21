@@ -16,7 +16,7 @@ import {
   startAfter,
   DocumentSnapshot,
 } from "firebase/firestore";
-import { IoAdd, IoCartOutline, IoChatbubblesOutline, IoChevronForward, IoCloseCircle, IoCompassOutline, IoHomeOutline, IoInformationCircleOutline, IoMenu, IoNotificationsOutline, IoPersonCircleOutline, IoSearchOutline } from "react-icons/io5";
+import { IoAdd, IoCartOutline, IoChatbubblesOutline, IoChevronForward, IoCloseCircle, IoCompassOutline, IoHomeOutline, IoInformationCircleOutline, IoMenu, IoNotificationsOutline, IoPersonCircleOutline, IoSearchOutline, IoSparklesOutline } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -372,6 +372,7 @@ export default function MessagesPage() {
         requiresAuth: true,
         badgeCount: uid ? unreadDM ?? 0 : 0,
       },
+      { key: "ai", label: "ekari AI", href: "/ai", icon: <IoSparklesOutline /> },
 
       { key: "profile", label: "Profile", href: profileHref, icon: <IoPersonCircleOutline />, requiresAuth: true },
       { key: "about", label: "About ekarihub", href: "/about", icon: <IoInformationCircleOutline /> },
