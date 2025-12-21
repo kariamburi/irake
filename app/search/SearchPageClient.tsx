@@ -22,7 +22,14 @@ import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 
 type TabKey = "Top" | "Deeds" | "Events" | "Discussions" | "Accounts" | "Tags";
 
-const TABS: TabKey[] = ["Top", "Deeds", "Events", "Discussions", "Accounts", "Tags"];
+const TABS: TabKey[] = [
+    "Top",
+    "Deeds",
+    "Events",
+    "Discussions",
+    "Accounts",
+    "Tags",
+];
 
 type Deed = {
     id: string;
@@ -117,6 +124,26 @@ const TRENDING_DEFAULT = [
 
 const RECENTS_KEY = "ekari.search.recents";
 
+/* ---------------------------- Responsive helpers ---------------------------- */
+function useMediaQuery(queryStr: string) {
+    const [matches, setMatches] = React.useState(false);
+    React.useEffect(() => {
+        if (typeof window === "undefined") return;
+        const mq = window.matchMedia(queryStr);
+        const onChange = () => setMatches(mq.matches);
+        onChange();
+        mq.addEventListener?.("change", onChange);
+        return () => mq.removeEventListener?.("change", onChange);
+    }, [queryStr]);
+    return matches;
+}
+function useIsDesktop() {
+    return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+    return useMediaQuery("(max-width: 1023px)");
+}
+
 /* -------------------- Cloud Function -------------------- */
 
 const functions = getFunctions(app, "us-central1");
@@ -184,6 +211,13 @@ function normalizeQueryForBackend(query: string, tab: TabKey): string {
 
 export default function SearchPageClient() {
     const router = useRouter();
+    const isDesktop = useIsDesktop();
+    const isMobile = useIsMobile();
+
+    const goBack = React.useCallback(() => {
+        if (typeof window !== "undefined" && window.history.length > 1) router.back();
+        else router.push("/");
+    }, [router]);
 
     const [q, setQ] = useState("");
     const [lastQuery, setLastQuery] = useState("");
@@ -202,53 +236,37 @@ export default function SearchPageClient() {
 
     const [recents, setRecents] = useState<string[]>([]);
     const [trending, setTrending] = useState<string[]>(TRENDING_DEFAULT);
+
     useEffect(() => {
         let cancelled = false;
 
         async function loadTrendingFromHashtags() {
             try {
-                // use whichever you have:
-                // const db = getFirestore(app);
-                // or if you have imported `db` from "@/lib/firebase", just use it.
-                //  const db = getFirestore(app);
-                // or if you have imported `db` from "@/lib/firebase", just use it.
                 const ref = collection(db, "hashtags");
 
-
                 // Option A: purely by uses (most used overall)
-                const q = query(ref, orderBy("uses", "desc"), limit(20));
+                const qy = query(ref, orderBy("uses", "desc"), limit(20));
 
-                // Option B (optional): by recency + uses:
-                // const q = query(
-                //   ref,
-                //   orderBy("lastUsedAt", "desc"),
-                //   limit(50)
-                // );
-
-                const snap = await getDocs(q);
+                const snap = await getDocs(qy);
                 if (cancelled) return;
 
                 if (!snap.empty) {
                     const labels = snap.docs
                         .map((doc) => {
                             const data = doc.data() as any;
-                            // prefer `tag` field as stored by upsertHashtagsForTags
                             return data?.tag as string | undefined;
                         })
                         .filter((v): v is string => !!v);
 
                     if (labels.length > 0) {
-                        // we might only want top 8–10 for UI
                         setTrending(labels.slice(0, 10));
                         return;
                     }
                 }
 
-                // If we reach here and nothing valid, keep defaults
                 setTrending(TRENDING_DEFAULT);
             } catch (err) {
                 console.warn("Failed to load trending hashtags", err);
-                // On error, keep defaults
                 setTrending(TRENDING_DEFAULT);
             }
         }
@@ -259,7 +277,6 @@ export default function SearchPageClient() {
             cancelled = true;
         };
     }, []);
-
 
     // When we're on Deeds tab and query is a tag, treat this as a "tag hub"
     const isTagFeed = q.trim().startsWith("#") && active === "Deeds";
@@ -318,7 +335,6 @@ export default function SearchPageClient() {
             return;
         }
 
-        // for backend just "mwangi", even though DB stores "@mwangi"
         const backendQ = normalizeQueryForBackend(trimmed, "Accounts");
         if (!backendQ || backendQ.length < 2) {
             setHandleSuggestions([]);
@@ -339,7 +355,7 @@ export default function SearchPageClient() {
             } finally {
                 if (!cancelled) setHandleSuggestLoading(false);
             }
-        }, 250); // debounce
+        }, 250);
 
         return () => {
             cancelled = true;
@@ -349,9 +365,7 @@ export default function SearchPageClient() {
 
     const onSelectHandleSuggestion = useCallback(
         (acc: Account) => {
-            const handleLabel = acc.handle.startsWith("@")
-                ? acc.handle
-                : `@${acc.handle}`;
+            const handleLabel = acc.handle.startsWith("@") ? acc.handle : `@${acc.handle}`;
             setQ(handleLabel);
             setHandleSuggestions([]);
             router.push(`/${acc.handle}`);
@@ -392,7 +406,7 @@ export default function SearchPageClient() {
             } finally {
                 if (!cancelled) setTagSuggestLoading(false);
             }
-        }, 250); // debounce
+        }, 250);
 
         return () => {
             cancelled = true;
@@ -403,9 +417,9 @@ export default function SearchPageClient() {
     /* --------- Search logic --------- */
 
     const startSearch = useCallback(
-        async (query: string, tab: TabKey, reset = false) => {
-            const displayQuery = query.trim(); // what user typed ("@mwangi" / "#farmer")
-            const backendQuery = normalizeQueryForBackend(query, tab); // we send cleaned one
+        async (queryStr: string, tab: TabKey, reset = false) => {
+            const displayQuery = queryStr.trim();
+            const backendQuery = normalizeQueryForBackend(queryStr, tab);
 
             if (!displayQuery || !backendQuery) {
                 setTopData([]);
@@ -440,7 +454,6 @@ export default function SearchPageClient() {
                 if (tab === "Top") {
                     setTopData(merge(topData, res.top, reset));
 
-                    // Seed other tabs on first "Top" search
                     if (reset) {
                         if (res.deeds) setDeedData(res.deeds);
                         if (res.events) setEventData(res.events);
@@ -452,10 +465,8 @@ export default function SearchPageClient() {
 
                 if (tab === "Deeds") setDeedData(merge(deedData, res.deeds, reset));
                 if (tab === "Events") setEventData(merge(eventData, res.events, reset));
-                if (tab === "Discussions")
-                    setDiscData(merge(discData, res.discussions, reset));
-                if (tab === "Accounts")
-                    setAccData(merge(accData, res.accounts, reset));
+                if (tab === "Discussions") setDiscData(merge(discData, res.discussions, reset));
+                if (tab === "Accounts") setAccData(merge(accData, res.accounts, reset));
                 if (tab === "Tags") setTagData(merge(tagData, res.tags, reset));
 
                 if (reset) saveRecent(displayQuery);
@@ -477,14 +488,10 @@ export default function SearchPageClient() {
 
             setQ(label);
             setTagSuggestions([]);
-            // default to Deeds feed for that tag
             setActive("Deeds");
             setPage(0);
 
-            // Run search immediately for that tag on Deeds tab
             startSearch(label, "Deeds", true);
-
-            // Optional: sync URL so you can share links
             router.push(`/search?tag=${encodeURIComponent(tag.tag)}&tab=Deeds`);
         },
         [router, startSearch]
@@ -496,20 +503,11 @@ export default function SearchPageClient() {
             const trimmed = q.trim();
             if (!trimmed) return;
 
-            // Auto-route tab:
-            // - "@something" -> Accounts
-            // - "#something" -> Tags
             let targetTab: TabKey = active;
-            if (trimmed.startsWith("@")) {
-                targetTab = "Accounts";
-            } else if (trimmed.startsWith("#")) {
-                targetTab = "Tags";
-            }
+            if (trimmed.startsWith("@")) targetTab = "Accounts";
+            else if (trimmed.startsWith("#")) targetTab = "Tags";
 
-            if (targetTab !== active) {
-                setActive(targetTab);
-            }
-
+            if (targetTab !== active) setActive(targetTab);
             startSearch(trimmed, targetTab, true);
         },
         [q, active, startSearch]
@@ -553,42 +551,30 @@ export default function SearchPageClient() {
         (q.trim().startsWith("#") || active === "Tags") &&
         (tagSuggestions.length > 0 || tagSuggestLoading);
 
-    const searchParams = useSearchParams();
+    const sp = useSearchParams();
     const [bootstrappedFromURL, setBootstrappedFromURL] = useState(false);
 
     useEffect(() => {
-        if (!searchParams || bootstrappedFromURL) return;
+        if (!sp || bootstrappedFromURL) return;
 
-        const qParam = searchParams.get("q");
-        const tagParam = searchParams.get("tag");
-        const tabParam = searchParams.get("tab") as TabKey | null;
+        const qParam = sp.get("q");
+        const tagParam = sp.get("tag");
+        const tabParam = sp.get("tab") as TabKey | null;
 
-        // Decide query + tab from URL
         let incomingQuery = "";
         let incomingTab: TabKey = "Top";
 
         if (tagParam) {
-            // from /search?tag=maize&tab=Deeds (or Tags, etc.)
             incomingQuery = `#${tagParam}`;
-
-            if (tabParam && TABS.includes(tabParam)) {
-                incomingTab = tabParam;
-            } else {
-                // default view for a tag – you can change to "Tags" if you prefer
-                incomingTab = "Deeds";
-            }
+            if (tabParam && TABS.includes(tabParam)) incomingTab = tabParam;
+            else incomingTab = "Deeds";
         } else if (qParam) {
             incomingQuery = qParam.trim();
 
-            if (incomingQuery.startsWith("@")) {
-                incomingTab = "Accounts";
-            } else if (incomingQuery.startsWith("#")) {
-                incomingTab = "Tags";
-            } else if (tabParam && TABS.includes(tabParam)) {
-                incomingTab = tabParam;
-            } else {
-                incomingTab = "Top";
-            }
+            if (incomingQuery.startsWith("@")) incomingTab = "Accounts";
+            else if (incomingQuery.startsWith("#")) incomingTab = "Tags";
+            else if (tabParam && TABS.includes(tabParam)) incomingTab = tabParam;
+            else incomingTab = "Top";
         }
 
         if (!incomingQuery) {
@@ -600,13 +586,11 @@ export default function SearchPageClient() {
         setActive(incomingTab);
         setBootstrappedFromURL(true);
 
-        // Kick off initial search with this query + tab
         startSearch(incomingQuery, incomingTab, true);
-    }, [searchParams, bootstrappedFromURL, startSearch]);
+    }, [sp, bootstrappedFromURL, startSearch]);
 
     /* --------- Render helpers --------- */
 
-    // 🔹 Deed route: /[handle]/deed/[deedid]
     const handleDeedClick = (d: Deed) => {
         const handle = d.authorUsername || d.authorId || "deed";
         router.push(`/${encodeURIComponent(handle)}/deed/${d.id}`);
@@ -623,7 +607,6 @@ export default function SearchPageClient() {
         setPage(0);
 
         startSearch(label, "Deeds", true);
-
         router.push(`/search?tag=${encodeURIComponent(tag)}&tab=Deeds`);
     };
 
@@ -669,7 +652,11 @@ export default function SearchPageClient() {
                                 className="h-14 w-20 rounded-lg bg-gray-100 object-cover"
                             />
                         ) : (
-                            <div className="h-14 w-20 rounded-lg bg-gray-100" />
+                            <img
+                                src={PLACEHOLDER_EVENT_THUMB}
+                                alt="event"
+                                className="h-14 w-20 rounded-lg bg-gray-100 object-cover"
+                            />
                         )}
                         <div className="flex-1">
                             <p className="line-clamp-2 text-sm font-semibold text-gray-900">
@@ -715,9 +702,7 @@ export default function SearchPageClient() {
             }
             case "account": {
                 const a = item.account;
-                const handleLabel = a.handle.startsWith("@")
-                    ? a.handle
-                    : `@${a.handle}`;
+                const handleLabel = a.handle.startsWith("@") ? a.handle : `@${a.handle}`;
                 return (
                     <button
                         key={`top_acc_${idx}_${a.id}`}
@@ -726,7 +711,7 @@ export default function SearchPageClient() {
                     >
                         <img
                             src={a.photoURL || PLACEHOLDER_AVATAR}
-                            alt={a.firstName}
+                            alt={a.firstName || "User"}
                             className="h-11 w-11 rounded-full bg-gray-100 object-cover"
                         />
                         <div className="flex-1">
@@ -747,9 +732,7 @@ export default function SearchPageClient() {
                         className="flex w-full items-center gap-2 rounded-xl py-3 text-left hover:bg-gray-50"
                     >
                         <IoPricetagOutline size={18} color={EKARI.gold} />
-                        <span className="text-sm font-semibold text-gray-900">
-                            #{t.tag}
-                        </span>
+                        <span className="text-sm font-semibold text-gray-900">#{t.tag}</span>
                         <span className="ml-auto text-xs text-gray-500">
                             {t.uses.toLocaleString()} uses
                         </span>
@@ -778,12 +761,12 @@ export default function SearchPageClient() {
 
     const currentCount = listData?.length ?? 0;
 
-    /* --------- JSX --------- */
+    /* ------------------------------ UI (Body) ------------------------------ */
 
-    return (
-        <AppShell>
-            <main className="min-h-screen w-full bg-white">
-                {/* Header */}
+    const Body = (
+        <main className="min-h-screen w-full bg-white">
+            {/* Header (keep for desktop only to avoid double header on mobile) */}
+            {isDesktop && (
                 <header
                     className="sticky top-0 z-30 border-b bg-gradient-to-br from-white to-gray-50/70 backdrop-blur"
                     style={{ borderColor: EKARI.line }}
@@ -791,7 +774,7 @@ export default function SearchPageClient() {
                     <div className="mx-auto flex max-w-3xl flex-col px-4 pt-3 pb-1">
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => router.back()}
+                                onClick={goBack}
                                 className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100"
                                 aria-label="Back"
                             >
@@ -853,11 +836,9 @@ export default function SearchPageClient() {
                             </button>
                         </div>
 
-                        {/* Autosuggest dropdowns */}
                         {(showHandleSuggestions || showTagSuggestions) && (
                             <div className="mt-2 w-full">
                                 <div className="w-full rounded-xl border bg-white shadow-sm">
-                                    {/* Handle suggestions */}
                                     {showHandleSuggestions && (
                                         <>
                                             {handleSuggestLoading && (
@@ -873,17 +854,12 @@ export default function SearchPageClient() {
                                                     <button
                                                         key={a.id}
                                                         type="button"
-                                                        onClick={() =>
-                                                            onSelectHandleSuggestion(a)
-                                                        }
+                                                        onClick={() => onSelectHandleSuggestion(a)}
                                                         className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
                                                     >
                                                         <img
-                                                            src={
-                                                                a.photoURL ||
-                                                                PLACEHOLDER_AVATAR
-                                                            }
-                                                            alt={a.firstName}
+                                                            src={a.photoURL || PLACEHOLDER_AVATAR}
+                                                            alt={a.firstName || "User"}
                                                             className="h-8 w-8 rounded-full bg-gray-100 object-cover"
                                                         />
                                                         <div className="flex-1">
@@ -897,16 +873,14 @@ export default function SearchPageClient() {
                                                     </button>
                                                 );
                                             })}
-                                            {!handleSuggestLoading &&
-                                                handleSuggestions.length === 0 && (
-                                                    <div className="px-3 py-2 text-xs text-gray-500">
-                                                        No matching accounts yet.
-                                                    </div>
-                                                )}
+                                            {!handleSuggestLoading && handleSuggestions.length === 0 && (
+                                                <div className="px-3 py-2 text-xs text-gray-500">
+                                                    No matching accounts yet.
+                                                </div>
+                                            )}
                                         </>
                                     )}
 
-                                    {/* Tag suggestions */}
                                     {showTagSuggestions && (
                                         <>
                                             {tagSuggestLoading && (
@@ -918,15 +892,10 @@ export default function SearchPageClient() {
                                                 <button
                                                     key={t.id}
                                                     type="button"
-                                                    onClick={() =>
-                                                        onSelectTagSuggestion(t)
-                                                    }
+                                                    onClick={() => onSelectTagSuggestion(t)}
                                                     className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
                                                 >
-                                                    <IoPricetagOutline
-                                                        size={16}
-                                                        color={EKARI.gold}
-                                                    />
+                                                    <IoPricetagOutline size={16} color={EKARI.gold} />
                                                     <span className="text-xs font-semibold text-gray-900">
                                                         #{t.tag}
                                                     </span>
@@ -935,12 +904,11 @@ export default function SearchPageClient() {
                                                     </span>
                                                 </button>
                                             ))}
-                                            {!tagSuggestLoading &&
-                                                tagSuggestions.length === 0 && (
-                                                    <div className="px-3 py-2 text-xs text-gray-500">
-                                                        No matching tags yet.
-                                                    </div>
-                                                )}
+                                            {!tagSuggestLoading && tagSuggestions.length === 0 && (
+                                                <div className="px-3 py-2 text-xs text-gray-500">
+                                                    No matching tags yet.
+                                                </div>
+                                            )}
                                         </>
                                     )}
                                 </div>
@@ -948,23 +916,20 @@ export default function SearchPageClient() {
                         )}
                     </div>
 
-                    {/* Tabs */}
                     <div className="mx-auto flex w-full max-w-3xl items-center overflow-x-auto px-4 pb-2 pt-1 no-scrollbar">
                         <div className="relative flex gap-2">
                             {TABS.map((t) => {
-                                const isActive = t === active;
+                                const isActiveTab = t === active;
                                 return (
                                     <button
                                         key={t}
                                         type="button"
                                         className="flex h-8 w-[92px] items-center justify-center rounded-full border text-xs font-semibold transition"
                                         style={{
-                                            borderColor: isActive ? EKARI.forest : "#E5E7EB",
-                                            backgroundColor: isActive
-                                                ? EKARI.forest
-                                                : "#FFFFFF",
-                                            color: isActive ? "#FFFFFF" : EKARI.text,
-                                            boxShadow: isActive
+                                            borderColor: isActiveTab ? EKARI.forest : "#E5E7EB",
+                                            backgroundColor: isActiveTab ? EKARI.forest : "#FFFFFF",
+                                            color: isActiveTab ? "#FFFFFF" : EKARI.text,
+                                            boxShadow: isActiveTab
                                                 ? "0 1px 2px rgba(0,0,0,0.08)"
                                                 : undefined,
                                         }}
@@ -981,85 +946,52 @@ export default function SearchPageClient() {
                         </div>
                     </div>
                 </header>
+            )}
 
-                {/* Body */}
-                <section className="w-full max-w-3xl px-4 pb-10 pt-4">
-                    {showDefault ? (
-                        <div className="space-y-6">
-                            {/* Intro */}
-                            <div
-                                className="rounded-2xl border px-4 py-3 text-xs"
-                                style={{
-                                    borderColor: "#D1FAE5",
-                                    backgroundColor: "rgba(230,242,239,0.9)",
-                                    color: EKARI.forest,
-                                }}
+            {/* Body */}
+            <section className="w-full max-w-3xl px-4 pb-10 pt-4">
+                {showDefault ? (
+                    <div className="space-y-6">
+                        <div
+                            className="rounded-2xl border px-4 py-3 text-xs"
+                            style={{
+                                borderColor: "#D1FAE5",
+                                backgroundColor: "rgba(230,242,239,0.9)",
+                                color: EKARI.forest,
+                            }}
+                        >
+                            <p className="font-semibold">Search ekarihub</p>
+                            <p
+                                className="mt-1 text-[11px]"
+                                style={{ color: "rgba(35,63,57,0.85)" }}
                             >
-                                <p className="font-semibold">Search ekarihub</p>
-                                <p
-                                    className="mt-1 text-[11px]"
-                                    style={{ color: "rgba(35,63,57,0.85)" }}
-                                >
-                                    Find deeds, events, discussions, people, and tags across
-                                    the agribusiness community. Try “maize”, “soil health”,
-                                    “avocado export”, <strong>@handle</strong> or{" "}
-                                    <strong>#farmer</strong>.
-                                </p>
-                            </div>
+                                Find deeds, events, discussions, people, and tags across the
+                                agribusiness community. Try “maize”, “soil health”, “avocado
+                                export”, <strong>@handle</strong> or <strong>#farmer</strong>.
+                            </p>
+                        </div>
 
-                            {/* Recents */}
-                            <div>
-                                <div className="mb-2 flex items-center justify-between">
-                                    <h2 className="text-sm font-bold text-gray-900">
-                                        Recent
-                                    </h2>
-                                    {recents.length > 0 && (
-                                        <button
-                                            onClick={clearRecents}
-                                            className="text-xs font-medium text-gray-500 hover:text-gray-700"
-                                        >
-                                            Clear
-                                        </button>
-                                    )}
-                                </div>
-
-                                {recents.length === 0 ? (
-                                    <p className="text-xs text-gray-500">
-                                        No recent searches yet.
-                                    </p>
-                                ) : (
-                                    <div className="flex flex-wrap gap-2">
-                                        {recents.map((r) => (
-                                            <button
-                                                key={r}
-                                                onClick={() => onTapRecent(r)}
-                                                className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
-                                                style={{
-                                                    backgroundColor: EKARI.chip,
-                                                    borderColor: EKARI.chipBorder,
-                                                    color: EKARI.text,
-                                                }}
-                                            >
-                                                <IoTimeOutline size={14} />
-                                                <span>{r}</span>
-                                            </button>
-                                        ))}
-                                    </div>
+                        <div>
+                            <div className="mb-2 flex items-center justify-between">
+                                <h2 className="text-sm font-bold text-gray-900">Recent</h2>
+                                {recents.length > 0 && (
+                                    <button
+                                        onClick={clearRecents}
+                                        className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                                    >
+                                        Clear
+                                    </button>
                                 )}
                             </div>
 
-                            {/* Trending */}
-                            <div>
-                                <div className="mb-2 flex items-center justify-between">
-                                    <h2 className="text-sm font-bold text-gray-900">
-                                        Trending
-                                    </h2>
-                                </div>
+                            {recents.length === 0 ? (
+                                <p className="text-xs text-gray-500">No recent searches yet.</p>
+                            ) : (
                                 <div className="flex flex-wrap gap-2">
-                                    {trending.map((t) => (
+                                    {recents.map((r) => (
                                         <button
-                                            key={t}
-                                            onClick={() => onTapTrending(t)}
+                                            key={r}
+                                            onClick={() => onTapRecent(r)}
                                             className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
                                             style={{
                                                 backgroundColor: EKARI.chip,
@@ -1067,240 +999,412 @@ export default function SearchPageClient() {
                                                 color: EKARI.text,
                                             }}
                                         >
-                                            <IoTrendingUpOutline
-                                                size={14}
-                                                color={EKARI.gold}
-                                            />
-                                            <span>{t}</span>
+                                            <IoTimeOutline size={14} />
+                                            <span>{r}</span>
                                         </button>
                                     ))}
                                 </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <div className="mb-2 flex items-center justify-between">
+                                <h2 className="text-sm font-bold text-gray-900">Trending</h2>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {trending.map((t) => (
+                                    <button
+                                        key={t}
+                                        onClick={() => onTapTrending(t)}
+                                        className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
+                                        style={{
+                                            backgroundColor: EKARI.chip,
+                                            borderColor: EKARI.chipBorder,
+                                            color: EKARI.text,
+                                        }}
+                                    >
+                                        <IoTrendingUpOutline size={14} color={EKARI.gold} />
+                                        <span>{t}</span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {/* Tag hub header (for Deeds + #tag) */}
-                            {isTagFeed && (
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                    <div>
-                                        <span>Deeds tagged with </span>
-                                        <span className="font-semibold text-gray-800">
-                                            {q.trim()}
-                                        </span>
-                                    </div>
-                                    {currentCount > 0 && (
-                                        <span>
-                                            {currentCount.toLocaleString()} deed
-                                            {currentCount > 1 ? "s" : ""} so far
-                                        </span>
-                                    )}
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {isTagFeed && (
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                                <div>
+                                    <span>Deeds tagged with </span>
+                                    <span className="font-semibold text-gray-800">{q.trim()}</span>
                                 </div>
-                            )}
-
-                            {/* Results header */}
-                            {lastQuery && (
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                    <div>
-                                        <span>Results for </span>
-                                        <span className="font-semibold text-gray-800">
-                                            “{lastQuery}”
-                                        </span>
-                                        <span>{` · ${active}`}</span>
-                                    </div>
-                                    {currentCount > 0 && (
-                                        <span>
-                                            {currentCount.toLocaleString()} result
-                                            {currentCount > 1 ? "s" : ""}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Results list */}
-                            <div className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white">
-                                {(!listData || listData.length === 0) && !loading && (
-                                    <div className="px-4 py-10 text-center text-sm text-gray-500">
-                                        No results found. Try a different keyword or broaden
-                                        your search.
-                                    </div>
+                                {currentCount > 0 && (
+                                    <span>
+                                        {currentCount.toLocaleString()} deed{currentCount > 1 ? "s" : ""} so far
+                                    </span>
                                 )}
+                            </div>
+                        )}
 
-                                {/* TOP */}
-                                {active === "Top" &&
-                                    topData.map((item, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="px-4 first:pt-3 last:pb-3"
-                                        >
-                                            {renderTopItem(item, idx)}
+                        {lastQuery && (
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                                <div>
+                                    <span>Results for </span>
+                                    <span className="font-semibold text-gray-800">“{lastQuery}”</span>
+                                    <span>{` · ${active}`}</span>
+                                </div>
+                                {currentCount > 0 && (
+                                    <span>
+                                        {currentCount.toLocaleString()} result{currentCount > 1 ? "s" : ""}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white">
+                            {(!listData || listData.length === 0) && !loading && (
+                                <div className="px-4 py-10 text-center text-sm text-gray-500">
+                                    No results found. Try a different keyword or broaden your search.
+                                </div>
+                            )}
+
+                            {active === "Top" &&
+                                topData.map((item, idx) => (
+                                    <div key={idx} className="px-4 first:pt-3 last:pb-3">
+                                        {renderTopItem(item, idx)}
+                                    </div>
+                                ))}
+
+                            {active === "Deeds" &&
+                                deedData.map((d) => (
+                                    <button
+                                        key={d.id}
+                                        onClick={() => handleDeedClick(d)}
+                                        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                                    >
+                                        <img
+                                            src={d.mediaThumbUrl || PLACEHOLDER_DEED_THUMB}
+                                            alt={d.caption || "deed"}
+                                            className="h-[62px] w-[110px] rounded-lg bg-gray-100 object-cover"
+                                        />
+                                        <div className="flex-1">
+                                            <p className="line-clamp-2 text-sm font-semibold text-gray-900">
+                                                {d.caption || ""}
+                                            </p>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                by {d.authorUsername || "ekarihub user"} ·{" "}
+                                                {(d.stats?.likes ?? 0).toLocaleString()} likes ·{" "}
+                                                {(d.stats?.views ?? 0).toLocaleString()} views
+                                            </p>
                                         </div>
-                                    ))}
+                                    </button>
+                                ))}
 
-                                {/* DEEDS */}
-                                {active === "Deeds" &&
-                                    deedData.map((d) => (
+                            {active === "Events" &&
+                                eventData.map((e) => (
+                                    <button
+                                        key={e.id}
+                                        onClick={() => handleEventClick(e.id)}
+                                        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                                    >
+                                        {e.coverUrl ? (
+                                            <img
+                                                src={e.coverUrl}
+                                                alt={e.title || "event"}
+                                                className="h-14 w-20 rounded-lg bg-gray-100 object-cover"
+                                            />
+                                        ) : (
+                                            <img
+                                                src={PLACEHOLDER_EVENT_THUMB}
+                                                alt="event"
+                                                className="h-14 w-20 rounded-lg bg-gray-100 object-cover"
+                                            />
+                                        )}
+                                        <div className="flex-1">
+                                            <p className="line-clamp-2 text-sm font-semibold text-gray-900">
+                                                {e.title || ""}
+                                            </p>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                {e.dateISO
+                                                    ? new Date(e.dateISO).toLocaleDateString(undefined, {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                    })
+                                                    : ""}
+                                                {e.location ? ` · ${e.location}` : ""}
+                                            </p>
+                                        </div>
+                                    </button>
+                                ))}
+
+                            {active === "Discussions" &&
+                                discData.map((d) => (
+                                    <button
+                                        key={d.id}
+                                        onClick={() => handleDiscussionClick(d.id)}
+                                        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                                    >
+                                        <div
+                                            className="flex h-9 w-9 items-center justify-center rounded-full"
+                                            style={{ backgroundColor: EKARI.soft }}
+                                        >
+                                            <IoChatbubblesOutline size={18} color={EKARI.forest} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="line-clamp-2 text-sm font-semibold text-gray-900">
+                                                {d.title || ""}
+                                            </p>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                {d.repliesCount ?? 0} replies{d.category ? ` · ${d.category}` : ""}
+                                            </p>
+                                        </div>
+                                    </button>
+                                ))}
+
+                            {active === "Accounts" &&
+                                accData.map((a) => {
+                                    const handleLabel = a.handle.startsWith("@") ? a.handle : `@${a.handle}`;
+                                    return (
                                         <button
-                                            key={d.id}
-                                            onClick={() => handleDeedClick(d)}
+                                            key={a.id}
+                                            onClick={() => handleAccountClick(a.handle)}
                                             className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                                         >
                                             <img
-                                                src={d.mediaThumbUrl || PLACEHOLDER_DEED_THUMB}
-                                                alt={d.caption || "deed"}
-                                                className="h-[62px] w-[110px] rounded-lg bg-gray-100 object-cover"
+                                                src={a.photoURL || PLACEHOLDER_AVATAR}
+                                                alt={a.firstName || "User"}
+                                                className="h-11 w-11 rounded-full bg-gray-100 object-cover"
                                             />
                                             <div className="flex-1">
-                                                <p className="line-clamp-2 text-sm font-semibold text-gray-900">
-                                                    {d.caption || ""}
+                                                <p className="text-sm font-semibold text-gray-900">
+                                                    {a.firstName} {a.surname}
                                                 </p>
-                                                <p className="mt-1 text-xs text-gray-500">
-                                                    by {d.authorUsername || "ekarihub user"} ·{" "}
-                                                    {(d.stats?.likes ?? 0).toLocaleString()} likes ·{" "}
-                                                    {(d.stats?.views ?? 0).toLocaleString()} views
+                                                <p className="mt-0.5 text-xs text-gray-500">
+                                                    {handleLabel} · {(a.followers ?? 0).toLocaleString()} followers
                                                 </p>
                                             </div>
                                         </button>
-                                    ))}
+                                    );
+                                })}
 
-                                {/* EVENTS */}
-                                {active === "Events" &&
-                                    eventData.map((e) => (
-                                        <button
-                                            key={e.id}
-                                            onClick={() => handleEventClick(e.id)}
-                                            className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
-                                        >
-                                            {e.coverUrl ? (
-                                                <img
-                                                    src={e.coverUrl}
-                                                    alt={e.title || "event"}
-                                                    className="h-14 w-20 rounded-lg bg-gray-100 object-cover"
-                                                />
-                                            ) : (
-                                                <div className="h-14 w-20 rounded-lg bg-gray-100" />
-                                            )}
-                                            <div className="flex-1">
-                                                <p className="line-clamp-2 text-sm font-semibold text-gray-900">
-                                                    {e.title || ""}
-                                                </p>
-                                                <p className="mt-1 text-xs text-gray-500">
-                                                    {e.dateISO
-                                                        ? new Date(e.dateISO).toLocaleDateString(
-                                                            undefined,
-                                                            {
-                                                                month: "short",
-                                                                day: "numeric",
-                                                            }
-                                                        )
-                                                        : ""}
-                                                    {e.location ? ` · ${e.location}` : ""}
-                                                </p>
-                                            </div>
-                                        </button>
-                                    ))}
-
-                                {/* DISCUSSIONS */}
-                                {active === "Discussions" &&
-                                    discData.map((d) => (
-                                        <button
-                                            key={d.id}
-                                            onClick={() => handleDiscussionClick(d.id)}
-                                            className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
-                                        >
-                                            <div
-                                                className="flex h-9 w-9 items-center justify-center rounded-full"
-                                                style={{ backgroundColor: EKARI.soft }}
-                                            >
-                                                <IoChatbubblesOutline
-                                                    size={18}
-                                                    color={EKARI.forest}
-                                                />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="line-clamp-2 text-sm font-semibold text-gray-900">
-                                                    {d.title || ""}
-                                                </p>
-                                                <p className="mt-1 text-xs text-gray-500">
-                                                    {d.repliesCount ?? 0} replies
-                                                    {d.category ? ` · ${d.category}` : ""}
-                                                </p>
-                                            </div>
-                                        </button>
-                                    ))}
-
-                                {/* ACCOUNTS */}
-                                {active === "Accounts" &&
-                                    accData.map((a) => {
-                                        const handleLabel = a.handle.startsWith("@")
-                                            ? a.handle
-                                            : `@${a.handle}`;
-                                        return (
-                                            <button
-                                                key={a.id}
-                                                onClick={() => handleAccountClick(a.handle)}
-                                                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
-                                            >
-                                                <img
-                                                    src={a.photoURL || PLACEHOLDER_AVATAR}
-                                                    alt={a.firstName}
-                                                    className="h-11 w-11 rounded-full bg-gray-100 object-cover"
-                                                />
-                                                <div className="flex-1">
-                                                    <p className="text-sm font-semibold text-gray-900">
-                                                        {a.firstName} {a.surname}
-                                                    </p>
-                                                    <p className="mt-0.5 text-xs text-gray-500">
-                                                        {handleLabel} ·{" "}
-                                                        {(a.followers ?? 0).toLocaleString()}{" "}
-                                                        followers
-                                                    </p>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-
-                                {/* TAGS */}
-                                {active === "Tags" &&
-                                    tagData.map((t) => (
-                                        <button
-                                            key={t.id}
-                                            onClick={() => handleTagClick(t.tag)}
-                                            className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-gray-50"
-                                        >
-                                            <IoPricetagOutline
-                                                size={18}
-                                                color={EKARI.gold}
-                                            />
-                                            <span className="text-sm font-semibold text-gray-900">
-                                                #{t.tag}
-                                            </span>
-                                            <span className="ml-auto text-xs text-gray-500">
-                                                {t.uses.toLocaleString()} uses
-                                            </span>
-                                        </button>
-                                    ))}
-                            </div>
-
-                            {/* Footer: loading / load more */}
-                            <div className="mt-4 flex justify-center">
-                                {loading ? (
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                        <BouncingBallLoader />
-                                        <span>Searching…</span>
-                                    </div>
-                                ) : hasMore && listData && listData.length > 0 ? (
+                            {active === "Tags" &&
+                                tagData.map((t) => (
                                     <button
-                                        onClick={loadMore}
-                                        className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50"
+                                        key={t.id}
+                                        onClick={() => handleTagClick(t.tag)}
+                                        className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-gray-50"
                                     >
-                                        Load more results
+                                        <IoPricetagOutline size={18} color={EKARI.gold} />
+                                        <span className="text-sm font-semibold text-gray-900">#{t.tag}</span>
+                                        <span className="ml-auto text-xs text-gray-500">
+                                            {t.uses.toLocaleString()} uses
+                                        </span>
                                     </button>
-                                ) : null}
+                                ))}
+                        </div>
+
+                        <div className="mt-4 flex justify-center">
+                            {loading ? (
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <BouncingBallLoader />
+                                    <span>Searching…</span>
+                                </div>
+                            ) : hasMore && listData && listData.length > 0 ? (
+                                <button
+                                    onClick={loadMore}
+                                    className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50"
+                                >
+                                    Load more results
+                                </button>
+                            ) : null}
+                        </div>
+                    </div>
+                )}
+
+                {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+            </section>
+        </main>
+    );
+
+    // ✅ MOBILE: fixed inset + sticky header + scroll area (no AppShell)
+    if (isMobile) {
+        return (
+            <div className="fixed inset-0 flex flex-col bg-white">
+                {/* Sticky top bar */}
+                <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+                    <div
+                        className="px-3"
+                        style={{ paddingTop: "env(safe-area-inset-top)" }}
+                    >
+                        <div className="h-14 flex items-center gap-2">
+                            <button
+                                onClick={goBack}
+                                className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+                                aria-label="Back"
+                                title="Back"
+                            >
+                                <IoArrowBack size={18} color={EKARI.text} />
+                            </button>
+
+                            {/* Search input (mobile top bar) */}
+                            <form
+                                onSubmit={onSubmit}
+                                className="flex flex-1 items-center gap-2 rounded-full border bg-gray-50 px-3 py-2 text-sm"
+                                style={{ borderColor: EKARI.line }}
+                            >
+                                <IoSearch size={16} color={EKARI.dim} />
+                                <input
+                                    value={q}
+                                    onChange={(e) => setQ(e.target.value)}
+                                    placeholder="Search…"
+                                    className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                                />
+                                {q && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setQ("");
+                                            setLastQuery("");
+                                            setTopData([]);
+                                            setDeedData([]);
+                                            setEventData([]);
+                                            setDiscData([]);
+                                            setAccData([]);
+                                            setTagData([]);
+                                            setHasMore(false);
+                                            setPage(0);
+                                            setHandleSuggestions([]);
+                                            setTagSuggestions([]);
+                                        }}
+                                        className="px-2"
+                                        aria-label="Clear"
+                                    >
+                                        <span className="text-xs text-gray-400 hover:text-gray-600">Clear</span>
+                                    </button>
+                                )}
+                            </form>
+
+                            <button
+                                onClick={goAI}
+                                className="h-10 w-10 rounded-full grid place-items-center"
+                                style={{ backgroundColor: EKARI.soft }}
+                                aria-label="Ask Ekari AI"
+                                title="Ask Ekari AI"
+                            >
+                                <IoSparklesOutline size={18} color={EKARI.forest} />
+                            </button>
+                        </div>
+
+                        {/* Suggestions dropdown (mobile, below search bar) */}
+                        {(showHandleSuggestions || showTagSuggestions) && (
+                            <div className="pb-2">
+                                <div className="w-full rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                                    {showHandleSuggestions && (
+                                        <>
+                                            {handleSuggestLoading && (
+                                                <div className="px-3 py-2 text-xs text-gray-500">
+                                                    Searching accounts…
+                                                </div>
+                                            )}
+                                            {handleSuggestions.map((a) => {
+                                                const handleLabel = a.handle.startsWith("@") ? a.handle : `@${a.handle}`;
+                                                return (
+                                                    <button
+                                                        key={a.id}
+                                                        type="button"
+                                                        onClick={() => onSelectHandleSuggestion(a)}
+                                                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+                                                    >
+                                                        <img
+                                                            src={a.photoURL || PLACEHOLDER_AVATAR}
+                                                            alt={a.firstName || "User"}
+                                                            className="h-8 w-8 rounded-full bg-gray-100 object-cover"
+                                                        />
+                                                        <div className="flex-1">
+                                                            <p className="text-xs font-semibold text-gray-900">
+                                                                {a.firstName} {a.surname}
+                                                            </p>
+                                                            <p className="text-[11px] text-gray-500">{handleLabel}</p>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                            {!handleSuggestLoading && handleSuggestions.length === 0 && (
+                                                <div className="px-3 py-2 text-xs text-gray-500">
+                                                    No matching accounts yet.
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {showTagSuggestions && (
+                                        <>
+                                            {tagSuggestLoading && (
+                                                <div className="px-3 py-2 text-xs text-gray-500">
+                                                    Searching tags…
+                                                </div>
+                                            )}
+                                            {tagSuggestions.map((t) => (
+                                                <button
+                                                    key={t.id}
+                                                    type="button"
+                                                    onClick={() => onSelectTagSuggestion(t)}
+                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+                                                >
+                                                    <IoPricetagOutline size={16} color={EKARI.gold} />
+                                                    <span className="text-xs font-semibold text-gray-900">#{t.tag}</span>
+                                                    <span className="ml-auto text-[11px] text-gray-500">
+                                                        {t.uses.toLocaleString()} uses
+                                                    </span>
+                                                </button>
+                                            ))}
+                                            {!tagSuggestLoading && tagSuggestions.length === 0 && (
+                                                <div className="px-3 py-2 text-xs text-gray-500">
+                                                    No matching tags yet.
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tabs (mobile) */}
+                        <div className="w-full overflow-x-auto pb-2 no-scrollbar">
+                            <div className="flex gap-2">
+                                {TABS.map((t) => {
+                                    const isActiveTab = t === active;
+                                    return (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            className="shrink-0 flex h-8 px-4 items-center justify-center rounded-full border text-xs font-semibold transition"
+                                            style={{
+                                                borderColor: isActiveTab ? EKARI.forest : "#E5E7EB",
+                                                backgroundColor: isActiveTab ? EKARI.forest : "#FFFFFF",
+                                                color: isActiveTab ? "#FFFFFF" : EKARI.text,
+                                            }}
+                                            onClick={() => {
+                                                setActive(t);
+                                                setPage(0);
+                                                if (q.trim()) startSearch(q, t, true);
+                                            }}
+                                        >
+                                            {t}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
-                    )}
-                </section>
-            </main>
-        </AppShell>
-    );
+                    </div>
+                </div>
+
+                {/* Scroll content */}
+                <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
+            </div>
+        );
+    }
+
+    // ✅ DESKTOP: keep AppShell
+    return <AppShell>{Body}</AppShell>;
 }

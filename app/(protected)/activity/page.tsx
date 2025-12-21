@@ -29,7 +29,6 @@ import {
 } from "react-icons/io5";
 import clsx from "clsx";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
-import { Route } from "lucide-react";
 
 /* ---------------------------- Theme ---------------------------- */
 const EKARI = {
@@ -42,6 +41,26 @@ const EKARI = {
   sub: "#5C6B66",
   tintNew: "#F9FAFB",
 };
+
+/* ---------------------------- Responsive helpers ---------------------------- */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = React.useState(false);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
 
 /* ---------------------------- Types ---------------------------- */
 type Notif = {
@@ -88,7 +107,11 @@ function timeAgo(input: any) {
 
 function dayBucket(date: Date) {
   const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  ).getTime();
   const startOfYesterday = startOfToday - 24 * 3600 * 1000;
   const t = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   if (t >= startOfToday) return "Today";
@@ -98,21 +121,23 @@ function dayBucket(date: Date) {
 
 function primaryText(n: Notif) {
   if (n.type === "like") return `Liked your deed 👍`;
-  if (n.type === "comment")
-    return `Commented your deed: ${n.preview || ""}`;
-  else if (n.type === "profile_view")
-    return `Checked out your profile 👀`;
+  if (n.type === "comment") return `Commented your deed: ${n.preview || ""}`;
+  else if (n.type === "profile_view") return `Checked out your profile 👀`;
   if (n.type === "follow") return `Started following you 🤝`;
   return n.byName || "Notification";
 }
-
 
 function badgeFor(n: Notif) {
   switch (n.type) {
     case "like":
       return { icon: IoHeart, bg: "#FF3B5C", color: "#fff", label: "like" };
     case "comment":
-      return { icon: IoChatbubbleEllipses, bg: EKARI.forest, color: "#fff", label: "comment" };
+      return {
+        icon: IoChatbubbleEllipses,
+        bg: EKARI.forest,
+        color: "#fff",
+        label: "comment",
+      };
     case "follow":
       return { icon: IoPersonAdd, bg: EKARI.gold, color: "#fff", label: "follow" };
     default:
@@ -134,7 +159,8 @@ function SmartAvatar({
 }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
-  const displayed = !err && (src || fallback) ? (src || fallback) : fallback;
+  const displayed = !err && (src || fallback) ? src || fallback : fallback;
+
   return (
     <div
       className="relative overflow-hidden rounded-full bg-gray-100"
@@ -154,7 +180,10 @@ function SmartAvatar({
         alt={alt}
         fill
         sizes={`${size}px`}
-        className={clsx("object-cover transition-opacity", loading ? "opacity-0" : "opacity-100")}
+        className={clsx(
+          "object-cover transition-opacity",
+          loading ? "opacity-0" : "opacity-100"
+        )}
         onLoadingComplete={() => setLoading(false)}
         onError={() => {
           setErr(true);
@@ -204,9 +233,7 @@ function NotifRow({
     };
   }, [uid, n.type, n.byUserId]);
 
-  // ✅ this is the one that was missing
-  const canFollowBack =
-    n.type === "follow" && n.byUserId && uid && n.byUserId !== uid;
+  const canFollowBack = n.type === "follow" && n.byUserId && uid && n.byUserId !== uid;
 
   async function followBack() {
     if (!uid || !n.byUserId || following) return;
@@ -263,7 +290,7 @@ function NotifRow({
         {/* Body */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            {/* Name – ALWAYS go to profile, highlightable */}
+            {/* Name – ALWAYS go to profile */}
             <button
               type="button"
               onClick={() => onOpenProfile(n.handle, n.byName, n.byPhotoURL)}
@@ -275,27 +302,19 @@ function NotifRow({
                   "text-slate-900",
                   "group-hover:underline"
                 )}
-              // if you want forest on hover, easiest is keep Tailwind + theme by class:
-              // you could also define a .text-forest utility in Tailwind config
               >
                 {n.byName || "User"}
               </div>
             </button>
 
-            <div className="ml-2 text-[12px] text-slate-500">
-              {timeAgo(n.createdAt)}
-            </div>
+            <div className="ml-2 text-[12px] text-slate-500">{timeAgo(n.createdAt)}</div>
           </div>
 
           {/* Primary text – click → deed (like/comment) or profile */}
           <button
             type="button"
             onClick={() => {
-              if (
-                (n.type === "comment" || n.type === "like") &&
-                n.deedId &&
-                n.handle
-              ) {
+              if ((n.type === "comment" || n.type === "like") && n.deedId && n.handle) {
                 router.push(`/${encodeURIComponent(n.handle)}/deed/${n.deedId}`);
               } else {
                 onOpenProfile(n.handle, n.byName, n.byPhotoURL);
@@ -312,9 +331,7 @@ function NotifRow({
           <button
             onClick={followBack}
             className="h-8 px-3 rounded-full text-white text-[12px] font-extrabold hover:opacity-95"
-            style={{
-              backgroundColor: EKARI.gold, // gold + white text
-            }}
+            style={{ backgroundColor: EKARI.gold }}
           >
             Follow
           </button>
@@ -335,15 +352,8 @@ function NotifRow({
 
         {/* Unread dot – forest */}
         {n.seen === false && (
-          <span
-            className="ml-1 inline-flex items-center justify-center"
-            title="Unread"
-            aria-label="Unread"
-          >
-            <IoCheckmarkCircleOutline
-              size={16}
-              style={{ color: EKARI.forest }}
-            />
+          <span className="ml-1 inline-flex items-center justify-center" title="Unread" aria-label="Unread">
+            <IoCheckmarkCircleOutline size={16} style={{ color: EKARI.forest }} />
           </span>
         )}
       </div>
@@ -351,13 +361,19 @@ function NotifRow({
   );
 }
 
-
-
 /* --------------------------- Page component --------------------------- */
 export default function ActivityPage() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const router = useRouter();
+
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
+
+  const goBack = React.useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/");
+  }, [router]);
 
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
@@ -426,7 +442,6 @@ export default function ActivityPage() {
       peerPhotoURL,
       peerHandle,
     });
-    // fix: remove stray spaces around '?'
     router.push(`/bonga/${row?.threadId}?${q.toString()}`);
   };
 
@@ -447,11 +462,11 @@ export default function ActivityPage() {
 
   const totalUnseen = items.filter((n) => n.seen === false).length;
 
-  /* ------------------------------ UI ------------------------------ */
-  return (
-    <AppShell>
-      <div className="min-h-screen w-full bg-white">
-        {/* Sticky Header */}
+  // ✅ Put your existing inner page JSX into Body
+  const Body = (
+    <div className={isDesktop ? "min-h-screen w-full bg-white" : "min-h-screen w-full bg-white"}>
+      {/* Desktop header row (keep original header for desktop only to avoid double headers) */}
+      {isDesktop && (
         <div
           className={clsx(
             "sticky top-0 z-20 h-14 px-3 flex items-center justify-between bg-white border-b",
@@ -459,7 +474,7 @@ export default function ActivityPage() {
           )}
         >
           <button
-            onClick={() => router.back()}
+            onClick={goBack}
             className="p-2 rounded-full hover:bg-gray-100"
             aria-label="Back"
           >
@@ -487,65 +502,172 @@ export default function ActivityPage() {
             <IoSearchOutline size={18} className="text-slate-900" />
           </button>
         </div>
+      )}
 
-        {/* Toolbar */}
-        <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
-          <button
-            onClick={onRefresh}
-            disabled={refreshing}
-            className="text-xs px-3 py-1.5 rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+      {/* Toolbar */}
+      <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="text-xs px-3 py-1.5 rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+        <div className="text-xs text-gray-500">
+          {items.length} item{items.length === 1 ? "" : "s"}
+        </div>
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="py-16 flex flex-col items-center justify-center text-slate-500 gap-3">
+          <div className="animate-spin h-6 w-6 border-2 border-emerald-600 border-t-transparent rounded-full" />
+          <BouncingBallLoader />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="px-6 py-16 text-center">
+          <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-emerald-50 grid place-items-center">
+            <IoNotifications className="text-emerald-700" size={24} />
+          </div>
+          <div className="font-extrabold text-slate-900">No notifications yet</div>
+          <p className="mt-1 text-sm text-slate-500">
+            We’ll show likes, comments, and new followers here.
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {grouped.map(([label, rows]) => (
+            <section key={label} className="bg-white">
+              {/* For desktop Body (non-fixed wrapper), this can remain sticky below header */}
+              <div className="sticky top-[56px] z-10 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+                <div className="px-3 py-2 text-[12px] font-bold uppercase tracking-wide text-gray-500">
+                  {label}
+                </div>
+              </div>
+
+              <ul className="divide-y divide-gray-200">
+                {rows.map((n) => (
+                  <NotifRow
+                    key={n.id}
+                    n={n}
+                    uid={uid}
+                    onOpenProfile={openProfile}
+                    onOpenThread={openThread}
+                    highlight={n.seen === false}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile safe area spacer */}
+      {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+
+      <div className="h-6" />
+    </div>
+  );
+
+  // ✅ Loading wrapper adapted for mobile/desktop
+  if (loading) {
+    const LoadingBody = (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-pulse" style={{ color: EKARI.gold }}>
+          <BouncingBallLoader />
+        </div>
+      </div>
+    );
+
+    if (isMobile) {
+      return (
+        <div className="fixed inset-0 flex flex-col bg-white">
+          <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+            <div
+              className="h-14 px-3 flex items-center gap-2"
+              style={{ paddingTop: "env(safe-area-inset-top)" }}
+            >
+              <button
+                onClick={goBack}
+                className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+                aria-label="Back"
+              >
+                <IoChevronBack size={18} />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
+                  Activity
+                </div>
+                <div className="truncate text-[11px]" style={{ color: EKARI.dim }}>
+                  Notifications
+                </div>
+              </div>
+              <button
+                onClick={() => router.push("/search")}
+                className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+                aria-label="Search"
+              >
+                <IoSearchOutline size={18} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto overscroll-contain">{LoadingBody}</div>
+        </div>
+      );
+    }
+
+    return <AppShell>{LoadingBody}</AppShell>;
+  }
+
+  // ✅ MOBILE: fixed inset + sticky header + scroll area (no AppShell)
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-white">
+        {/* Sticky top bar */}
+        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+          <div
+            className="h-14 px-3 flex items-center gap-2"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
-          <div className="text-xs text-gray-500">
-            {items.length} item{items.length === 1 ? "" : "s"}
+            <button
+              onClick={goBack}
+              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+              aria-label="Back"
+              title="Back"
+            >
+              <IoChevronBack size={18} />
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
+                Activity
+              </div>
+              <div className="truncate text-[11px]" style={{ color: EKARI.dim }}>
+                {totalUnseen > 0 ? `${totalUnseen} unread` : "Notifications"}
+              </div>
+            </div>
+
+            <button
+              onClick={() => router.push("/search")}
+              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+              aria-label="Search"
+              title="Search"
+            >
+              <IoSearchOutline size={18} />
+            </button>
           </div>
         </div>
 
-        {/* Content */}
-        {loading ? (
-          <div className="py-16 flex flex-col items-center justify-center text-slate-500 gap-3">
-            <div className="animate-spin h-6 w-6 border-2 border-emerald-600 border-t-transparent rounded-full" />
-            <BouncingBallLoader />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="px-6 py-16 text-center">
-            <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-emerald-50 grid place-items-center">
-              <IoNotifications className="text-emerald-700" size={24} />
-            </div>
-            <div className="font-extrabold text-slate-900">No notifications yet</div>
-            <p className="mt-1 text-sm text-slate-500">
-              We’ll show likes, comments, and new followers here.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {grouped.map(([label, rows]) => (
-              <section key={label} className="bg-white">
-                <div className="sticky top-[56px] z-10 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-                  <div className="px-3 py-2 text-[12px] font-bold uppercase tracking-wide text-gray-500">
-                    {label}
-                  </div>
-                </div>
-                <ul className="divide-y divide-gray-200">
-                  {rows.map((n) => (
-                    <NotifRow
-                      key={n.id}
-                      n={n}
-                      uid={uid}
-                      onOpenProfile={openProfile}
-                      onOpenThread={openThread}
-                      highlight={n.seen === false}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        )}
-
-        <div className="h-6" />
+        {/* Scroll content */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          {/* NOTE: Body contains a desktop-only header. On mobile it won't render. */}
+          {Body}
+        </div>
       </div>
-    </AppShell>
-  );
+    );
+  }
+
+  // ✅ DESKTOP: keep AppShell
+  return <AppShell>{Body}</AppShell>;
 }

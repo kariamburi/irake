@@ -43,10 +43,29 @@ type UserSummary = {
 
 function formatCount(n?: number) {
   const v = Number(n || 0);
-  if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
-  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  if (v >= 1_000_000_000)
+    return (v / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
+  if (v >= 1_000_000)
+    return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (v >= 1_000)
+    return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
   return String(v);
+}
+
+/** Responsive helpers */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
 }
 
 export default function HandleConnectionsPage() {
@@ -54,6 +73,7 @@ export default function HandleConnectionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
 
   const rawHandle = params?.handle ?? "";
   const decoded = (() => {
@@ -63,14 +83,19 @@ export default function HandleConnectionsPage() {
       return rawHandle;
     }
   })();
+
   const handleSlug = decoded.replace(/^@/, "");
   const handleWithAt = decoded.startsWith("@") ? decoded : `@${decoded}`;
 
-  const [ownerUid, setOwnerUid] = React.useState<string | null | undefined>(undefined);
+  const [ownerUid, setOwnerUid] = React.useState<string | null | undefined>(
+    undefined
+  );
   const [ownerUsername, setOwnerUsername] = React.useState<string>(handleWithAt);
   const [tab, setTab] = React.useState<TabKey>(() => {
     const t = (searchParams?.get("tab") || "followers") as TabKey;
-    return ["following", "followers", "partners", "mutual"].includes(t) ? t : "followers";
+    return ["following", "followers", "partners", "mutual"].includes(t)
+      ? t
+      : "followers";
   });
 
   const [following, setFollowing] = React.useState<UserSummary[]>([]);
@@ -78,8 +103,12 @@ export default function HandleConnectionsPage() {
   const [partners, setPartners] = React.useState<UserSummary[]>([]);
   const [mutualPartners, setMutualPartners] = React.useState<UserSummary[]>([]);
 
-  const [viewerFollowingSet, setViewerFollowingSet] = React.useState<Set<string>>(new Set());
-  const [viewerFollowersSet, setViewerFollowersSet] = React.useState<Set<string>>(new Set());
+  const [viewerFollowingSet, setViewerFollowingSet] = React.useState<Set<string>>(
+    new Set()
+  );
+  const [viewerFollowersSet, setViewerFollowersSet] = React.useState<Set<string>>(
+    new Set()
+  );
 
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
@@ -108,35 +137,32 @@ export default function HandleConnectionsPage() {
 
   const viewerUid = user?.uid;
 
-  const fetchUserDocs = React.useCallback(
-    async (ids: string[]): Promise<Record<string, UserSummary>> => {
-      const map: Record<string, UserSummary> = {};
-      const unique = Array.from(new Set(ids)).filter(Boolean);
-      await Promise.all(
-        unique.map(async (id) => {
-          try {
-            const snap = await getDoc(doc(db, "users", id));
-            if (snap.exists()) {
-              const d = snap.data() as any;
-              map[id] = {
-                id,
-                firstName: d.firstName,
-                surname: d.surname,
-                handle: d.handle,
-                photoURL: d.photoURL || d.avatarUrl,
-              };
-            } else {
-              map[id] = { id };
-            }
-          } catch {
+  const fetchUserDocs = React.useCallback(async (ids: string[]) => {
+    const map: Record<string, UserSummary> = {};
+    const unique = Array.from(new Set(ids)).filter(Boolean);
+    await Promise.all(
+      unique.map(async (id) => {
+        try {
+          const snap = await getDoc(doc(db, "users", id));
+          if (snap.exists()) {
+            const d = snap.data() as any;
+            map[id] = {
+              id,
+              firstName: d.firstName,
+              surname: d.surname,
+              handle: d.handle,
+              photoURL: d.photoURL || d.avatarUrl,
+            };
+          } else {
             map[id] = { id };
           }
-        })
-      );
-      return map;
-    },
-    []
-  );
+        } catch {
+          map[id] = { id };
+        }
+      })
+    );
+    return map;
+  }, []);
 
   // main loader
   React.useEffect(() => {
@@ -163,13 +189,13 @@ export default function HandleConnectionsPage() {
           (d) => (d.data() as any).followerId as string
         );
 
-        const ownerFollowingSet = new Set(ownerFollowingIds);
-        const ownerFollowersSet = new Set(ownerFollowerIds);
+        const ownerFollowingSetLocal = new Set(ownerFollowingIds);
+        const ownerFollowersSetLocal = new Set(ownerFollowerIds);
 
         // partners: owner ↔ user mutual
         const partnersIds: string[] = [];
-        ownerFollowingSet.forEach((id) => {
-          if (ownerFollowersSet.has(id)) partnersIds.push(id);
+        ownerFollowingSetLocal.forEach((id) => {
+          if (ownerFollowersSetLocal.has(id)) partnersIds.push(id);
         });
 
         // viewer relations
@@ -197,7 +223,7 @@ export default function HandleConnectionsPage() {
         // mutual partners: people who follow viewer AND owner
         const mutualIds: string[] = [];
         if (viewerUid && viewerUid !== ownerUid) {
-          ownerFollowersSet.forEach((id) => {
+          ownerFollowersSetLocal.forEach((id) => {
             if (viewerFollowersSetLocal.has(id)) mutualIds.push(id);
           });
         }
@@ -237,14 +263,13 @@ export default function HandleConnectionsPage() {
 
     return base.filter((u) => {
       const name = `${u.firstName ?? ""} ${u.surname ?? ""}`.toLowerCase();
-      const handle = (u.handle ?? "").toLowerCase();
-      return name.includes(q) || handle.includes(q);
+      const h = (u.handle ?? "").toLowerCase();
+      return name.includes(q) || h.includes(q);
     });
   }, [tab, following, followers, partners, mutualPartners, search]);
 
   const onToggleFollow = async (userId: string) => {
     if (!viewerUid) {
-      // redirect to login, keep return path
       const next = `/${encodeURIComponent(handleSlug)}/connections?tab=${tab}`;
       router.push(`/login?next=${encodeURIComponent(next)}`);
       return;
@@ -289,120 +314,176 @@ export default function HandleConnectionsPage() {
     router.push(`/${encodeURIComponent(handleSlug)}`);
   };
 
-  return (
-    <AppShell>
-      <div
-        className="mx-auto min-h-screen w-full px-3 md:px-4 pt-3 pb-6"
-        style={{ backgroundColor: EKARI.bg }}
-      >
-        {/* Top bar */}
+  const goBackSmart = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else goBackToProfile();
+  };
+
+  const TabsBar = (
+    <div
+      className="flex border-b text-sm font-semibold"
+      style={{ borderColor: EKARI.hair }}
+    >
+      <Tab
+        label={`Following ${formatCount(followingCount)}`}
+        active={tab === "following"}
+        onClick={() =>
+          router.push(
+            `/${encodeURIComponent(handleSlug)}/connections?tab=following`
+          )
+        }
+      />
+      <Tab
+        label={`Followers ${formatCount(followersCount)}`}
+        active={tab === "followers"}
+        onClick={() =>
+          router.push(
+            `/${encodeURIComponent(handleSlug)}/connections?tab=followers`
+          )
+        }
+      />
+      <Tab
+        label={`Partners ${formatCount(partnersCount)}`}
+        active={tab === "partners"}
+        onClick={() =>
+          router.push(
+            `/${encodeURIComponent(handleSlug)}/connections?tab=partners`
+          )
+        }
+      />
+      <Tab
+        label={`Mutual ${formatCount(mutualCount)}`}
+        active={tab === "mutual"}
+        onClick={() =>
+          router.push(
+            `/${encodeURIComponent(handleSlug)}/connections?tab=mutual`
+          )
+        }
+      />
+    </div>
+  );
+
+  const Body = (
+    <div
+      className="mx-auto min-h-screen w-full px-3 md:px-4 pt-3 pb-6"
+      style={{ backgroundColor: EKARI.bg }}
+    >
+      {/* Desktop Top bar (mobile uses sticky header) */}
+      {!isMobile && (
         <div className="flex items-center gap-3 mb-3">
           <button
             onClick={goBackToProfile}
             className="h-9 w-9 grid place-items-center rounded-full border bg-white hover:bg-black/5"
             style={{ borderColor: EKARI.hair, color: EKARI.text }}
+            aria-label="Back"
           >
             <IoArrowBack size={20} />
           </button>
           <div className="flex-1 min-w-0">
-            <div
-              className="text-sm font-semibold truncate"
-              style={{ color: EKARI.subtext }}
-            >
+            <div className="text-sm font-semibold truncate" style={{ color: EKARI.subtext }}>
               @{handleSlug}
             </div>
-            <div
-              className="text-base font-extrabold"
-              style={{ color: EKARI.text }}
-            >
+            <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
               Connections
             </div>
           </div>
           <div className="w-9" />
         </div>
+      )}
 
-        {/* Tabs: Following / Followers / Partners / Mutual */}
-        <div
-          className="flex border-b text-sm font-semibold"
-          style={{ borderColor: EKARI.hair }}
-        >
-          <Tab
-            label={`Following ${formatCount(followingCount)}`}
-            active={tab === "following"}
-            onClick={() =>
-              router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=following`)
-            }
-          />
-          <Tab
-            label={`Followers ${formatCount(followersCount)}`}
-            active={tab === "followers"}
-            onClick={() =>
-              router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=followers`)
-            }
-          />
-          <Tab
-            label={`Partners ${formatCount(partnersCount)}`}
-            active={tab === "partners"}
-            onClick={() =>
-              router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=partners`)
-            }
-          />
-          <Tab
-            label={`Mutual Partners ${formatCount(mutualCount)}`}
-            active={tab === "mutual"}
-            onClick={() =>
-              router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=mutual`)
-            }
-          />
-        </div>
+      {/* Tabs */}
+      {!isMobile && TabsBar}
 
-        {/* Search bar */}
-        <div
-          className="mt-3 mb-2 flex items-center gap-2 rounded-xl px-3 py-2 border"
-          style={{ backgroundColor: "#F9FAFB", borderColor: EKARI.hair }}
-        >
-          <IoSearchOutline size={18} style={{ color: EKARI.subtext }} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search connections"
-            className="flex-1 bg-transparent text-sm outline-none"
-            style={{ color: EKARI.text }}
-          />
-        </div>
-
-        {/* List */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <BouncingBallLoader />
-          </div>
-        ) : currentList.length === 0 ? (
-          <div
-            className="py-16 text-center text-sm"
-            style={{ color: EKARI.subtext }}
-          >
-            No users to show.
-          </div>
-        ) : (
-          <div
-            className="divide-y"
-            style={{ borderColor: EKARI.hair }}
-          >
-            {currentList.map((u) => (
-              <Row
-                key={u.id}
-                user={u}
-                viewerUid={viewerUid}
-                viewerFollowingSet={viewerFollowingSet}
-                viewerFollowersSet={viewerFollowersSet}
-                onToggleFollow={onToggleFollow}
-              />
-            ))}
-          </div>
-        )}
+      {/* Search bar */}
+      <div
+        className="mt-3 mb-2 flex items-center gap-2 rounded-xl px-3 py-2 border"
+        style={{ backgroundColor: "#F9FAFB", borderColor: EKARI.hair }}
+      >
+        <IoSearchOutline size={18} style={{ color: EKARI.subtext }} />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search connections"
+          className="flex-1 bg-transparent text-sm outline-none"
+          style={{ color: EKARI.text }}
+        />
       </div>
-    </AppShell>
+
+      {/* List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <BouncingBallLoader />
+        </div>
+      ) : currentList.length === 0 ? (
+        <div className="py-16 text-center text-sm" style={{ color: EKARI.subtext }}>
+          No users to show.
+        </div>
+      ) : (
+        <div className="divide-y" style={{ borderColor: EKARI.hair }}>
+          {currentList.map((u) => (
+            <Row
+              key={u.id}
+              user={u}
+              viewerUid={viewerUid}
+              viewerFollowingSet={viewerFollowingSet}
+              viewerFollowersSet={viewerFollowersSet}
+              onToggleFollow={onToggleFollow}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
+
+  // Mobile shell: sticky header + sticky tabs + safe areas
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-white">
+        {/* Header */}
+        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+          <div
+            className="h-14 px-3 flex items-center gap-2"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            <button
+              onClick={goBackSmart}
+              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+              aria-label="Back"
+            >
+              <IoArrowBack size={18} />
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
+                Connections
+              </div>
+              <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
+                {ownerUsername || handleWithAt}
+              </div>
+            </div>
+
+            <button
+              onClick={goBackToProfile}
+              className="h-10 px-3 rounded-full border border-gray-200 text-xs font-bold"
+            >
+              Profile
+            </button>
+          </div>
+
+          {/* Sticky tabs under header */}
+          <div className="px-2">{TabsBar}</div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
+
+        <div style={{ height: "env(safe-area-inset-bottom)" }} />
+      </div>
+    );
+  }
+
+  // Desktop shell
+  return <AppShell>{Body}</AppShell>;
 }
 
 function Tab({
@@ -480,24 +561,18 @@ function Row({
           style={{ backgroundColor: EKARI.hair }}
         >
           <Image
-            src={user.photoURL || "/avatar-blank.png"}
+            src={user.photoURL || "/avatar-placeholder.png"}
             alt={fullName}
             fill
             className="object-cover"
           />
         </div>
         <div className="min-w-0">
-          <div
-            className="text-sm font-semibold truncate"
-            style={{ color: EKARI.text }}
-          >
+          <div className="text-sm font-semibold truncate" style={{ color: EKARI.text }}>
             {fullName}
           </div>
           {!!handle && (
-            <div
-              className="text-xs truncate"
-              style={{ color: EKARI.subtext }}
-            >
+            <div className="text-xs truncate" style={{ color: EKARI.subtext }}>
               {handle}
             </div>
           )}

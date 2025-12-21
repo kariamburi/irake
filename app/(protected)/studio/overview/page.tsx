@@ -1,21 +1,33 @@
 // app/studio/overview/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-    IoAdd, IoPlayOutline, IoHeartOutline, IoChatbubbleOutline, IoShareSocialOutline,
+    IoAdd,
+    IoPlayOutline,
+    IoHeartOutline,
+    IoChatbubbleOutline,
+    IoShareSocialOutline,
 } from "react-icons/io5";
 import {
-    collection, doc, limit, onSnapshot, orderBy, query, where,
+    collection,
+    doc,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    where,
     getDocs,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import StudioShell from "../components/StudioShell";
-import BouncingBallLoader from "@/components/ui/TikBallsLoader"; // ✅ loader
+import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { ArrowLeft } from "lucide-react";
+import clsx from "clsx";
 
 /* ---------------- theme ---------------- */
 const EKARI = {
@@ -24,15 +36,35 @@ const EKARI = {
     hair: "#E5E7EB",
     text: "#0F172A",
     dim: "#6B7280",
+    sand: "#FFFFFF",
 };
+
+/* ---------------- responsive helpers ---------------- */
+function useMediaQuery(queryStr: string) {
+    const [matches, setMatches] = useState(false);
+    useEffect(() => {
+        const mq = window.matchMedia(queryStr);
+        const onChange = () => setMatches(mq.matches);
+        onChange();
+        mq.addEventListener?.("change", onChange);
+        return () => mq.removeEventListener?.("change", onChange);
+    }, [queryStr]);
+    return matches;
+}
+function useIsDesktop() {
+    return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+    return useMediaQuery("(max-width: 1023px)");
+}
 
 /* ---------------- types ---------------- */
 type Deed = {
     id: string;
     caption?: string;
     mediaThumbUrl?: string;
-    createdAt?: any; // Timestamp | number | Date
-    createdAtMs?: number; // derived
+    createdAt?: any;
+    createdAtMs?: number;
     stats?: { views?: number; likes?: number; comments?: number; shares?: number };
 };
 
@@ -63,7 +95,6 @@ function MetricSkeleton() {
         </div>
     );
 }
-
 function ChartSkeleton({ height = 120 }: { height?: number }) {
     return (
         <div className="mt-4 rounded-lg border p-3" style={{ borderColor: EKARI.hair }}>
@@ -72,7 +103,6 @@ function ChartSkeleton({ height = 120 }: { height?: number }) {
         </div>
     );
 }
-
 function RowSkeleton() {
     return (
         <div className="flex items-center gap-3 rounded-lg border p-2" style={{ borderColor: EKARI.hair }}>
@@ -96,6 +126,19 @@ export default function StudioHomePage() {
     const { user } = useAuth();
     const uid = user?.uid;
 
+    const isDesktop = useIsDesktop();
+    const isMobile = useIsMobile();
+
+    const ringStyle: React.CSSProperties = {
+        ["--tw-ring-color" as any]: EKARI.forest,
+    };
+
+    const goBack = useCallback(() => {
+        // In studio, fallback to /studio (or /studio/overview) if no history
+        if (window.history.length > 1) window.history.back();
+        else window.location.href = "/studio";
+    }, []);
+
     const [loading, setLoading] = useState(true);
     const [posts, setPosts] = useState<Deed[]>([]);
     const [profile, setProfile] = useState<MiniProfile | null>(null);
@@ -103,16 +146,27 @@ export default function StudioHomePage() {
     // Live user profile (for handle + counts) and Profile Views total
     const [profileViewsTotal, setProfileViewsTotal] = useState(0);
     useEffect(() => {
-        if (!uid) { setProfile(null); setProfileViewsTotal(0); return; }
+        if (!uid) {
+            setProfile(null);
+            setProfileViewsTotal(0);
+            return;
+        }
         const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
             const d = snap.exists() ? (snap.data() as any) : null;
-            setProfile(d ? {
-                handle: d.handle || d.handleLower ? `@${(d.handle || d.handleLower || "").replace(/^@/, "")}` : undefined,
-                photoURL: d.photoURL || d.avatarUrl || undefined,
-                followersCount: Number(d.followersCount ?? 0),
-                followingCount: Number(d.followingCount ?? 0),
-                likesTotal: Number(d.likesTotal ?? 0),
-            } : null);
+            setProfile(
+                d
+                    ? {
+                        handle:
+                            d.handle || d.handleLower
+                                ? `@${String(d.handle || d.handleLower || "").replace(/^@/, "")}`
+                                : undefined,
+                        photoURL: d.photoURL || d.avatarUrl || undefined,
+                        followersCount: Number(d.followersCount ?? 0),
+                        followingCount: Number(d.followingCount ?? 0),
+                        likesTotal: Number(d.likesTotal ?? 0),
+                    }
+                    : null
+            );
             setProfileViewsTotal(Number(d?.profileViews ?? 0));
         });
         return () => unsub();
@@ -120,7 +174,11 @@ export default function StudioHomePage() {
 
     // Live deeds list (owner’s latest 12)
     useEffect(() => {
-        if (!uid) { setPosts([]); setLoading(false); return; }
+        if (!uid) {
+            setPosts([]);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
 
         const qRef = query(
@@ -139,7 +197,7 @@ export default function StudioHomePage() {
                     return {
                         id: d.id,
                         caption: data.caption,
-                        mediaThumbUrl: data.mediaThumbUrl,
+                        mediaThumbUrl: data.media?.[0]?.thumbUrl ?? data.mediaThumbUrl,
                         createdAt: data.createdAt ?? data.createdAtMs,
                         createdAtMs: createdAtMs || undefined,
                         stats: {
@@ -198,10 +256,13 @@ export default function StudioHomePage() {
         return days.map((d) => ({ x: d, y: map[key(d)] ?? 0 }));
     }, [posts]);
 
-    // Profile Views sparkline series (last 7 days from profileViews collection)
+    // Profile Views series (last 7 days from profileViews collection)
     const [pvSeries, setPvSeries] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
     useEffect(() => {
-        if (!uid) { setPvSeries([0, 0, 0, 0, 0, 0, 0]); return; }
+        if (!uid) {
+            setPvSeries([0, 0, 0, 0, 0, 0, 0]);
+            return;
+        }
 
         (async () => {
             const days = [...Array(7)].map((_, i) => {
@@ -213,149 +274,194 @@ export default function StudioHomePage() {
             const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
             const sinceYmd = ymd(days[0]);
 
-            const qs = await getDocs(query(
-                collection(db, "profileViews"),
-                where("profileId", "==", uid),
-                where("ymd", ">=", sinceYmd),
-                limit(800)
-            ));
+            const qs = await getDocs(
+                query(
+                    collection(db, "profileViews"),
+                    where("profileId", "==", uid),
+                    where("ymd", ">=", sinceYmd),
+                    limit(800)
+                )
+            );
 
             const bucket: Record<string, number> = {};
-            days.forEach(d => bucket[ymd(d)] = 0);
-            qs.forEach(d => {
+            days.forEach((d) => (bucket[ymd(d)] = 0));
+            qs.forEach((d) => {
                 const k = String((d.data() as any)?.ymd || "");
                 if (k in bucket) bucket[k] += 1;
             });
 
-            setPvSeries(days.map(d => bucket[ymd(d)] || 0));
+            setPvSeries(days.map((d) => bucket[ymd(d)] || 0));
         })();
     }, [uid]);
 
-    const handleText =
-        profile?.handle ||
-        (user?.displayName ? `@${user.displayName}` : "@you");
-
+    const handleText = profile?.handle || (user?.displayName ? `@${user.displayName}` : "@you");
     const followersText = (profile?.followersCount ?? 0).toLocaleString();
     const followingText = (profile?.followingCount ?? 0).toLocaleString();
     const likesHeader = (profile?.likesTotal ?? totals.likes).toLocaleString();
 
-    return (
-        <AppShell>
-            <StudioShell title="Home" ctaHref="/studio/upload" ctaLabel="+ Upload">
-                {/* Channel header */}
-                <div className="w-full rounded-xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 overflow-hidden rounded-full bg-gray-100">
-                                <Image
-                                    src={profile?.photoURL || user?.photoURL || "/avatar-placeholder.png"}
-                                    alt="avatar"
-                                    width={96}
-                                    height={96}
-                                    className="h-full w-full object-cover"
-                                />
+    const Header = (
+        <div
+            className="border-b sticky top-0 z-50 backdrop-blur"
+            style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+        >
+            <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")}>
+                <div className="h-full flex items-center justify-between gap-2">
+                    <button
+                        onClick={goBack}
+                        className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+                        style={{ borderColor: EKARI.hair, ...ringStyle }}
+                        aria-label="Go back"
+                    >
+                        <ArrowLeft size={18} style={{ color: EKARI.text }} />
+                    </button>
+
+                    <div className="flex-1 min-w-0">
+                        <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
+                            Studio
+                        </div>
+                        <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
+                            Overview
+                        </div>
+                    </div>
+
+                    <Link
+                        href="/studio/upload"
+                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-extrabold text-white"
+                        style={{ backgroundColor: EKARI.gold }}
+                    >
+                        <IoAdd /> Upload
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+
+    const Body = (
+        <div className={clsx(isDesktop ? "max-w-[1180px] mx-auto px-4 pb-10" : "px-3 pb-10")}>
+            {/* Channel header */}
+            <div className="w-full mt-4 rounded-2xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 overflow-hidden rounded-full bg-gray-100 ring-1 ring-black/5">
+                            <Image
+                                src={profile?.photoURL || (user as any)?.photoURL || "/avatar-placeholder.png"}
+                                alt="avatar"
+                                width={96}
+                                height={96}
+                                className="h-full w-full object-cover"
+                            />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-sm font-extrabold truncate" style={{ color: EKARI.text }}>
+                                {handleText}
                             </div>
-                            <div>
-                                <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
-                                    {handleText}
-                                </div>
-                                <div className="text-xs" style={{ color: EKARI.dim }}>
-                                    Likes {likesHeader} · Followers {followersText} · Following {followingText}
-                                </div>
+                            <div className="text-xs" style={{ color: EKARI.dim }}>
+                                Likes {likesHeader} · Followers {followersText} · Following {followingText}
                             </div>
                         </div>
-                        <div className="flex gap-2">
-                            <Link
-                                href="/studio/upload"
-                                className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-bold text-white"
-                                style={{ backgroundColor: EKARI.gold }}
-                            >
-                                <IoAdd /> Upload
-                            </Link>
-                        </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <Link
+                            href="/studio/posts"
+                            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold hover:bg-black/5"
+                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                        >
+                            View posts
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            {/* Key metrics */}
+            <div className="mt-5 rounded-2xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
+                <div className="mb-3 flex items-center justify-between">
+                    <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
+                        Key metrics
+                    </div>
+                    <div className="text-xs" style={{ color: EKARI.dim }}>
+                        Last 7 days
                     </div>
                 </div>
 
-                {/* Key metrics */}
-                <div className="mt-5 rounded-xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
-                    <div className="mb-3 flex items-center justify-between">
-                        <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
-                            Key metrics
-                        </div>
-                        <div className="text-xs" style={{ color: EKARI.dim }}>Last 7 days</div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                        {loading ? (
-                            <>
-                                <MetricSkeleton />
-                                <MetricSkeleton />
-                                <MetricSkeleton />
-                                <MetricSkeleton />
-                                <MetricSkeleton />
-                            </>
-                        ) : (
-                            <>
-                                <Metric label="Video views" value={totals.views} />
-                                <Metric label="Profile views" value={profileViewsTotal} />
-                                <Metric label="Likes" value={totals.likes} />
-                                <Metric label="Comments" value={totals.comments} />
-                                <Metric label="Shares" value={totals.shares} />
-                            </>
-                        )}
-                    </div>
-
-                    {/* tiny charts */}
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                     {loading ? (
                         <>
-                            <ChartSkeleton height={140} />
-                            <ChartSkeleton height={100} />
+                            <MetricSkeleton />
+                            <MetricSkeleton />
+                            <MetricSkeleton />
+                            <MetricSkeleton />
+                            <MetricSkeleton />
                         </>
                     ) : (
                         <>
-                            <div className="mt-4 rounded-lg border p-3" style={{ borderColor: EKARI.hair }}>
-                                <div className="mb-2 text-xs font-bold" style={{ color: EKARI.dim }}>Video views (7 days)</div>
-                                <MiniAreaChart data={series.map((d) => d.y)} height={140} />
-                            </div>
-
-                            <div className="mt-4 rounded-lg border p-3" style={{ borderColor: EKARI.hair }}>
-                                <div className="mb-2 text-xs font-bold" style={{ color: EKARI.dim }}>Profile views (7 days)</div>
-                                <MiniAreaChart data={pvSeries} height={100} />
-                            </div>
+                            <Metric label="Video views" value={totals.views} />
+                            <Metric label="Profile views" value={profileViewsTotal} />
+                            <Metric label="Likes" value={totals.likes} />
+                            <Metric label="Comments" value={totals.comments} />
+                            <Metric label="Shares" value={totals.shares} />
                         </>
                     )}
                 </div>
 
-                {/* Recent posts + Knowledge */}
-                <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-                    <div className="rounded-xl border bg-white p-4 sm:p-5 lg:col-span-2" style={{ borderColor: EKARI.hair }}>
-                        <div className="mb-3 flex items-center justify-between">
-                            <div className="text-base font-extrabold" style={{ color: EKARI.text }}>Recent posts</div>
-                            <Link href="/studio/deeds" className="text-xs font-bold" style={{ color: EKARI.forest }}>
-                                View all
-                            </Link>
+                {/* tiny charts */}
+                {loading ? (
+                    <>
+                        <ChartSkeleton height={140} />
+                        <ChartSkeleton height={100} />
+                    </>
+                ) : (
+                    <>
+                        <div className="mt-4 rounded-xl border p-3" style={{ borderColor: EKARI.hair }}>
+                            <div className="mb-2 text-xs font-bold" style={{ color: EKARI.dim }}>
+                                Video views (7 days)
+                            </div>
+                            <MiniAreaChart data={series.map((d) => d.y)} height={140} />
                         </div>
 
-                        <div className="space-y-3">
-                            {loading && (
-                                <>
-                                    {/* subtle animated loader row */}
-                                    <div className="flex items-center justify-center py-4">
-                                        <BouncingBallLoader />
-                                    </div>
-                                    <RowSkeleton />
-                                    <RowSkeleton />
-                                    <RowSkeleton />
-                                </>
-                            )}
+                        <div className="mt-4 rounded-xl border p-3" style={{ borderColor: EKARI.hair }}>
+                            <div className="mb-2 text-xs font-bold" style={{ color: EKARI.dim }}>
+                                Profile views (7 days)
+                            </div>
+                            <MiniAreaChart data={pvSeries} height={100} />
+                        </div>
+                    </>
+                )}
+            </div>
 
-                            {!loading && posts.slice(0, 5).map((p) => (
-                                <div
+            {/* Recent posts + Knowledge */}
+            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+                <div className="rounded-2xl border bg-white p-4 sm:p-5 lg:col-span-2" style={{ borderColor: EKARI.hair }}>
+                    <div className="mb-3 flex items-center justify-between">
+                        <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
+                            Recent posts
+                        </div>
+                        <Link href="/studio/posts" className="text-xs font-bold" style={{ color: EKARI.forest }}>
+                            View all
+                        </Link>
+                    </div>
+
+                    <div className="space-y-3">
+                        {loading && (
+                            <>
+                                <div className="flex items-center justify-center py-4">
+                                    <BouncingBallLoader />
+                                </div>
+                                <RowSkeleton />
+                                <RowSkeleton />
+                                <RowSkeleton />
+                            </>
+                        )}
+
+                        {!loading &&
+                            posts.slice(0, 5).map((p) => (
+                                <Link
                                     key={p.id}
-                                    className="flex items-center gap-3 rounded-lg border p-2 hover:bg-gray-50"
+                                    href={`/studio/analytics/${p.id}`}
+                                    className="flex items-center gap-3 rounded-xl border p-2 hover:bg-gray-50"
                                     style={{ borderColor: EKARI.hair }}
                                 >
-                                    <div className="relative h-16 w-28 overflow-hidden rounded-md bg-gray-200">
+                                    <div className="relative h-16 w-28 overflow-hidden rounded-lg bg-gray-200">
                                         <Image
                                             src={p.mediaThumbUrl || "/video-placeholder.jpg"}
                                             alt="thumb"
@@ -369,45 +475,95 @@ export default function StudioHomePage() {
                                             {p.caption || "Untitled"}
                                         </div>
                                         <div className="mt-1 flex items-center gap-4 text-xs" style={{ color: EKARI.dim }}>
-                                            <span className="inline-flex items-center gap-1"><IoPlayOutline />{(p.stats?.views ?? 0).toLocaleString()}</span>
-                                            <span className="inline-flex items-center gap-1"><IoHeartOutline />{p.stats?.likes ?? 0}</span>
-                                            <span className="inline-flex items-center gap-1"><IoChatbubbleOutline />{p.stats?.comments ?? 0}</span>
-                                            <span className="inline-flex items-center gap-1"><IoShareSocialOutline />{p.stats?.shares ?? 0}</span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <IoPlayOutline />
+                                                {(p.stats?.views ?? 0).toLocaleString()}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <IoHeartOutline />
+                                                {p.stats?.likes ?? 0}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <IoChatbubbleOutline />
+                                                {p.stats?.comments ?? 0}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1">
+                                                <IoShareSocialOutline />
+                                                {p.stats?.shares ?? 0}
+                                            </span>
                                         </div>
                                         <div className="text-[11px]" style={{ color: EKARI.dim }}>
                                             {p.createdAtMs ? new Date(p.createdAtMs).toLocaleString() : ""}
                                         </div>
                                     </div>
-                                </div>
+                                </Link>
                             ))}
 
-                            {!loading && posts.length === 0 && (
-                                <div className="text-sm" style={{ color: EKARI.dim }}>
-                                    No posts yet.{" "}
-                                    <Link href="/studio/upload" className="font-semibold" style={{ color: EKARI.forest }}>
-                                        Upload your first video
-                                    </Link>.
-                                </div>
-                            )}
+                        {!loading && posts.length === 0 && (
+                            <div className="text-sm" style={{ color: EKARI.dim }}>
+                                No posts yet.{" "}
+                                <Link href="/studio/upload" className="font-semibold" style={{ color: EKARI.forest }}>
+                                    Upload your first video
+                                </Link>
+                                .
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
+                    <div className="mb-3 flex items-center justify-between">
+                        <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
+                            Knowledge for you
                         </div>
                     </div>
 
-                    <div className="rounded-xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
-                        <div className="mb-3 flex items-center justify-between">
-                            <div className="text-base font-extrabold" style={{ color: EKARI.text }}>Knowledge for you</div>
-                        </div>
-
-                        <div className="space-y-3">
-                            <Tip
-                                title="Leverage high-quality video covers to attract viewers"
-                                body="Your profile can be a major traffic source, so having clear, engaging thumbnails matters. Pick bright frames with human faces and readable context."
-                            />
-                            <Tip
-                                title="Post consistently"
-                                body="A simple cadence (e.g., 2–3 times per week) helps the algorithm learn your audience. Batch record and schedule to stay consistent."
-                            />
-                        </div>
+                    <div className="space-y-3">
+                        <Tip
+                            title="Leverage high-quality video covers to attract viewers"
+                            body="Your profile can be a major traffic source, so having clear, engaging thumbnails matters. Pick bright frames with human faces and readable context."
+                        />
+                        <Tip
+                            title="Post consistently"
+                            body="A simple cadence (e.g., 2–3 times per week) helps the algorithm learn your audience. Batch record and schedule to stay consistent."
+                        />
                     </div>
+                </div>
+            </div>
+
+            {/* extra bottom safe space on mobile */}
+            {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+        </div>
+    );
+
+    // Nice full-screen loader like your discussion page
+    if (loading && posts.length === 0) {
+        const LoaderView = (
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+                <BouncingBallLoader />
+            </div>
+        );
+
+        return isMobile ? LoaderView : <AppShell>{LoaderView}</AppShell>;
+    }
+
+    // MOBILE: fixed inset like /discussion (no StudioShell chrome)
+    if (isMobile) {
+        return (
+            <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+                {Header}
+                <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
+            </div>
+        );
+    }
+
+    // DESKTOP: AppShell + StudioShell
+    return (
+        <AppShell>
+            <StudioShell title="Home" ctaHref="/studio/upload" ctaLabel="+ Upload">
+                <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+                    {Header}
+                    {Body}
                 </div>
             </StudioShell>
         </AppShell>
@@ -415,11 +571,12 @@ export default function StudioHomePage() {
 }
 
 /* ---------------- components ---------------- */
-
 function Metric({ label, value }: { label: string; value: number }) {
     return (
         <div className="rounded-lg border p-3" style={{ borderColor: EKARI.hair }}>
-            <div className="text-xs" style={{ color: EKARI.dim }}>{label}</div>
+            <div className="text-xs" style={{ color: EKARI.dim }}>
+                {label}
+            </div>
             <div className="mt-1 text-2xl font-extrabold" style={{ color: EKARI.text }}>
                 {value.toLocaleString()}
             </div>
@@ -434,8 +591,12 @@ function Tip({ title, body }: { title: string; body: string }) {
                 ✨
             </div>
             <div>
-                <div className="text-sm font-bold" style={{ color: EKARI.text }}>{title}</div>
-                <div className="text-xs mt-1" style={{ color: EKARI.dim }}>{body}</div>
+                <div className="text-sm font-bold" style={{ color: EKARI.text }}>
+                    {title}
+                </div>
+                <div className="text-xs mt-1" style={{ color: EKARI.dim }}>
+                    {body}
+                </div>
             </div>
         </div>
     );
@@ -445,11 +606,13 @@ function MiniAreaChart({ data, height = 120 }: { data: number[]; height?: number
     const max = Math.max(1, ...data);
     const w = 700;
     const h = height;
-    const pts = data.map((y, i) => {
-        const x = (i / Math.max(1, data.length - 1)) * (w - 16) + 8;
-        const yy = h - 8 - (y / max) * (h - 24);
-        return `${x},${yy}`;
-    }).join(" ");
+    const pts = data
+        .map((y, i) => {
+            const x = (i / Math.max(1, data.length - 1)) * (w - 16) + 8;
+            const yy = h - 8 - (y / max) * (h - 24);
+            return `${x},${yy}`;
+        })
+        .join(" ");
 
     return (
         <div className="w-full overflow-hidden">

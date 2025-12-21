@@ -2290,11 +2290,7 @@ function MenuRow({
         <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>
           {item.label}
         </div>
-        {item.requiresAuth && (
-          <div className="text-[11px]" style={{ color: EKARI.subtext }}>
-            Sign in required
-          </div>
-        )}
+
       </div>
 
       <IoChevronForward size={18} style={{ color: EKARI.subtext }} />
@@ -2447,14 +2443,14 @@ function MobileShell(props: any) {
         {/* Top overlay bar (tabs + icons) */}
         <div className="sticky top-2 z-50">
           <div
-            className="h-[56px] w-full px-3 flex items-center justify-between"
+            className="h-[50px] w-full px-3 flex items-center justify-between"
             style={{
               background: "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,0))",
             }}
           >
             <button
               onClick={() => setMenuOpen(true)}
-              className="h-10 w-10 rounded-full bg-white/15 grid place-items-center text-white backdrop-blur-md border border-white/10"
+              className="h-9 w-9 rounded-full bg-white/15 grid place-items-center text-white backdrop-blur-md border border-white/10"
               aria-label="Open menu"
             >
               <IoMenu size={20} />
@@ -2469,7 +2465,7 @@ function MobileShell(props: any) {
             </button>
 
             {/* Center: tabs */}
-            <div className="flex items-center gap-2 bg-white/15 rounded-full p-1 backdrop-blur-md border border-white/10">
+            <div className="flex items-center gap-1 lg:gap-2 bg-white/15 rounded-full p-1 backdrop-blur-md border border-white/10">
               {TABS.map((k) => {
                 const isActive = tab === k;
                 return (
@@ -2477,7 +2473,7 @@ function MobileShell(props: any) {
                     key={k}
                     onClick={() => changeTab(k)}
                     className={cn(
-                      "px-3 py-2 rounded-full text-[10px] lg:text-xs font-bold",
+                      "px-2 lg:px-3 py-2 w-[58px] lg:w-full rounded-full text-[10px] lg:text-xs font-bold",
                       isActive ? "bg-white text-black" : "text-white/90"
                     )}
                   >
@@ -2597,36 +2593,68 @@ function MobileShell(props: any) {
 
 function MobileBottomTabs({ onUpload }: { onUpload: () => void }) {
   const router = useRouter();
+  const pathname = usePathname() || "/";
+
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/"; // ✅ only exact home
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+
+  const activeClass = "text-white";
+  const inactiveClass = "text-white/70";
+
+  const activeIconStyle = { color: EKARI.primary };
+  const inactiveIconStyle = { color: "rgba(255,255,255,.70)" };
+
+  const homeActive = isActive("/");
+  const marketActive = isActive("/market");
+  const nexusActive = isActive("/nexus");
+  const bongaActive = isActive("/bonga");
 
   return (
     <div
       className="fixed left-0 right-0 z-[60]"
-      style={{
-        bottom: 0,
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
+      style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div
         className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
         style={{
-          backgroundColor: "#000000", // ✅ pure black
+          backgroundColor: "#000000",
           borderTop: "1px solid rgba(255,255,255,.10)",
         }}
       >
+        {/* Home / Deeds */}
         <button
           onClick={() => router.push("/")}
-          className="flex flex-col items-center gap-1 text-white"
+          className={`flex flex-col items-center gap-1 ${homeActive ? activeClass : inactiveClass}`}
+          aria-current={homeActive ? "page" : undefined}
         >
-          <IoHomeOutline size={20} />
-          <span className="text-[11px] font-semibold">Deeds</span>
+          {homeActive ? (
+            <IoHome size={20} style={activeIconStyle} />
+          ) : (
+            <IoHomeOutline size={20} style={inactiveIconStyle} />
+          )}
+          <span className={`text-[11px] ${homeActive ? "font-black" : "font-semibold"}`}>
+            Deeds
+          </span>
+          {homeActive && (
+            <span
+              className="mt-0.5 h-[3px] w-6 rounded-full"
+              style={{ backgroundColor: EKARI.primary }}
+            />
+          )}
         </button>
 
+        {/* Market */}
         <button
           onClick={() => router.push("/market")}
-          className="flex flex-col items-center gap-1 text-white"
+          className={`flex flex-col items-center gap-1 ${marketActive ? activeClass : inactiveClass}`}
+          aria-current={marketActive ? "page" : undefined}
         >
-          <IoCartOutline size={20} />
-          <span className="text-[11px] font-semibold">ekariMarket</span>
+          <IoCartOutline size={20} style={marketActive ? activeIconStyle : inactiveIconStyle} />
+          <span className={`text-[11px] ${marketActive ? "font-black" : "font-semibold"}`}>
+            ekariMarket
+          </span>
         </button>
 
         {/* Center + */}
@@ -2639,25 +2667,34 @@ function MobileBottomTabs({ onUpload }: { onUpload: () => void }) {
           <IoAdd size={26} color="#111827" />
         </button>
 
+        {/* Nexus */}
         <button
           onClick={() => router.push("/nexus")}
-          className="flex flex-col items-center gap-1 text-white"
+          className={`flex flex-col items-center gap-1 ${nexusActive ? activeClass : inactiveClass}`}
+          aria-current={nexusActive ? "page" : undefined}
         >
-          <IoCompassOutline size={20} />
-          <span className="text-[11px] font-semibold">Nexus</span>
+          <IoCompassOutline size={20} style={nexusActive ? activeIconStyle : inactiveIconStyle} />
+          <span className={`text-[11px] ${nexusActive ? "font-black" : "font-semibold"}`}>
+            Nexus
+          </span>
         </button>
 
+        {/* Bonga */}
         <button
           onClick={() => router.push("/bonga")}
-          className="flex flex-col items-center gap-1 text-white"
+          className={`flex flex-col items-center gap-1 ${bongaActive ? activeClass : inactiveClass}`}
+          aria-current={bongaActive ? "page" : undefined}
         >
-          <IoChatbubblesOutline size={20} />
-          <span className="text-[11px] font-semibold">Bonga</span>
+          <IoChatbubblesOutline size={20} style={bongaActive ? activeIconStyle : inactiveIconStyle} />
+          <span className={`text-[11px] ${bongaActive ? "font-black" : "font-semibold"}`}>
+            Bonga
+          </span>
         </button>
       </div>
     </div>
   );
 }
+
 
 /* ---------- Root ---------- */
 export default function RootPage() {

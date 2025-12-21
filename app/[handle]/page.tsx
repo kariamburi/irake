@@ -2200,10 +2200,42 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
 
 
 /* ---------- page ---------- */
+// ✅ Adaptation: mobile = fixed inset (no AppShell / no bottom tabs), desktop = AppShell
+// Drop these helpers near the TOP of the file (same file).
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
+
+/* -------------------------------------------------------
+   Replace ONLY the HandleProfilePage() return part with this
+-------------------------------------------------------- */
+
 export default function HandleProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
   const params = useParams<{ handle: string }>();
+
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
+
+  const goBack = React.useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/");
+  }, [router]);
 
   const raw = params?.handle ?? "";
   const decoded = (() => {
@@ -2218,9 +2250,9 @@ export default function HandleProfilePage() {
   const [uid, setUid] = React.useState<string | null | undefined>(undefined);
   const [tab, setTab] = React.useState<TabKey>("deeds");
   const [viewerIsAdmin, setViewerIsAdmin] = React.useState(false);
+
   React.useEffect(() => {
     let cancelled = false;
-
     async function checkAdminClaim() {
       if (!user) {
         if (!cancelled) setViewerIsAdmin(false);
@@ -2230,12 +2262,10 @@ export default function HandleProfilePage() {
         const tokenResult = await user.getIdTokenResult();
         const isAdmin = !!(tokenResult.claims as any)?.admin;
         if (!cancelled) setViewerIsAdmin(isAdmin);
-      } catch (err) {
-        console.warn("Failed to read admin claim:", err);
+      } catch {
         if (!cancelled) setViewerIsAdmin(false);
       }
     }
-
     checkAdminClaim();
     return () => {
       cancelled = true;
@@ -2265,21 +2295,19 @@ export default function HandleProfilePage() {
     isOwner
   );
   const followState = useFollowingState(user?.uid, uid ?? undefined);
-
   const likesValue = profile?.likesTotal ?? likesFallback;
 
   const mutual = useMutualFollow(user?.uid, uid ?? undefined);
   const canSeeContacts = isOwner || (!!user && mutual);
   const { partners, mutualPartners } = usePartnerStats(uid ?? undefined, user?.uid);
+
   const reviewsSummary =
     profile &&
       typeof profile.sellerReviewAvg === "number" &&
       (profile.sellerReviewCount ?? 0) > 0
-      ? {
-        rating: profile.sellerReviewAvg,
-        count: profile.sellerReviewCount as number,
-      }
+      ? { rating: profile.sellerReviewAvg, count: profile.sellerReviewCount as number }
       : undefined;
+
   const requireAuth = React.useCallback(() => {
     if (user) return true;
     try {
@@ -2294,25 +2322,26 @@ export default function HandleProfilePage() {
     return false;
   }, [user, router]);
 
-
   const cleanHandle = decoded.replace(/^@/, "");
   const webUrl = `https://ekarihub.com/${cleanHandle}`;
   const appUrl = `ekarihub:///${cleanHandle}`;
 
-  return (
-    <AppShell>
+  // ---- shared content (header + tab body) ----
+  const Body = (
+    <>
       <OpenInAppBanner
         webUrl={webUrl}
         appUrl={appUrl}
         title="Open this profile in ekarihub"
         subtitle="Faster loading, messaging, and full features."
         playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
-        appStoreUrl="https://apps.apple.com" // replace later
+        appStoreUrl="https://apps.apple.com"
       />
-      {/* Processing Gate now ONLY blocks for profile owner */}
+
       {isOwner && <DeedProcessingGate authorUid={uid ?? null} handle={handleWithAt} />}
 
-      <div className="min-h-screen mx-auto w-full max-w-[1160px] px-4 md:px-8">
+      {/* container: desktop has max width, mobile full width */}
+      <div className={isDesktop ? "min-h-screen mx-auto w-full max-w-[1160px] px-4 md:px-8" : "min-h-screen w-full"}>
         {/* header with tabs */}
         {loadingProfile ? (
           <div className="p-6 animate-pulse">
@@ -2332,13 +2361,13 @@ export default function HandleProfilePage() {
             canSeeContacts={canSeeContacts}
             partners={partners}
             mutualPartners={mutualPartners}
-            viewerUid={user?.uid || null}   // 👈 pass viewer uid
+            viewerUid={user?.uid || null}
             showAdminBadge={viewerIsAdmin && isOwner}
-            reviewsSummary={reviewsSummary}   // ⭐ NEW
+            reviewsSummary={reviewsSummary}
           />
         ) : (
           <div
-            className="flex p-6 items-center justify-center h-screen w-full text-sm"
+            className="flex p-6 items-center justify-center h-[60vh] w-full text-sm"
             style={{ color: EKARI.subtext }}
           >
             {uid === undefined ? <BouncingBallLoader /> : "Profile not found."}
@@ -2350,34 +2379,77 @@ export default function HandleProfilePage() {
           (loadingDeeds ? (
             <div className="px-3 md:px-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-48 md:h-56 rounded-xl bg-gray-100 animate-pulse"
-                />
+                <div key={i} className="h-48 md:h-56 rounded-xl bg-gray-100 animate-pulse" />
               ))}
             </div>
           ) : (
             <VideosGrid items={items} handle={handleWithAt} isOwner={isOwner} />
           ))}
 
-        {tab === "listings" && uid && (<>
+        {tab === "listings" && uid && <OwnerListingsGrid uid={uid} isOwner={isOwner} />}
 
-          <OwnerListingsGrid uid={uid} isOwner={isOwner} />
-        </>)}
+        {tab === "events" && uid && <ProfileEvents uid={uid} isOwner={isOwner} />}
 
-        {tab === "events" && uid && (
-          <ProfileEvents uid={uid} isOwner={isOwner} />
-        )}
+        {tab === "discussions" && uid && <ProfileDiscussions uid={uid} isOwner={isOwner} />}
 
-        {tab === "discussions" && uid && (
-          <ProfileDiscussions uid={uid} isOwner={isOwner} />
-        )}
         {tab === "reviews" && uid && (
           <div className="px-3 md:px-6 pb-12">
             <SellerReviewsSection sellerId={profile?.id ?? ""} />
           </div>
         )}
+
+        {/* mobile safe-area bottom spacer */}
+        {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
       </div>
+    </>
+  );
+
+  // ---- MOBILE: fixed inset, sticky header w/ back button ----
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-white">
+        {/* Sticky top bar */}
+        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+          <div
+            className="h-14 px-3 flex items-center gap-2"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            <button
+              onClick={goBack}
+              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+              aria-label="Back"
+              title="Back"
+            >
+              {/* you already import IoArrowBack elsewhere in your project, but not in this file;
+                  simplest: re-use an existing icon from your imports or add IoArrowBack import. */}
+              <span className="text-[18px] font-black" style={{ color: EKARI.text }}>
+                ←
+              </span>
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
+                {handleWithAt}
+              </div>
+              <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
+                Profile
+              </div>
+            </div>
+
+            <div className="w-10" />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
+      </div>
+    );
+  }
+
+  // ---- DESKTOP: keep AppShell ----
+  return (
+    <AppShell>
+      <div className="min-h-screen w-full bg-white">{Body}</div>
     </AppShell>
   );
 }
+

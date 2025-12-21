@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -10,9 +10,6 @@ import {
     query,
     orderBy,
     onSnapshot,
-    serverTimestamp,
-    where,
-    runTransaction,
     getFirestore,
     Timestamp,
     QuerySnapshot,
@@ -35,13 +32,8 @@ import {
     IoRemove,
     IoChevronBack,
     IoChevronForward,
-    IoLocationOutline,
     IoCubeOutline,
     IoLeafOutline,
-    IoCartOutline,
-    IoCompassOutline,
-    IoChatbubblesOutline,
-    IoHomeOutline,
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SellerReviewsSection from "@/app/components/SellerReviewsSection";
@@ -76,19 +68,6 @@ type Review = {
     updatedAt?: any;
 };
 
-type ProductPlace = {
-    text?: string;
-    county?: string;
-    town?: string;
-};
-
-type ProductLocation = {
-    latitude: number;
-    longitude: number;
-};
-
-type LandPoint = { lat: number; lng: number };
-
 type ProductDoc = {
     id: string;
     name: string;
@@ -104,19 +83,11 @@ type ProductDoc = {
     typicalPackSize?: number | string;
     rate?: string;
     billingUnit?: string;
-    nameLower?: string;
-    categoryLower?: string;
     status?: "active" | "sold" | "reserved" | "hidden";
     sold?: boolean;
-    place?: ProductPlace;
-    location?: ProductLocation;
-    coords?: ProductLocation;
     useCase?: string;
-    useCaseLower?: string;
-    landPolygon?: LandPoint[];
 };
 
-/* ===== Theme ===== */
 const EKARI = {
     forest: "#233F39",
     gold: "#C79257",
@@ -131,74 +102,29 @@ const KES = (n: number) =>
 const USD = (n: number) =>
     "USD " + (n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
-function formatMoney(value: number | string | null | undefined, currency: CurrencyCode | undefined): string {
+function formatMoney(
+    value: number | string | null | undefined,
+    currency: CurrencyCode | undefined
+): string {
     const n =
-        typeof value === "string" ? Number(value || 0) : typeof value === "number" ? value : 0;
-    const safeCurrency: CurrencyCode = currency === "USD" || currency === "KES" ? currency : "KES";
+        typeof value === "string"
+            ? Number(value || 0)
+            : typeof value === "number"
+                ? value
+                : 0;
+    const safeCurrency: CurrencyCode =
+        currency === "USD" || currency === "KES" ? currency : "KES";
     if (!n || n <= 0) return safeCurrency === "USD" ? "USD 0.00" : "KSh 0";
     return safeCurrency === "USD" ? USD(n) : KES(n);
 }
 
-const reviewDocRef = (dbi: any, listingId: string, reviewUserId: string) =>
-    doc(dbi, "marketListings", String(listingId), "reviews", String(reviewUserId));
-const voteRef = (dbi: any, listingId: string, reviewUserId: string, voterId: string) =>
-    doc(dbi, "reviewVotes", `${listingId}_${reviewUserId}_${voterId}`);
-
-/* ---------------- bottom tabs (LIGHT) ---------------- */
-function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
-    const router = useRouter();
-
-    const TabBtn = ({
-        label,
-        icon,
-        onClick,
-    }: {
-        label: string;
-        icon: React.ReactNode;
-        onClick: () => void;
-    }) => (
-        <button onClick={onClick} className="flex flex-col items-center gap-1">
-            <div style={{ color: EKARI.text }}>{icon}</div>
-            <span className="text-[11px] font-semibold" style={{ color: EKARI.text }}>
-                {label}
-            </span>
-        </button>
-    );
-
-    return (
-        <div className="fixed left-0 right-0 z-[60]" style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
-            <div
-                className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
-                style={{ backgroundColor: "#FFFFFF", borderTop: `1px solid ${EKARI.hair}` }}
-            >
-                <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} onClick={() => router.push("/")} />
-                <TabBtn label="ekariMarket" icon={<IoCartOutline size={20} />} onClick={() => router.push("/market")} />
-
-                <button
-                    onClick={onCreate}
-                    className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg"
-                    style={{ backgroundColor: EKARI.gold }}
-                    aria-label="Sell / Lease"
-                >
-                    <IoAdd size={26} color="#111827" />
-                </button>
-
-                <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} onClick={() => router.push("/nexus")} />
-                <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} onClick={() => router.push("/bonga")} />
-            </div>
-        </div>
-    );
-}
-
-/* ================== Maps (keep your existing ones if you want) ================== */
-// NOTE: I’m leaving your MapPreview / MapPolygonPreview code out here to keep this snippet focused.
-// Reuse your existing MapPreview + MapPolygonPreview exactly as-is (paste them above the component).
-// If you want, tell me and I’ll merge them in fully.
-
-export default function ProductDetailsClient({ params }: { params: { productid: string } }) {
+export default function ProductDetailsClient({
+    params,
+}: {
+    params: { productid: string };
+}) {
     const router = useRouter();
     const isMobile = useIsMobile();
-
     const { productid } = params;
 
     const auth = getAuth();
@@ -223,9 +149,11 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
     const [fsScale, setFsScale] = useState(1);
     const [fsTx, setFsTx] = useState(0);
     const [fsTy, setFsTy] = useState(0);
-    const drag = useRef<{ x: number; y: number; sx: number; sy: number } | null>(null);
+    const drag = useRef<{ x: number; y: number; sx: number; sy: number } | null>(
+        null
+    );
 
-    // reviews
+    // listing reviews summary (for seller card chip)
     const [reviews, setReviews] = useState<Review[]>([]);
     const [avgRating, setAvgRating] = useState(0);
     const [reviewCount, setReviewCount] = useState(0);
@@ -234,6 +162,8 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
 
     // ===== Load product & seller =====
     useEffect(() => {
+        let alive = true;
+
         (async () => {
             try {
                 const pRef = doc(dbi, "marketListings", productid);
@@ -242,25 +172,42 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
                     router.push("/market");
                     return;
                 }
+
+                if (!alive) return;
                 const p = { id: pSnap.id, ...(pSnap.data() as any) } as ProductDoc;
                 setProduct(p);
 
                 if (p.sellerId) {
                     const uRef = doc(dbi, "users", p.sellerId);
                     const uSnap = await getDoc(uRef);
-                    setSeller(uSnap.exists() ? { id: uSnap.id, ...(uSnap.data() as any) } : { id: p.sellerId });
+                    if (!alive) return;
+                    setSeller(
+                        uSnap.exists()
+                            ? { id: uSnap.id, ...(uSnap.data() as any) }
+                            : { id: p.sellerId }
+                    );
                 }
             } finally {
-                setLoading(false);
+                if (alive) setLoading(false);
             }
         })();
+
+        return () => {
+            alive = false;
+        };
     }, [dbi, productid, router]);
 
-    // ===== Live reviews =====
+    // ===== Live reviews on listing (summary only) =====
     useEffect(() => {
-        const qRef = query(collection(db, "marketListings", productid, "reviews"), orderBy("createdAt", "desc"));
+        const qRef = query(
+            collection(db, "marketListings", productid, "reviews"),
+            orderBy("createdAt", "desc")
+        );
         const unsub = onSnapshot(qRef, (snap: QuerySnapshot<DocumentData>) => {
-            const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Review[];
+            const rows = snap.docs.map((d) => ({
+                id: d.id,
+                ...(d.data() as any),
+            })) as Review[];
             setReviews(rows);
 
             if (rows.length) {
@@ -281,13 +228,21 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
         return {
             handle: d?.handle || "",
             photoURL: d?.photoURL || "",
-            name: (d?.firstName ? `${d.firstName} ${d?.surname || ""}`.trim() : "") || d?.displayName || d?.handle || "Seller",
+            name:
+                (d?.firstName ? `${d.firstName} ${d?.surname || ""}`.trim() : "") ||
+                d?.displayName ||
+                d?.handle ||
+                "Seller",
         };
     }
 
     const images = useMemo(() => {
         if (!product) return [];
-        const arr = product.imageUrls?.length ? product.imageUrls : product.imageUrl ? [product.imageUrl] : [];
+        const arr = product.imageUrls?.length
+            ? product.imageUrls
+            : product.imageUrl
+                ? [product.imageUrl]
+                : [];
         return (arr || []).filter(Boolean);
     }, [product]);
 
@@ -324,7 +279,9 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
         if (!touchStartX.current || !touchEndX.current) return;
         const diff = touchStartX.current - touchEndX.current;
         if (Math.abs(diff) > swipeThreshold) {
-            diff > 0 ? goTo(active + 1 < images.length ? active + 1 : 0) : goTo(active > 0 ? active - 1 : images.length - 1);
+            diff > 0
+                ? goTo(active + 1 < images.length ? active + 1 : 0)
+                : goTo(active > 0 ? active - 1 : images.length - 1);
         }
         touchStartX.current = touchEndX.current = null;
     };
@@ -352,7 +309,8 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
         setFsTx(0);
         setFsTy(0);
     };
-    const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+    const clamp = (v: number, a: number, b: number) =>
+        Math.max(a, Math.min(b, v));
     const zoomBy = (delta: number) => setFsScale((s) => clamp(s + delta, 1, 4));
     const onFsWheel: React.WheelEventHandler<HTMLDivElement> = (e) => {
         e.preventDefault();
@@ -391,16 +349,21 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fsOpen, fsIndex, images.length]);
 
-    // ===== Derived =====
-    if (loading)
+    if (loading) {
         return (
             <div className="flex h-screen items-center justify-center text-gray-500">
                 <BouncingBallLoader />
             </div>
         );
+    }
 
-    if (!product)
-        return <div className="flex h-screen items-center justify-center text-gray-500">Product not found</div>;
+    if (!product) {
+        return (
+            <div className="flex h-screen items-center justify-center text-gray-500">
+                Product not found
+            </div>
+        );
+    }
 
     const isOwner = product.sellerId === auth.currentUser?.uid;
     const isSold = product.status === "sold" || product.sold;
@@ -408,9 +371,12 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
     const isTree = product.type === "tree";
 
     const created =
-        product.createdAt?.toDate?.() instanceof Date ? (product.createdAt as Timestamp).toDate() : null;
+        product.createdAt?.toDate?.() instanceof Date
+            ? (product.createdAt as Timestamp).toDate()
+            : null;
 
     const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
+
     const buildListingContextQs = (p: ProductDoc) => {
         const qs = new URLSearchParams();
         qs.set("listingId", p.id);
@@ -430,10 +396,9 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
         if (!uid) return router.replace("/login");
         if (!peerId) return;
         if (uid === peerId) return;
-
         if (msgLoading) return;
-        setMsgLoading(true);
 
+        setMsgLoading(true);
         try {
             const peer = await fetchUserLite(peerId);
             const threadId = makeThreadId(uid, peerId);
@@ -453,634 +418,356 @@ export default function ProductDetailsClient({ params }: { params: { productid: 
         }
     };
 
-    const PageWrap = ({ children }: { children: React.ReactNode }) => {
-        return <main className="min-h-screen pb-10 w-full">{children}</main>;
-        //   if (!isMobile) return <main className="min-h-screen pb-10 w-full">{children}</main>;
+    /* ===================== Shared Body ===================== */
+    const Body = (
+        <main
+            className={
+                isMobile
+                    ? "min-h-screen w-full bg-white"
+                    : "min-h-screen w-full bg-white pb-10"
+            }
+            style={
+                isMobile
+                    ? { paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }
+                    : undefined
+            }
+        >
+            {/* Sticky header */}
+            <div
+                className="sticky top-0 z-50 border-b"
+                style={{
+                    backgroundColor: "rgba(255,255,255,0.95)",
+                    borderColor: EKARI.hair,
+                }}
+            >
+                <div className="h-[56px] lg:h-14 px-3 lg:px-4 flex items-center max-w-4xl mx-auto">
+                    <button
+                        onClick={() => router.back()}
+                        className="w-10 h-10 rounded-full border grid place-items-center hover:bg-black/[0.03]"
+                        style={{ borderColor: EKARI.hair }}
+                    >
+                        <IoArrowBack style={{ color: EKARI.text }} size={20} />
+                    </button>
+                    <h1 className="ml-3 font-black text-base" style={{ color: EKARI.text }}>
+                        Product Details
+                    </h1>
+                </div>
+            </div>
 
-        // Mobile: full-screen fixed shell + bottom padding for tabs
-        // return (
-        //    <main className="fixed inset-0 bg-white overflow-y-auto" style={{ paddingBottom: "calc(84px + env(safe-area-inset-bottom))" }}>
-        //        {children}
-        //        <MobileBottomTabs onCreate={() => router.push("/sell")} />
-        //   </main>
-        //);
-    };
-
-    return (<>
-        {isMobile ? (<>
-            <PageWrap>
-                {/* Sticky header (mobile-friendly) */}
+            {/* Body container */}
+            <div className="max-w-4xl mx-auto px-3 lg:px-4 pt-3 lg:pt-4 pb-4 lg:pb-6">
+                {/* Carousel */}
                 <div
-                    className={isMobile ? "sticky top-0 z-50 border-b" : "sticky top-0 z-10 border-b"}
-                    style={{ backgroundColor: "rgba(255,255,255,0.95)", borderColor: EKARI.hair }}
+                    className="relative w-full rounded-2xl overflow-hidden shadow-sm bg-gray-100"
+                    onMouseEnter={() => setIsPaused(true)}
+                    onMouseLeave={() => setIsPaused(false)}
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
                 >
-                    <div className={isMobile ? "h-[56px] px-3 flex items-center" : "h-14 px-4 flex items-center max-w-4xl mx-auto"}>
-                        <button
-                            onClick={() => router.back()}
-                            className="w-10 h-10 rounded-full border grid place-items-center hover:bg-black/[0.03]"
-                            style={{ borderColor: EKARI.hair }}
-                        >
-                            <IoArrowBack style={{ color: EKARI.text }} size={20} />
-                        </button>
-                        <h1 className="ml-3 font-black text-base" style={{ color: EKARI.text }}>
-                            Product Details
-                        </h1>
-                    </div>
-                </div>
-
-                {/* Body container */}
-                <div className={isMobile ? "px-3 pt-3 pb-4" : "max-w-4xl mx-auto px-4 pt-4 pb-6"}>
-                    {/* Carousel */}
-                    <div
-                        className={isMobile ? "relative w-full rounded-2xl overflow-hidden shadow-sm bg-gray-100" : "relative w-full rounded-2xl overflow-hidden shadow-sm bg-gray-100"}
-                        onMouseEnter={() => setIsPaused(true)}
-                        onMouseLeave={() => setIsPaused(false)}
-                        onTouchStart={onTouchStart}
-                        onTouchMove={onTouchMove}
-                        onTouchEnd={onTouchEnd}
-                    >
-                        {images.length ? (
-                            <>
-                                <div
-                                    ref={scrollRef}
-                                    className={isMobile ? "flex overflow-x-hidden snap-x snap-mandatory h-[320px] scroll-smooth" : "flex overflow-x-hidden snap-x snap-mandatory h-72 md:h-96 scroll-smooth"}
-                                    onScroll={(e) => {
-                                        const L = e.currentTarget.scrollLeft;
-                                        const W = e.currentTarget.clientWidth;
-                                        setActive(Math.round(L / W));
-                                    }}
-                                >
-                                    {images.map((url: string, i: number) => (
-                                        <div key={i} className="flex-shrink-0 snap-center w-full h-full relative">
-                                            <Image
-                                                src={url}
-                                                alt={`${product.name} ${i + 1}`}
-                                                fill
-                                                className="object-cover cursor-zoom-in"
-                                                sizes="100vw"
-                                                priority={i === 0}
-                                                onClick={() => openFullscreen(i)}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {images.length > 1 && (
-                                    <>
-                                        <button
-                                            onClick={() => goTo(active > 0 ? active - 1 : images.length - 1)}
-                                            className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white rounded-full p-2 shadow-md transition"
-                                            aria-label="Previous image"
-                                        >
-                                            <IoChevronBack size={20} className="text-gray-700" />
-                                        </button>
-                                        <button
-                                            onClick={() => goTo(active + 1 < images.length ? active + 1 : 0)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white rounded-full p-2 shadow-md transition"
-                                            aria-label="Next image"
-                                        >
-                                            <IoChevronForward size={20} className="text-gray-700" />
-                                        </button>
-                                    </>
-                                )}
-
-                                {/* dots + count */}
-                                <div className="absolute bottom-3 left-0 right-0 flex flex-col items-center gap-1">
-                                    <div className="flex gap-1">
-                                        {images.map((_: any, i: number) => (
-                                            <button
-                                                key={i}
-                                                onClick={() => goTo(i)}
-                                                className={`w-2.5 h-2.5 rounded-full ${i === active ? "bg-white" : "bg-white/60"}`}
-                                            />
-                                        ))}
-                                    </div>
-                                    <div className="text-[11px] font-bold text-white/85 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                                        {active + 1} / {images.length}
-                                    </div>
-                                </div>
-
-                                {/* fullscreen button */}
-                                <button
-                                    onClick={() => openFullscreen(active)}
-                                    className="absolute top-3 right-3 bg-white/85 hover:bg-white rounded-full p-2 shadow-md"
-                                    aria-label="View fullscreen"
-                                    title="View fullscreen"
-                                >
-                                    <IoExpandOutline size={18} className="text-gray-800" />
-                                </button>
-                            </>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-[320px] text-gray-400">
-                                <IoImageOutline size={40} />
-                                <p>No image</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Info card */}
-                    <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
-                        <h2 className="font-black text-2xl" style={{ color: EKARI.text }}>
-                            {product.name}
-                        </h2>
-                        <p className="text-sm" style={{ color: EKARI.dim }}>
-                            {product.type} {product.unit && `• ${product.unit}`}
-                        </p>
-
-                        <div className="mt-2 flex flex-wrap gap-2">
-                            {product.category && (
-                                <span className="inline-flex items-center gap-1 border bg-[#FAFAFA] text-xs font-semibold rounded-full px-3 py-1" style={{ borderColor: EKARI.hair }}>
-                                    <IoPricetagOutline size={14} />
-                                    {product.category}
-                                </span>
-                            )}
-
-                            {product.unit && (
-                                <span className="inline-flex items-center gap-1 border bg-[#F9FAFB] text-xs font-semibold rounded-full px-3 py-1" style={{ borderColor: EKARI.hair }}>
-                                    <IoCubeOutline size={14} style={{ color: EKARI.dim }} />
-                                    <span>
-                                        {product.typicalPackSize ? `${product.typicalPackSize} ` : ""}
-                                        {product.unit}
-                                    </span>
-                                </span>
-                            )}
-
-                            {isTree && product.useCase && (
-                                <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 text-xs font-semibold rounded-full px-3 py-1">
-                                    <IoLeafOutline size={14} className="text-emerald-600" />
-                                    <span className="text-emerald-700 truncate max-w-[180px]">{product.useCase}</span>
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-3 mt-3 flex-wrap">
-                            <span className="text-3xl font-black" style={{ color: EKARI.forest }}>
-                                {product.type === "lease" || product.type === "service"
-                                    ? `${product.rate ? KES(Number(product.rate)) : "-"}${product.billingUnit ? ` / ${product.billingUnit}` : ""}`
-                                    : formatMoney(product.price, product.currency)}
-                            </span>
-
-                            <span
-                                className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-full ${isSold ? "bg-red-600 text-white" : isReserved ? "bg-yellow-500 text-white" : "bg-emerald-600 text-white"
-                                    }`}
-                            >
-                                {isSold ? <IoCloseCircle size={14} /> : isReserved ? <IoTimeOutline size={14} /> : <IoCheckmarkCircle size={14} />}
-                                {isSold ? "Sold" : isReserved ? "Reserved" : "Available"}
-                            </span>
-                        </div>
-
-                        {created && (
-                            <p className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                                Posted {created.toLocaleDateString()}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Seller card */}
-                    <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
-                        <div className="flex items-center gap-3">
-                            <Image
-                                src={seller?.photoURL || "/avatar-placeholder.png"}
-                                alt="Seller"
-                                width={44}
-                                height={44}
-                                className="rounded-full object-cover border bg-[#F3F4F6]"
-                                style={{ borderColor: EKARI.hair }}
-                            />
-                        </div>
-
-                        <div className="flex items-center gap-3 mt-2">
-                            <div className="flex-1 min-w-0">
-                                <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
-                                    {seller?.firstName || seller?.displayName || "Seller"}
-                                </p>
-                                {seller?.handle && (
-                                    <p className="text-xs truncate" style={{ color: EKARI.dim }}>
-                                        {seller.handle}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-                                <IoStar className="text-amber-400" size={14} />
-                                <span className="text-xs font-extrabold" style={{ color: EKARI.text }}>
-                                    {avgRating.toFixed(1)} · {reviewCount}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="mt-3">
-                            {!isOwner ? (
-                                <button
-                                    onClick={handleMessageClick}
-                                    disabled={msgLoading}
-                                    className={`w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white transition ${msgLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-95"
-                                        }`}
-                                    style={{ backgroundColor: EKARI.gold }}
-                                >
-                                    {msgLoading ? (
-                                        <>
-                                            <span className="inline-block h-4 w-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
-                                            Opening…
-                                        </>
-                                    ) : (
-                                        <>
-                                            <IoChatbubbleEllipsesOutline size={18} />
-                                            Message seller
-                                        </>
-                                    )}
-                                </button>
-                            ) : (
-                                <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
-                                    This is you
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Reviews */}
-                    {product.sellerId && <SellerReviewsSection sellerId={product.sellerId} />}
-                </div>
-
-                {/* Fullscreen modal (same as yours) */}
-                {fsOpen &&
-                    createPortal(
-                        <div className="fixed inset-0 z-[70] bg-black/90 text-white">
-                            <div className="absolute top-0 left-0 right-0 h-12 px-3 flex items-center justify-between">
-                                <button onClick={closeFullscreen} className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10">
-                                    <IoContractOutline size={18} />
-                                </button>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => zoomBy(-0.2)} className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10">
-                                        <IoRemove size={18} />
-                                    </button>
-                                    <button onClick={() => setFsScale(1)} className="px-2 h-9 rounded-full bg-white/10 text-xs font-bold">
-                                        {Math.round(fsScale * 100)}%
-                                    </button>
-                                    <button onClick={() => zoomBy(0.2)} className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10">
-                                        <IoAdd size={18} />
-                                    </button>
-                                </div>
-                            </div>
-
+                    {images.length ? (
+                        <>
                             <div
-                                className="h-full w-full flex items-center justify-center select-none"
-                                onWheel={onFsWheel}
-                                onDoubleClick={onFsDouble}
-                                onPointerDown={onFsPointerDown}
-                                onPointerMove={onFsPointerMove}
-                                onPointerUp={onFsPointerUp}
+                                ref={scrollRef}
+                                className="flex overflow-x-hidden snap-x snap-mandatory h-[320px] lg:h-96 scroll-smooth"
+                                onScroll={(e) => {
+                                    const L = e.currentTarget.scrollLeft;
+                                    const W = e.currentTarget.clientWidth;
+                                    setActive(Math.round(L / W));
+                                }}
                             >
-                                <div
-                                    className="relative"
-                                    style={{
-                                        transform: `translate(${fsTx}px, ${fsTy}px) scale(${fsScale})`,
-                                        transition: drag.current ? "none" : "transform 120ms ease",
-                                    }}
-                                >
-                                    <Image
-                                        src={images[fsIndex]}
-                                        alt={`image ${fsIndex + 1}`}
-                                        width={1600}
-                                        height={1000}
-                                        className="object-contain max-h-[80vh] md:max-h-[88vh] rounded"
-                                        priority
-                                    />
-                                </div>
-
-                                {images.length > 1 && (
-                                    <>
-                                        <button
-                                            onClick={fsPrev}
-                                            className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
-                                        >
-                                            <IoChevronBack size={22} />
-                                        </button>
-                                        <button
-                                            onClick={fsNext}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
-                                        >
-                                            <IoChevronForward size={22} />
-                                        </button>
-                                    </>
-                                )}
-
-                                <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[12px] font-bold bg-white/10 rounded-full px-3 py-1">
-                                    {fsIndex + 1} / {images.length}
-                                </div>
+                                {images.map((url: string, i: number) => (
+                                    <div key={i} className="flex-shrink-0 snap-center w-full h-full relative">
+                                        <Image
+                                            src={url}
+                                            alt={`${product.name} ${i + 1}`}
+                                            fill
+                                            className="object-cover cursor-zoom-in"
+                                            sizes="100vw"
+                                            priority={i === 0}
+                                            onClick={() => openFullscreen(i)}
+                                        />
+                                    </div>
+                                ))}
                             </div>
-                        </div>,
-                        document.body
-                    )}
-            </PageWrap></>) : (
-            <AppShell>
-                <PageWrap>
-                    {/* Sticky header (mobile-friendly) */}
-                    <div
-                        className={isMobile ? "sticky top-0 z-50 border-b" : "sticky top-0 z-10 border-b"}
-                        style={{ backgroundColor: "rgba(255,255,255,0.95)", borderColor: EKARI.hair }}
-                    >
-                        <div className={isMobile ? "h-[56px] px-3 flex items-center" : "h-14 px-4 flex items-center max-w-4xl mx-auto"}>
-                            <button
-                                onClick={() => router.back()}
-                                className="w-10 h-10 rounded-full border grid place-items-center hover:bg-black/[0.03]"
-                                style={{ borderColor: EKARI.hair }}
-                            >
-                                <IoArrowBack style={{ color: EKARI.text }} size={20} />
-                            </button>
-                            <h1 className="ml-3 font-black text-base" style={{ color: EKARI.text }}>
-                                Product Details
-                            </h1>
-                        </div>
-                    </div>
 
-                    {/* Body container */}
-                    <div className={isMobile ? "px-3 pt-3 pb-4" : "max-w-4xl mx-auto px-4 pt-4 pb-6"}>
-                        {/* Carousel */}
-                        <div
-                            className={isMobile ? "relative w-full rounded-2xl overflow-hidden shadow-sm bg-gray-100" : "relative w-full rounded-2xl overflow-hidden shadow-sm bg-gray-100"}
-                            onMouseEnter={() => setIsPaused(true)}
-                            onMouseLeave={() => setIsPaused(false)}
-                            onTouchStart={onTouchStart}
-                            onTouchMove={onTouchMove}
-                            onTouchEnd={onTouchEnd}
-                        >
-                            {images.length ? (
+                            {images.length > 1 && (
                                 <>
-                                    <div
-                                        ref={scrollRef}
-                                        className={isMobile ? "flex overflow-x-hidden snap-x snap-mandatory h-[320px] scroll-smooth" : "flex overflow-x-hidden snap-x snap-mandatory h-72 md:h-96 scroll-smooth"}
-                                        onScroll={(e) => {
-                                            const L = e.currentTarget.scrollLeft;
-                                            const W = e.currentTarget.clientWidth;
-                                            setActive(Math.round(L / W));
-                                        }}
-                                    >
-                                        {images.map((url: string, i: number) => (
-                                            <div key={i} className="flex-shrink-0 snap-center w-full h-full relative">
-                                                <Image
-                                                    src={url}
-                                                    alt={`${product.name} ${i + 1}`}
-                                                    fill
-                                                    className="object-cover cursor-zoom-in"
-                                                    sizes="100vw"
-                                                    priority={i === 0}
-                                                    onClick={() => openFullscreen(i)}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {images.length > 1 && (
-                                        <>
-                                            <button
-                                                onClick={() => goTo(active > 0 ? active - 1 : images.length - 1)}
-                                                className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white rounded-full p-2 shadow-md transition"
-                                                aria-label="Previous image"
-                                            >
-                                                <IoChevronBack size={20} className="text-gray-700" />
-                                            </button>
-                                            <button
-                                                onClick={() => goTo(active + 1 < images.length ? active + 1 : 0)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white rounded-full p-2 shadow-md transition"
-                                                aria-label="Next image"
-                                            >
-                                                <IoChevronForward size={20} className="text-gray-700" />
-                                            </button>
-                                        </>
-                                    )}
-
-                                    {/* dots + count */}
-                                    <div className="absolute bottom-3 left-0 right-0 flex flex-col items-center gap-1">
-                                        <div className="flex gap-1">
-                                            {images.map((_: any, i: number) => (
-                                                <button
-                                                    key={i}
-                                                    onClick={() => goTo(i)}
-                                                    className={`w-2.5 h-2.5 rounded-full ${i === active ? "bg-white" : "bg-white/60"}`}
-                                                />
-                                            ))}
-                                        </div>
-                                        <div className="text-[11px] font-bold text-white/85 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                                            {active + 1} / {images.length}
-                                        </div>
-                                    </div>
-
-                                    {/* fullscreen button */}
                                     <button
-                                        onClick={() => openFullscreen(active)}
-                                        className="absolute top-3 right-3 bg-white/85 hover:bg-white rounded-full p-2 shadow-md"
-                                        aria-label="View fullscreen"
-                                        title="View fullscreen"
+                                        onClick={() => goTo(active > 0 ? active - 1 : images.length - 1)}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white rounded-full p-2 shadow-md transition"
+                                        aria-label="Previous image"
                                     >
-                                        <IoExpandOutline size={18} className="text-gray-800" />
+                                        <IoChevronBack size={20} className="text-gray-700" />
+                                    </button>
+                                    <button
+                                        onClick={() => goTo(active + 1 < images.length ? active + 1 : 0)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white rounded-full p-2 shadow-md transition"
+                                        aria-label="Next image"
+                                    >
+                                        <IoChevronForward size={20} className="text-gray-700" />
                                     </button>
                                 </>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-[320px] text-gray-400">
-                                    <IoImageOutline size={40} />
-                                    <p>No image</p>
-                                </div>
                             )}
+
+                            {/* dots + count */}
+                            <div className="absolute bottom-3 left-0 right-0 flex flex-col items-center gap-1">
+                                <div className="flex gap-1">
+                                    {images.map((_: any, i: number) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => goTo(i)}
+                                            className={`w-2.5 h-2.5 rounded-full ${i === active ? "bg-white" : "bg-white/60"
+                                                }`}
+                                        />
+                                    ))}
+                                </div>
+                                <div className="text-[11px] font-bold text-white/85 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                    {active + 1} / {images.length}
+                                </div>
+                            </div>
+
+                            {/* fullscreen button */}
+                            <button
+                                onClick={() => openFullscreen(active)}
+                                className="absolute top-3 right-3 bg-white/85 hover:bg-white rounded-full p-2 shadow-md"
+                                aria-label="View fullscreen"
+                                title="View fullscreen"
+                            >
+                                <IoExpandOutline size={18} className="text-gray-800" />
+                            </button>
+                        </>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-[320px] text-gray-400">
+                            <IoImageOutline size={40} />
+                            <p>No image</p>
                         </div>
+                    )}
+                </div>
 
-                        {/* Info card */}
-                        <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
-                            <h2 className="font-black text-2xl" style={{ color: EKARI.text }}>
-                                {product.name}
-                            </h2>
-                            <p className="text-sm" style={{ color: EKARI.dim }}>
-                                {product.type} {product.unit && `• ${product.unit}`}
+                {/* Info card */}
+                <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
+                    <h2 className="font-black text-2xl" style={{ color: EKARI.text }}>
+                        {product.name}
+                    </h2>
+                    <p className="text-sm" style={{ color: EKARI.dim }}>
+                        {product.type} {product.unit && `• ${product.unit}`}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {product.category && (
+                            <span
+                                className="inline-flex items-center gap-1 border bg-[#FAFAFA] text-xs font-semibold rounded-full px-3 py-1"
+                                style={{ borderColor: EKARI.hair }}
+                            >
+                                <IoPricetagOutline size={14} />
+                                {product.category}
+                            </span>
+                        )}
+
+                        {product.unit && (
+                            <span
+                                className="inline-flex items-center gap-1 border bg-[#F9FAFB] text-xs font-semibold rounded-full px-3 py-1"
+                                style={{ borderColor: EKARI.hair }}
+                            >
+                                <IoCubeOutline size={14} style={{ color: EKARI.dim }} />
+                                <span>
+                                    {product.typicalPackSize ? `${product.typicalPackSize} ` : ""}
+                                    {product.unit}
+                                </span>
+                            </span>
+                        )}
+
+                        {isTree && product.useCase && (
+                            <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 text-xs font-semibold rounded-full px-3 py-1">
+                                <IoLeafOutline size={14} className="text-emerald-600" />
+                                <span className="text-emerald-700 truncate max-w-[180px]">{product.useCase}</span>
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-3 mt-3 flex-wrap">
+                        <span className="text-3xl font-black" style={{ color: EKARI.forest }}>
+                            {product.type === "lease" || product.type === "service"
+                                ? `${product.rate ? KES(Number(product.rate)) : "-"}${product.billingUnit ? ` / ${product.billingUnit}` : ""
+                                }`
+                                : formatMoney(product.price, product.currency)}
+                        </span>
+
+                        <span
+                            className={[
+                                "inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-full",
+                                isSold ? "bg-red-600 text-white" : isReserved ? "bg-yellow-500 text-white" : "bg-emerald-600 text-white",
+                            ].join(" ")}
+                        >
+                            {isSold ? <IoCloseCircle size={14} /> : isReserved ? <IoTimeOutline size={14} /> : <IoCheckmarkCircle size={14} />}
+                            {isSold ? "Sold" : isReserved ? "Reserved" : "Available"}
+                        </span>
+                    </div>
+
+                    {created && (
+                        <p className="text-sm mt-1" style={{ color: EKARI.dim }}>
+                            Posted {created.toLocaleDateString()}
+                        </p>
+                    )}
+                </div>
+
+                {/* Seller card */}
+                <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
+                    <div className="flex items-center gap-3">
+                        <Image
+                            src={seller?.photoURL || "/avatar-placeholder.png"}
+                            alt="Seller"
+                            width={44}
+                            height={44}
+                            className="rounded-full object-cover border bg-[#F3F4F6]"
+                            style={{ borderColor: EKARI.hair }}
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-3 mt-2">
+                        <div className="flex-1 min-w-0">
+                            <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                                {seller?.firstName || seller?.displayName || "Seller"}
                             </p>
-
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                {product.category && (
-                                    <span className="inline-flex items-center gap-1 border bg-[#FAFAFA] text-xs font-semibold rounded-full px-3 py-1" style={{ borderColor: EKARI.hair }}>
-                                        <IoPricetagOutline size={14} />
-                                        {product.category}
-                                    </span>
-                                )}
-
-                                {product.unit && (
-                                    <span className="inline-flex items-center gap-1 border bg-[#F9FAFB] text-xs font-semibold rounded-full px-3 py-1" style={{ borderColor: EKARI.hair }}>
-                                        <IoCubeOutline size={14} style={{ color: EKARI.dim }} />
-                                        <span>
-                                            {product.typicalPackSize ? `${product.typicalPackSize} ` : ""}
-                                            {product.unit}
-                                        </span>
-                                    </span>
-                                )}
-
-                                {isTree && product.useCase && (
-                                    <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 text-xs font-semibold rounded-full px-3 py-1">
-                                        <IoLeafOutline size={14} className="text-emerald-600" />
-                                        <span className="text-emerald-700 truncate max-w-[180px]">{product.useCase}</span>
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className="flex items-center gap-3 mt-3 flex-wrap">
-                                <span className="text-3xl font-black" style={{ color: EKARI.forest }}>
-                                    {product.type === "lease" || product.type === "service"
-                                        ? `${product.rate ? KES(Number(product.rate)) : "-"}${product.billingUnit ? ` / ${product.billingUnit}` : ""}`
-                                        : formatMoney(product.price, product.currency)}
-                                </span>
-
-                                <span
-                                    className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-full ${isSold ? "bg-red-600 text-white" : isReserved ? "bg-yellow-500 text-white" : "bg-emerald-600 text-white"
-                                        }`}
-                                >
-                                    {isSold ? <IoCloseCircle size={14} /> : isReserved ? <IoTimeOutline size={14} /> : <IoCheckmarkCircle size={14} />}
-                                    {isSold ? "Sold" : isReserved ? "Reserved" : "Available"}
-                                </span>
-                            </div>
-
-                            {created && (
-                                <p className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                                    Posted {created.toLocaleDateString()}
+                            {seller?.handle && (
+                                <p className="text-xs truncate" style={{ color: EKARI.dim }}>
+                                    {seller.handle}
                                 </p>
                             )}
                         </div>
 
-                        {/* Seller card */}
-                        <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
-                            <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+                            <IoStar className="text-amber-400" size={14} />
+                            <span className="text-xs font-extrabold" style={{ color: EKARI.text }}>
+                                {avgRating.toFixed(1)} · {reviewCount}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="mt-3">
+                        {!isOwner ? (
+                            <button
+                                onClick={handleMessageClick}
+                                disabled={msgLoading}
+                                className={[
+                                    "w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white transition",
+                                    msgLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-95",
+                                ].join(" ")}
+                                style={{ backgroundColor: EKARI.gold }}
+                            >
+                                {msgLoading ? (
+                                    <>
+                                        <span className="inline-block h-4 w-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
+                                        Opening…
+                                    </>
+                                ) : (
+                                    <>
+                                        <IoChatbubbleEllipsesOutline size={18} />
+                                        Message seller
+                                    </>
+                                )}
+                            </button>
+                        ) : (
+                            <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
+                                This is you
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Seller Reviews */}
+                {product.sellerId && <SellerReviewsSection sellerId={product.sellerId} />}
+            </div>
+
+            {/* Fullscreen modal */}
+            {fsOpen &&
+                createPortal(
+                    <div className="fixed inset-0 z-[70] bg-black/90 text-white">
+                        <div className="absolute top-0 left-0 right-0 h-12 px-3 flex items-center justify-between">
+                            <button
+                                onClick={closeFullscreen}
+                                className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                            >
+                                <IoContractOutline size={18} />
+                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => zoomBy(-0.2)}
+                                    className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                                >
+                                    <IoRemove size={18} />
+                                </button>
+                                <button
+                                    onClick={() => setFsScale(1)}
+                                    className="px-2 h-9 rounded-full bg-white/10 text-xs font-bold"
+                                >
+                                    {Math.round(fsScale * 100)}%
+                                </button>
+                                <button
+                                    onClick={() => zoomBy(0.2)}
+                                    className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                                >
+                                    <IoAdd size={18} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div
+                            className="h-full w-full flex items-center justify-center select-none"
+                            onWheel={onFsWheel}
+                            onDoubleClick={onFsDouble}
+                            onPointerDown={onFsPointerDown}
+                            onPointerMove={onFsPointerMove}
+                            onPointerUp={onFsPointerUp}
+                        >
+                            <div
+                                className="relative"
+                                style={{
+                                    transform: `translate(${fsTx}px, ${fsTy}px) scale(${fsScale})`,
+                                    transition: drag.current ? "none" : "transform 120ms ease",
+                                }}
+                            >
                                 <Image
-                                    src={seller?.photoURL || "/avatar-placeholder.png"}
-                                    alt="Seller"
-                                    width={44}
-                                    height={44}
-                                    className="rounded-full object-cover border bg-[#F3F4F6]"
-                                    style={{ borderColor: EKARI.hair }}
+                                    src={images[fsIndex]}
+                                    alt={`image ${fsIndex + 1}`}
+                                    width={1600}
+                                    height={1000}
+                                    className="object-contain max-h-[80vh] lg:max-h-[88vh] rounded"
+                                    priority
                                 />
                             </div>
 
-                            <div className="flex items-center gap-3 mt-2">
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
-                                        {seller?.firstName || seller?.displayName || "Seller"}
-                                    </p>
-                                    {seller?.handle && (
-                                        <p className="text-xs truncate" style={{ color: EKARI.dim }}>
-                                            {seller.handle}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-                                    <IoStar className="text-amber-400" size={14} />
-                                    <span className="text-xs font-extrabold" style={{ color: EKARI.text }}>
-                                        {avgRating.toFixed(1)} · {reviewCount}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="mt-3">
-                                {!isOwner ? (
+                            {images.length > 1 && (
+                                <>
                                     <button
-                                        onClick={handleMessageClick}
-                                        disabled={msgLoading}
-                                        className={`w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white transition ${msgLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-95"
-                                            }`}
-                                        style={{ backgroundColor: EKARI.gold }}
+                                        onClick={fsPrev}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
                                     >
-                                        {msgLoading ? (
-                                            <>
-                                                <span className="inline-block h-4 w-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
-                                                Opening…
-                                            </>
-                                        ) : (
-                                            <>
-                                                <IoChatbubbleEllipsesOutline size={18} />
-                                                Message seller
-                                            </>
-                                        )}
+                                        <IoChevronBack size={22} />
                                     </button>
-                                ) : (
-                                    <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
-                                        This is you
-                                    </div>
-                                )}
+                                    <button
+                                        onClick={fsNext}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
+                                    >
+                                        <IoChevronForward size={22} />
+                                    </button>
+                                </>
+                            )}
+
+                            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[12px] font-bold bg-white/10 rounded-full px-3 py-1">
+                                {fsIndex + 1} / {images.length}
                             </div>
                         </div>
-
-                        {/* Reviews */}
-                        {product.sellerId && <SellerReviewsSection sellerId={product.sellerId} />}
-                    </div>
-
-                    {/* Fullscreen modal (same as yours) */}
-                    {fsOpen &&
-                        createPortal(
-                            <div className="fixed inset-0 z-[70] bg-black/90 text-white">
-                                <div className="absolute top-0 left-0 right-0 h-12 px-3 flex items-center justify-between">
-                                    <button onClick={closeFullscreen} className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10">
-                                        <IoContractOutline size={18} />
-                                    </button>
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={() => zoomBy(-0.2)} className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10">
-                                            <IoRemove size={18} />
-                                        </button>
-                                        <button onClick={() => setFsScale(1)} className="px-2 h-9 rounded-full bg-white/10 text-xs font-bold">
-                                            {Math.round(fsScale * 100)}%
-                                        </button>
-                                        <button onClick={() => zoomBy(0.2)} className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10">
-                                            <IoAdd size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div
-                                    className="h-full w-full flex items-center justify-center select-none"
-                                    onWheel={onFsWheel}
-                                    onDoubleClick={onFsDouble}
-                                    onPointerDown={onFsPointerDown}
-                                    onPointerMove={onFsPointerMove}
-                                    onPointerUp={onFsPointerUp}
-                                >
-                                    <div
-                                        className="relative"
-                                        style={{
-                                            transform: `translate(${fsTx}px, ${fsTy}px) scale(${fsScale})`,
-                                            transition: drag.current ? "none" : "transform 120ms ease",
-                                        }}
-                                    >
-                                        <Image
-                                            src={images[fsIndex]}
-                                            alt={`image ${fsIndex + 1}`}
-                                            width={1600}
-                                            height={1000}
-                                            className="object-contain max-h-[80vh] md:max-h-[88vh] rounded"
-                                            priority
-                                        />
-                                    </div>
-
-                                    {images.length > 1 && (
-                                        <>
-                                            <button
-                                                onClick={fsPrev}
-                                                className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
-                                            >
-                                                <IoChevronBack size={22} />
-                                            </button>
-                                            <button
-                                                onClick={fsNext}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
-                                            >
-                                                <IoChevronForward size={22} />
-                                            </button>
-                                        </>
-                                    )}
-
-                                    <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[12px] font-bold bg-white/10 rounded-full px-3 py-1">
-                                        {fsIndex + 1} / {images.length}
-                                    </div>
-                                </div>
-                            </div>,
-                            document.body
-                        )}
-                </PageWrap>
-            </AppShell>)}
-
-    </>
+                    </div>,
+                    document.body
+                )}
+        </main>
     );
+
+    // ✅ Desktop: wrap in AppShell
+    if (!isMobile) return <AppShell>{Body}</AppShell>;
+
+    // ✅ Mobile: DO NOT use AppShell
+    return Body;
 }

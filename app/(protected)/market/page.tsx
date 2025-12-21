@@ -13,9 +13,10 @@ import {
   DocumentData,
   QueryDocumentSnapshot,
   QuerySnapshot,
+  doc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   IoCartOutline,
   IoOptionsOutline,
@@ -31,6 +32,11 @@ import {
   IoChatbubblesOutline,
   IoHomeOutline,
   IoCompassOutline,
+  IoChevronForward,
+  IoInformationCircleOutline,
+  IoPersonCircleOutline,
+  IoNotificationsOutline,
+  IoMenu,
 } from "react-icons/io5";
 
 import FilterModal, { distanceKm, Filters, toLower } from "@/app/components/FilterModal";
@@ -39,6 +45,8 @@ import SellModal from "@/app/components/SellModal";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { EKARI } from "@/app/constants/constants";
+import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
+import { useAuth } from "@/app/hooks/useAuth";
 
 /* ---------------- utils ---------------- */
 type SortKey = "recent" | "priceAsc" | "priceDesc";
@@ -75,6 +83,7 @@ function useIsMobile() {
 }
 
 /* ---------------- bottom tabs (LIGHT) ---------------- */
+/* ---------------- bottom tabs (LIGHT) ---------------- */
 function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
   const router = useRouter();
 
@@ -82,18 +91,32 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
     label,
     icon,
     onClick,
+    active,
   }: {
     label: string;
     icon: React.ReactNode;
     onClick: () => void;
+    active?: boolean;
   }) => (
-    <button onClick={onClick} className="flex flex-col items-center gap-1">
-      <div style={{ color: EKARI.text }}>{icon}</div>
-      <span className="text-[11px] font-semibold" style={{ color: EKARI.text }}>
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition",
+        active ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"
+      )}
+      aria-current={active ? "page" : undefined}
+    >
+      <div style={{ color: active ? EKARI.forest : EKARI.text }}>{icon}</div>
+      <span
+        className="text-[11px] font-semibold"
+        style={{ color: active ? EKARI.forest : EKARI.text }}
+      >
         {label}
       </span>
     </button>
   );
+
+  const isMarketActive = true; // because this is /market page
 
   return (
     <div
@@ -107,8 +130,18 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
           borderTop: `1px solid ${EKARI.hair}`,
         }}
       >
-        <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} onClick={() => router.push("/")} />
-        <TabBtn label="ekariMarket" icon={<IoCartOutline size={20} />} onClick={() => router.push("/market")} />
+        <TabBtn
+          label="Deeds"
+          icon={<IoHomeOutline size={20} />}
+          onClick={() => router.push("/")}
+        />
+
+        <TabBtn
+          label="ekariMarket"
+          icon={<IoCartOutline size={20} />}
+          onClick={() => router.push("/market")}
+          active={isMarketActive}
+        />
 
         <button
           onClick={onCreate}
@@ -119,13 +152,204 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
           <IoAdd size={26} color="#111827" />
         </button>
 
-        <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} onClick={() => router.push("/nexus")} />
-        <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} onClick={() => router.push("/bonga")} />
+        <TabBtn
+          label="Nexus"
+          icon={<IoCompassOutline size={20} />}
+          onClick={() => router.push("/nexus")}
+        />
+
+        <TabBtn
+          label="Bonga"
+          icon={<IoChatbubblesOutline size={20} />}
+          onClick={() => router.push("/bonga")}
+        />
       </div>
     </div>
   );
 }
 
+function useIsActivePath(href: string, alsoMatch: string[] = []) {
+  const pathname = usePathname() || "/";
+  const matches = [href, ...alsoMatch];
+  return matches.some(
+    (m) =>
+      pathname === m ||
+      (m !== "/" && pathname.startsWith(m + "/")) ||
+      (m === "/" && pathname === "/")
+  );
+}
+
+function badgeText(n?: number) {
+  if (!n || n <= 0) return "";
+  if (n > 999) return "999+";
+  if (n > 99) return "99+";
+  return String(n);
+}
+
+type MenuItem = {
+  key: string;
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  alsoMatch?: string[];
+  requiresAuth?: boolean;
+  badgeCount?: number;
+};
+
+function SideMenuSheet({
+  open,
+  onClose,
+  onNavigate,
+  items,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onNavigate: (href: string, requiresAuth?: boolean) => void;
+  items: MenuItem[];
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  return (
+    <div
+      className={cn("fixed inset-0 z-[120] transition", open ? "pointer-events-auto" : "pointer-events-none")}
+      aria-hidden={!open}
+    >
+      <div
+        className={cn(
+          "absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity",
+          open ? "opacity-100" : "opacity-0"
+        )}
+        onClick={onClose}
+      />
+
+      <div
+        className={cn(
+          "absolute left-0 top-0 h-full w-[86%] max-w-[340px]",
+          "bg-white shadow-2xl border-r",
+          "transition-transform duration-300 will-change-transform",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ borderColor: EKARI.hair }}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="h-[56px] px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
+          <div className="font-black" style={{ color: EKARI.text }}>
+            Menu
+          </div>
+          <button
+            onClick={onClose}
+            className="h-10 w-10 rounded-xl grid place-items-center border hover:bg-black/5"
+            style={{ borderColor: EKARI.hair }}
+            aria-label="Close menu"
+          >
+            <IoCloseCircle size={18} />
+          </button>
+        </div>
+
+        <nav className="p-2 overflow-y-auto h-[calc(100%-56px)]">
+          {items.map((it) => (
+            <MenuRow key={it.key} item={it} onNavigate={onNavigate} />
+          ))}
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+function MenuRow({
+  item,
+  onNavigate,
+}: {
+  item: MenuItem;
+  onNavigate: (href: string, requiresAuth?: boolean) => void;
+}) {
+  const active = useIsActivePath(item.href, item.alsoMatch);
+  const bt = badgeText(item.badgeCount);
+  const showBadge = !!bt;
+
+  return (
+    <button
+      onClick={() => onNavigate(item.href, item.requiresAuth)}
+      className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition", "hover:bg-black/5")}
+      style={{
+        color: EKARI.text,
+        backgroundColor: active ? "rgba(199,146,87,0.10)" : undefined,
+        border: active ? "1px solid rgba(199,146,87,0.35)" : "1px solid transparent",
+      }}
+    >
+      <span
+        className="relative h-10 w-10 rounded-xl grid place-items-center border bg-white"
+        style={{ borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair }}
+      >
+        <span style={{ color: active ? EKARI.gold : EKARI.forest }} className="text-[18px]">
+          {item.icon}
+        </span>
+
+        {showBadge && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[6px] rounded-full bg-red-600 text-white text-[11px] font-extrabold flex items-center justify-center shadow-sm">
+            {bt}
+          </span>
+        )}
+      </span>
+
+      <div className="flex-1 min-w-0">
+        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>{item.label}</div>
+      </div>
+
+      <IoChevronForward size={18} style={{ color: EKARI.dim }} />
+    </button>
+  );
+}
+/* ---------- Profiles ---------- */
+function useUserProfile(uid?: string) {
+  const [profile, setProfile] = useState<{
+    handle?: string;
+    photoURL?: string;
+    dataSaverVideos?: boolean;
+    uid?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!uid) {
+      setProfile(null);
+      return;
+    }
+    const ref = doc(db, "users", uid);
+    const unsub = onSnapshot(ref, (snap) => {
+      const data = snap.data() as any | undefined;
+      if (!data) {
+        setProfile(null);
+        return;
+      }
+      setProfile({
+        uid,
+        handle: data?.handle,
+        photoURL: data?.photoURL,
+        dataSaverVideos: !!data?.dataSaverVideos,
+      });
+    });
+    return () => unsub();
+  }, [uid]);
+
+  return profile;
+}
 /* ---------------- page ---------------- */
 export default function MarketPage() {
   const router = useRouter();
@@ -155,6 +379,54 @@ export default function MarketPage() {
 
     "--tw-ring-color": EKARI.forest,
   } as React.CSSProperties;
+  const { user } = useAuth();
+  const uid = user?.uid;
+  const profile = useUserProfile(uid);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
+
+  const handle = (profile as any)?.handle ?? null; // if you store handle elsewhere, use that instead
+  const profileHref = handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
+
+  const fullMenu: MenuItem[] = useMemo(
+    () => [
+      { key: "deeds", label: "Deeds", href: "/", icon: <IoHomeOutline /> },
+      { key: "market", label: "ekariMarket", href: "/market", icon: <IoCartOutline />, alsoMatch: ["/market"] },
+      { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
+      { key: "studio", label: "Deed studio", href: "/studio/upload", icon: <IoAdd />, requiresAuth: true },
+
+      {
+        key: "notifications",
+        label: "Notifications",
+        href: "/notifications",
+        icon: <IoNotificationsOutline />,
+        requiresAuth: true,
+        badgeCount: uid ? notifTotal ?? 0 : 0,
+      },
+      {
+        key: "bonga",
+        label: "Bonga",
+        href: "/bonga",
+        icon: <IoChatbubblesOutline />,
+        requiresAuth: true,
+        badgeCount: uid ? unreadDM ?? 0 : 0,
+      },
+
+      { key: "profile", label: "Profile", href: profileHref, icon: <IoPersonCircleOutline />, requiresAuth: true },
+      { key: "about", label: "About ekarihub", href: "/about", icon: <IoInformationCircleOutline /> },
+    ],
+    [uid, notifTotal, unreadDM, profileHref]
+  );
+
+  const navigateFromMenu = (href: string, requiresAuth?: boolean) => {
+    setMenuOpen(false);
+    if (requiresAuth && !uid) {
+      window.location.href = `/getstarted?next=${encodeURIComponent(href)}`;
+      return;
+    }
+    window.location.href = href;
+  };
 
   const buildQuery = useCallback(
     (after?: QueryDocumentSnapshot<DocumentData> | null) => {
@@ -327,6 +599,7 @@ export default function MarketPage() {
   const Controls = (
     <div className="w-full">
       <div className="px-3 py-3 flex items-center gap-2">
+
         <div
           className="flex-1 h-10 rounded-full bg-white px-3 flex items-center gap-2 focus-within:ring-2"
           style={{ border: `1px solid ${EKARI.hair}`, ...ringStyle }}
@@ -397,6 +670,14 @@ export default function MarketPage() {
             style={{ backgroundColor: "rgba(255,255,255,0.95)", borderColor: EKARI.hair }}
           >
             <div className="h-[56px] w-full px-3 flex items-center justify-between">
+              <button
+                onClick={() => setMenuOpen(true)}
+                className="h-9 w-9 rounded-full bg-black/[0.04] grid place-items-center backdrop-blur-md border"
+                style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                aria-label="Open menu"
+              >
+                <IoMenu size={20} />
+              </button>
               <div className="flex items-center gap-2">
                 <IoCartOutline size={20} style={{ color: EKARI.text }} />
                 <div className="font-black text-base" style={{ color: EKARI.text }}>
@@ -482,6 +763,13 @@ export default function MarketPage() {
           </div>
 
           <MobileBottomTabs onCreate={() => setSellOpen(true)} />
+          <SideMenuSheet
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            onNavigate={navigateFromMenu}
+            items={fullMenu}
+          />
+
         </div>
 
         <FilterModal

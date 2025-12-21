@@ -1,3 +1,4 @@
+// app/discussion/[discussionid]/page.tsx
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,7 +21,6 @@ import {
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import {
-  IoArrowBack,
   IoChatbubblesOutline,
   IoClose,
   IoCreateOutline,
@@ -28,8 +28,10 @@ import {
   IoSend,
   IoTrashOutline,
 } from "react-icons/io5";
+import { ArrowLeft } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import clsx from "clsx";
 
 // Avoid static optimization since we read client-side
 export const dynamic = "force-dynamic";
@@ -41,6 +43,7 @@ const EKARI = {
   text: "#0F172A",
   dim: "#6B7280",
   hair: "#E5E7EB",
+  sub: "#5C6B66",
 };
 
 type DiscussionItem = {
@@ -74,12 +77,39 @@ type ReplyTarget =
 const AVATAR_FALLBACK = "/avatar-placeholder.png";
 const PAGE_SIZE = 50;
 
+/* ---------------- responsive helpers ---------------- */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
+
 export default function DiscussionThreadPage() {
   const router = useRouter();
   const params = useParams() as Record<string, string | string[]>;
-  const discussionId = Array.isArray(params?.discussionId)
-    ? params.discussionId[0]
-    : (params?.discussionId as string | undefined);
+
+  // Support both [discussionid] and [discussionId]
+  const discussionIdRaw =
+    (params?.discussionid as any) ??
+    (params?.discussionId as any) ??
+    (params?.discussionID as any);
+
+  const discussionId = Array.isArray(discussionIdRaw) ? discussionIdRaw[0] : (discussionIdRaw as string | undefined);
+
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
 
   const auth = getAuth();
 
@@ -114,6 +144,15 @@ export default function DiscussionThreadPage() {
     Record<string, { name?: string | null; handle?: string | null; photoURL?: string | null }>
   >({});
 
+  const ringStyle: React.CSSProperties = {
+    ["--tw-ring-color" as any]: EKARI.forest,
+  };
+
+  const goBack = useCallback(() => {
+    if (window.history.length > 1) router.back();
+    else router.push("/nexus");
+  }, [router]);
+
   // Auth listener
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -132,11 +171,9 @@ export default function DiscussionThreadPage() {
         const d = s.data() as any;
         setMeName(d?.name ?? auth.currentUser?.displayName ?? null);
         setMeHandle(d?.handle ?? null);
-        if (!d?.photoURL && auth.currentUser?.photoURL) {
-          setMePhotoURL(auth.currentUser.photoURL);
-        } else if (d?.photoURL) {
-          setMePhotoURL(d.photoURL);
-        }
+
+        if (!d?.photoURL && auth.currentUser?.photoURL) setMePhotoURL(auth.currentUser.photoURL);
+        else if (d?.photoURL) setMePhotoURL(d.photoURL);
       } catch {
         setMeName(auth.currentUser?.displayName ?? null);
       }
@@ -150,7 +187,6 @@ export default function DiscussionThreadPage() {
       try {
         if (!discussionId) return;
 
-        // topic
         const snap = await getDoc(doc(db, "discussions", discussionId));
         if (snap.exists()) {
           const data = snap.data() as any;
@@ -159,7 +195,6 @@ export default function DiscussionThreadPage() {
           setDisc(null);
         }
 
-        // first replies page
         const qRef = query(
           collection(db, "discussions", discussionId, "replies"),
           orderBy("createdAt", "asc"),
@@ -230,13 +265,11 @@ export default function DiscussionThreadPage() {
       const results = await Promise.allSettled(missing.map((u) => getDoc(doc(db, "users", u))));
       const patch: Record<string, { name?: string | null; handle?: string | null; photoURL?: string | null }> = {};
       results.forEach((res, idx) => {
-        const uid = missing[idx];
+        const u = missing[idx];
         if (res.status === "fulfilled" && res.value.exists()) {
           const d = res.value.data() as any;
-          patch[uid] = { name: d?.name ?? null, handle: d?.handle ?? null, photoURL: d?.photoURL ?? null };
-        } else {
-          patch[uid] = {};
-        }
+          patch[u] = { name: d?.name ?? null, handle: d?.handle ?? null, photoURL: d?.photoURL ?? null };
+        } else patch[u] = {};
       });
       setUserCache((prev) => ({ ...prev, ...patch }));
     })();
@@ -262,7 +295,6 @@ export default function DiscussionThreadPage() {
     return `${y}y`;
   };
 
-  // Reply start (top-level)
   const startReplyToTop = useCallback(
     (parent: Reply) => {
       const handle = parent.userHandle ?? userCache[parent.authorId]?.handle ?? null;
@@ -273,7 +305,6 @@ export default function DiscussionThreadPage() {
     [userCache]
   );
 
-  // Reply start (child)
   const startReplyToChild = useCallback(
     (parent: Reply, child: Reply) => {
       const handle = child.userHandle ?? userCache[child.authorId]?.handle ?? null;
@@ -284,7 +315,6 @@ export default function DiscussionThreadPage() {
     [userCache]
   );
 
-  // Posting a reply
   const postReply = useCallback(async () => {
     const body = text.trim();
     if (!body || !discussionId) return;
@@ -306,13 +336,11 @@ export default function DiscussionThreadPage() {
         parentId: replyTarget?.parentId ?? null,
         replyToId: replyTarget?.replyToId ?? null,
         replyToHandle: replyTarget?.replyToHandle ?? null,
-        // denorm
         userName: meName ?? null,
         userHandle: meHandle ?? null,
         userPhotoURL: mePhotoURL ?? null,
       });
 
-      // optimistic add
       setReplies((prev) => [
         ...prev,
         {
@@ -328,6 +356,7 @@ export default function DiscussionThreadPage() {
           createdAt: { toDate: () => new Date() },
         },
       ]);
+
       setText("");
       setReplyTarget(null);
     } catch (e: any) {
@@ -337,7 +366,6 @@ export default function DiscussionThreadPage() {
     }
   }, [text, replyTarget, meName, meHandle, mePhotoURL, discussionId, router, auth.currentUser]);
 
-  // Edit
   const startEdit = useCallback(
     (r: Reply) => {
       if (auth.currentUser?.uid !== r.authorId) return;
@@ -355,10 +383,8 @@ export default function DiscussionThreadPage() {
   const saveEdit = useCallback(async () => {
     if (!editingId || !discussionId) return;
     const body = editingText.trim();
-    if (!body) {
-      alert("Answer cannot be empty.");
-      return;
-    }
+    if (!body) return alert("Answer cannot be empty.");
+
     setSavingId(editingId);
     try {
       await updateDoc(doc(db, "discussions", discussionId, "replies", editingId), {
@@ -377,52 +403,33 @@ export default function DiscussionThreadPage() {
     }
   }, [editingId, editingText, discussionId]);
 
-  // Delete
   const requestDelete = useCallback(
     (r: Reply) => {
       if (auth.currentUser?.uid !== r.authorId) return;
-      if (confirm("Delete answer? This cannot be undone.")) {
-        (async () => {
-          try {
-            setDeletingId(r.id);
-            await deleteDoc(doc(db, "discussions", discussionId!, "replies", r.id));
-            setReplies((prev) => prev.filter((x) => x.id !== r.id));
-          } catch (e: any) {
-            alert(e?.message || "Delete failed");
-          } finally {
-            setDeletingId(null);
-          }
-        })();
-      }
+      if (!confirm("Delete answer? This cannot be undone.")) return;
+
+      (async () => {
+        try {
+          setDeletingId(r.id);
+          await deleteDoc(doc(db, "discussions", discussionId!, "replies", r.id));
+          setReplies((prev) => prev.filter((x) => x.id !== r.id));
+        } catch (e: any) {
+          alert(e?.message || "Delete failed");
+        } finally {
+          setDeletingId(null);
+        }
+      })();
     },
     [auth.currentUser?.uid, discussionId]
   );
 
-  // UI Helpers
+  // UI bits
   const Avatar = ({ src, size = 34 }: { src?: string | null; size?: number }) => (
     <div className="relative rounded-full overflow-hidden bg-gray-200" style={{ width: size, height: size }}>
-      <Image
-        src={src || AVATAR_FALLBACK}
-        alt="avatar"
-        fill
-        className="object-cover"
-        sizes={`${size}px`}
-      />
+      <Image src={src || AVATAR_FALLBACK} alt="avatar" fill className="object-cover" sizes={`${size}px`} />
     </div>
   );
 
-  const ReplyMeta = ({ ts, onReply }: { ts?: any; onReply: () => void }) => (
-    <div className="mt-1 flex items-center gap-4">
-      <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
-        {timeAgoShort(ts)}
-      </span>
-      <button onClick={onReply} className="text-xs font-semibold" style={{ color: EKARI.dim }}>
-        Comment
-      </button>
-    </div>
-  );
-
-  // Render a thread (top-level + its children)
   const Thread = ({ parent }: { parent: Reply }) => {
     const kids = childrenByParent[parent.id] || [];
     const isOwn = parent.authorId === uid;
@@ -434,15 +441,22 @@ export default function DiscussionThreadPage() {
     const photo = parent.userPhotoURL ?? prof.photoURL ?? null;
 
     return (
-      <div className="px-3 pt-2">
-        {/* Top-level row */}
+      <div className={clsx(isDesktop ? "px-4 pt-3" : "px-3 pt-2")}>
         <div className="flex items-start gap-3 pr-1 pb-2">
           <Avatar src={photo} size={34} />
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             {(name || handle) && (
-              <div className="flex items-center gap-2 mb-1">
-                {name && <span className="font-extrabold" style={{ color: EKARI.text }}>{name}</span>}
-                {handle && <span className="font-bold" style={{ color: EKARI.dim }}>@{handle.replace(/^@/, "")}</span>}
+              <div className="flex items-center gap-2 mb-1 min-w-0">
+                {name && (
+                  <span className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                    {name}
+                  </span>
+                )}
+                {handle && (
+                  <span className="font-bold truncate" style={{ color: EKARI.dim }}>
+                    @{handle.replace(/^@/, "")}
+                  </span>
+                )}
               </div>
             )}
 
@@ -478,7 +492,14 @@ export default function DiscussionThreadPage() {
                 <div className="text-[16px] leading-5" style={{ color: EKARI.text }}>
                   {parent.body}
                 </div>
-                <ReplyMeta ts={parent.createdAt} onReply={() => startReplyToTop(parent)} />
+                <div className="mt-1 flex items-center gap-4">
+                  <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+                    {timeAgoShort(parent.createdAt)}
+                  </span>
+                  <button onClick={() => startReplyToTop(parent)} className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+                    Comment
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -496,7 +517,9 @@ export default function DiscussionThreadPage() {
                 </button>
                 <button onClick={() => requestDelete(parent)} className="p-1" title="Delete">
                   {deletingId === parent.id ? (
-                    <span className="text-xs" style={{ color: EKARI.dim }}>…</span>
+                    <span className="text-xs" style={{ color: EKARI.dim }}>
+                      …
+                    </span>
                   ) : (
                     <IoTrashOutline size={18} color={EKARI.dim} />
                   )}
@@ -510,7 +533,6 @@ export default function DiscussionThreadPage() {
           </div>
         </div>
 
-        {/* Children */}
         {kids.length > 0 && (
           <div className="ml-11 border-l" style={{ borderColor: EKARI.hair }}>
             <div className="pl-3 pb-2 space-y-2">
@@ -526,11 +548,19 @@ export default function DiscussionThreadPage() {
                 return (
                   <div key={child.id} className="flex items-start gap-2">
                     <Avatar src={cphoto} size={26} />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       {(cname || chandle) && (
-                        <div className="flex items-center gap-2 mb-1">
-                          {cname && <span className="font-extrabold" style={{ color: EKARI.text }}>{cname}</span>}
-                          {chandle && <span className="font-bold" style={{ color: EKARI.dim }}>@{chandle.replace(/^@/, "")}</span>}
+                        <div className="flex items-center gap-2 mb-1 min-w-0">
+                          {cname && (
+                            <span className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                              {cname}
+                            </span>
+                          )}
+                          {chandle && (
+                            <span className="font-bold truncate" style={{ color: EKARI.dim }}>
+                              @{chandle.replace(/^@/, "")}
+                            </span>
+                          )}
                         </div>
                       )}
 
@@ -599,7 +629,9 @@ export default function DiscussionThreadPage() {
                         </button>
                         <button onClick={() => requestDelete(child)} className="p-1" title="Delete">
                           {deletingId === child.id ? (
-                            <span className="text-xs" style={{ color: EKARI.dim }}>…</span>
+                            <span className="text-xs" style={{ color: EKARI.dim }}>
+                              …
+                            </span>
                           ) : (
                             <IoTrashOutline size={18} color={EKARI.dim} />
                           )}
@@ -616,129 +648,193 @@ export default function DiscussionThreadPage() {
     );
   };
 
-  if (initialLoading) {
-    return (
-      <AppShell>
-        <div className="min-h-screen w-full flex items-center justify-center">
-          <div className="animate-pulse text-sm text-gray-500"><BouncingBallLoader /></div>
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (!disc) {
-    return (
-      <AppShell>
-        <div className="min-h-screen w-full flex items-center justify-center">
-          <div className="text-gray-500">Discussion not found</div>
-        </div>
-      </AppShell>
-    );
-  }
-
-  return (
-    <AppShell>
-      <div className="min-h-screen w-full bg-white">
-        {/* Header */}
-        <div className="h-12 border-b border-gray-200 px-3 flex items-center justify-between sticky top-0 bg-white z-10">
+  // Header like /bonga
+  const Header = (
+    <div
+      className={clsx("border-b sticky top-0 z-50 backdrop-blur")}
+      style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+    >
+      <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")}>
+        <div className="h-full flex items-center justify-between gap-2">
           <button
-            onClick={() => router.back()}
-            className="h-10 w-10 rounded-full flex items-center justify-center border border-gray-200"
-            aria-label="Back"
-            title="Back"
+            onClick={goBack}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            aria-label="Go back"
           >
-            <IoArrowBack size={18} color={EKARI.text} />
+            <ArrowLeft size={18} style={{ color: EKARI.text }} />
           </button>
-          <div className="text-[18px] font-black" style={{ color: EKARI.text }}>Discussion</div>
+
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
+              Discussion
+            </div>
+            <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
+              {disc?.title ?? ""}
+            </div>
+          </div>
+
           <div className="w-10" />
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Topic card */}
-        <div className="p-3">
-          <div className="bg-white rounded-xl border p-3" style={{ borderColor: EKARI.hair }}>
-            <div className="flex items-center gap-2">
-              <IoChatbubblesOutline size={18} color={EKARI.forest} />
-              <div className="font-extrabold text-[16px] leading-[22px]" style={{ color: EKARI.text }}>
-                {disc.title}
-              </div>
-            </div>
-            {!!disc.body && (
-              <div className="mt-2" style={{ color: EKARI.text }}>
-                {disc.body}
-              </div>
-            )}
+  const TopicCard = (
+    <div className={clsx(isDesktop ? "px-4 pt-3 max-w-[1180px] mx-auto" : "px-3 pt-3")}>
+      <div className="bg-white rounded-2xl border p-3" style={{ borderColor: EKARI.hair }}>
+        <div className="flex items-center gap-2">
+          <IoChatbubblesOutline size={18} color={EKARI.forest} />
+          <div className="font-extrabold text-[16px] leading-[22px]" style={{ color: EKARI.text }}>
+            {disc?.title}
           </div>
         </div>
-
-        {/* Threads */}
-        <div className="pb-36">
-          {topLevel.map((parent) => (
-            <Thread key={parent.id} parent={parent} />
-          ))}
-
-          <div className="px-3 py-3">
-            {hasMore ? (
-              <button
-                onClick={loadMore}
-                className="w-full h-10 rounded-lg border text-sm font-bold"
-                style={{ borderColor: EKARI.hair, color: EKARI.text, backgroundColor: "#F8FAFC", opacity: paging ? 0.7 : 1 }}
-                disabled={paging}
-              >
-                {paging ? "Loading…" : "Load more"}
-              </button>
-            ) : (
-              <div className="text-center text-xs text-gray-400">No more answers</div>
-            )}
+        {!!disc?.body && (
+          <div className="mt-2 text-[14px] leading-5" style={{ color: EKARI.text }}>
+            {disc.body}
           </div>
-        </div>
+        )}
+      </div>
+    </div>
+  );
 
-        {/* Composer (fixed bottom) */}
-        <div
-          className={[
-            "fixed bottom-0 right-0 bg-white border-t px-3 pt-2",
-            // mobile: full width
-            "left-0",
-            // desktop+: leave space for the left rail (adjust widths to your rail)
-
-            // keep it above page content but below any global nav if you have one
-            "z-30",
-          ].join(" ")}
-          style={{
-            borderColor: EKARI.hair,
-            // nice on iOS notches
-            paddingBottom: "max(12px, env(safe-area-inset-bottom))",
-          }}
-        >
-          {replyTarget && (
-            <div className="mx-1 mb-2 rounded-full px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: "#F3F4F6" }}>
-              <span className="text-xs font-bold" style={{ color: EKARI.dim }}>
-                Commenting to {replyTarget.replyToHandle ? replyTarget.replyToHandle : "comment"}
-              </span>
-              <button onClick={() => setReplyTarget(null)} className="ml-auto p-1" title="Clear">
-                <IoClose size={14} color={EKARI.dim} />
-              </button>
-            </div>
-          )}
-
-          <div className="flex items-end gap-2">
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Write an answer…"
-              className="flex-1 min-h-[44px] max-h-[160px] rounded-xl border px-3 py-2 outline-none"
-              style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            />
-            <button
-              onClick={postReply}
-              disabled={!text.trim() || posting}
-              className="h-11 w-11 rounded-full flex items-center justify-center text-white"
-              style={{ backgroundColor: EKARI.gold, opacity: !text.trim() || posting ? 0.6 : 1 }}
-              title="Send"
-            >
-              {posting ? <span className="text-xs">…</span> : <IoSend size={18} color="#fff" />}
+  const Composer = (
+    <div
+      className="fixed bottom-0 z-30 border-t bg-white"
+      style={{
+        borderColor: EKARI.hair,
+        paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+        ...(isDesktop
+          ? ({
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "min(1180px, calc(100vw - 32px))",
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+          } as React.CSSProperties)
+          : ({ left: 0, right: 0 } as React.CSSProperties)),
+      }}
+    >
+      <div className={clsx(isDesktop ? "px-4 pt-2" : "px-3 pt-2")}>
+        {replyTarget && (
+          <div className="mb-2 rounded-full px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: "#F3F4F6" }}>
+            <span className="text-xs font-bold" style={{ color: EKARI.dim }}>
+              Commenting to {replyTarget.replyToHandle ? replyTarget.replyToHandle : "comment"}
+            </span>
+            <button onClick={() => setReplyTarget(null)} className="ml-auto p-1" title="Clear">
+              <IoClose size={14} color={EKARI.dim} />
             </button>
           </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Write an answer…"
+            className="flex-1 min-h-[44px] max-h-[160px] rounded-xl border px-3 py-2 outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, color: EKARI.text, ...ringStyle }}
+          />
+          <button
+            onClick={postReply}
+            disabled={!text.trim() || posting}
+            className="h-11 w-11 rounded-full flex items-center justify-center text-white"
+            style={{ backgroundColor: EKARI.gold, opacity: !text.trim() || posting ? 0.6 : 1 }}
+            title="Send"
+            aria-label="Send"
+          >
+            {posting ? <span className="text-xs">…</span> : <IoSend size={18} color="#fff" />}
+          </button>
         </div>
+      </div>
+    </div>
+  );
+
+  const Content = (
+    <>
+      {!disc ? (
+        <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
+          Discussion not found
+        </div>
+      ) : (
+        <>
+          {TopicCard}
+
+          {/* Thread list */}
+          <div className={clsx(isDesktop ? "max-w-[1180px] mx-auto" : "")}>
+            <div
+              style={{
+                paddingBottom: "calc(170px + env(safe-area-inset-bottom))",
+              }}
+            >
+              {topLevel.map((parent) => (
+                <Thread key={parent.id} parent={parent} />
+              ))}
+
+              <div className={clsx(isDesktop ? "px-4 py-4" : "px-3 py-3")}>
+                {hasMore ? (
+                  <button
+                    onClick={loadMore}
+                    className="w-full h-10 rounded-lg border text-sm font-bold"
+                    style={{
+                      borderColor: EKARI.hair,
+                      color: EKARI.text,
+                      backgroundColor: "#F8FAFC",
+                      opacity: paging ? 0.7 : 1,
+                    }}
+                    disabled={paging}
+                  >
+                    {paging ? "Loading…" : "Load more"}
+                  </button>
+                ) : (
+                  <div className="text-center text-xs" style={{ color: "#94A3B8" }}>
+                    No more answers
+                  </div>
+                )}
+              </div>
+
+              {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+            </div>
+          </div>
+
+          {Composer}
+        </>
+      )}
+    </>
+  );
+
+  if (initialLoading) {
+    return (<>{isMobile ? (
+
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+        <BouncingBallLoader />
+      </div>
+
+    ) : (<AppShell>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+        <BouncingBallLoader />
+      </div>
+    </AppShell>)}
+
+    </>);
+  }
+
+  // MOBILE: fixed inset like /bonga, NO bottom tabs, just header + content + composer
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        <div className="flex-1 overflow-y-auto overscroll-contain">{Content}</div>
+      </div>
+    );
+  }
+
+  // DESKTOP: AppShell + max width container like /bonga desktop
+  return (
+    <AppShell>
+      <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        {Content}
       </div>
     </AppShell>
   );

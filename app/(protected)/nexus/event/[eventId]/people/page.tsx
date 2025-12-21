@@ -1,3 +1,4 @@
+// app/nexus/event/[eventId]/people/page.tsx (adjust route as needed)
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -19,7 +20,6 @@ import {
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import {
-  IoArrowBack,
   IoDownloadOutline,
   IoPeopleOutline,
   IoSearch,
@@ -27,8 +27,10 @@ import {
   IoTrashOutline,
   IoChatbubbleOutline,
 } from "react-icons/io5";
+import { ArrowLeft } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import clsx from "clsx";
 
 export const dynamic = "force-dynamic";
 
@@ -45,12 +47,47 @@ const EKARI = {
   text: "#0F172A",
   dim: "#6B7280",
   hair: "#E5E7EB",
+  sub: "#5C6B66",
 };
+
+/* ---------------- responsive helpers ---------------- */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
 
 export default function PeopleGoingPage() {
   const router = useRouter();
   const params = useParams() as Record<string, string | string[]>;
-  const eventId = Array.isArray(params?.eventId) ? params.eventId[0] : (params?.eventId as string | undefined);
+
+  const eventIdRaw =
+    (params?.eventId as any) ?? (params?.eventid as any) ?? (params?.eventID as any);
+  const eventId = Array.isArray(eventIdRaw) ? eventIdRaw[0] : (eventIdRaw as string | undefined);
+
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
+
+  const ringStyle: React.CSSProperties = {
+    ["--tw-ring-color" as any]: EKARI.forest,
+  };
+
+  const goBack = useCallback(() => {
+    if (window.history.length > 1) router.back();
+    else router.push("/nexus");
+  }, [router]);
 
   const auth = getAuth();
   const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
@@ -73,7 +110,12 @@ export default function PeopleGoingPage() {
 
   // mount guard
   const mountedRef = useRef(true);
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // auth listener
   useEffect(() => {
@@ -119,7 +161,12 @@ export default function PeopleGoingPage() {
 
   const fetchPage = useCallback(
     async (first: boolean) => {
-      if (!eventId) { setRows([]); setHasMore(false); setLoading(false); return; }
+      if (!eventId) {
+        setRows([]);
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
       if (paging) return;
 
       if (first) {
@@ -135,6 +182,7 @@ export default function PeopleGoingPage() {
         const qRef = cursorRef.current
           ? query(base, orderBy("createdAt", "desc"), startAfter(cursorRef.current), limit(PAGE_SIZE))
           : query(base, orderBy("createdAt", "desc"), limit(PAGE_SIZE));
+
         const snap = await getDocs(qRef);
 
         if (!snap.empty) {
@@ -142,6 +190,7 @@ export default function PeopleGoingPage() {
 
           const docs = snap.docs;
           const chunk: Row[] = [];
+
           const MAX_CONCURRENCY = 10;
           let i = 0;
           await Promise.all(
@@ -179,14 +228,18 @@ export default function PeopleGoingPage() {
     [eventId, paging]
   );
 
-  useEffect(() => { fetchPage(true); }, [eventId]);
+  useEffect(() => {
+    fetchPage(true);
+  }, [eventId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // search + sort (You first, then Organizer, then A→Z)
   const filteredSorted = useMemo(() => {
     const q = qText.trim().toLowerCase();
     const arr = (q
-      ? rows.filter((r) =>
-        r.name.toLowerCase().includes(q) || (r.handle || "").toLowerCase().includes(q)
+      ? rows.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          (r.handle || "").toLowerCase().includes(q)
       )
       : rows
     ).slice();
@@ -195,10 +248,9 @@ export default function PeopleGoingPage() {
     const org = organizerId;
 
     arr.sort((a, b) => {
-      const rank = (r: Row) =>
-        r.userId === me ? 0 :
-          r.userId === org ? 1 : 2;
-      const ra = rank(a), rb = rank(b);
+      const rank = (r: Row) => (r.userId === me ? 0 : r.userId === org ? 1 : 2);
+      const ra = rank(a),
+        rb = rank(b);
       if (ra !== rb) return ra - rb;
       return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
@@ -228,7 +280,10 @@ export default function PeopleGoingPage() {
   const threadIdFor = (a: string, b: string) => [a, b].sort().join("_");
   const openDM = useCallback(
     async (peerId: string) => {
-      if (!peerId || !uid) { router.push("/login"); return; }
+      if (!peerId || !uid) {
+        router.push("/login");
+        return;
+      }
       try {
         const tid = threadIdFor(uid, peerId);
         const tRef = doc(db, "threads", tid);
@@ -247,7 +302,7 @@ export default function PeopleGoingPage() {
         alert("Couldn't open chat. Please try again.");
       }
     },
-    [db, router, uid]
+    [router, uid]
   );
 
   // export CSV
@@ -256,11 +311,13 @@ export default function PeopleGoingPage() {
     try {
       const all: Row[] = [];
       let cursor: any | null = null;
+
       for (; ;) {
         const base = collection(db, "events", eventId, "rsvps");
         const qRef = cursor
           ? query(base, orderBy("createdAt", "desc"), startAfter(cursor), limit(EXPORT_PAGE_SIZE))
           : query(base, orderBy("createdAt", "desc"), limit(EXPORT_PAGE_SIZE));
+
         const s = await getDocs(qRef);
         if (s.empty) break;
         cursor = s.docs[s.docs.length - 1];
@@ -269,6 +326,7 @@ export default function PeopleGoingPage() {
         const pageChunk: Row[] = [];
         let i = 0;
         const MAX = 12;
+
         await Promise.all(
           Array.from({ length: Math.min(MAX, docs.length) }).map(async () => {
             while (i < docs.length) {
@@ -283,6 +341,7 @@ export default function PeopleGoingPage() {
             }
           })
         );
+
         all.push(...pageChunk);
         if (s.size < EXPORT_PAGE_SIZE) break;
       }
@@ -308,46 +367,51 @@ export default function PeopleGoingPage() {
     }
   }, [eventId]);
 
-  return (
-    <AppShell>
-      <div className="min-h-screen w-full bg-white">
-        {/* Header */}
-        <div className="h-12 border-b border-gray-200 px-3 flex items-center justify-between sticky top-0 bg-white z-10">
+  /* ---------------- Header like /bonga ---------------- */
+  const Header = (
+    <div
+      className={clsx("border-b sticky top-0 z-50 backdrop-blur")}
+      style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+    >
+      <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")}>
+        <div className="h-full flex items-center justify-between gap-2">
           <button
-            onClick={() => router.back()}
-            className="h-10 w-10 rounded-full flex items-center justify-center border border-gray-200"
-            aria-label="Back"
-            title="Back"
+            onClick={goBack}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            aria-label="Go back"
           >
-            <IoArrowBack size={18} color={EKARI.text} />
+            <ArrowLeft size={18} style={{ color: EKARI.text }} />
           </button>
 
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="truncate text-[16px] sm:text-[18px] font-black" style={{ color: EKARI.text }}>
-              People going{eventTitle ? ` • ${eventTitle}` : ""}
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
+              People going
             </div>
-            <span
-              className="shrink-0 inline-flex items-center justify-center h-6 px-2 rounded-full text-xs font-bold"
-              style={{ backgroundColor: "#F3F4F6", color: EKARI.text, border: `1px solid ${EKARI.hair}` }}
-              title="Total RSVPs"
-            >
-              {totalCount}
-            </span>
+            <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
+              {eventTitle ? eventTitle : "Event attendees"}
+            </div>
           </div>
 
           <button
             onClick={exportCsv}
-            className="h-10 w-10 rounded-lg flex items-center justify-center border"
-            style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
             title="Export CSV"
+            aria-label="Export CSV"
           >
-            <IoDownloadOutline size={18} color={EKARI.text} />
+            <IoDownloadOutline size={18} style={{ color: EKARI.text }} />
           </button>
         </div>
+      </div>
 
-        {/* Search */}
-        <div className="px-3 pt-3">
-          <div className="h-10 rounded-full border bg-gray-50 flex items-center gap-2 px-3" style={{ borderColor: "#E5E7EB" }}>
+      {/* Search row (like bonga filters area) */}
+      <div className={clsx(isDesktop ? "px-4 pb-3 max-w-[1180px] mx-auto" : "px-3 pb-3")}>
+        <div className="flex items-center gap-2">
+          <div
+            className="flex-1 h-10 rounded-xl border bg-white flex items-center gap-2 px-3 focus-within:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+          >
             <IoSearch size={16} color={EKARI.dim} />
             <input
               value={qText}
@@ -355,6 +419,7 @@ export default function PeopleGoingPage() {
               placeholder="Search attendees…"
               className="flex-1 bg-transparent outline-none text-sm"
               style={{ color: EKARI.text }}
+              aria-label="Search attendees"
             />
             {!!qText && (
               <button onClick={() => setQText("")} className="p-1" title="Clear">
@@ -362,108 +427,163 @@ export default function PeopleGoingPage() {
               </button>
             )}
           </div>
+
+          <span
+            className="shrink-0 inline-flex items-center justify-center h-10 px-3 rounded-xl text-sm font-extrabold border"
+            style={{ backgroundColor: "#F8FAFC", color: EKARI.text, borderColor: EKARI.hair }}
+            title="Total RSVPs"
+          >
+            {totalCount}
+          </span>
         </div>
+      </div>
+    </div>
+  );
 
-        {/* List */}
-        <div className="pt-2">
-          {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <BouncingBallLoader />
-            </div>
-          ) : filteredSorted.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-              <IoPeopleOutline size={36} />
-              <div className="mt-2">No RSVPs yet</div>
-            </div>
-          ) : (
-            <>
-              <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
-                {filteredSorted.map((item) => {
-                  const isSelf = item.userId === uid;
-                  const isOrg = item.userId === organizerId;
+  const Content = (
+    <div className={clsx(isDesktop ? "max-w-[1180px] mx-auto" : "")}>
+      <div style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}>
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <BouncingBallLoader />
+          </div>
+        ) : filteredSorted.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16" style={{ color: EKARI.dim }}>
+            <IoPeopleOutline size={36} />
+            <div className="mt-2">No RSVPs yet</div>
+          </div>
+        ) : (
+          <>
+            <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
+              {filteredSorted.map((item) => {
+                const isSelf = item.userId === uid;
+                const isOrg = item.userId === organizerId;
 
-                  return (
-                    <li key={item.userId} className="flex items-center gap-3 px-3 py-2.5">
-                      <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-100">
-                        <Image
-                          src={item.photoURL || "/avatar-placeholder.png"}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                          sizes="40px"
-                        />
-                      </div>
+                return (
+                  <li
+                    key={item.userId}
+                    className={clsx("flex items-center gap-3", isDesktop ? "px-4 py-3" : "px-3 py-2.5")}
+                  >
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-100 shrink-0">
+                      <Image
+                        src={item.photoURL || "/avatar-placeholder.png"}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="font-extrabold leading-5 truncate" style={{ color: EKARI.text }}>
-                            {item.name}
-                          </div>
-                          {isSelf && (
-                            <span className="text-[10px] font-bold px-2 py-[2px] rounded-full border"
-                              style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#F3F4F6" }}>
-                              You
-                            </span>
-                          )}
-                          {isOrg && (
-                            <span className="text-[10px] font-bold px-2 py-[2px] rounded-full"
-                              style={{ background: EKARI.forest, color: "#fff" }}>
-                              Organizer
-                            </span>
-                          )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="font-extrabold leading-5 truncate" style={{ color: EKARI.text }}>
+                          {item.name}
                         </div>
-                        {!!item.handle && (
-                          <div className="text-xs font-semibold text-gray-500 truncate">@{item.handle.replace(/^@/, "")}</div>
+
+                        {isSelf && (
+                          <span
+                            className="text-[10px] font-bold px-2 py-[2px] rounded-full border shrink-0"
+                            style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#F3F4F6" }}
+                          >
+                            You
+                          </span>
+                        )}
+
+                        {isOrg && (
+                          <span
+                            className="text-[10px] font-bold px-2 py-[2px] rounded-full shrink-0"
+                            style={{ background: EKARI.forest, color: "#fff" }}
+                          >
+                            Organizer
+                          </span>
                         )}
                       </div>
 
-                      {/* Message attendee */}
+                      {!!item.handle && (
+                        <div className="text-xs font-semibold truncate" style={{ color: EKARI.dim }}>
+                          @{item.handle.replace(/^@/, "")}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
                       {!isSelf && (
                         <button
                           onClick={() => openDM(item.userId)}
-                          className="h-9 px-3 rounded-md border flex items-center gap-1.5 hover:bg-gray-50"
-                          style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                          className="h-9 px-3 rounded-xl border flex items-center gap-1.5 hover:bg-black/5 focus:outline-none focus:ring-2"
+                          style={{ borderColor: EKARI.hair, color: EKARI.text, ...ringStyle }}
                           title="Message attendee"
                         >
                           <IoChatbubbleOutline size={16} />
-                          <span className="text-xs font-bold">Message</span>
+                          <span className="text-xs font-bold hidden sm:inline">Message</span>
                         </button>
                       )}
 
-                      {/* Remove (organizer only; cannot remove organizer or yourself) */}
                       {isOrganizer && !isSelf && !isOrg && (
                         <button
-                          onClick={() => { if (confirm(`Remove ${item.name} from RSVPs?`)) removeRsvp(item.userId); }}
-                          className="h-9 w-9 rounded-md border flex items-center justify-center hover:bg-gray-50"
-                          style={{ borderColor: EKARI.hair }}
+                          onClick={() => {
+                            if (confirm(`Remove ${item.name} from RSVPs?`)) removeRsvp(item.userId);
+                          }}
+                          className="h-9 w-9 rounded-xl border flex items-center justify-center hover:bg-black/5 focus:outline-none focus:ring-2"
+                          style={{ borderColor: EKARI.hair, ...ringStyle }}
                           title="Remove from RSVPs"
                         >
                           <IoTrashOutline size={16} color={EKARI.dim} />
                         </button>
                       )}
-                    </li>
-                  );
-                })}
-              </ul>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
 
-              {/* Paging */}
-              <div className="px-3 py-4">
-                {hasMore ? (
-                  <button
-                    onClick={() => fetchPage(false)}
-                    className="w-full h-10 rounded-lg border text-sm font-bold"
-                    style={{ borderColor: EKARI.hair, color: EKARI.text, backgroundColor: "#F8FAFC", opacity: paging ? 0.7 : 1 }}
-                    disabled={paging}
-                  >
-                    {paging ? "Loading…" : "Load more"}
-                  </button>
-                ) : (
-                  <div className="text-center text-xs text-gray-400">No more attendees</div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+            {/* Paging */}
+            <div className={clsx(isDesktop ? "px-4 py-6" : "px-3 py-4")}>
+              {hasMore ? (
+                <button
+                  onClick={() => fetchPage(false)}
+                  className="w-full h-10 rounded-lg border text-sm font-bold"
+                  style={{
+                    borderColor: EKARI.hair,
+                    color: EKARI.text,
+                    backgroundColor: "#F8FAFC",
+                    opacity: paging ? 0.7 : 1,
+                  }}
+                  disabled={paging}
+                >
+                  {paging ? "Loading…" : "Load more"}
+                </button>
+              ) : (
+                <div className="text-center text-xs" style={{ color: "#94A3B8" }}>
+                  No more attendees
+                </div>
+              )}
+            </div>
+
+            {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  // MOBILE: fixed inset, NO bottom tabs
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        <div className="flex-1 overflow-y-auto overscroll-contain">{Content}</div>
+      </div>
+    );
+  }
+
+  // DESKTOP: AppShell + max width like /bonga desktop
+  return (
+    <AppShell>
+      <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        {Content}
       </div>
     </AppShell>
   );

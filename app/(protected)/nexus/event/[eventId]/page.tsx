@@ -1,3 +1,4 @@
+// app/nexus/event/[eventId]/page.tsx  (adjust path as needed)
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -15,7 +16,6 @@ import {
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import {
-  IoArrowBack,
   IoCalendarOutline,
   IoLocationOutline,
   IoCashOutline,
@@ -28,12 +28,14 @@ import {
   IoCalendar,
   IoCheckmarkCircle,
 } from "react-icons/io5";
+import { ArrowLeft } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import clsx from "clsx";
 
 export const dynamic = "force-dynamic";
 
-/* 👇 NEW: currency type */
+/* currency type */
 type CurrencyCode = "KES" | "USD";
 
 type EventItem = {
@@ -42,7 +44,7 @@ type EventItem = {
   location?: string;
   dateISO?: string;
   price?: number;
-  currency?: CurrencyCode; // 👈 NEW: stored from create form
+  currency?: CurrencyCode;
   tags?: string[];
   category?: string;
   coverUrl?: string;
@@ -60,12 +62,11 @@ const EKARI = {
   text: "#0F172A",
   dim: "#6B7280",
   hair: "#E5E7EB",
+  sub: "#5C6B66",
 };
 
-/* 👇 UPDATED: formatMoney now respects currency */
 const formatMoney = (n?: number, currency?: CurrencyCode) => {
   if (typeof n !== "number") return "";
-
   const cur: CurrencyCode = currency === "USD" || currency === "KES" ? currency : "KES";
 
   if (cur === "USD") {
@@ -76,7 +77,6 @@ const formatMoney = (n?: number, currency?: CurrencyCode) => {
     }).format(n);
   }
 
-  // Default KES
   return new Intl.NumberFormat("en-KE", {
     style: "currency",
     currency: "KES",
@@ -84,12 +84,48 @@ const formatMoney = (n?: number, currency?: CurrencyCode) => {
   }).format(n);
 };
 
+/* ---------------- responsive helpers ---------------- */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
+
 export default function EventDetailsPage() {
   const router = useRouter();
   const params = useParams() as Record<string, string | string[]>;
-  const eventId = Array.isArray(params?.eventId)
-    ? params.eventId[0]
-    : (params?.eventId as string | undefined);
+
+  // support multiple param casings
+  const eventIdRaw =
+    (params?.eventId as any) ?? (params?.eventid as any) ?? (params?.eventID as any);
+
+  const eventId = Array.isArray(eventIdRaw)
+    ? eventIdRaw[0]
+    : (eventIdRaw as string | undefined);
+
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
+
+  const ringStyle: React.CSSProperties = {
+    ["--tw-ring-color" as any]: EKARI.forest,
+  };
+
+  const goBack = useCallback(() => {
+    if (window.history.length > 1) router.back();
+    else router.push("/nexus");
+  }, [router]);
 
   const auth = getAuth();
   const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
@@ -135,8 +171,7 @@ export default function EventDetailsPage() {
     })();
   }, [uid]);
 
-  // Event + counts (supports stats/counts + top-level rsvps)
-  // Event + counts (always prefer counts.* first)
+  // Event + counts (prefer counts.* first)
   useEffect(() => {
     if (!eventId) {
       setLoadingEv(false);
@@ -161,7 +196,7 @@ export default function EventDetailsPage() {
           likes: pickNum(data?.counts?.likes, data?.stats?.likes, data?.likes),
           saves: pickNum(data?.counts?.saves, data?.stats?.saves, data?.saves),
           shares: pickNum(data?.counts?.shares, data?.stats?.shares, data?.shares),
-          rsvps: pickNum(data?.counts?.rsvps, data?.stats?.rsvps, data?.rsvps), // ✅ THIS fixes “0 going”
+          rsvps: pickNum(data?.counts?.rsvps, data?.stats?.rsvps, data?.rsvps),
         });
 
         setEv(exists ? { id: snap.id, ...(data as any) } : null);
@@ -176,7 +211,6 @@ export default function EventDetailsPage() {
 
     return unsub;
   }, [eventId]);
-
 
   // RSVPs avatars
   useEffect(() => {
@@ -252,7 +286,7 @@ export default function EventDetailsPage() {
 
   const shareEvent = useCallback(async () => {
     if (!ev) return;
-    const message = `${ev.title} • ${ev.location || ""} ${ev.dateISO ? "• " + new Date(ev.dateISO).toLocaleString() : ""
+    const message = `${ev.title} • ${ev.location || ""}${ev.dateISO ? " • " + new Date(ev.dateISO).toLocaleString() : ""
       }`;
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
@@ -263,15 +297,12 @@ export default function EventDetailsPage() {
         alert("Link copied to clipboard");
       }
       if (uid && eventId) {
-        await setDoc(
-          doc(db, "eventShares", `${eventId}_${uid}_${Date.now()}`),
-          {
-            eventId,
-            userId: uid,
-            photoURL: me?.photoURL ?? null,
-            createdAt: serverTimestamp(),
-          }
-        );
+        await setDoc(doc(db, "eventShares", `${eventId}_${uid}_${Date.now()}`), {
+          eventId,
+          userId: uid,
+          photoURL: me?.photoURL ?? null,
+          createdAt: serverTimestamp(),
+        });
       }
     } catch {
       /* ignore */
@@ -290,43 +321,59 @@ export default function EventDetailsPage() {
   }, [ev?.registrationUrl]);
 
   const toMaps = (q?: string) =>
-    q
-      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
-      : "#";
+    q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "#";
+
   const organizerId = (ev as any)?.organizerId || null;
   const isOrganizer = !!uid && !!organizerId && uid === organizerId;
-  return (
-    <AppShell>
-      <div className="min-h-screen w-full bg-white">
-        {/* Header */}
-        <div className="h-12 border-b border-gray-200 px-3 flex items-center justify-between sticky top-0 bg-white z-10">
+
+  /* ---------------- Header like discussion/bonga ---------------- */
+  const Header = (
+    <div
+      className={clsx("border-b sticky top-0 z-50 backdrop-blur")}
+      style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+    >
+      <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")}>
+        <div className="h-full flex items-center justify-between gap-2">
           <button
-            onClick={() => router.back()}
-            className="h-10 w-10 rounded-full flex items-center justify-center border border-gray-200"
-            aria-label="Back"
-            title="Back"
+            onClick={goBack}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            aria-label="Go back"
           >
-            <IoArrowBack size={18} color={EKARI.text} />
+            <ArrowLeft size={18} style={{ color: EKARI.text }} />
           </button>
-          <div className="text-[18px] font-black" style={{ color: EKARI.text }}>
-            Event
+
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
+              Event
+            </div>
+            <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
+              {ev?.title ?? ""}
+            </div>
           </div>
+
           <div className="w-10" />
         </div>
+      </div>
+    </div>
+  );
 
-        {/* Body */}
-        {loadingEv ? (
-          <div className="flex items-center justify-center py-24">
-            <BouncingBallLoader />
-          </div>
-        ) : !ev ? (
-          <div className="flex items-center justify-center py-24">
-            <div className="text-gray-500">Event not found.</div>
-          </div>
-        ) : (
-          <>
-            {/* HERO / COVER */}
-            <div className="relative w-full overflow-hidden rounded-none md:rounded-b-2xl">
+  /* ---------------- Content ---------------- */
+  const Content = (
+    <div className={clsx(isDesktop ? "max-w-[1180px] mx-auto" : "")}>
+      {loadingEv ? (
+        <div className="flex items-center justify-center py-24" style={{ color: EKARI.dim }}>
+          <BouncingBallLoader />
+        </div>
+      ) : !ev ? (
+        <div className="flex items-center justify-center py-24">
+          <div className="text-gray-500">Event not found.</div>
+        </div>
+      ) : (
+        <>
+          {/* HERO / COVER */}
+          <div className={clsx(isDesktop ? "px-4 pt-4" : "")}>
+            <div className="relative w-full overflow-hidden rounded-none md:rounded-2xl">
               <div className="relative w-full aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9]">
                 <Image
                   src={ev.coverUrl || "/placeholder-wide.jpg"}
@@ -339,267 +386,232 @@ export default function EventDetailsPage() {
                 <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-black/10" />
               </div>
             </div>
+          </div>
 
-            {/* CARD */}
-            <div className="mx-auto w-full max-w-4xl px-3">
-              <div className="relative -mt-6 md:-mt-10 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
-                {/* Title & Category */}
-                <div className="p-4 sm:p-6">
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    {ev.category && (
-                      <span
-                        className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold text-white"
-                        style={{ backgroundColor: EKARI.forest }}
-                      >
-                        {ev.category}
-                      </span>
-                    )}
-                    {ev.tags?.slice(0, 3).map((t) => (
-                      <span
-                        key={t}
-                        className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold border"
-                        style={{
-                          color: EKARI.text,
-                          borderColor: EKARI.hair,
-                          backgroundColor: "#F9FAFB",
-                        }}
-                      >
-                        #{t}
-                      </span>
-                    ))}
-                    {ev.tags && ev.tags.length > 3 && (
-                      <span className="text-[11px] font-semibold text-gray-500">
-                        +{ev.tags.length - 3} more
-                      </span>
-                    )}
-                  </div>
-
-                  <h1
-                    className="text-2xl sm:text-3xl font-black tracking-tight"
-                    style={{ color: EKARI.text }}
-                  >
-                    {ev.title}
-                  </h1>
-
-                  {/* Meta grid */}
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {!!ev.dateISO && (
-                      <div
-                        className="flex items-center gap-2 rounded-xl border px-3 py-2"
-                        style={{ borderColor: EKARI.hair }}
-                      >
-                        <IoCalendarOutline size={18} color={EKARI.dim} />
-                        <div
-                          className="text-sm font-semibold"
-                          style={{ color: EKARI.text }}
-                        >
-                          {new Date(ev.dateISO).toLocaleString()}
-                        </div>
-                      </div>
-                    )}
-                    {!!ev.location && (
-                      <a
-                        href={toMaps(ev.location)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 rounded-xl border px-3 py-2 hover:bg-gray-50 transition"
-                        style={{ borderColor: EKARI.hair }}
-                        title="Open in Google Maps"
-                      >
-                        <IoLocationOutline size={18} color={EKARI.dim} />
-                        <div
-                          className="text-sm font-semibold"
-                          style={{ color: EKARI.text }}
-                        >
-                          {ev.location}
-                        </div>
-                      </a>
-                    )}
-                    {typeof ev.price === "number" && (
-                      <div
-                        className="flex items-center gap-2 rounded-xl border px-3 py-2"
-                        style={{ borderColor: EKARI.hair }}
-                      >
-                        <IoCashOutline size={18} color={EKARI.dim} />
-                        <div
-                          className="text-sm font-semibold"
-                          style={{ color: EKARI.text }}
-                        >
-                          {/* 👇 NOW RESPECTS SAVED CURRENCY */}
-                          {formatMoney(ev.price, ev.currency)}
-                        </div>
-                      </div>
-                    )}
-                    <div
-                      className="flex items-center gap-2 rounded-xl border px-3 py-2"
-                      style={{ borderColor: EKARI.hair }}
+          {/* CARD */}
+          <div className={clsx(isDesktop ? "px-4 pb-8" : "px-3 pb-8")} style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+            <div className={clsx(isDesktop ? "mt-4" : "relative -mt-6", "rounded-2xl bg-white shadow-sm ring-1 ring-gray-100")}>
+              {/* Title & Category */}
+              <div className="p-4 sm:p-6">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  {ev.category && (
+                    <span
+                      className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold text-white"
+                      style={{ backgroundColor: EKARI.forest }}
                     >
-                      <div className="flex -space-x-2">
-                        {rsvps.slice(0, 6).map((u) => (
-                          <div
-                            key={u.userId}
-                            className="relative w-7 h-7 rounded-full border-2 border-white overflow-hidden"
-                          >
-                            <Image
-                              src={u.photoURL || "/avatar-placeholder.png"}
-                              alt="avatar"
-                              fill
-                              className="object-cover"
-                              sizes="28px"
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      <div
-                        className="text-sm font-semibold"
-                        style={{ color: EKARI.text }}
-                      >
-                        {counts.rsvps || 0} going
-                      </div>
-                      {isOrganizer && (
-                        <button
-                          onClick={() => router.push(`/nexus/event/${eventId}/people`)}
-                          className="ml-auto text-xs font-extrabold px-3 py-1.5 rounded-full border hover:bg-gray-50"
-                          style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                        >
-                          See all
-                        </button>
-                      )}
-
-                    </div>
-                  </div>
+                      {ev.category}
+                    </span>
+                  )}
+                  {ev.tags?.slice(0, 3).map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold border"
+                      style={{
+                        color: EKARI.text,
+                        borderColor: EKARI.hair,
+                        backgroundColor: "#F9FAFB",
+                      }}
+                    >
+                      #{t}
+                    </span>
+                  ))}
+                  {ev.tags && ev.tags.length > 3 && (
+                    <span className="text-[11px] font-semibold text-gray-500">
+                      +{ev.tags.length - 3} more
+                    </span>
+                  )}
                 </div>
 
-                {/* Separator */}
-                <div className="h-px w-full bg-gray-100" />
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: EKARI.text }}>
+                  {ev.title}
+                </h1>
 
-                {/* Description */}
-                {ev.description && (
-                  <div className="p-4 sm:p-6">
-                    <h2
-                      className="text-base font-black mb-2"
-                      style={{ color: EKARI.text }}
+                {/* Meta grid */}
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {!!ev.dateISO && (
+                    <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                      <IoCalendarOutline size={18} color={EKARI.dim} />
+                      <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
+                        {new Date(ev.dateISO).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+
+                  {!!ev.location && (
+                    <a
+                      href={toMaps(ev.location)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 rounded-xl border px-3 py-2 hover:bg-gray-50 transition"
+                      style={{ borderColor: EKARI.hair }}
+                      title="Open in Google Maps"
                     >
-                      About this event
-                    </h2>
-                    <p
-                      className="leading-7 text-[15px]"
-                      style={{ color: EKARI.text }}
-                    >
-                      {ev.description}
-                    </p>
-                  </div>
-                )}
+                      <IoLocationOutline size={18} color={EKARI.dim} />
+                      <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
+                        {ev.location}
+                      </div>
+                    </a>
+                  )}
 
-                {/* Actions */}
-                <div className="p-4 sm:p-6 pt-2 sm:pt-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <div className="grid grid-cols-4 gap-2 sm:flex sm:gap-2 sm:flex-none">
-                      <button
-                        onClick={toggleLike}
-                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
-                        style={{
-                          borderColor: "#E5E7EB",
-                          backgroundColor: "#F8FAFC",
-                        }}
-                      >
-                        {liked ? (
-                          <IoHeart size={18} color="#DC2626" />
-                        ) : (
-                          <IoHeartOutline size={18} color={EKARI.text} />
-                        )}
-                        <span
-                          className="font-extrabold text-sm"
-                          style={{ color: EKARI.text }}
-                        >
-                          {counts.likes || 0}
-                        </span>
-                      </button>
+                  {typeof ev.price === "number" && (
+                    <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                      <IoCashOutline size={18} color={EKARI.dim} />
+                      <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
+                        {formatMoney(ev.price, ev.currency)}
+                      </div>
+                    </div>
+                  )}
 
-                      <button
-                        onClick={toggleSave}
-                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
-                        style={{
-                          borderColor: "#E5E7EB",
-                          backgroundColor: "#F8FAFC",
-                        }}
-                      >
-                        {saved ? (
-                          <IoBookmark size={18} color={EKARI.forest} />
-                        ) : (
-                          <IoBookmarkOutline
-                            size={18}
-                            color={EKARI.text}
+                  <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                    <div className="flex -space-x-2">
+                      {rsvps.slice(0, 6).map((u) => (
+                        <div key={u.userId} className="relative w-7 h-7 rounded-full border-2 border-white overflow-hidden">
+                          <Image
+                            src={u.photoURL || "/avatar-placeholder.png"}
+                            alt="avatar"
+                            fill
+                            className="object-cover"
+                            sizes="28px"
                           />
-                        )}
-                        <span
-                          className="font-extrabold text-sm"
-                          style={{ color: EKARI.text }}
-                        >
-                          {counts.saves || 0}
-                        </span>
-                      </button>
-
-                      <button
-                        onClick={shareEvent}
-                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
-                        style={{
-                          borderColor: "#E5E7EB",
-                          backgroundColor: "#F8FAFC",
-                        }}
-                      >
-                        <IoShareSocialOutline
-                          size={18}
-                          color={EKARI.text}
-                        />
-                        <span
-                          className="font-extrabold text-sm"
-                          style={{ color: EKARI.text }}
-                        >
-                          {counts.shares || 0}
-                        </span>
-                      </button>
-
-                      <button
-                        onClick={toggleRsvp}
-                        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-white"
-                        style={{
-                          backgroundColor: going
-                            ? EKARI.forest
-                            : EKARI.gold,
-                        }}
-                      >
-                        {going ? (
-                          <IoCheckmarkCircle size={18} color="#fff" />
-                        ) : (
-                          <IoCalendar size={18} color="#fff" />
-                        )}
-                        <span className="font-black text-sm">
-                          {going ? "Going" : "RSVP"}
-                        </span>
-                      </button>
+                        </div>
+                      ))}
                     </div>
 
-                    {!!ev.registrationUrl && !going && (
+                    <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
+                      {counts.rsvps || 0} going
+                    </div>
+
+                    {isOrganizer && (
                       <button
-                        onClick={onRegister}
-                        className="sm:ml-auto text-sm h-12 w-full sm:w-auto px-3 rounded-xl flex items-center justify-center gap-2 text-white font-black"
-                        style={{ backgroundColor: EKARI.gold }}
+                        onClick={() => router.push(`/nexus/event/${eventId}/people`)}
+                        className="ml-auto text-xs font-extrabold px-3 py-1.5 rounded-full border hover:bg-gray-50"
+                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
                       >
-                        <IoOpenOutline size={18} color="#fff" />
-                        Register
+                        See all
                       </button>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* subtle bottom space */}
-              <div className="h-10" />
+              <div className="h-px w-full bg-gray-100" />
+
+              {/* Description */}
+              {ev.description && (
+                <div className="p-4 sm:p-6">
+                  <h2 className="text-base font-black mb-2" style={{ color: EKARI.text }}>
+                    About this event
+                  </h2>
+                  <p className="leading-7 text-[15px]" style={{ color: EKARI.text }}>
+                    {ev.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="p-4 sm:p-6 pt-2 sm:pt-0">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="grid grid-cols-4 gap-2 sm:flex sm:gap-2 sm:flex-none">
+                    <button
+                      onClick={toggleLike}
+                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
+                      style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}
+                    >
+                      {liked ? <IoHeart size={18} color="#DC2626" /> : <IoHeartOutline size={18} color={EKARI.text} />}
+                      <span className="font-extrabold text-sm" style={{ color: EKARI.text }}>
+                        {counts.likes || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={toggleSave}
+                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
+                      style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}
+                    >
+                      {saved ? <IoBookmark size={18} color={EKARI.forest} /> : <IoBookmarkOutline size={18} color={EKARI.text} />}
+                      <span className="font-extrabold text-sm" style={{ color: EKARI.text }}>
+                        {counts.saves || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={shareEvent}
+                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
+                      style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}
+                    >
+                      <IoShareSocialOutline size={18} color={EKARI.text} />
+                      <span className="font-extrabold text-sm" style={{ color: EKARI.text }}>
+                        {counts.shares || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={toggleRsvp}
+                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-white"
+                      style={{ backgroundColor: going ? EKARI.forest : EKARI.gold }}
+                    >
+                      {going ? <IoCheckmarkCircle size={18} color="#fff" /> : <IoCalendar size={18} color="#fff" />}
+                      <span className="font-black text-sm">{going ? "Going" : "RSVP"}</span>
+                    </button>
+                  </div>
+
+                  {!!ev.registrationUrl && !going && (
+                    <button
+                      onClick={onRegister}
+                      className="sm:ml-auto text-sm h-12 w-full sm:w-auto px-3 rounded-xl flex items-center justify-center gap-2 text-white font-black"
+                      style={{ backgroundColor: EKARI.gold }}
+                    >
+                      <IoOpenOutline size={18} color="#fff" />
+                      Register
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </>
+
+            {/* bottom breathing room */}
+            <div className="h-10" />
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // Loading shell similar to discussion
+  if (loadingEv && !ev) {
+    return (
+      <>
+        {isMobile ? (
+          <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+            <BouncingBallLoader />
+          </div>
+        ) : (
+          <AppShell>
+            <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+              <BouncingBallLoader />
+            </div>
+          </AppShell>
         )}
+      </>
+    );
+  }
+
+  // MOBILE: fixed inset, NO bottom tabs
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        <div className="flex-1 overflow-y-auto overscroll-contain">{Content}</div>
+      </div>
+    );
+  }
+
+  // DESKTOP: AppShell + max width like bonga/discussion
+  return (
+    <AppShell>
+      <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        {Content}
       </div>
     </AppShell>
   );

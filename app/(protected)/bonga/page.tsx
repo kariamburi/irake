@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   collection,
@@ -16,7 +16,7 @@ import {
   startAfter,
   DocumentSnapshot,
 } from "firebase/firestore";
-import { IoChevronForward, IoSearchOutline } from "react-icons/io5";
+import { IoAdd, IoCartOutline, IoChatbubblesOutline, IoChevronForward, IoCloseCircle, IoCompassOutline, IoHomeOutline, IoInformationCircleOutline, IoMenu, IoNotificationsOutline, IoPersonCircleOutline, IoSearchOutline } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -24,6 +24,8 @@ import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SmartAvatar from "@/app/components/SmartAvatar";
 import clsx from "clsx";
+import { cn } from "@/lib/utils";
+import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 
 const EKARI = {
   forest: "#233F39",
@@ -132,7 +134,188 @@ function useIsDesktop() {
 function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
 }
+function useIsActivePath(href: string, alsoMatch: string[] = []) {
+  const pathname = usePathname() || "/";
+  const matches = [href, ...alsoMatch];
+  return matches.some(
+    (m) =>
+      pathname === m ||
+      (m !== "/" && pathname.startsWith(m + "/")) ||
+      (m === "/" && pathname === "/")
+  );
+}
 
+function badgeText(n?: number) {
+  if (!n || n <= 0) return "";
+  if (n > 999) return "999+";
+  if (n > 99) return "99+";
+  return String(n);
+}
+
+type MenuItem = {
+  key: string;
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  alsoMatch?: string[];
+  requiresAuth?: boolean;
+  badgeCount?: number;
+};
+
+function SideMenuSheet({
+  open,
+  onClose,
+  onNavigate,
+  items,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onNavigate: (href: string, requiresAuth?: boolean) => void;
+  items: MenuItem[];
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  return (
+    <div
+      className={cn("fixed inset-0 z-[120] transition", open ? "pointer-events-auto" : "pointer-events-none")}
+      aria-hidden={!open}
+    >
+      <div
+        className={cn(
+          "absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity",
+          open ? "opacity-100" : "opacity-0"
+        )}
+        onClick={onClose}
+      />
+
+      <div
+        className={cn(
+          "absolute left-0 top-0 h-full w-[86%] max-w-[340px]",
+          "bg-white shadow-2xl border-r",
+          "transition-transform duration-300 will-change-transform",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ borderColor: EKARI.hair }}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="h-[56px] px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
+          <div className="font-black" style={{ color: EKARI.text }}>
+            Menu
+          </div>
+          <button
+            onClick={onClose}
+            className="h-10 w-10 rounded-xl grid place-items-center border hover:bg-black/5"
+            style={{ borderColor: EKARI.hair }}
+            aria-label="Close menu"
+          >
+            <IoCloseCircle size={18} />
+          </button>
+        </div>
+
+        <nav className="p-2 overflow-y-auto h-[calc(100%-56px)]">
+          {items.map((it) => (
+            <MenuRow key={it.key} item={it} onNavigate={onNavigate} />
+          ))}
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+function MenuRow({
+  item,
+  onNavigate,
+}: {
+  item: MenuItem;
+  onNavigate: (href: string, requiresAuth?: boolean) => void;
+}) {
+  const active = useIsActivePath(item.href, item.alsoMatch);
+  const bt = badgeText(item.badgeCount);
+  const showBadge = !!bt;
+
+  return (
+    <button
+      onClick={() => onNavigate(item.href, item.requiresAuth)}
+      className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition", "hover:bg-black/5")}
+      style={{
+        color: EKARI.text,
+        backgroundColor: active ? "rgba(199,146,87,0.10)" : undefined,
+        border: active ? "1px solid rgba(199,146,87,0.35)" : "1px solid transparent",
+      }}
+    >
+      <span
+        className="relative h-10 w-10 rounded-xl grid place-items-center border bg-white"
+        style={{ borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair }}
+      >
+        <span style={{ color: active ? EKARI.gold : EKARI.forest }} className="text-[18px]">
+          {item.icon}
+        </span>
+
+        {showBadge && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[6px] rounded-full bg-red-600 text-white text-[11px] font-extrabold flex items-center justify-center shadow-sm">
+            {bt}
+          </span>
+        )}
+      </span>
+
+      <div className="flex-1 min-w-0">
+        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>{item.label}</div>
+      </div>
+
+      <IoChevronForward size={18} style={{ color: EKARI.dim }} />
+    </button>
+  );
+}
+/* ---------- Profiles ---------- */
+function useUserProfile(uid?: string) {
+  const [profile, setProfile] = useState<{
+    handle?: string;
+    photoURL?: string;
+    dataSaverVideos?: boolean;
+    uid?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!uid) {
+      setProfile(null);
+      return;
+    }
+    const ref = doc(db, "users", uid);
+    const unsub = onSnapshot(ref, (snap) => {
+      const data = snap.data() as any | undefined;
+      if (!data) {
+        setProfile(null);
+        return;
+      }
+      setProfile({
+        uid,
+        handle: data?.handle,
+        photoURL: data?.photoURL,
+        dataSaverVideos: !!data?.dataSaverVideos,
+      });
+    });
+    return () => unsub();
+  }, [uid]);
+
+  return profile;
+}
 /* ----------------------------- Page ----------------------------- */
 export default function MessagesPage() {
   const { user } = useAuth();
@@ -157,6 +340,52 @@ export default function MessagesPage() {
 
   const ringStyle: React.CSSProperties = {
     ["--tw-ring-color" as any]: EKARI.forest,
+  };
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const profile = useUserProfile(uid);
+  const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
+
+  const handle = (profile as any)?.handle ?? null; // if you store handle elsewhere, use that instead
+  const profileHref = handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
+
+  const fullMenu: MenuItem[] = useMemo(
+    () => [
+      { key: "deeds", label: "Deeds", href: "/", icon: <IoHomeOutline /> },
+      { key: "market", label: "ekariMarket", href: "/market", icon: <IoCartOutline />, alsoMatch: ["/market"] },
+      { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
+      { key: "studio", label: "Deed studio", href: "/studio/upload", icon: <IoAdd />, requiresAuth: true },
+
+      {
+        key: "notifications",
+        label: "Notifications",
+        href: "/notifications",
+        icon: <IoNotificationsOutline />,
+        requiresAuth: true,
+        badgeCount: uid ? notifTotal ?? 0 : 0,
+      },
+      {
+        key: "bonga",
+        label: "Bonga",
+        href: "/bonga",
+        icon: <IoChatbubblesOutline />,
+        requiresAuth: true,
+        badgeCount: uid ? unreadDM ?? 0 : 0,
+      },
+
+      { key: "profile", label: "Profile", href: profileHref, icon: <IoPersonCircleOutline />, requiresAuth: true },
+      { key: "about", label: "About ekarihub", href: "/about", icon: <IoInformationCircleOutline /> },
+    ],
+    [uid, notifTotal, unreadDM, profileHref]
+  );
+
+  const navigateFromMenu = (href: string, requiresAuth?: boolean) => {
+    setMenuOpen(false);
+    if (requiresAuth && !uid) {
+      window.location.href = `/getstarted?next=${encodeURIComponent(href)}`;
+      return;
+    }
+    window.location.href = href;
   };
 
   const goBack = useCallback(() => {
@@ -356,7 +585,7 @@ export default function MessagesPage() {
 
   if (!uid) {
     return (
-      <AppShell>
+      <> {isDesktop ? (<AppShell>
         <div
           className="min-h-screen flex items-center justify-center px-6 text-center"
           style={{ backgroundColor: EKARI.sand }}
@@ -370,7 +599,25 @@ export default function MessagesPage() {
             </div>
           </div>
         </div>
-      </AppShell>
+      </AppShell>) : (
+
+        <div
+          className="min-h-screen flex items-center justify-center px-6 text-center"
+          style={{ backgroundColor: EKARI.sand }}
+        >
+          <div>
+            <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
+              Sign in to view your messages
+            </div>
+            <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
+              Chats appear here once you start conversations from profiles or ads.
+            </div>
+          </div>
+        </div>
+
+      )}
+
+      </>
     );
   }
 
@@ -381,16 +628,14 @@ export default function MessagesPage() {
     >
       <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")} >
         <div className="h-full flex items-center justify-between gap-2">
-          {/* Go back */}
           <button
-            onClick={goBack}
-            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
-            style={{ borderColor: EKARI.hair, ...ringStyle }}
-            aria-label="Go back"
+            onClick={() => setMenuOpen(true)}
+            className="h-9 w-9 rounded-full bg-black/[0.04] grid place-items-center backdrop-blur-md border"
+            style={{ borderColor: EKARI.hair, color: EKARI.text }}
+            aria-label="Open menu"
           >
-            <ArrowLeft size={18} style={{ color: EKARI.text }} />
+            <IoMenu size={20} />
           </button>
-
           <div className="flex-1">
             <div className="font-black text-[18px] leading-none" style={{ color: EKARI.text }}>
               Messages
@@ -478,6 +723,89 @@ export default function MessagesPage() {
       </div>
     </div>
   );
+  function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
+    const router = useRouter();
+
+    const TabBtn = ({
+      label,
+      icon,
+      onClick,
+      active,
+    }: {
+      label: string;
+      icon: React.ReactNode;
+      onClick: () => void;
+      active?: boolean;
+    }) => (
+      <button
+        onClick={onClick}
+        className={clsx(
+          "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition",
+          active ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"
+        )}
+        aria-current={active ? "page" : undefined}
+      >
+        <div style={{ color: active ? EKARI.forest : EKARI.text }}>{icon}</div>
+        <span
+          className="text-[11px] font-semibold"
+          style={{ color: active ? EKARI.forest : EKARI.text }}
+        >
+          {label}
+        </span>
+      </button>
+    );
+
+    const isBongaActive = true; // because this file is /bonga/page.tsx
+
+    return (
+      <div
+        className="fixed left-0 right-0 z-[60]"
+        style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div
+          className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderTop: `1px solid ${EKARI.hair}`,
+          }}
+        >
+          <TabBtn
+            label="Deeds"
+            icon={<IoHomeOutline size={20} />}
+            onClick={() => router.push("/")}
+          />
+          <TabBtn
+            label="ekariMarket"
+            icon={<IoCartOutline size={20} />}
+            onClick={() => router.push("/market")}
+          />
+
+          <button
+            onClick={onCreate}
+            className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg"
+            style={{ backgroundColor: EKARI.gold }}
+            aria-label="New chat"
+          >
+            <IoAdd size={26} color="#111827" />
+          </button>
+
+          <TabBtn
+            label="Nexus"
+            icon={<IoCompassOutline size={20} />}
+            onClick={() => router.push("/nexus")}
+          />
+
+          <TabBtn
+            label="Bonga"
+            icon={<IoChatbubblesOutline size={20} />}
+            onClick={() => router.push("/bonga")}
+            active={isBongaActive}
+          />
+        </div>
+      </div>
+    );
+  }
+
 
   const Content = (
     <>
@@ -605,16 +933,31 @@ export default function MessagesPage() {
   );
 
   // MOBILE: fixed inset like Market, no bottom tabs, just sticky header + list
+  // MOBILE: fixed inset + MobileBottomTabs (like Market)
   if (isMobile) {
     return (
-      <div className="fixed inset-0" style={{ backgroundColor: EKARI.sand }}>
+      <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
         {Header}
-        <div className="overflow-y-auto overscroll-contain" style={{ height: "calc(100dvh - 56px)" }}>
+
+        <div
+          className="flex-1 overflow-y-auto overscroll-contain"
+          style={{ paddingBottom: "calc(84px + env(safe-area-inset-bottom))" }}
+        >
           {Content}
         </div>
+
+        <MobileBottomTabs onCreate={() => router.push("/search")} />
+        <SideMenuSheet
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          onNavigate={navigateFromMenu}
+          items={fullMenu}
+        />
+
       </div>
     );
   }
+
 
   // DESKTOP: AppShell + max width container like Market desktop
   return (

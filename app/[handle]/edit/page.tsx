@@ -32,7 +32,6 @@ import {
   onAuthStateChanged,
   linkWithPhoneNumber,
   RecaptchaVerifier,
-  signOut,
 } from "firebase/auth";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { IoArrowBack, IoPencil, IoLockClosed } from "react-icons/io5";
@@ -77,6 +76,25 @@ const MAX_AVATAR_SIZE = 512;
 const isFirebaseUrl = (u?: string | null) =>
   !!u &&
   (u.startsWith("gs://") || u.includes("firebasestorage.googleapis.com"));
+
+/** Responsive helpers */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
 
 /** Canvas crop + downscale to max 512x512 */
 async function getCroppedImageBlob(
@@ -139,6 +157,14 @@ export default function EditProfilePage() {
   const params = useParams<{ handle: string }>();
   const router = useRouter();
 
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
+
+  const goBack = React.useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/");
+  }, [router]);
+
   const db = getFirestore();
   const storage = getStorage();
   const auth = getAuth();
@@ -148,9 +174,9 @@ export default function EditProfilePage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const [profileUpdatedAtText, setProfileUpdatedAtText] = useState<
-    string | null
-  >(null);
+  const [profileUpdatedAtText, setProfileUpdatedAtText] = useState<string | null>(
+    null
+  );
 
   const [uid, setUid] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
@@ -185,28 +211,24 @@ export default function EditProfilePage() {
   const [sheet, setSheet] = useState<SheetKind>(null);
 
   // 🔹 NEW: preferred currency + country
-  const [preferredCurrency, setPreferredCurrency] = useState<
-    "KES" | "USD" | null
-  >(null);
+  const [preferredCurrency, setPreferredCurrency] = useState<"KES" | "USD" | null>(
+    null
+  );
   const [countryCode, setCountryCode] = useState<string | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteBusy, setDeleteBusy] = useState(false);
+
   // phone link state
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [smsCode, setSmsCode] = useState("");
   const confirmationResultRef =
     useRef<
-      ReturnType<typeof linkWithPhoneNumber> extends Promise<infer T>
-      ? T
-      : any | null
+      ReturnType<typeof linkWithPhoneNumber> extends Promise<infer T> ? T : any | null
     >(null);
   const recaptchaRef = useRef<any>(null);
 
   // Delete account state
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  // delete account state
 
   // ---------- Avatar crop state ----------
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -217,9 +239,9 @@ export default function EditProfilePage() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any | null>(null);
 
-  const [avatarPreviewCropped, setAvatarPreviewCropped] = useState<
-    string | null
-  >(null); // circle preview URL
+  const [avatarPreviewCropped, setAvatarPreviewCropped] = useState<string | null>(
+    null
+  ); // circle preview URL
 
   // ---------- Load taxonomy (interests & roles) from Firestore (grouped + fallback) ----------
   useEffect(() => {
@@ -300,8 +322,6 @@ export default function EditProfilePage() {
     };
   }, [db]);
 
-  // (The second taxonomy effect in your original file was redundant, so we keep only this one.)
-
   // ---------- Load current user + guard by route handle ----------
   useEffect(() => {
     const off = onAuthStateChanged(auth, async (u) => {
@@ -320,9 +340,7 @@ export default function EditProfilePage() {
           setBio(d.bio || "");
           setPhotoURL(d.photoURL || null);
           setInitialPhotoURL(d.photoURL || null);
-          setAreaOfInterest(
-            Array.isArray(d.areaOfInterest) ? d.areaOfInterest : []
-          );
+          setAreaOfInterest(Array.isArray(d.areaOfInterest) ? d.areaOfInterest : []);
           setRoles(Array.isArray(d.roles) ? d.roles : []);
           setWebsite(d.website ?? null);
           setPhone(d.phone ?? u.phoneNumber ?? null);
@@ -330,8 +348,7 @@ export default function EditProfilePage() {
           setCountryCode(d.countryCode ?? null);
 
           const fromDoc = d.preferredCurrency as "KES" | "USD" | undefined;
-          const fallback =
-            (d.countryCode === "KE" ? "KES" : "USD") as "KES" | "USD";
+          const fallback = (d.countryCode === "KE" ? "KES" : "USD") as "KES" | "USD";
           setPreferredCurrency(fromDoc ?? fallback);
 
           // last updated text
@@ -349,9 +366,7 @@ export default function EditProfilePage() {
             .toString()
             .replace(/^@/, "")
             .toLowerCase();
-          const myH = (
-            d.handleLower || (d.handle || "").replace(/^@/, "").toLowerCase()
-          );
+          const myH = (d.handleLower || (d.handle || "").replace(/^@/, "").toLowerCase());
           if (routeH && myH && routeH !== myH) {
             router.replace(`/${myH}/edit`);
           }
@@ -393,7 +408,6 @@ export default function EditProfilePage() {
         updatedAt: serverTimestamp(),
       });
       setSuccessMsg("Changes saved.");
-      // auto-hide success after a few seconds
       setTimeout(() => setSuccessMsg(""), 3500);
     } catch (err: any) {
       setErrorMsg(err?.message || "Could not save changes.");
@@ -404,12 +418,8 @@ export default function EditProfilePage() {
 
   // cleanup util for temporary avatar previews
   const cleanupAvatarPreview = () => {
-    if (avatarPreview) {
-      URL.revokeObjectURL(avatarPreview);
-    }
-    if (avatarPreviewCropped) {
-      URL.revokeObjectURL(avatarPreviewCropped);
-    }
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    if (avatarPreviewCropped) URL.revokeObjectURL(avatarPreviewCropped);
     setAvatarPreview(null);
     setAvatarPreviewCropped(null);
     setAvatarFile(null);
@@ -427,10 +437,7 @@ export default function EditProfilePage() {
     setSuccessMsg("");
 
     try {
-      const croppedBlob = await getCroppedImageBlob(
-        avatarPreview,
-        croppedAreaPixels
-      );
+      const croppedBlob = await getCroppedImageBlob(avatarPreview, croppedAreaPixels);
 
       const filename = avatarFile?.name || "avatar.jpg";
       const rf = sRef(storage, `avatars/${uid}/${Date.now()}-${filename}`);
@@ -442,11 +449,7 @@ export default function EditProfilePage() {
       setPhotoURL(url);
 
       // 2) Delete old avatar file from Storage (if it was Firebase)
-      if (
-        initialPhotoURL &&
-        initialPhotoURL !== url &&
-        isFirebaseUrl(initialPhotoURL)
-      ) {
+      if (initialPhotoURL && initialPhotoURL !== url && isFirebaseUrl(initialPhotoURL)) {
         try {
           await deleteObject(sRef(storage, initialPhotoURL));
         } catch {
@@ -464,9 +467,7 @@ export default function EditProfilePage() {
         setTimeout(() => setSuccessMsg(""), 3500);
       } catch (e: any) {
         console.error("Failed to update user photoURL:", e);
-        setErrorMsg(
-          e?.message || "Photo changed locally but could not save to profile."
-        );
+        setErrorMsg(e?.message || "Photo changed locally but could not save to profile.");
       }
 
       setInitialPhotoURL(url);
@@ -546,6 +547,7 @@ export default function EditProfilePage() {
           document.body.appendChild(div);
           return div;
         })();
+
       // @ts-ignore
       recaptchaRef.current = new RecaptchaVerifier(getAuth(), node, {
         size: "invisible",
@@ -569,11 +571,7 @@ export default function EditProfilePage() {
     try {
       ensureRecaptcha();
       // @ts-ignore
-      const conf = await linkWithPhoneNumber(
-        getAuth().currentUser!,
-        e164,
-        recaptchaRef.current
-      );
+      const conf = await linkWithPhoneNumber(getAuth().currentUser!, e164, recaptchaRef.current);
       confirmationResultRef.current = conf;
       setSmsSent(true);
     } catch (err: any) {
@@ -608,13 +606,9 @@ export default function EditProfilePage() {
     setSuccessMsg("");
     try {
       const functions = getFunctions();
-      // Make sure you have a callable function named "deleteAccountCascade"
-      // which deletes: user doc, deeds, listings, discussions, events,
-      // Mux assets and all Firebase Storage files related to this user.
       const fn = httpsCallable(functions, "deleteAccountCascade");
       await fn({});
 
-      // Sign out & redirect home after successful deletion
       await auth.signOut();
       router.replace("/");
     } catch (err: any) {
@@ -626,37 +620,26 @@ export default function EditProfilePage() {
     }
   };
 
-  // ---------- UI ----------
-
-  if (loading) {
-    return (
-      <AppShell>
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="animate-pulse text-[color:var(--ekari-gold,#C79257)]">
-            <BouncingBallLoader />
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
-
   const validWebsite = validateUrl(website || "");
 
-  return (
-    <AppShell>
+  // ✅ Build the main content once, then wrap it differently for mobile/desktop
+  const PageContent = (
+    <>
       <div className="w-full min-h-screen px-4 py-4">
-        {/* Header */}
-        <div className="flex h-12 items-center justify-between border-b border-gray-200">
-          <button
-            onClick={() => router.back()}
-            className="p-2 -ml-2 rounded hover:bg-gray-50"
-            aria-label="Back"
-          >
-            <IoArrowBack size={20} />
-          </button>
-          <div className="font-extrabold text-slate-900">Edit Profile</div>
-          <div className="w-8" />
-        </div>
+        {/* Desktop header only (mobile uses sticky header wrapper) */}
+        {isDesktop && (
+          <div className="flex h-12 items-center justify-between border-b border-gray-200">
+            <button
+              onClick={goBack}
+              className="p-2 -ml-2 rounded hover:bg-gray-50"
+              aria-label="Back"
+            >
+              <IoArrowBack size={20} />
+            </button>
+            <div className="font-extrabold text-slate-900">Edit Profile</div>
+            <div className="w-8" />
+          </div>
+        )}
 
         {profileUpdatedAtText && (
           <p className="mt-2 text-xs text-center text-slate-500">
@@ -674,11 +657,7 @@ export default function EditProfilePage() {
               >
                 {photoURL ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={photoURL}
-                    alt="avatar"
-                    className="h-full w-full object-cover"
-                  />
+                  <img src={photoURL} alt="avatar" className="h-full w-full object-cover" />
                 ) : (
                   <Image
                     src="/avatar-placeholder.png"
@@ -742,11 +721,7 @@ export default function EditProfilePage() {
                 onEdit={() => setSheet("name")}
               />
               <ItemRow label="Username" value={handle || "-"} locked />
-              <ItemRow
-                label="Bio"
-                value={bio || "Add bio"}
-                onEdit={() => setSheet("bio")}
-              />
+              <ItemRow label="Bio" value={bio || "Add bio"} onEdit={() => setSheet("bio")} />
             </div>
           </section>
 
@@ -758,11 +733,7 @@ export default function EditProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-3">
               <ItemRow
                 label="Phone"
-                value={
-                  phone
-                    ? `${phoneVerified ? "✅ " : "⚠️ "}${phone}`
-                    : "Add phone"
-                }
+                value={phone ? `${phoneVerified ? "✅ " : "⚠️ "}${phone}` : "Add phone"}
                 onEdit={() => setSheet("phone")}
               />
               <ItemRow
@@ -792,11 +763,7 @@ export default function EditProfilePage() {
               />
               <ItemRow
                 label="Interests"
-                value={
-                  areaOfInterest.length
-                    ? `${areaOfInterest.length} selected`
-                    : "Add interests"
-                }
+                value={areaOfInterest.length ? `${areaOfInterest.length} selected` : "Add interests"}
                 onEdit={() => setSheet("interests")}
               />
               <ItemRow
@@ -813,12 +780,10 @@ export default function EditProfilePage() {
               Danger zone
             </h2>
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 flex flex-col gap-2">
-              <div className="text-sm font-semibold text-rose-800">
-                Delete account
-              </div>
+              <div className="text-sm font-semibold text-rose-800">Delete account</div>
               <p className="text-xs text-rose-700 leading-relaxed">
-                This will permanently delete your ekarihub account, all your
-                deeds, listings, discussions, events any uploaded files. This action cannot be undone.
+                This will permanently delete your ekarihub account, all your deeds, listings,
+                discussions, events any uploaded files. This action cannot be undone.
               </p>
               <div className="flex justify-end">
                 <button
@@ -833,14 +798,13 @@ export default function EditProfilePage() {
             </div>
           </section>
         </div>
+
+        {/* ✅ Mobile safe-area bottom spacer */}
+        {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
       </div>
 
       {/* Avatar crop sheet */}
-      <BottomSheet
-        open={avatarCropOpen}
-        title="Crop profile photo"
-        onClose={onCancelAvatarCrop}
-      >
+      <BottomSheet open={avatarCropOpen} title="Crop profile photo" onClose={onCancelAvatarCrop}>
         {avatarPreview ? (
           <div className="space-y-4">
             {/* Live circular preview */}
@@ -881,9 +845,7 @@ export default function EditProfilePage() {
 
             {/* Zoom slider */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">
-                Zoom
-              </label>
+              <label className="text-xs font-semibold text-slate-600">Zoom</label>
               <input
                 type="range"
                 min={1}
@@ -897,11 +859,7 @@ export default function EditProfilePage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
-              <button
-                className="h-10 px-4 rounded-xl border"
-                onClick={onCancelAvatarCrop}
-                disabled={saving}
-              >
+              <button className="h-10 px-4 rounded-xl border" onClick={onCancelAvatarCrop} disabled={saving}>
                 Cancel
               </button>
               <button
@@ -914,23 +872,15 @@ export default function EditProfilePage() {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-slate-600">
-            No image selected. Choose a photo to crop.
-          </p>
+          <p className="text-sm text-slate-600">No image selected. Choose a photo to crop.</p>
         )}
       </BottomSheet>
 
       {/* SHEETS */}
-      <BottomSheet
-        open={sheet === "name"}
-        title="Edit name"
-        onClose={() => setSheet(null)}
-      >
+      <BottomSheet open={sheet === "name"} title="Edit name" onClose={() => setSheet(null)}>
         <div className="space-y-3">
           <div>
-            <label className="text-sm font-semibold text-slate-800">
-              First name
-            </label>
+            <label className="text-sm font-semibold text-slate-800">First name</label>
             <input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -939,9 +889,7 @@ export default function EditProfilePage() {
             />
           </div>
           <div>
-            <label className="text-sm font-semibold text-slate-800">
-              Surname
-            </label>
+            <label className="text-sm font-semibold text-slate-800">Surname</label>
             <input
               value={surname}
               onChange={(e) => setSurname(e.target.value)}
@@ -950,10 +898,7 @@ export default function EditProfilePage() {
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <button
-              className="h-10 px-4 rounded-xl border"
-              onClick={() => setSheet(null)}
-            >
+            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
               Cancel
             </button>
             <button
@@ -969,11 +914,7 @@ export default function EditProfilePage() {
         </div>
       </BottomSheet>
 
-      <BottomSheet
-        open={sheet === "bio"}
-        title="Edit bio"
-        onClose={() => setSheet(null)}
-      >
+      <BottomSheet open={sheet === "bio"} title="Edit bio" onClose={() => setSheet(null)}>
         <div className="space-y-2">
           <textarea
             value={bio}
@@ -986,10 +927,7 @@ export default function EditProfilePage() {
             <span>{bio.length}/220</span>
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <button
-              className="h-10 px-4 rounded-xl border"
-              onClick={() => setSheet(null)}
-            >
+            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
               Cancel
             </button>
             <button
@@ -1005,11 +943,7 @@ export default function EditProfilePage() {
         </div>
       </BottomSheet>
 
-      <BottomSheet
-        open={sheet === "website"}
-        title="Website URL"
-        onClose={() => setSheet(null)}
-      >
+      <BottomSheet open={sheet === "website"} title="Website URL" onClose={() => setSheet(null)}>
         <div className="space-y-2">
           <input
             value={website || ""}
@@ -1017,14 +951,9 @@ export default function EditProfilePage() {
             placeholder="https://example.com"
             className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
           />
-          {!validWebsite && (
-            <p className="text-xs text-rose-600">Invalid URL</p>
-          )}
+          {!validWebsite && <p className="text-xs text-rose-600">Invalid URL</p>}
           <div className="flex justify-end gap-2 pt-1">
-            <button
-              className="h-10 px-4 rounded-xl border"
-              onClick={() => setSheet(null)}
-            >
+            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
               Cancel
             </button>
             <button
@@ -1043,11 +972,7 @@ export default function EditProfilePage() {
         </div>
       </BottomSheet>
 
-      <BottomSheet
-        open={sheet === "currency"}
-        title="Preferred currency"
-        onClose={() => setSheet(null)}
-      >
+      <BottomSheet open={sheet === "currency"} title="Preferred currency" onClose={() => setSheet(null)}>
         <div className="space-y-3">
           <p className="text-xs text-slate-600">
             This will be the default currency for donations you make.
@@ -1060,10 +985,7 @@ export default function EditProfilePage() {
           <div className="mt-3 space-y-2">
             {(["KES", "USD"] as ("KES" | "USD")[]).map((code) => {
               const active = preferredCurrency === code;
-              const label =
-                code === "KES"
-                  ? "KES – Kenyan Shilling"
-                  : "USD – US Dollar";
+              const label = code === "KES" ? "KES – Kenyan Shilling" : "USD – US Dollar";
               const note =
                 code === "KES"
                   ? "Best for Kenya-based donations (M-Pesa supported)."
@@ -1074,9 +996,7 @@ export default function EditProfilePage() {
                   key={code}
                   type="button"
                   onClick={() => setPreferredCurrency(code)}
-                  className={`w-full flex items-start gap-2 rounded-xl border px-3 py-2 text-left ${active
-                    ? "border-[#233F39] bg-[#233F39]/5"
-                    : "border-gray-200 bg-white"
+                  className={`w-full flex items-start gap-2 rounded-xl border px-3 py-2 text-left ${active ? "border-[#233F39] bg-[#233F39]/5" : "border-gray-200 bg-white"
                     }`}
                 >
                   <div className="mt-1">
@@ -1084,15 +1004,11 @@ export default function EditProfilePage() {
                       className={`h-4 w-4 rounded-full border flex items-center justify-center ${active ? "border-[#233F39]" : "border-gray-300"
                         }`}
                     >
-                      {active && (
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#233F39]" />
-                      )}
+                      {active && <div className="h-2.5 w-2.5 rounded-full bg-[#233F39]" />}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">
-                      {label}
-                    </div>
+                    <div className="text-sm font-semibold text-slate-900">{label}</div>
                     <div className="text-xs text-slate-500">{note}</div>
                   </div>
                 </button>
@@ -1101,10 +1017,7 @@ export default function EditProfilePage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              className="h-10 px-4 rounded-xl border"
-              onClick={() => setSheet(null)}
-            >
+            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
               Cancel
             </button>
             <button
@@ -1122,19 +1035,9 @@ export default function EditProfilePage() {
         </div>
       </BottomSheet>
 
-      <BottomSheet
-        open={sheet === "interests"}
-        title="Edit interests"
-        onClose={() => setSheet(null)}
-      >
-        {taxonomyLoading && (
-          <p className="text-xs text-gray-500 mb-1">
-            Loading interest options…
-          </p>
-        )}
-        {taxonomyError && (
-          <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>
-        )}
+      <BottomSheet open={sheet === "interests"} title="Edit interests" onClose={() => setSheet(null)}>
+        {taxonomyLoading && <p className="text-xs text-gray-500 mb-1">Loading interest options…</p>}
+        {taxonomyError && <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>}
         <TagPicker
           label="Interests"
           value={areaOfInterest}
@@ -1144,10 +1047,7 @@ export default function EditProfilePage() {
           max={10}
         />
         <div className="flex justify-end gap-2 pt-3">
-          <button
-            className="h-10 px-4 rounded-xl border"
-            onClick={() => setSheet(null)}
-          >
+          <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
             Cancel
           </button>
           <button
@@ -1162,17 +1062,9 @@ export default function EditProfilePage() {
         </div>
       </BottomSheet>
 
-      <BottomSheet
-        open={sheet === "roles"}
-        title="Edit roles"
-        onClose={() => setSheet(null)}
-      >
-        {taxonomyLoading && (
-          <p className="text-xs text-gray-500 mb-1">Loading role options…</p>
-        )}
-        {taxonomyError && (
-          <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>
-        )}
+      <BottomSheet open={sheet === "roles"} title="Edit roles" onClose={() => setSheet(null)}>
+        {taxonomyLoading && <p className="text-xs text-gray-500 mb-1">Loading role options…</p>}
+        {taxonomyError && <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>}
         <TagPicker
           label="Roles"
           value={roles}
@@ -1182,10 +1074,7 @@ export default function EditProfilePage() {
           max={10}
         />
         <div className="flex justify-end gap-2 pt-3">
-          <button
-            className="h-10 px-4 rounded-xl border"
-            onClick={() => setSheet(null)}
-          >
+          <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
             Cancel
           </button>
           <button
@@ -1200,17 +1089,11 @@ export default function EditProfilePage() {
         </div>
       </BottomSheet>
 
-      <BottomSheet
-        open={sheet === "phone"}
-        title="Verify & link phone"
-        onClose={() => setSheet(null)}
-      >
+      <BottomSheet open={sheet === "phone"} title="Verify & link phone" onClose={() => setSheet(null)}>
         {!smsSent ? (
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-semibold">
-                Your phone number
-              </label>
+              <label className="text-sm font-semibold">Your phone number</label>
               <input
                 value={phone || ""}
                 onChange={(e) => setPhone(e.target.value)}
@@ -1219,10 +1102,7 @@ export default function EditProfilePage() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <button
-                className="h-10 px-4 rounded-xl border"
-                onClick={() => setSheet(null)}
-              >
+              <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
                 Cancel
               </button>
               <button
@@ -1233,23 +1113,15 @@ export default function EditProfilePage() {
                 {phoneBusy ? "Sending…" : "Send code"}
               </button>
             </div>
-            {!!errorMsg && (
-              <p className="text-xs text-rose-600">{errorMsg}</p>
-            )}
+            {!!errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
           </div>
         ) : (
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-semibold">
-                Enter verification code
-              </label>
+              <label className="text-sm font-semibold">Enter verification code</label>
               <input
                 value={smsCode}
-                onChange={(e) =>
-                  setSmsCode(
-                    e.target.value.replace(/[^\d]/g, "").slice(0, 6)
-                  )
-                }
+                onChange={(e) => setSmsCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))}
                 placeholder="6-digit code"
                 className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
               />
@@ -1282,9 +1154,7 @@ export default function EditProfilePage() {
                 </button>
               </div>
             </div>
-            {!!errorMsg && (
-              <p className="text-xs text-rose-600">{errorMsg}</p>
-            )}
+            {!!errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
           </div>
         )}
       </BottomSheet>
@@ -1304,8 +1174,92 @@ export default function EditProfilePage() {
         }}
         onConfirm={handleConfirmDelete}
       />
-    </AppShell>
+    </>
   );
+
+  // ✅ Loading UI (wrapped)
+  if (loading) {
+    const LoadingBody = (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-pulse text-[color:var(--ekari-gold,#C79257)]">
+          <BouncingBallLoader />
+        </div>
+      </div>
+    );
+
+    if (isMobile) {
+      return (
+        <div className="fixed inset-0 flex flex-col bg-white">
+          <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+            <div
+              className="h-14 px-3 flex items-center gap-2"
+              style={{ paddingTop: "env(safe-area-inset-top)" }}
+            >
+              <button
+                onClick={goBack}
+                className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+                aria-label="Back"
+              >
+                <IoArrowBack size={18} />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
+                  Edit Profile
+                </div>
+                <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
+                  {String(params?.handle || "").replace(/^@/, "")}
+                </div>
+              </div>
+              <div className="w-10" />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto overscroll-contain">{LoadingBody}</div>
+        </div>
+      );
+    }
+
+    return <AppShell>{LoadingBody}</AppShell>;
+  }
+
+  // ✅ Mobile wrapper: sticky header + scroll area (no AppShell)
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col bg-white">
+        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+          <div
+            className="h-14 px-3 flex items-center gap-2"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            <button
+              onClick={goBack}
+              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+              aria-label="Back"
+              title="Back"
+            >
+              <IoArrowBack size={18} />
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
+                Edit Profile
+              </div>
+              <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
+                {String(params?.handle || "").replace(/^@/, "")}
+              </div>
+            </div>
+
+            <div className="w-10" />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto overscroll-contain">{PageContent}</div>
+      </div>
+    );
+  }
+
+  // ✅ Desktop wrapper: keep AppShell
+  return <AppShell>{PageContent}</AppShell>;
 }
 
 /* =========================================================
@@ -1398,10 +1352,7 @@ function BottomSheet({
             transition={{ type: "spring", stiffness: 240, damping: 22, mass: 0.7 }}
           >
             <div className="flex items-center justify-between p-4 border-b">
-              <div
-                id="sheet-title"
-                className="font-extrabold text-slate-900"
-              >
+              <div id="sheet-title" className="font-extrabold text-slate-900">
                 {title}
               </div>
               <button
@@ -1422,8 +1373,6 @@ function BottomSheet({
     document.body
   );
 }
-
-
 
 /* =========================================================
    TagPicker — lightweight multi-select chips with search

@@ -1,3 +1,4 @@
+// app/[handle]/deed/[deedid]/page.tsx
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -43,14 +44,35 @@ type Item = any;
 
 function nfmt(n?: number) {
     const v = n ?? 0;
-    if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (v >= 1_000_000)
+        return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
     if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
     return String(v);
 }
 
+/* -------------------- responsive helpers -------------------- */
+
+function useMediaQuery(queryStr: string) {
+    const [matches, setMatches] = React.useState(false);
+    React.useEffect(() => {
+        const mq = window.matchMedia(queryStr);
+        const onChange = () => setMatches(mq.matches);
+        onChange();
+        mq.addEventListener?.("change", onChange);
+        return () => mq.removeEventListener?.("change", onChange);
+    }, [queryStr]);
+    return matches;
+}
+function useIsMobile() {
+    return useMediaQuery("(max-width: 1023px)");
+}
+
 /* -------------------- HLS + preload helpers -------------------- */
 
-function useHls(videoRef: React.RefObject<HTMLVideoElement | null>, src?: string | null) {
+function useHls(
+    videoRef: React.RefObject<HTMLVideoElement | null>,
+    src?: string | null
+) {
     useEffect(() => {
         const video = videoRef.current;
         if (!video || !src) return;
@@ -129,7 +151,6 @@ function AdjacentPreloadWeb({
         if (prev && prev.mediaType === "video" && prev.mediaUrl) candidates.push(prev);
         if (next && next.mediaType === "video" && next.mediaUrl) candidates.push(next);
     }
-
     if (!candidates.length) return null;
 
     return (
@@ -220,14 +241,14 @@ function DeedSlide({
     const isOwner = !!uid && item.authorId === uid;
 
     const avatar =
-        authorProfile?.photoURL ||
-        item.authorPhotoURL ||
-        "/avatar-placeholder.png";
+        authorProfile?.photoURL || item.authorPhotoURL || "/avatar-placeholder.png";
 
     const music = item.music;
     const isLibrarySound = music?.source === "library" && !!music?.coverUrl;
 
-    const soundLabel = isLibrarySound ? music?.title || "Library sound" : "Original sound";
+    const soundLabel = isLibrarySound
+        ? music?.title || "Library sound"
+        : "Original sound";
     const soundAvatar = isLibrarySound ? (music?.coverUrl as string) : avatar;
 
     const handleToPath = (h?: string) =>
@@ -247,14 +268,27 @@ function DeedSlide({
     }, [isActive, item.mediaType]);
 
     const onShare = async () => {
-        const url = `${location.origin}/${encodeURIComponent(item.authorUsername ?? "")}/deed/${item.id}`;
+        const h =
+            (item.authorUsername as string | undefined) ||
+            (authorProfile?.handle as string | undefined) ||
+            "";
+        const handleWithAt = h ? (h.startsWith("@") ? h : `@${h}`) : "";
+        const url = `${location.origin}/${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(
+            item.id
+        )}`;
+
         try {
             if (navigator.share) {
-                await navigator.share({ title: item.text || "EkariHub", text: item.text || "", url });
+                await navigator.share({
+                    title: item.text || "EkariHub",
+                    text: item.text || "",
+                    url,
+                });
             } else {
                 await navigator.clipboard.writeText(url);
                 alert("Link copied!");
             }
+
             const baseId = uid ?? getOrMakeDeviceId();
             const sid = `${item.id}_${baseId}_${Date.now()}`;
             const payload: any = { deedId: item.id, createdAt: serverTimestamp() };
@@ -295,7 +329,9 @@ function DeedSlide({
                         onLoad={() => setReady(true)}
                     />
                 ) : (
-                    <div className="grid h-full w-full place-items-center text-white/70">No media</div>
+                    <div className="grid h-full w-full place-items-center text-white/70">
+                        No media
+                    </div>
                 )}
 
                 {!ready && (
@@ -323,6 +359,11 @@ function DeedSlide({
                             aria-pressed={liked}
                         >
                             {liked ? <IoHeart className="text-red-500" /> : <IoHeartOutline />}
+                            {!!item?.stats?.likes && (
+                                <span className="mt-1 text-[11px] text-white/80">
+                                    {nfmt(item.stats.likes)}
+                                </span>
+                            )}
                         </button>
 
                         <button
@@ -392,9 +433,14 @@ function DeedSlide({
                                 />
                             </div>
 
-                            <div onClick={() => onViewProfileClick(item.authorUsername)} className="cursor-pointer min-w-0">
+                            <div
+                                onClick={() => onViewProfileClick(item.authorUsername)}
+                                className="cursor-pointer min-w-0"
+                            >
                                 <div className="text-white/95 font-bold text-sm truncate">
-                                    {item.authorUsername ? `${item.authorUsername}` : (item.authorId ?? "").slice(0, 6)}
+                                    {item.authorUsername
+                                        ? `${item.authorUsername}`
+                                        : (item.authorId ?? "").slice(0, 6)}
                                 </div>
                             </div>
 
@@ -404,7 +450,9 @@ function DeedSlide({
                                     title={following ? "Following" : "Follow"}
                                     className={[
                                         "pointer-events-auto rounded-full px-3 py-1 text-xs font-bold transition",
-                                        following ? "bg-white border hover:bg-[rgba(199,146,87,0.08)]" : "text-white hover:opacity-90",
+                                        following
+                                            ? "bg-white border hover:bg-[rgba(199,146,87,0.08)]"
+                                            : "text-white hover:opacity-90",
                                     ].join(" ")}
                                     style={
                                         following
@@ -427,17 +475,22 @@ function DeedSlide({
                             {isLibrarySound && (
                                 <div className="h-5 w-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={soundAvatar} alt={soundLabel} className="h-full w-full object-cover" />
+                                    <img
+                                        src={soundAvatar}
+                                        alt={soundLabel}
+                                        className="h-full w-full object-cover"
+                                    />
                                 </div>
                             )}
                             <div className="flex items-center gap-1 text-[11px] text-white/85 min-w-0">
                                 <IoMusicalNotesOutline className="flex-shrink-0" size={14} />
-                                <span className="truncate max-w-[180px] sm:max-w-[220px]">{soundLabel}</span>
+                                <span className="truncate max-w-[180px] sm:max-w-[220px]">
+                                    {soundLabel}
+                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );
@@ -447,8 +500,13 @@ function DeedSlide({
 
 export default function PlayerByHandlePage() {
     const router = useRouter();
+    const isMobile = useIsMobile();
 
-    const params = useParams() as { handle?: string; deedid?: string; videoId?: string };
+    const params = useParams() as {
+        handle?: string;
+        deedid?: string;
+        videoId?: string;
+    };
 
     const rawHandle = params?.handle ?? "";
     const decoded = (() => {
@@ -458,7 +516,10 @@ export default function PlayerByHandlePage() {
             return rawHandle;
         }
     })();
+
+    // IMPORTANT: your routes use "@handle" in the URL
     const handleWithAt = decoded.startsWith("@") ? decoded : `@${decoded}`;
+
     const deedId = params.deedid || params.videoId || "";
 
     const [siblings, setSiblings] = useState<Item[]>([]);
@@ -467,8 +528,13 @@ export default function PlayerByHandlePage() {
     const [loading, setLoading] = useState(true);
     const [muted, setMuted] = useState(true);
 
-    // ✅ RightRail toggle (default: open)
-    const [showRail, setShowRail] = useState(true);
+    // ✅ RightRail toggle:
+    // - desktop: default open
+    // - mobile: default closed (sheet opens on demand)
+    const [showRail, setShowRail] = useState(false);
+    useEffect(() => {
+        setShowRail(isMobile ? false : true);
+    }, [isMobile]);
 
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const scrollRaf = useRef<number | null>(null);
@@ -477,15 +543,16 @@ export default function PlayerByHandlePage() {
     const uid = user?.uid;
     const profile = useUserProfile(uid);
     const prefs = useUserPrefs(uid);
-    const EKARI = { primary: "#C79257" };
 
+    const EKARI = { primary: "#C79257" };
     const [neighborPreloadRange, setNeighborPreloadRange] = useState(1);
 
     useEffect(() => {
         let base = 1;
         try {
             const navAny = navigator as any;
-            const conn = navAny?.connection || navAny?.mozConnection || navAny?.webkitConnection;
+            const conn =
+                navAny?.connection || navAny?.mozConnection || navAny?.webkitConnection;
             const type: string | undefined = conn?.type;
             const effectiveType: string | undefined = conn?.effectiveType;
             if (type === "wifi" || effectiveType === "4g") base = 2;
@@ -524,6 +591,7 @@ export default function PlayerByHandlePage() {
 
                 const current = toPlayerItem(snap.data(), snap.id);
 
+                // if URL handle doesn't match author, redirect to correct author handle
                 const routeRes = await resolveUidByHandle(handleWithAt);
                 const routeUid = routeRes?.uid;
                 if (routeUid && current.authorId !== routeUid) {
@@ -532,7 +600,11 @@ export default function PlayerByHandlePage() {
                         const h = (u.data() as any)?.handle as string | undefined;
                         if (h && h.length) {
                             const authorHandle = h.startsWith("@") ? h : `@${h}`;
-                            router.replace(`/${authorHandle}/deed/${deedId}`);
+                            router.replace(
+                                `/${encodeURIComponent(authorHandle)}/deed/${encodeURIComponent(
+                                    deedId
+                                )}`
+                            );
                             return;
                         }
                     } catch { }
@@ -609,8 +681,10 @@ export default function PlayerByHandlePage() {
         if (activeIndex < siblings.length - 1) scrollToIndex(activeIndex + 1);
     }, [activeIndex, siblings.length, scrollToIndex]);
 
-    // keyboard nav (↑/↓) + ESC closes rail if open
+    // keyboard nav (↑/↓) + ESC closes rail if open (desktop)
     useEffect(() => {
+        if (isMobile) return;
+
         const onKey = (e: KeyboardEvent) => {
             if (e.key === "ArrowUp") {
                 e.preventDefault();
@@ -619,7 +693,6 @@ export default function PlayerByHandlePage() {
                 e.preventDefault();
                 goNext();
             } else if (e.key === "Escape") {
-                // first close rail, otherwise go back
                 setShowRail((v) => {
                     if (v) return false;
                     router.back();
@@ -629,7 +702,7 @@ export default function PlayerByHandlePage() {
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [goPrev, goNext, router]);
+    }, [goPrev, goNext, router, isMobile]);
 
     const currentItem = siblings[activeIndex];
 
@@ -648,13 +721,17 @@ export default function PlayerByHandlePage() {
             </div>
         );
     }
+
     const webUrl =
         typeof window !== "undefined"
             ? window.location.href
-            : `https://ekarihub.com/${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(deedId)}`;
+            : `https://ekarihub.com/${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(
+                deedId
+            )}`;
 
-    // ✅ Your deep link (matches what you want)
-    const appUrl = `ekarihub://${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(deedId)}`;
+    const appUrl = `ekarihub://${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(
+        deedId
+    )}`;
 
     return (
         <div className="fixed inset-0 bg-black text-white">
@@ -666,20 +743,21 @@ export default function PlayerByHandlePage() {
                 playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
                 appStoreUrl="https://apps.apple.com" // replace later
             />
-            {/* Top-left: Back */}
-            <div className="absolute left-3 top-3 z-50 flex items-center gap-2">
+
+            {/* Top bar (safe) */}
+            <div
+                className="absolute left-0 right-0 top-0 z-50 flex items-center justify-between px-3"
+                style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)" }}
+            >
                 <button
                     onClick={() => router.back()}
-                    aria-label="Close"
+                    aria-label="Back"
                     className="rounded-full p-2 hover:bg-white/20"
-                    title="Close"
+                    title="Back"
                 >
                     <IoArrowBack size={22} />
                 </button>
-            </div>
 
-            {/* Top-right: toggle RightRail */}
-            <div className="absolute right-3 top-3 z-50 flex items-center gap-2">
                 <button
                     onClick={() => setShowRail((v) => !v)}
                     aria-label={showRail ? "Hide activity panel" : "Show activity panel"}
@@ -693,7 +771,6 @@ export default function PlayerByHandlePage() {
             <div
                 className={cn(
                     "grid h-full w-full",
-                    // when rail visible on desktop => two columns, otherwise one
                     showRail ? "lg:grid-cols-[minmax(0,1fr)_420px]" : "lg:grid-cols-1"
                 )}
             >
@@ -702,6 +779,9 @@ export default function PlayerByHandlePage() {
                     ref={scrollRef}
                     className="relative flex h-full min-h-0 flex-col items-stretch justify-start overflow-y-scroll snap-y snap-mandatory scroll-smooth"
                     onScroll={onScroll}
+                    style={{
+                        paddingBottom: "env(safe-area-inset-bottom)",
+                    }}
                 >
                     {siblings.map((it, index) => (
                         <DeedSlide
@@ -721,8 +801,8 @@ export default function PlayerByHandlePage() {
                     ))}
                 </div>
 
-                {/* DESKTOP RightRail (sidebar) */}
-                {showRail && (
+
+                {!isMobile && showRail && (
                     <aside className="hidden lg:flex flex-col overflow-y-hidden border-l border-gray-200 bg-white text-gray-900">
                         <RightRail
                             open={true}
@@ -734,17 +814,32 @@ export default function PlayerByHandlePage() {
                         />
                     </aside>
                 )}
+
+
+                {isMobile && (
+                    <RightRail
+                        open={showRail}
+                        mode="sheet"
+                        deedId={currentItem.id}
+                        onClose={() => setShowRail(false)}
+                        currentUser={profile}
+                        className="bg-white text-gray-900"
+                    />
+                )}
+
             </div>
 
-            {/* MOBILE RightRail (sheet overlay) */}
-            <RightRail
-                open={showRail}
-                mode="sheet"
-                deedId={currentItem.id}
-                onClose={() => setShowRail(false)}
-                currentUser={profile}
-                className="bg-white text-gray-900"
-            />
+            {/* MOBILE RightRail (sheet overlay only) */}
+            {isMobile && (
+                <RightRail
+                    open={showRail}
+                    mode="sheet"
+                    deedId={currentItem.id}
+                    onClose={() => setShowRail(false)}
+                    currentUser={profile}
+                    className="bg-white text-gray-900"
+                />
+            )}
 
             {/* Adjacent preloading */}
             <AdjacentPreloadWeb
@@ -771,7 +866,10 @@ function getOrMakeDeviceId(): string {
         }
         return v;
     } catch {
-        return "anon_device_" + Math.random().toString(36).slice(2).padEnd(16, "x");
+        return (
+            "anon_device_" +
+            Math.random().toString(36).slice(2).padEnd(16, "x")
+        );
     }
 }
 
@@ -834,7 +932,7 @@ function useLiked(deedId?: string, uid?: string) {
         const ref = doc(db, "likes", likeId);
         const s = await getDoc(ref);
         if (s.exists()) await deleteDoc(ref);
-        else await setDoc(ref, { deedId, userId: uid, createdAt: Date.now() });
+        else await setDoc(ref, { deedId, userId: uid, createdAt: serverTimestamp() });
     };
 
     return { liked, toggle };
@@ -884,7 +982,7 @@ function useFollowAuthor(authorId?: string, uid?: string) {
             await setDoc(ref, {
                 followerId: uid,
                 followingId: authorId,
-                createdAt: Date.now(),
+                createdAt: serverTimestamp(),
             });
     };
 

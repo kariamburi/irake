@@ -1,8 +1,8 @@
 // app/[handle]/earnings/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   addDoc,
@@ -22,15 +22,11 @@ import {
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, app } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
-import { IoArrowBackCircleOutline } from "react-icons/io5";
+import { IoArrowBackCircleOutline, IoArrowBack } from "react-icons/io5";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
 import { createPortal } from "react-dom";
-
-// ✅ import your shared confirmation modal
-// (update the path if needed)
-
 
 const EKARI = {
   forest: "#233F39",
@@ -56,7 +52,6 @@ type Donation = {
   paidCurrency?: string;
   paidAt?: any;
 
-  // from webhook (gateway currency)
   creatorShareNetMinor?: number;
   creatorShareGrossMinor?: number;
   platformShareMinor?: number;
@@ -65,7 +60,6 @@ type Donation = {
   processingFeePercent?: number;
   usdToKesRateAtDonation?: number;
 
-  // Canonical USD fields
   grossAmountUsdMinor?: number;
   creatorShareNetUsdMinor?: number;
   creatorShareGrossUsdMinor?: number;
@@ -77,29 +71,27 @@ type Topup = {
   id: string;
   userId: string;
   status?: "initiated" | "succeeded" | "failed";
-  amountMinor?: number; // original gateway amount
-  currency?: string; // original gateway currency ("USD" | "KES")
+  amountMinor?: number;
+  currency?: string;
   source?: "web" | "mobile";
   createdAt?: any;
   completedAt?: any;
   paystackReference?: string;
   gatewayCurrency?: string;
   gatewayAmountMinor?: number;
-  creditedUsdMinor?: number; // how much actually credited to wallet in USD minor
+  creditedUsdMinor?: number;
 };
 
 type FinanceSettings = {
-  minWithdrawUSD?: number; // base threshold in USD (major)
+  minWithdrawUSD?: number; // major
   usdToKesRate?: number;
   platformSharePercent?: number;
   processingFeePercent?: number;
 };
 
 type PreferredCurrency = "USD" | "KES";
-
 type HistoryTab = "donations" | "topups";
 
-// for simple info/success/error modal
 type FeedbackModalState =
   | {
     title: string;
@@ -107,9 +99,29 @@ type FeedbackModalState =
   }
   | null;
 
+/** Responsive helpers */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
+
 export default function EarningsPage() {
   const params = useParams<{ handle: string }>();
-  const handle = "@" + params?.handle;
+  const router = useRouter();
+  const isMobile = useIsMobile();
+
+  // IMPORTANT: your db stores handle WITH @, and the route param is without @
+  const handle = "@" + (params?.handle || "");
 
   const { user, loading: authLoading } = useAuth();
 
@@ -140,12 +152,18 @@ export default function EarningsPage() {
   const [topupLoading, setTopupLoading] = useState(false);
   const [topupError, setTopupError] = useState<string | null>(null);
   const [topupAnimated, setTopupAnimated] = useState(false);
+
   // 🔹 Withdraw confirmation / feedback modals
   const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<FeedbackModalState>(null);
+
+  const goBack = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push(`/${params?.handle || ""}`);
+  }, [router, params?.handle]);
+
   useEffect(() => {
     if (topupOpen) {
-      // next frame so transitions apply
       const id = requestAnimationFrame(() => setTopupAnimated(true));
       return () => cancelAnimationFrame(id);
     } else {
@@ -169,7 +187,7 @@ export default function EarningsPage() {
 
   // 1) Resolve [handle] -> user uid and check ownership
   useEffect(() => {
-    if (!handle) return;
+    if (!handle || handle === "@") return;
     if (authLoading) return;
 
     if (!user) {
@@ -217,14 +235,11 @@ export default function EarningsPage() {
         setForbidden(true);
         setOwnerUid(null);
       } finally {
-        if (!cancelled) {
-          setCheckingOwnership(false);
-        }
+        if (!cancelled) setCheckingOwnership(false);
       }
     };
 
-    run();
-
+    void run();
     return () => {
       cancelled = true;
     };
@@ -240,12 +255,8 @@ export default function EarningsPage() {
       (snap) => {
         if (!snap.exists()) return;
         const data = snap.data() as any;
-        const pref = (data.preferredCurrency || "USD").toUpperCase();
-        if (pref === "KES") {
-          setPreferredCurrency("KES");
-        } else {
-          setPreferredCurrency("USD");
-        }
+        const pref = String(data.preferredCurrency || "USD").toUpperCase();
+        setPreferredCurrency(pref === "KES" ? "KES" : "USD");
       },
       (err) => {
         console.error("Error loading preferred currency", err);
@@ -270,9 +281,7 @@ export default function EarningsPage() {
     const walletRef = doc(db, "wallets", ownerUid);
     const unsubWallet = onSnapshot(
       walletRef,
-      (snap) => {
-        setWallet((snap.data() as Wallet) || null);
-      },
+      (snap) => setWallet((snap.data() as Wallet) || null),
       () => setWallet(null)
     );
 
@@ -321,7 +330,7 @@ export default function EarningsPage() {
       }
     );
 
-    const timeout = setTimeout(() => setLoadingData(false), 300);
+    const timeout = setTimeout(() => setLoadingData(false), 250);
 
     return () => {
       unsubWallet();
@@ -337,7 +346,7 @@ export default function EarningsPage() {
 
   const usdToKesRate = useMemo(() => {
     const v = financeSettings?.usdToKesRate;
-    return v && v > 0 ? v : 130; // fallback
+    return v && v > 0 ? v : 130;
   }, [financeSettings?.usdToKesRate]);
 
   // Base (USD) amounts from wallet
@@ -363,10 +372,7 @@ export default function EarningsPage() {
   }, [displayCurrency, pendingBalanceUsdMajor, usdToKesRate]);
 
   // Threshold in base (USD)
-  const minThresholdUsdMajor = useMemo(
-    () => minWithdrawUSD,
-    [minWithdrawUSD]
-  );
+  const minThresholdUsdMajor = useMemo(() => minWithdrawUSD, [minWithdrawUSD]);
 
   // Threshold in display currency
   const minThresholdDisplayMajor = useMemo(() => {
@@ -398,12 +404,10 @@ export default function EarningsPage() {
 
   const creatorSharePercentEffective = 100 - platformSharePercentEffective;
 
-  // ✅ now purely executes the request (no window.alert)
   const handleRequestWithdraw = async () => {
     if (!ownerUid || !wallet?.pendingBalance) return;
 
     if (wallet.pendingBalance < minThresholdUsdMajor * 100) {
-      // should not happen because button is hidden, but keep a graceful guard
       setFeedbackModal({
         title: "Below minimum withdrawal amount",
         message:
@@ -446,7 +450,6 @@ export default function EarningsPage() {
     }
   };
 
-  // 🔹 Toggle display currency + persist preferredCurrency to user doc
   const handleToggleCurrency = async (next: PreferredCurrency) => {
     if (!ownerUid) return;
     if (next === preferredCurrency) return;
@@ -455,18 +458,13 @@ export default function EarningsPage() {
 
     try {
       const userRef = doc(db, "users", ownerUid);
-      await updateDoc(userRef, {
-        preferredCurrency: next,
-      });
+      await updateDoc(userRef, { preferredCurrency: next });
     } catch (err) {
       console.error("Error updating preferredCurrency", err);
     }
   };
 
-  // 🔹 Open modal
   const openTopupModal = () => {
-    // ownerUid is guaranteed here because this page is gated,
-    // but keep a soft guard that uses our feedback modal instead of alert.
     if (!ownerUid) {
       setFeedbackModal({
         title: "Sign in required",
@@ -479,7 +477,6 @@ export default function EarningsPage() {
     setTopupOpen(true);
   };
 
-  // 🔹 Confirm topup -> Cloud Function (no alerts, uses inline error + feedback)
   const handleConfirmTopup = async () => {
     if (!ownerUid) {
       setTopupError("You need to be signed in to top up your wallet.");
@@ -502,11 +499,7 @@ export default function EarningsPage() {
 
       const functions = getFunctions(app, "us-central1");
       const createWalletTopupCheckout = httpsCallable<
-        {
-          amount: number; // minor units
-          currency: "USD" | "KES";
-          source?: "web" | "mobile";
-        },
+        { amount: number; currency: "USD" | "KES"; source?: "web" | "mobile" },
         { checkoutUrl: string }
       >(functions, "createWalletTopupCheckout");
 
@@ -520,14 +513,11 @@ export default function EarningsPage() {
 
       const url = res.data.checkoutUrl;
       if (!url) {
-        setTopupError(
-          "We were unable to start the top-up. Please try again in a moment."
-        );
+        setTopupError("We were unable to start the top-up. Please try again in a moment.");
         setTopupLoading(false);
         return;
       }
 
-      // Close modal and redirect to Paystack
       setTopupOpen(false);
       setTopupLoading(false);
       window.location.href = url;
@@ -541,7 +531,6 @@ export default function EarningsPage() {
   };
 
   const renderDonation = (item: Donation) => {
-    // Show gross in gateway currency (what donor saw)
     const grossMinor = item.paidAmount || 0;
     const amountMajor = grossMinor / 100;
     const cur = (item.paidCurrency || baseCurrency).toUpperCase();
@@ -585,16 +574,13 @@ export default function EarningsPage() {
         style={{ borderColor: EKARI.hair }}
       >
         <div className="flex-1">
-          {/* 👇 Deed link */}
           <p className="text-sm font-semibold" style={{ color: EKARI.forest }}>
             <Link
-              href={`/${handle}/deed/${item.deedId}`}
+              href={`/${params?.handle}/deed/${item.deedId}`}
               className="hover:text-emerald-800 cursor-pointer"
             >
               Donation for deed{" "}
-              <span className="font-mono text-xs break-all">
-                {item.deedId}
-              </span>
+              <span className="font-mono text-xs break-all">{item.deedId}</span>
             </Link>
           </p>
 
@@ -650,8 +636,7 @@ export default function EarningsPage() {
           )}
           {item.status && (
             <p className="mt-0.5 text-[11px]" style={{ color: EKARI.dim }}>
-              Status:{" "}
-              <span className="font-semibold capitalize">{item.status}</span>
+              Status: <span className="font-semibold capitalize">{item.status}</span>
             </p>
           )}
           {dateLabel && (
@@ -665,131 +650,147 @@ export default function EarningsPage() {
     );
   };
 
-  /* ---------- Gated states ---------- */
+  /* ---------- Gated states (render bodies, then wrap) ---------- */
 
-  if (!handle) {
-    return (
-      <AppShell>
-        <main
-          className="min-h-screen w-full px-4 py-6"
-          style={{ backgroundColor: EKARI.bgSoft }}
-        >
-          <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm" style={{ color: EKARI.dim }}>
-              Invalid route.
-            </p>
-          </div>
-        </main>
-      </AppShell>
-    );
-  }
+  const InvalidRouteBody = (
+    <main
+      className="min-h-screen w-full px-4 py-6"
+      style={{ backgroundColor: EKARI.bgSoft }}
+    >
+      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
+        <p className="text-sm" style={{ color: EKARI.dim }}>
+          Invalid route.
+        </p>
+      </div>
+    </main>
+  );
 
-  if (authLoading || checkingOwnership) {
-    return (
-      <AppShell>
-        <main
-          className="flex w-full min-h-screen items-center justify-center px-4"
-          style={{ backgroundColor: EKARI.bgSoft }}
-        >
-          <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-6 py-5 shadow-sm">
-            <BouncingBallLoader />
-            <p className="text-sm" style={{ color: EKARI.dim }}>
-              Checking access to this earnings page…
-            </p>
-          </div>
-        </main>
-      </AppShell>
-    );
-  }
+  const CheckingBody = (
+    <main
+      className="flex w-full min-h-screen items-center justify-center px-4"
+      style={{ backgroundColor: EKARI.bgSoft }}
+    >
+      <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-6 py-5 shadow-sm">
+        <BouncingBallLoader />
+        <p className="text-sm" style={{ color: EKARI.dim }}>
+          Checking access to this earnings page…
+        </p>
+      </div>
+    </main>
+  );
 
-  if (!user) {
+  const SignInBody = (
+    <main
+      className="flex w-full min-h-screen items-center justify-center px-4"
+      style={{ backgroundColor: EKARI.bgSoft }}
+    >
+      <div className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center shadow-sm">
+        <h1 className="mb-2 text-lg font-extrabold" style={{ color: EKARI.ink }}>
+          Sign in to view earnings
+        </h1>
+        <p className="text-sm" style={{ color: EKARI.dim }}>
+          You need to be signed in to see your ekarihub wallet and donation history.
+        </p>
+      </div>
+    </main>
+  );
+
+  const NotFoundBody = (
+    <main
+      className="flex w-full min-h-screen items-center justify-center px-4"
+      style={{ backgroundColor: EKARI.bgSoft }}
+    >
+      <div className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center shadow-sm">
+        <h1 className="mb-2 text-lg font-extrabold" style={{ color: EKARI.ink }}>
+          Profile not found
+        </h1>
+        <p className="text-sm" style={{ color: EKARI.dim }}>
+          We couldn’t find a creator with handle <span className="font-semibold">{handle}</span>.
+        </p>
+      </div>
+    </main>
+  );
+
+  const ForbiddenBody = (
+    <main
+      className="flex w-full min-h-screen items-center justify-center px-4"
+      style={{ backgroundColor: EKARI.bgSoft }}
+    >
+      <div className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center shadow-sm">
+        <h1 className="mb-2 text-lg font-extrabold" style={{ color: EKARI.ink }}>
+          Earnings are private
+        </h1>
+        <p className="text-sm" style={{ color: EKARI.dim }}>
+          You can only view earnings for your own handle. This page is restricted to the
+          creator who owns{" "}
+          <span className="font-semibold">{handle}</span>.
+        </p>
+      </div>
+    </main>
+  );
+
+  // Wrap helper (mobile = sticky header & full-height, desktop = AppShell)
+  const wrap = (body: React.ReactNode, title = "My Earnings") => {
+    if (!isMobile) return <AppShell>{body}</AppShell>;
+
     return (
-      <AppShell>
-        <main
-          className="flex w-full min-h-screen items-center justify-center px-4"
-          style={{ backgroundColor: EKARI.bgSoft }}
-        >
-          <div className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center shadow-sm">
-            <h1
-              className="mb-2 text-lg font-extrabold"
-              style={{ color: EKARI.ink }}
+      <div className="fixed inset-0 flex flex-col bg-white">
+        {/* Mobile sticky header with safe-area + goBack */}
+        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+          <div
+            className="h-14 px-3 flex items-center gap-2"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            <button
+              onClick={goBack}
+              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+              aria-label="Back"
             >
-              Sign in to view earnings
-            </h1>
-            <p className="text-sm" style={{ color: EKARI.dim }}>
-              You need to be signed in to see your ekarihub wallet and donation
-              history.
-            </p>
-          </div>
-        </main>
-      </AppShell>
-    );
-  }
-
-  if (notFound) {
-    return (
-      <AppShell>
-        <main
-          className="flex w-full min-h-screen items-center justify-center px-4"
-          style={{ backgroundColor: EKARI.bgSoft }}
-        >
-          <div className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center shadow-sm">
-            <h1
-              className="mb-2 text-lg font-extrabold"
-              style={{ color: EKARI.ink }}
+              <IoArrowBack size={18} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-black" style={{ color: EKARI.ink }}>
+                {title}
+              </div>
+              <div className="truncate text-[11px]" style={{ color: EKARI.dim }}>
+                @{String(params?.handle || "").replace(/^@/, "")}
+              </div>
+            </div>
+            <button
+              onClick={() => router.push(`/${params?.handle || ""}`)}
+              className="h-10 px-3 rounded-full border border-gray-200 text-xs font-bold"
             >
-              Profile not found
-            </h1>
-            <p className="text-sm" style={{ color: EKARI.dim }}>
-              We couldn’t find a creator with handle <span>{handle}</span>.
-            </p>
+              Profile
+            </button>
           </div>
-        </main>
-      </AppShell>
-    );
-  }
+        </div>
 
-  if (forbidden || !ownerUid) {
-    return (
-      <AppShell>
-        <main
-          className="flex w-full min-h-screen items-center justify-center px-4"
-          style={{ backgroundColor: EKARI.bgSoft }}
-        >
-          <div className="mx-auto max-w-md rounded-2xl bg-white p-6 text-center shadow-sm">
-            <h1
-              className="mb-2 text-lg font-extrabold"
-              style={{ color: EKARI.ink }}
-            >
-              Earnings are private
-            </h1>
-            <p className="text-sm" style={{ color: EKARI.dim }}>
-              You can only view earnings for your own handle. This page is
-              restricted to the creator who owns{" "}
-              <span className="font-semibold">{handle}</span>.
-            </p>
-          </div>
-        </main>
-      </AppShell>
+        <div className="flex-1 overflow-y-auto overscroll-contain">{body}</div>
+
+        <div style={{ height: "env(safe-area-inset-bottom)" }} />
+      </div>
     );
-  }
+  };
+
+  if (!handle || handle === "@") return wrap(InvalidRouteBody, "Earnings");
+  if (authLoading || checkingOwnership) return wrap(CheckingBody, "Earnings");
+  if (!user) return wrap(SignInBody, "Earnings");
+  if (notFound) return wrap(NotFoundBody, "Earnings");
+  if (forbidden || !ownerUid) return wrap(ForbiddenBody, "Earnings");
 
   /* ---------- Main content ---------- */
 
-  return (
-    <AppShell>
-      <main
-        className="min-h-screen bg-white w-full px-4 py-6"
-        style={{ backgroundColor: EKARI.sand }}
-      >
-        <div className="flex w-full flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm backdrop-blur">
-          {/* Header */}
+  const MainBody = (
+    <main
+      className="min-h-screen bg-white w-full px-4 py-6"
+      style={{ backgroundColor: EKARI.sand }}
+    >
+      <div className="mx-auto max-w-4xl flex w-full flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm backdrop-blur">
+        {/* Desktop header (mobile uses sticky header) */}
+        {!isMobile && (
           <header className="border-b border-slate-200 pb-3">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <Link
-                href={`/${handle}`}
-                className="inline-flex items-center gap-1.5"
-              >
+              <Link href={`/${params?.handle || ""}`} className="inline-flex items-center gap-1.5">
                 <span
                   className="flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:shadow-sm"
                   style={{
@@ -805,391 +806,335 @@ export default function EarningsPage() {
             </div>
 
             <div className="space-y-1">
-              <h1
-                className="text-xl font-black md:text-2xl"
-                style={{ color: EKARI.ink }}
-              >
+              <h1 className="text-xl font-black md:text-2xl" style={{ color: EKARI.ink }}>
                 My Earnings 💸
               </h1>
               <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-                Track tips, topups, and donations flowing into your ekarihub
-                wallet.
+                Track tips, topups, and donations flowing into your ekarihub wallet.
               </p>
             </div>
           </header>
+        )}
 
-          {/* Summary cards */}
-          <section className="flex flex-col gap-3 md:flex-row">
+        {/* Summary cards */}
+        <section className="flex flex-col gap-3 md:flex-row">
+          <div
+            className="flex-1 rounded-2xl border px-4 py-3 shadow-sm"
+            style={{ backgroundColor: "#FDF7EC", borderColor: "#FCD9A6" }}
+          >
+            <div className="flex items-center justify-between">
+              <p
+                className="text-[11px] font-bold uppercase tracking-[0.06em]"
+                style={{ color: EKARI.dim }}
+              >
+                Total received
+              </p>
+              <span className="text-base">💰</span>
+            </div>
+            <p className="mt-1 text-xl font-black" style={{ color: EKARI.ink }}>
+              {displayCurrency}{" "}
+              {totalReceivedDisplayMajor.toFixed(displayCurrency === "KES" ? 0 : 2)}
+            </p>
+            <p className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+              Across {wallet?.totalDonations || 0} donations
+            </p>
+          </div>
+
+          <div
+            className="flex-1 rounded-2xl border bg-white px-4 py-3 shadow-sm"
+            style={{ borderColor: EKARI.hair }}
+          >
+            <div className="flex items-center justify-between">
+              <p
+                className="text-[11px] font-bold uppercase tracking-[0.06em]"
+                style={{ color: EKARI.dim }}
+              >
+                Wallet / pending balance
+              </p>
+              <span className="text-base">🕒</span>
+            </div>
+            <p className="mt-1 text-xl font-black" style={{ color: EKARI.ink }}>
+              {displayCurrency}{" "}
+              {pendingBalanceDisplayMajor.toFixed(displayCurrency === "KES" ? 0 : 2)}
+            </p>
+            <div className="mt-1 flex items-start justify-between gap-2">
+              <p className="text-xs" style={{ color: EKARI.dim }}>
+                This is your current ekarihub wallet balance. You can withdraw once you
+                reach the minimum threshold, or use it to donate to other deeds.
+              </p>
+              <button
+                type="button"
+                onClick={openTopupModal}
+                className="shrink-0 rounded-full bg-emerald-900 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-emerald-800"
+              >
+                Top up wallet
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Withdraw button / message */}
+        {wallet?.pendingBalance && wallet.pendingBalance >= minThresholdUsdMajor * 100 ? (
+          <button
+            type="button"
+            onClick={() => setConfirmWithdrawOpen(true)}
+            className="mt-2 w-full rounded-full bg-emerald-900 text-white py-2 font-semibold hover:bg-emerald-800"
+          >
+            Withdraw Funds
+          </button>
+        ) : (
+          <p className="mt-2 text-xs text-red-500 font-medium">
+            Minimum withdrawal: {displayCurrency}{" "}
+            {minThresholdDisplayMajor.toFixed(displayCurrency === "KES" ? 0 : 2)}
+            {displayCurrency === "KES" && <> (≈ USD {minThresholdUsdMajor.toFixed(2)})</>}
+          </p>
+        )}
+
+        {/* Pills */}
+        <section className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5"
+            style={{ borderColor: EKARI.hair }}
+          >
+            <span className="text-[11px] font-bold" style={{ color: EKARI.ink }}>
+              Display:
+            </span>
+            <div className="flex rounded-full bg-slate-100 p-0.5">
+              <button
+                type="button"
+                onClick={() => handleToggleCurrency("USD")}
+                className={`px-2 py-0.5 text-[11px] font-semibold rounded-full transition ${displayCurrency === "USD"
+                  ? "bg-emerald-900 text-white shadow-sm"
+                  : "text-slate-600"
+                  }`}
+              >
+                USD
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleCurrency("KES")}
+                className={`px-2 py-0.5 text-[11px] font-semibold rounded-full transition ${displayCurrency === "KES"
+                  ? "bg-emerald-900 text-white shadow-sm"
+                  : "text-slate-600"
+                  }`}
+              >
+                KSh
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="flex items-center gap-1.5 rounded-full border px-3 py-1.5"
+            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}
+          >
+            <span className="text-[11px] font-semibold" style={{ color: EKARI.dim }}>
+              Split: ~{creatorSharePercentEffective}% you · {platformSharePercentEffective}% ekarihub
+            </span>
+          </div>
+
+          <div
+            className="flex items-center gap-1.5 rounded-full border px-3 py-1.5"
+            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}
+          >
+            <span className="text-[11px] font-semibold" style={{ color: EKARI.dim }}>
+              Provider fees (est.) ~{processingFeePercentEffective}% from your share
+            </span>
+          </div>
+        </section>
+
+        {/* History */}
+        <section className="mt-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-extrabold" style={{ color: EKARI.ink }}>
+              History
+            </h2>
+            <div className="inline-flex rounded-full bg-slate-100 p-0.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setActiveTab("donations")}
+                className={`px-3 py-1 rounded-full font-semibold transition ${activeTab === "donations"
+                  ? "bg-white shadow-sm text-emerald-900"
+                  : "text-slate-600"
+                  }`}
+              >
+                Donations
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("topups")}
+                className={`px-3 py-1 rounded-full font-semibold transition ${activeTab === "topups"
+                  ? "bg-white shadow-sm text-emerald-900"
+                  : "text-slate-600"
+                  }`}
+              >
+                Wallet topups
+              </button>
+            </div>
+          </div>
+
+          {loadingData ? (
+            <div className="flex items-center gap-2 py-6">
+              <BouncingBallLoader />
+              <p className="text-xs" style={{ color: EKARI.dim }}>
+                Loading your history…
+              </p>
+            </div>
+          ) : activeTab === "donations" ? (
+            donations.length === 0 ? (
+              <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
+                <p className="mb-1 text-sm font-extrabold" style={{ color: EKARI.ink }}>
+                  No donations yet
+                </p>
+                <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
+                  When viewers support your deeds with tips, they’ll appear here in real-time.
+                  Keep creating and sharing value. 🌱
+                </p>
+              </div>
+            ) : (
+              <div className="pt-1 pb-4">{donations.map((d) => renderDonation(d))}</div>
+            )
+          ) : topups.length === 0 ? (
+            <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
+              <p className="mb-1 text-sm font-extrabold" style={{ color: EKARI.ink }}>
+                No wallet topups yet
+              </p>
+              <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
+                Top up your wallet to see your funding history here.
+              </p>
+            </div>
+          ) : (
+            <div className="pt-1 pb-4">{topups.map((t) => renderTopup(t))}</div>
+          )}
+        </section>
+      </div>
+
+      {/* 🔹 Top-up modal */}
+      {topupOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[70] flex items-center justify-center">
             <div
-              className="flex-1 rounded-2xl border px-4 py-3 shadow-sm"
+              className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${topupAnimated ? "opacity-100" : "opacity-0"
+                }`}
+              onClick={() => !topupLoading && setTopupOpen(false)}
+            />
+
+            <div
+              className={`relative w-full max-w-md px-5 pb-5 pt-4 rounded-3xl bg-white shadow-xl transition-all duration-200 transform ${topupAnimated
+                ? "opacity-100 scale-100 translate-y-0"
+                : "opacity-0 scale-95 translate-y-2"
+                }`}
               style={{
-                backgroundColor: "#FDF7EC",
-                borderColor: "#FCD9A6",
+                marginBottom: isMobile ? "env(safe-area-inset-bottom)" : undefined,
+                width: isMobile ? "92vw" : undefined,
               }}
             >
-              <div className="flex items-center justify-between">
-                <p
-                  className="text-[11px] font-bold uppercase tracking-[0.06em]"
-                  style={{ color: EKARI.dim }}
-                >
-                  Total received
-                </p>
-                <span className="text-base">💰</span>
-              </div>
-              <p
-                className="mt-1 text-xl font-black"
-                style={{ color: EKARI.ink }}
-              >
-                {displayCurrency}{" "}
-                {totalReceivedDisplayMajor.toFixed(
-                  displayCurrency === "KES" ? 0 : 2
-                )}
-              </p>
-              <p className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                Across {wallet?.totalDonations || 0} donations
-              </p>
-            </div>
-
-            <div
-              className="flex-1 rounded-2xl border bg-white px-4 py-3 shadow-sm"
-              style={{ borderColor: EKARI.hair }}
-            >
-              <div className="flex items-center justify-between">
-                <p
-                  className="text-[11px] font-bold uppercase tracking-[0.06em]"
-                  style={{ color: EKARI.dim }}
-                >
-                  Wallet / pending balance
-                </p>
-                <span className="text-base">🕒</span>
-              </div>
-              <p
-                className="mt-1 text-xl font-black"
-                style={{ color: EKARI.ink }}
-              >
-                {displayCurrency}{" "}
-                {pendingBalanceDisplayMajor.toFixed(
-                  displayCurrency === "KES" ? 0 : 2
-                )}
-              </p>
-              <div className="mt-1 flex items-start justify-between gap-2">
-                <p className="text-xs" style={{ color: EKARI.dim }}>
-                  This is your current ekarihub wallet balance. You can
-                  withdraw once you reach the minimum threshold, or use it to
-                  donate to other deeds.
-                </p>
-                <button
-                  type="button"
-                  onClick={openTopupModal}
-                  className="shrink-0 rounded-full bg-emerald-900 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-emerald-800"
-                >
-                  Top up wallet
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Withdraw button / message */}
-          {wallet?.pendingBalance &&
-            wallet.pendingBalance >= minThresholdUsdMajor * 100 ? (
-            <button
-              type="button"
-              onClick={() => setConfirmWithdrawOpen(true)}
-              className="mt-2 w-full rounded-full bg-emerald-900 text-white py-2 font-semibold hover:bg-emerald-800"
-            >
-              Withdraw Funds
-            </button>
-          ) : (
-            <p className="mt-2 text-xs text-red-500 font-medium">
-              Minimum withdrawal: {displayCurrency}{" "}
-              {minThresholdDisplayMajor.toFixed(
-                displayCurrency === "KES" ? 0 : 2
-              )}
-              {displayCurrency === "KES" && (
-                <> (≈ USD {minThresholdUsdMajor.toFixed(2)})</>
-              )}
-            </p>
-          )}
-
-          {/* Pills */}
-          <section className="flex flex-wrap items-center gap-2">
-            {/* Display currency pill + toggle */}
-            <div
-              className="flex items-center gap-2 rounded-full border bg-white px-3 py-1.5"
-              style={{ borderColor: EKARI.hair }}
-            >
-              <span
-                className="text-[11px] font-bold"
-                style={{ color: EKARI.ink }}
-              >
-                Display:
-              </span>
-              <div className="flex rounded-full bg-slate-100 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => handleToggleCurrency("USD")}
-                  className={`px-2 py-0.5 text-[11px] font-semibold rounded-full transition ${displayCurrency === "USD"
-                    ? "bg-emerald-900 text-white shadow-sm"
-                    : "text-slate-600"
-                    }`}
-                >
-                  USD
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleToggleCurrency("KES")}
-                  className={`px-2 py-0.5 text-[11px] font-semibold rounded-full transition ${displayCurrency === "KES"
-                    ? "bg-emerald-900 text-white shadow-sm"
-                    : "text-slate-600"
-                    }`}
-                >
-                  KSh
-                </button>
-              </div>
-            </div>
-
-            <div
-              className="flex items-center gap-1.5 rounded-full border px-3 py-1.5"
-              style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}
-            >
-              <span
-                className="text-[11px] font-semibold"
-                style={{ color: EKARI.dim }}
-              >
-                Split: ~{creatorSharePercentEffective}% you ·{" "}
-                {platformSharePercentEffective}% ekarihub
-              </span>
-            </div>
-
-            <div
-              className="flex items-center gap-1.5 rounded-full border px-3 py-1.5"
-              style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}
-            >
-              <span
-                className="text-[11px] font-semibold"
-                style={{ color: EKARI.dim }}
-              >
-                Provider fees (est.) ~{processingFeePercentEffective}% from your
-                share
-              </span>
-            </div>
-          </section>
-
-          {/* History with tabs */}
-          <section className="mt-2">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2
-                className="text-sm font-extrabold"
-                style={{ color: EKARI.ink }}
-              >
-                History
-              </h2>
-              <div className="inline-flex rounded-full bg-slate-100 p-0.5 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("donations")}
-                  className={`px-3 py-1 rounded-full font-semibold transition ${activeTab === "donations"
-                    ? "bg-white shadow-sm text-emerald-900"
-                    : "text-slate-600"
-                    }`}
-                >
-                  Donations
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("topups")}
-                  className={`px-3 py-1 rounded-full font-semibold transition ${activeTab === "topups"
-                    ? "bg-white shadow-sm text-emerald-900"
-                    : "text-slate-600"
-                    }`}
-                >
-                  Wallet topups
-                </button>
-              </div>
-            </div>
-
-            {loadingData ? (
-              <div className="flex items-center gap-2 py-6">
-                <BouncingBallLoader />
-                <p className="text-xs" style={{ color: EKARI.dim }}>
-                  Loading your history…
-                </p>
-              </div>
-            ) : activeTab === "donations" ? (
-              donations.length === 0 ? (
-                <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
-                  <p
-                    className="mb-1 text-sm font-extrabold"
-                    style={{ color: EKARI.ink }}
-                  >
-                    No donations yet
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:#233F39]">
+                    Top up your wallet
                   </p>
-                  <p
-                    className="text-xs md:text-sm"
-                    style={{ color: EKARI.dim }}
-                  >
-                    When viewers support your deeds with tips, they’ll appear
-                    here in real-time. Keep creating and sharing value. 🌱
+                  <h2 className="text-[16px] font-extrabold text-gray-900">
+                    Add funds to your ekarihub wallet
+                  </h2>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Enter the amount you want to load in{" "}
+                    {displayCurrency === "USD" ? "USD" : "Kenyan Shillings"}.
                   </p>
                 </div>
-              ) : (
-                <div className="pt-1 pb-4">
-                  {donations.map((d) => renderDonation(d))}
-                </div>
-              )
-            ) : // activeTab === "topups"
-              topups.length === 0 ? (
-                <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
-                  <p
-                    className="mb-1 text-sm font-extrabold"
-                    style={{ color: EKARI.ink }}
-                  >
-                    No wallet topups yet
-                  </p>
-                  <p
-                    className="text-xs md:text-sm"
-                    style={{ color: EKARI.dim }}
-                  >
-                    Top up your wallet to see your funding history here.
-                  </p>
-                </div>
-              ) : (
-                <div className="pt-1 pb-4">
-                  {topups.map((t) => renderTopup(t))}
-                </div>
-              )}
-          </section>
-        </div>
-
-        {/* 🔹 Top-up modal */}
-        {topupOpen &&
-          createPortal(
-            <div className="fixed inset-0 z-[70] flex items-center justify-center">
-              {/* Backdrop – faded + blurred like ConfirmModal */}
-              <div
-                className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${topupAnimated ? "opacity-100" : "opacity-0"
-                  }`}
-                onClick={() => !topupLoading && setTopupOpen(false)}
-              />
-
-              {/* Modal card – fade + scale in */}
-              <div
-                className={`relative w-full max-w-md px-5 pb-5 pt-4 rounded-3xl bg-white shadow-xl transition-all duration-200 transform ${topupAnimated
-                  ? "opacity-100 scale-100 translate-y-0"
-                  : "opacity-0 scale-95 translate-y-2"
-                  }`}
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:#233F39]">
-                      Top up your wallet
-                    </p>
-                    <h2 className="text-[16px] font-extrabold text-gray-900">
-                      Add funds to your ekarihub wallet
-                    </h2>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Enter the amount you want to load in{" "}
-                      {displayCurrency === "USD" ? "USD" : "Kenyan Shillings"}.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={topupLoading}
-                    onClick={() => setTopupOpen(false)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="mb-4">
-                  <label className="mb-1 block text-xs font-semibold text-gray-700">
-                    Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
-                  </label>
-                  <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2">
-                    <span className="text-xs font-semibold text-gray-500">
-                      {displayCurrency === "USD" ? "USD" : "KSh"}
-                    </span>
-                    <input
-                      type="number"
-                      min={displayCurrency === "USD" ? 1 : 100}
-                      step={displayCurrency === "USD" ? 1 : 50}
-                      value={topupAmount}
-                      onChange={(e) => {
-                        setTopupAmount(e.target.value);
-                        if (topupError) setTopupError(null);
-                      }}
-                      className="flex-1 border-none bg-transparent text-sm outline-none placeholder:text-gray-300"
-                      placeholder={displayCurrency === "USD" ? "e.g. 10" : "e.g. 1000"}
-                    />
-                  </div>
-                  <p className="mt-1 text-[11px] text-gray-400">
-                    You’ll be redirected to a secure Paystack page to complete the
-                    top-up.
-                  </p>
-                  {topupError && (
-                    <p className="mt-2 text-[11px] text-red-500">{topupError}</p>
-                  )}
-                </div>
-
                 <button
                   type="button"
-                  onClick={handleConfirmTopup}
                   disabled={topupLoading}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[color:#233F39] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#1b312d] disabled:opacity-60"
+                  onClick={() => setTopupOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40"
                 >
-                  {topupLoading ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      <span>Starting top-up…</span>
-                    </>
-                  ) : (
-                    <>
-                      <span role="img" aria-label="wallet">
-                        👛
-                      </span>
-                      <span>Continue</span>
-                    </>
-                  )}
+                  ✕
                 </button>
-
-                <p className="mt-2 text-center text-[10px] text-gray-500">
-                  Your wallet balance will update automatically once the payment
-                  succeeds.
-                </p>
               </div>
-            </div>,
-            document.body
-          )}
 
+              <div className="mb-4">
+                <label className="mb-1 block text-xs font-semibold text-gray-700">
+                  Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
+                </label>
+                <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2">
+                  <span className="text-xs font-semibold text-gray-500">
+                    {displayCurrency === "USD" ? "USD" : "KSh"}
+                  </span>
+                  <input
+                    type="number"
+                    min={displayCurrency === "USD" ? 1 : 100}
+                    step={displayCurrency === "USD" ? 1 : 50}
+                    value={topupAmount}
+                    onChange={(e) => {
+                      setTopupAmount(e.target.value);
+                      if (topupError) setTopupError(null);
+                    }}
+                    className="flex-1 border-none bg-transparent text-sm outline-none placeholder:text-gray-300"
+                    placeholder={displayCurrency === "USD" ? "e.g. 10" : "e.g. 1000"}
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-gray-400">
+                  You’ll be redirected to a secure Paystack page to complete the top-up.
+                </p>
+                {topupError && <p className="mt-2 text-[11px] text-red-500">{topupError}</p>}
+              </div>
 
-        {/* 🔹 Confirm Withdraw Modal */}
-        <ConfirmModal
-          open={confirmWithdrawOpen}
-          title="Withdraw your wallet balance?"
-          message={`You’re about to request a withdrawal of your full pending balance (${displayCurrency} ${pendingBalanceDisplayMajor.toFixed(
-            displayCurrency === "KES" ? 0 : 2
-          )}). We’ll review and process this request according to ekarihub payout timelines.`}
-          confirmText="Submit request"
-          cancelText="Cancel"
-          onConfirm={async () => {
-            setConfirmWithdrawOpen(false);
-            await handleRequestWithdraw();
-          }}
-          onCancel={() => setConfirmWithdrawOpen(false)}
-        />
+              <button
+                type="button"
+                onClick={handleConfirmTopup}
+                disabled={topupLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[color:#233F39] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#1b312d] disabled:opacity-60"
+              >
+                {topupLoading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span>Starting top-up…</span>
+                  </>
+                ) : (
+                  <>
+                    <span role="img" aria-label="wallet">
+                      👛
+                    </span>
+                    <span>Continue</span>
+                  </>
+                )}
+              </button>
 
-        {/* 🔹 Feedback Modal (success / error) */}
-        <ConfirmModal
-          open={!!feedbackModal}
-          title={feedbackModal?.title || ""}
-          message={feedbackModal?.message || ""}
-          confirmText="OK"
-          cancelText="Close"
-          onConfirm={() => setFeedbackModal(null)}
-          onCancel={() => setFeedbackModal(null)}
-        />
-      </main>
-    </AppShell>
+              <p className="mt-2 text-center text-[10px] text-gray-500">
+                Your wallet balance will update automatically once the payment succeeds.
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* 🔹 Confirm Withdraw Modal */}
+      <ConfirmModal
+        open={confirmWithdrawOpen}
+        title="Withdraw your wallet balance?"
+        message={`You’re about to request a withdrawal of your full pending balance (${displayCurrency} ${pendingBalanceDisplayMajor.toFixed(
+          displayCurrency === "KES" ? 0 : 2
+        )}). We’ll review and process this request according to ekarihub payout timelines.`}
+        confirmText="Submit request"
+        cancelText="Cancel"
+        onConfirm={async () => {
+          setConfirmWithdrawOpen(false);
+          await handleRequestWithdraw();
+        }}
+        onCancel={() => setConfirmWithdrawOpen(false)}
+      />
+
+      {/* 🔹 Feedback Modal (success / error) */}
+      <ConfirmModal
+        open={!!feedbackModal}
+        title={feedbackModal?.title || ""}
+        message={feedbackModal?.message || ""}
+        confirmText="OK"
+        cancelText="Close"
+        onConfirm={() => setFeedbackModal(null)}
+        onCancel={() => setFeedbackModal(null)}
+      />
+    </main>
   );
+
+  return wrap(MainBody, "My Earnings");
 }
