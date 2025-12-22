@@ -1,66 +1,50 @@
 // app/bonga/[threadId]/page.tsx
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useLayoutEffect,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
-import clsx from "clsx";
 import {
+  addDoc,
   collection,
   doc,
+  endBefore,
   getDoc,
   getDocs,
+  limit,
+  limitToLast,
   onSnapshot,
   orderBy,
   query,
-  limit,
-  limitToLast,
-  addDoc,
-  updateDoc,
-  setDoc,
   serverTimestamp,
-  endBefore,
-  startAfter,
+  setDoc,
+  updateDoc,
   DocumentSnapshot,
 } from "firebase/firestore";
-import { ref as rtdbRef, onValue, getDatabase } from "firebase/database";
+import { getDatabase, onValue, ref as rtdbRef } from "firebase/database";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import {
   IoArrowBack,
-  IoSend,
+  IoCameraOutline,
+  IoChatbubblesOutline,
+  IoChevronForward,
+  IoClose,
+  IoFlagOutline,
   IoHappyOutline,
   IoImageOutline,
-  IoCameraOutline,
-  IoFlagOutline,
-  IoChatbubblesOutline,
+  IoMicOutline,
+  IoPause,
+  IoPlay,
   IoSearchOutline,
-  IoChevronForward,
-  IoMenu,
-  IoClose,
+  IoSend,
 } from "react-icons/io5";
 
 import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
-import SmartAvatar from "@/app/components/SmartAvatar";
-import { Button } from "@/components/ui/button";
 
-/* --- Emoji grid (no dependency) --- */
-const EmojiPickerList = [
-  "😀", "😁", "😂", "🤣", "😊", "😍", "🥰", "😘", "😎", "🤗", "🤔", "😴", "😅", "😇", "😉", "🙃", "🙂", "😭", "😤", "😡", "🤯",
-  "🤝", "👍", "👎", "👏", "🙏", "💪", "👌", "🤌", "🙌", "🫶", "🤙", "💖", "💗", "💜", "🔥", "✨", "🎉", "🥳", "💯", "✅",
-  "❌", "⚠️", "☑️", "🩷", "🧡", "💛", "💚", "💙", "🖤", "🤍", "🤎", "🍀", "🌟", "⭐️", "🌈", "☀️", "🌙", "🌸", "🌼",
-  "🐶", "🐱", "🦄", "🐣", "🍕", "🍔", "🍟", "🍩", "☕️",
-];
+/* ================================================================ */
 
 const EKARI = {
   forest: "#233F39",
@@ -72,56 +56,29 @@ const EKARI = {
   sub: "#5C6B66",
 };
 
-const hexToRgba = (hex: string, a = 1) => {
-  const h = hex.replace("#", "");
-  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
-  const n = parseInt(full, 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
-};
-
 type UserLite = {
+  uid?: string;
   firstName?: string;
   surname?: string;
   handle?: string;
   photoURL?: string;
-};
-
-type ThreadMirror = {
-  threadId: string;
-  peerId: string;
-  unread?: number;
-  updatedAt?: any;
-  lastMessage?: LastMessage; // preferred if present
-};
-
-type RowData = {
-  threadId: string;
-  peerId: string;
-  peer: UserLite | null;
-  lastMessage?: LastMessage;
-  unread: number;
-  updatedAt?: any;
+  followersCount?: number;
+  followingCount?: number;
 };
 
 type ListingCtx = {
   id: string;
   name?: string;
   image?: string;
+  imageUrl?: string;
+  imageUrls?: string[];
   price?: number;
   currency?: "KES" | "USD" | string;
-  type?: string; // "marketListing" | "tree" | "arableLand" etc
-  url?: string; // "/market/<id>"
+  unit?: string;
+  type?: string;
+  category?: string;
+  url?: string;
 };
-
-type LastMessage =
-  | { type: "text"; text: string; from: string; to: string; createdAt: any }
-  | { type: "image"; from: string; to: string; createdAt: any }
-  | { type: "audio"; from: string; to: string; createdAt: any }
-  | { type: "product"; from: string; to: string; createdAt: any; listing?: ListingCtx }
-  | undefined;
 
 type Message = {
   id: string;
@@ -134,14 +91,26 @@ type Message = {
   to: string;
   createdAt: any;
   type: "text" | "image" | "audio" | "product";
-  listing?: ListingCtx; // ✅
+  listing?: ListingCtx | any;
   readBy?: Record<string, boolean>;
 };
 
+type ThreadRow = {
+  id: string; // threadId
+  threadId: string;
+  peerId: string;
+  unread?: number;
+  lastMessageText?: string;
+  lastMessageType?: string;
+  lastMessageAt?: any;
+  updatedAt?: any;
+  createdAt?: any;
+};
 
-function useIsMobile() {
-  return useMediaQuery("(max-width: 1023px)");
+function participantsArray(a: string, b: string) {
+  return [a, b].sort();
 }
+
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
   if (typeof ts?.toDate === "function") return ts.toDate();
@@ -150,28 +119,6 @@ function tsToDate(ts: any): Date | null {
   if (typeof ts === "number") return new Date(ts);
   return null;
 }
-
-function shortTime(ts: any) {
-  const d = tsToDate(ts);
-  if (!d) return "";
-  const now = new Date();
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-
-  if (sameDay) {
-    const h = d.getHours();
-    const m = d.getMinutes().toString().padStart(2, "0");
-    const ampm = h >= 12 ? "PM" : "AM";
-    const hh = ((h + 11) % 12) + 1;
-    return `${hh}:${m} ${ampm}`;
-  }
-  const mon = d.toLocaleString(undefined, { month: "short" });
-  const day = d.getDate();
-  return `${mon} ${day}`;
-}
-/* ---------------- responsive helpers ---------------- */
 
 function formatMsgTime(ts: any) {
   const d = tsToDate(ts);
@@ -183,13 +130,19 @@ function formatMsgTime(ts: any) {
   return `${hh}:${m} ${ampm}`;
 }
 
-function previewOf(last?: LastMessage) {
-  if (!last) return "";
-  if (last.type === "text") return last.text || "";
-  if (last.type === "image") return "📷 Photo";
-  if (last.type === "audio") return "🎤 Voice message";
-  if (last.type === "product") return `🛒 ${last.listing?.name || "Product inquiry"}`;
-  return "";
+function formatListTime(ts: any) {
+  const d = tsToDate(ts);
+  if (!d) return "";
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) return formatMsgTime(ts);
+  const diff = now.getTime() - d.getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days < 7) return d.toLocaleDateString("en-KE", { weekday: "short" });
+  return d.toLocaleDateString("en-KE", { day: "2-digit", month: "short" });
 }
 
 function lastSeenText(online?: boolean, lastActive?: any) {
@@ -206,465 +159,367 @@ function lastSeenText(online?: boolean, lastActive?: any) {
   return `last seen ${days}d ago`;
 }
 
-function participantsArray(a: string, b: string) {
-  return [a, b].sort();
-}
-
-function normalizeUser(raw: any): UserLite | null {
-  if (!raw) return null;
+function normalizeUser(uid: string, raw: any): UserLite {
+  const r = raw || {};
   return {
-    firstName: raw.firstName ?? raw.name ?? "",
-    surname: raw.surname ?? raw.lastName ?? "",
-    handle: raw.handle ?? raw.username ?? "",
-    photoURL: raw.photoURL ?? raw.photo ?? raw.imageUrl ?? "",
+    uid,
+    firstName: r.firstName ?? r.name ?? "",
+    surname: r.surname ?? r.lastName ?? "",
+    handle: r.handle ?? r.username ?? "",
+    photoURL: r.photoURL ?? r.photo ?? r.imageUrl ?? "",
+    followersCount: r.followersCount ?? 0,
+    followingCount: r.followingCount ?? 0,
   };
 }
 
-function parseThreadAndQsFromUrl() {
-  if (typeof window === "undefined") return null;
-
-  const url = new URL(window.location.href);
-  const parts = url.pathname.split("/").filter(Boolean); // ["bonga","<threadId>"]
-  const idx = parts.indexOf("bonga");
-  const tId = idx >= 0 ? (parts[idx + 1] || "") : "";
-  const qs = url.searchParams;
-
-  return {
-    threadId: tId,
-    peerId: qs.get("peerId") || "",
-    peerName: qs.get("peerName") || "",
-    peerPhotoURL: qs.get("peerPhotoURL") || "",
-    peerHandle: qs.get("peerHandle") || "",
-  };
+function stripUndefined<T>(v: T): T {
+  if (Array.isArray(v)) return v.map(stripUndefined).filter((x) => x !== undefined) as any;
+  if (v && typeof v === "object") {
+    const out: any = {};
+    for (const [k, val] of Object.entries(v as any)) {
+      const cleaned = stripUndefined(val);
+      if (cleaned !== undefined) out[k] = cleaned;
+    }
+    return out;
+  }
+  return v === undefined ? (undefined as any) : v;
 }
 
-/* -------- responsive helpers -------- */
-function useMediaQuery(queryStr: string) {
-  const [matches, setMatches] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia(queryStr);
-    const onChange = () => setMatches(mq.matches);
-    onChange();
-    mq.addEventListener?.("change", onChange);
-    return () => mq.removeEventListener?.("change", onChange);
-  }, [queryStr]);
-  return matches;
+function fmtMoney(n?: number, currency: "KES" | "USD" = "KES") {
+  const safe = Number.isFinite(Number(n)) ? Number(n) : 0;
+  try {
+    return new Intl.NumberFormat("en-KE", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(safe);
+  } catch {
+    return (currency === "USD" ? "$" : "KSh ") + safe.toLocaleString("en-KE");
+  }
 }
-function useIsDesktop() {
-  return useMediaQuery("(min-width: 768px)"); // md breakpoint
+
+/* --- emoji --- */
+const EMOJI_SETS: string[][] = [
+  ["😀", "😁", "😂", "🤣", "😅", "😊", "😍", "😘", "😜", "🤗", "🤩", "🤔"],
+  ["👍", "👎", "👏", "🙌", "🙏", "💪", "🤝", "👋", "👌", "✌️", "🤞", "🫶"],
+  ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💖", "💘", "💝", "💔"],
+  ["🎉", "✨", "🔥", "🌟", "💯", "✅", "❌", "⚡", "☀️", "🌙", "⭐", "🍀"],
+];
+
+function safeStr(v: any): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (typeof v === "object") {
+    if (typeof v.text === "string") return v.text;
+    return "";
+  }
+  return "";
+}
+
+function tsToMillis(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts?.toMillis === "function") return ts.toMillis();
+  const d = tsToDate(ts);
+  return d ? d.getTime() : 0;
+}
+
+function agoShort(ms: number) {
+  if (!ms) return "—";
+  const diff = Date.now() - ms;
+  if (diff < 0) return "now";
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
 }
 
 /* ================================================================ */
 
-export default function BongaThreadLayoutPage() {
+export default function BongaThreadPage() {
   const router = useRouter();
   const params = useParams<{ threadId: string }>();
   const sp = useSearchParams();
-  const isMobile = useIsMobile();
+
   const { user } = useAuth();
   const uid = user?.uid || "";
 
   const rtdb = getDatabase();
-  const isDesktop = useIsDesktop();
 
-  // URL segment threadId (deep link / initial)
-  const routeThreadId = params.threadId;
+  const threadId = String(params.threadId || "");
+  const qsPeerId = sp.get("peerId") || "";
+  const qsPeerName = sp.get("peerName") || "";
+  const qsPeerHandle = sp.get("peerHandle") || "";
+  const qsPeerPhotoURL = sp.get("peerPhotoURL") || "";
+  const debug = sp.get("debug") === "1";
 
-  // initial querystring values (deep link / refresh)
-  const initialPeerId = sp.get("peerId") || "";
-  const initialPeerName = sp.get("peerName") || "";
-  const initialPeerPhotoURL = sp.get("peerPhotoURL") || "";
-  const initialPeerHandle = sp.get("peerHandle") || "";
-
-  // ✅ Single-page selection state
-  const [threadCtx, setThreadCtx] = useState<any>(null);
-  const [activeThreadId, setActiveThreadId] = useState(routeThreadId);
-  const [activePeerId, setActivePeerId] = useState(initialPeerId);
-  const [activePeerQs, setActivePeerQs] = useState({
-    peerName: initialPeerName,
-    peerPhotoURL: initialPeerPhotoURL,
-    peerHandle: initialPeerHandle,
-  });
-
+  // deep-link listing (optional)
   const initialListing: ListingCtx | null = useMemo(() => {
     const id = sp.get("listingId") || "";
     if (!id) return null;
-
     const priceRaw = sp.get("listingPrice");
     const price = priceRaw ? Number(priceRaw) : undefined;
-
     return {
       id,
       name: sp.get("listingName") || "",
       image: sp.get("listingImage") || "",
+      imageUrl: sp.get("listingImage") || "",
       price: Number.isFinite(price as any) ? price : undefined,
       currency: (sp.get("listingCurrency") || "KES") as any,
+      unit: sp.get("listingUnit") || "",
       type: sp.get("listingType") || "marketListing",
       url: sp.get("listingUrl") || `/market/${encodeURIComponent(id)}`,
     };
   }, [sp]);
 
-  const threadContextListing: ListingCtx | null = useMemo(() => {
+  /* ---------------- LEFT SIDEBAR STATE ---------------- */
+  const [threads, setThreads] = useState<ThreadRow[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [peerCache, setPeerCache] = useState<Record<string, UserLite>>({});
+
+  /* ---------------- RIGHT PANEL STATE ---------------- */
+  const [activePeerId, setActivePeerId] = useState(qsPeerId);
+  const [peerQs] = useState({
+    peerName: qsPeerName,
+    peerHandle: qsPeerHandle,
+    peerPhotoURL: qsPeerPhotoURL,
+  });
+
+  const [pending, setPending] = useState<ListingCtx | null>(initialListing);
+  const [pendingSent, setPendingSent] = useState(false);
+
+  const [threadReady, setThreadReady] = useState(false);
+  const [threadCtx, setThreadCtx] = useState<any>(null);
+
+  const [peer, setPeer] = useState<(UserLite & { online?: boolean; lastActiveAt?: any }) | null>(null);
+  const [peerTyping, setPeerTyping] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<Message[]>([]);
+  const [pagingOlder, setPagingOlder] = useState(false);
+  const [oldestDoc, setOldestDoc] = useState<DocumentSnapshot | null>(null);
+
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  const [showJump, setShowJump] = useState(false);
+
+  const [viewer, setViewer] = useState<{ open: boolean; url: string }>({ open: false, url: "" });
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // audio recording (web)
+  const [isRecording, setIsRecording] = useState(false);
+  const [recMs, setRecMs] = useState(0);
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
+  const recChunksRef = useRef<BlobPart[]>([]);
+  const recTimerRef = useRef<any>(null);
+
+  // audio playback (only one at once)
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioState, setAudioState] = useState<Record<string, { playing: boolean; pct: number }>>({});
+
+  // 🔎 Track "active map" like Cloud Function
+  const [activeMapSnap, setActiveMapSnap] = useState<{ myMs: number; peerMs: number }>({
+    myMs: 0,
+    peerMs: 0,
+  });
+
+  const peerActiveNow = useMemo(() => {
+    const peerMs = activeMapSnap.peerMs;
+    return peerMs > 0 && Date.now() - peerMs < 60_000;
+  }, [activeMapSnap.peerMs]);
+
+  const myActiveNow = useMemo(() => {
+    const myMs = activeMapSnap.myMs;
+    return myMs > 0 && Date.now() - myMs < 60_000;
+  }, [activeMapSnap.myMs]);
+
+  const ctxListing: ListingCtx | null = useMemo(() => {
     const l = threadCtx?.listing;
     if (!l?.id) return null;
     return {
       id: String(l.id),
       name: l.name || "",
-      image: l.image || "",
-      price: typeof l.price === "number" ? l.price : undefined,
+      image: l.image || l.imageUrl || l.imageUrls?.[0] || "",
+      imageUrl: l.image || l.imageUrl || l.imageUrls?.[0] || "",
+      imageUrls: l.imageUrls || (l.imageUrl ? [l.imageUrl] : []),
+      price: typeof l.price === "number" ? l.price : Number(l.price || 0),
       currency: l.currency || "KES",
+      unit: l.unit || "",
       type: l.type || "marketListing",
+      category: l.category || "",
       url: l.url || `/market/${encodeURIComponent(String(l.id))}`,
     };
   }, [threadCtx]);
 
-  const [pendingListing, setPendingListing] = useState<ListingCtx | null>(initialListing);
-  useEffect(() => {
-    setPendingListing(initialListing);
-  }, [initialListing]);
-
-  // keep in sync if user directly navigates to a new /bonga/<id> (hard navigation)
-  useEffect(() => {
-    setActiveThreadId(routeThreadId);
-    if (initialPeerId) setActivePeerId(initialPeerId);
-    setActivePeerQs({
-      peerName: initialPeerName,
-      peerPhotoURL: initialPeerPhotoURL,
-      peerHandle: initialPeerHandle,
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    requestAnimationFrame(() => {
+      endRef.current?.scrollIntoView({ behavior, block: "end" });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeThreadId]);
-
-  // ✅ handle back/forward between threads because we use pushState
-  useEffect(() => {
-    const onPop = () => {
-      const parsed = parseThreadAndQsFromUrl();
-      if (!parsed) return;
-
-      if (parsed.threadId) setActiveThreadId(parsed.threadId);
-      setActivePeerId(parsed.peerId || "");
-      setActivePeerQs({
-        peerName: parsed.peerName || "",
-        peerPhotoURL: parsed.peerPhotoURL || "",
-        peerHandle: parsed.peerHandle || "",
-      });
-    };
-
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  /* ---------------- Sidebar UI ---------------- */
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [tab, setTab] = useState<"all" | "unread">("all");
-  const [qStr, setQStr] = useState("");
+  const headerTitle =
+    peer?.firstName || peerQs.peerName || peer?.handle || peerQs.peerHandle || "Message";
 
-  // auto-close drawer on desktop
-  useEffect(() => {
-    if (isDesktop) setSidebarOpen(false);
-  }, [isDesktop]);
+  const onlineNow = !!peer?.online;
+  const lastActiveAny = peer?.lastActiveAt;
 
-  const onBack = useCallback(() => {
-    if (!isDesktop) {
-      router.push("/bonga");
-      return;
-    }
-    router.back();
-  }, [isDesktop, router]);
-
-  /* ---------------- Sidebar data ---------------- */
-  const [rows, setRows] = useState<RowData[]>([]);
-  const [rowsLoading, setRowsLoading] = useState(true);
-  const [pagingRows, setPagingRows] = useState(false);
-  const [cursor, setCursor] = useState<DocumentSnapshot | null>(null);
-
-  // caches
-  const userCache = useRef<Map<string, UserLite | null>>(new Map());
-  const threadCache = useRef<Map<string, LastMessage | undefined>>(new Map()); // fallback threads/{id}.lastMessage cache
-
-  const fetchPeer = useCallback(async (peerId: string) => {
-    if (userCache.current.has(peerId)) return userCache.current.get(peerId)!;
-    try {
-      const snap = await getDoc(doc(db, "users", peerId));
-      const raw = snap.exists() ? (snap.data() as any) : null;
-      const data = normalizeUser(raw);
-      userCache.current.set(peerId, data);
-      return data;
-    } catch (err) {
-      console.error("Error fetching peer:", err);
-      userCache.current.set(peerId, null);
-      return null;
-    }
-  }, []);
-
-  // fallback only (if mirror lastMessage missing)
-  const fetchLastMessageFromThread = useCallback(async (tId: string) => {
-    if (threadCache.current.has(tId)) return threadCache.current.get(tId);
-    try {
-      const tSnap = await getDoc(doc(db, "threads", tId));
-      const data = tSnap.data() as any;
-      const last: LastMessage | undefined = data?.lastMessage;
-      threadCache.current.set(tId, last);
-      return last;
-    } catch (err) {
-      console.error("Error fetching lastMessage:", err);
-      threadCache.current.set(tId, undefined);
-      return undefined;
-    }
-  }, []);
-
-  // Sidebar live list (prefer mirror lastMessage)
+  /* ================================================================
+   *  LEFT SIDEBAR: load threads list (desktop)
+   * ================================================================ */
   useEffect(() => {
     if (!uid) {
-      setRows([]);
-      setRowsLoading(false);
+      setThreads([]);
+      setThreadsLoading(false);
       return;
     }
 
-    setRowsLoading(true);
+    setThreadsLoading(true);
 
     const qy = query(
       collection(db, "userThreads", uid, "threads"),
       orderBy("updatedAt", "desc"),
-      limit(25)
+      limit(60)
     );
 
     const unsub = onSnapshot(
       qy,
-      (snap) => {
-        (async () => {
+      async (snap) => {
+        const rows = snap.docs.map((d) => {
+          const v = d.data() as any;
+          return {
+            id: d.id,
+            threadId: v.threadId || d.id,
+            peerId: v.peerId || "",
+            unread: v.unread ?? 0,
+            lastMessageText: safeStr(v.lastMessageText || v.lastMessage),
+            lastMessageType: safeStr(v.lastMessageType),
+            lastMessageAt: v.lastMessageAt || null,
+            updatedAt: v.updatedAt || null,
+            createdAt: v.createdAt || null,
+          } as ThreadRow;
+        });
+
+        setThreads(rows);
+
+        const need = Array.from(
+          new Set(rows.map((r) => r.peerId).filter(Boolean).filter((pid) => !peerCache[pid]))
+        );
+
+        if (need.length) {
           try {
-            const docs = snap.docs;
-            setCursor(docs.length ? docs[docs.length - 1] : null);
-
-            // prevent stale fallback cache if thread updated
-            for (const d of docs) {
-              const m = d.data() as ThreadMirror;
-              threadCache.current.delete(m.threadId);
-            }
-
-            const base: RowData[] = await Promise.all(
-              docs.map(async (d) => {
-                const m = d.data() as ThreadMirror;
-                const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
-
-                const [peer, lastFallback] = await Promise.all([
-                  fetchPeer(m.peerId),
-                  mirrorLast ? Promise.resolve(undefined) : fetchLastMessageFromThread(m.threadId),
-                ]);
-
-                const lastMessage = mirrorLast ?? lastFallback;
-
-                return {
-                  threadId: m.threadId,
-                  peerId: m.peerId,
-                  peer: peer ?? null,
-                  lastMessage,
-                  unread: m.unread ?? 0,
-                  updatedAt: (d.data() as any).updatedAt,
-                };
+            const pairs = await Promise.all(
+              need.map(async (pid) => {
+                const s = await getDoc(doc(db, "users", pid));
+                return [pid, normalizeUser(pid, s.data())] as const;
               })
             );
-
-            setRows(base);
-            setRowsLoading(false);
-          } catch (err) {
-            console.error("Sidebar snapshot processing error:", err);
-            setRows([]);
-            setRowsLoading(false);
+            setPeerCache((p) => {
+              const next = { ...p };
+              for (const [pid, u] of pairs) next[pid] = u;
+              return next;
+            });
+          } catch {
+            // ignore
           }
-        })();
+        }
+
+        setThreadsLoading(false);
       },
-      (error) => {
-        console.error("Sidebar onSnapshot error:", error);
-        setRows([]);
-        setRowsLoading(false);
-      }
+      () => setThreadsLoading(false)
     );
 
     return () => unsub();
-  }, [uid, fetchPeer, fetchLastMessageFromThread]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
 
-  const loadMoreRows = useCallback(async () => {
-    if (!uid || !cursor || pagingRows) return;
-    setPagingRows(true);
-    try {
-      const qMore = query(
-        collection(db, "userThreads", uid, "threads"),
-        orderBy("updatedAt", "desc"),
-        startAfter(cursor),
-        limit(25)
-      );
-      const snap = await getDocs(qMore);
-      const docs = snap.docs;
-      setCursor(docs.length ? docs[docs.length - 1] : null);
+  const filteredThreads = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return threads;
 
-      const extra: RowData[] = await Promise.all(
-        docs.map(async (d) => {
-          const m = d.data() as ThreadMirror;
-          threadCache.current.delete(m.threadId);
-
-          const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
-
-          const [peer, lastFallback] = await Promise.all([
-            fetchPeer(m.peerId),
-            mirrorLast ? Promise.resolve(undefined) : fetchLastMessageFromThread(m.threadId),
-          ]);
-
-          const lastMessage = mirrorLast ?? lastFallback;
-
-          return {
-            threadId: m.threadId,
-            peerId: m.peerId,
-            peer: peer ?? null,
-            lastMessage,
-            unread: m.unread ?? 0,
-            updatedAt: (d.data() as any).updatedAt,
-          };
-        })
-      );
-
-      setRows((prev) => [...prev, ...extra]);
-    } catch (err) {
-      console.error("loadMoreRows error:", err);
-    } finally {
-      setPagingRows(false);
-    }
-  }, [uid, cursor, pagingRows, fetchPeer, fetchLastMessageFromThread]);
-
-  const filteredRows = useMemo(() => {
-    const term = qStr.trim().toLowerCase();
-    let list = rows;
-    if (tab === "unread") list = list.filter((r) => (r.unread ?? 0) > 0);
-    if (!term) return list;
-    return list.filter((r) => {
-      const name = r.peer?.firstName || "";
-      const handle = r.peer?.handle || "";
-      const last = previewOf(r.lastMessage) || "";
-      return (
-        name.toLowerCase().includes(term) ||
-        handle.toLowerCase().includes(term) ||
-        last.toLowerCase().includes(term)
-      );
+    return threads.filter((t) => {
+      const p = peerCache[t.peerId];
+      const name = `${p?.firstName || ""} ${p?.surname || ""}`.trim().toLowerCase();
+      const handle = (p?.handle || "").toLowerCase();
+      const last = (t.lastMessageText || "").toLowerCase();
+      return name.includes(q) || handle.includes(q) || last.includes(q);
     });
-  }, [rows, qStr, tab]);
+  }, [threads, search, peerCache]);
 
-  // ✅ smooth open: update local state + pushState (no Next navigation)
-  const openThreadFromSidebar = (row: RowData) => {
-    setPendingListing(null);
-    setActiveThreadId(row.threadId);
-    setActivePeerId(row.peerId);
-    setActivePeerQs({
-      peerName: row.peer?.firstName ?? "",
-      peerPhotoURL: row.peer?.photoURL ?? "",
-      peerHandle: row.peer?.handle ?? "",
-    });
-
-    const q = new URLSearchParams({
-      peerId: row.peerId,
-      peerName: row.peer?.firstName ?? "",
-      peerPhotoURL: row.peer?.photoURL ?? "",
-      peerHandle: row.peer?.handle ?? "",
-    });
-
-    const nextUrl = `/bonga/${row.threadId}?${q.toString()}`;
-    window.history.pushState({}, "", nextUrl);
-
-    setSidebarOpen(false);
-  };
-
-  /* ---------------- Right Chat Panel ---------------- */
-
-  const selectedRow = rows.find((r) => r.threadId === activeThreadId);
-
-  const [peer, setPeer] = useState<{
-    photoURL?: string;
-    handle?: string;
-    firstName?: string;
-    surname?: string;
-    followersCount?: number;
-    followingCount?: number;
-    online?: boolean;
-    lastActiveAt?: any;
-  } | null>(null);
-
-  const [threadReady, setThreadReady] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const [items, setItems] = useState<Message[]>([]);
-  const [paging, setPaging] = useState(false);
-  const [oldestDoc, setOldestDoc] = useState<DocumentSnapshot | null>(null);
-  const [peerTyping, setPeerTyping] = useState(false);
-
-  const [input, setInput] = useState("");
-  const [showEmoji, setShowEmoji] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const headerRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLDivElement>(null);
-  const [composerH, setComposerH] = useState(92);
-  const [showJump, setShowJump] = useState(false);
-
-  useLayoutEffect(() => {
-    const ro = new ResizeObserver((entries) => {
-      for (const e of entries) {
-        if (e.target === composerRef.current) {
-          setComposerH(Math.round(e.contentRect.height));
-        }
-      }
-    });
-    if (composerRef.current) ro.observe(composerRef.current);
-    return () => ro.disconnect();
-  }, []);
-
-  // derive peerId from thread participants if missing
+  /* ================================================================
+   *  RIGHT PANEL: derive peerId if missing
+   * ================================================================ */
   useEffect(() => {
     (async () => {
-      if (activePeerId || !uid || !activeThreadId) return;
-      const snap = await getDoc(doc(db, "threads", activeThreadId));
-      if (!snap.exists()) {
-        setLoading(false);
-        return;
-      }
-      const data = snap.data() as any;
-      const parts: string[] = data?.participants || [];
-      const other = parts.find((p) => p !== uid) || "";
-      setActivePeerId(other);
-    })();
-  }, [uid, activeThreadId, activePeerId]);
+      if (!uid || !threadId) return;
+      if (activePeerId) return;
 
-  // ensure thread exists + mark read in my mirror (do NOT write lastMessage on client)
+      try {
+        const snap = await getDoc(doc(db, "threads", threadId));
+        if (!snap.exists()) return;
+
+        const data = snap.data() as any;
+        const parts: string[] = data?.participants || [];
+        const other = parts.find((p) => p !== uid) || "";
+        if (other) setActivePeerId(other);
+      } catch (e) {
+        console.error("derive peerId error:", e);
+      }
+    })();
+  }, [uid, threadId, activePeerId]);
+
+  /* ================================================================
+   *  RIGHT PANEL: ensure thread exists + mark read
+   * ================================================================ */
   useEffect(() => {
-    if (!uid || !activeThreadId || !activePeerId) return;
+    if (!uid || !activePeerId || !threadId) return;
 
     let cancelled = false;
 
     (async () => {
       try {
-        await updateDoc(doc(db, "threads", activeThreadId), { updatedAt: serverTimestamp() });
-      } catch {
+        // don't force updatedAt here; let dmMessageCreated control it.
+        await getDoc(doc(db, "threads", threadId));
+      } catch { }
+
+      // ensure thread exists
+      try {
         await setDoc(
-          doc(db, "threads", activeThreadId),
+          doc(db, "threads", threadId),
           {
             participants: participantsArray(uid, activePeerId),
             createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(), // ✅ add this
           },
           { merge: true }
         );
+      } catch (err) {
+        console.error("Thread ensure setDoc failed:", err);
       }
 
-      // ✅ mark my mirror read (unread=0)
-      await setDoc(
-        doc(db, "userThreads", uid, "threads", activeThreadId),
-        { threadId: activeThreadId, peerId: activePeerId, updatedAt: serverTimestamp(), unread: 0 },
-        { merge: true }
-      ).catch(() => { });
+      // mark my mirror read
+      try {
+
+        await setDoc(
+          doc(db, "userThreads", uid, "threads", threadId),
+          { unread: 0, lastReadAt: serverTimestamp() },
+          { merge: true }
+        );
+      } catch (err) {
+
+        console.error("userThreads setDoc failed:", err);
+      }
 
       if (!cancelled) setThreadReady(true);
     })();
@@ -673,26 +528,22 @@ export default function BongaThreadLayoutPage() {
       cancelled = true;
       setThreadReady(false);
     };
-  }, [uid, activePeerId, activeThreadId]);
+  }, [uid, activePeerId, threadId]);
 
-  // peer public info
+  /* ================================================================
+   *  RIGHT PANEL: peer public info + presence
+   * ================================================================ */
   useEffect(() => {
     if (!activePeerId) return;
     const uRef = doc(db, "users", activePeerId);
     const unsub = onSnapshot(uRef, (snap) => {
-      const raw = snap.data() || {};
-      const data = normalizeUser(raw) || {};
-      setPeer((prev) => ({
-        ...prev,
-        ...data,
-        followersCount: (raw as any)?.followersCount ?? 0,
-        followingCount: (raw as any)?.followingCount ?? 0,
-      }));
+      const u = normalizeUser(activePeerId, snap.data());
+      setPeer((prev) => ({ ...(prev || {}), ...(u || {}) }));
+      setPeerCache((p) => ({ ...p, [activePeerId]: u }));
     });
     return () => unsub();
   }, [activePeerId]);
 
-  // presence via RTDB
   useEffect(() => {
     if (!activePeerId) return;
     const sRef = rtdbRef(rtdb, `/status/${activePeerId}`);
@@ -702,57 +553,153 @@ export default function BongaThreadLayoutPage() {
         ...(p || {}),
         online: v.state === "online",
         lastActiveAt:
-          typeof v.lastChanged === "number"
-            ? new Date(v.lastChanged)
-            : p?.lastActiveAt ?? null,
+          typeof v.lastChanged === "number" ? new Date(v.lastChanged) : p?.lastActiveAt ?? null,
       }));
     });
     return () => off();
   }, [activePeerId, rtdb]);
 
-  // typing (from thread doc)
+  /* ================================================================
+   *  RIGHT PANEL: typing + threadContext + activeMap tracker
+   * ================================================================ */
   useEffect(() => {
-    if (!activeThreadId || !activePeerId) return;
-
-    const tRef = doc(db, "threads", activeThreadId);
+    if (!threadId || !activePeerId || !uid) return;
+    const tRef = doc(db, "threads", threadId);
     const unsub = onSnapshot(tRef, (snap) => {
       const data = snap.data() || {};
-
       const typing = (data as any).typing || {};
       setPeerTyping(!!typing[activePeerId]);
-
-      // ✅ thread context
       setThreadCtx((data as any).threadContext || null);
-    });
 
+      // 🔎 active map (same source your cloud function reads)
+      const myTs = (snap as any).get?.(`active.${uid}`) ?? (data as any)?.active?.[uid] ?? null;
+      const peerTs =
+        (snap as any).get?.(`active.${activePeerId}`) ??
+        (data as any)?.active?.[activePeerId] ??
+        null;
+
+      setActiveMapSnap({
+        myMs: tsToMillis(myTs),
+        peerMs: tsToMillis(peerTs),
+      });
+    });
     return () => unsub();
-  }, [activeThreadId, activePeerId]);
+  }, [threadId, activePeerId, uid]);
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    requestAnimationFrame(() => {
-      endRef.current?.scrollIntoView({ behavior, block: "end" });
-    });
-  }, []);
-
-  // show/hide jump button
+  /* ================================================================
+   *  RIGHT PANEL: active presence heartbeat ✅ IMPORTANT
+   *  - updates active.{uid} immediately
+   *  - refreshes every 25s while visible
+   * ================================================================ */
   useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-      setShowJump(distance > 160);
+    if (!uid || !threadId) return;
+
+    const tRef = doc(db, "threads", threadId);
+
+    const writeActive = (val: boolean) =>
+      updateDoc(tRef, { [`active.${uid}`]: val ? serverTimestamp() : null }).catch(() => { });
+
+    let timer: any = null;
+
+    const startHeartbeat = () => {
+      if (timer) return;
+      // write immediately, then keep refreshing
+      writeActive(true);
+      timer = setInterval(() => {
+        if (!document.hidden) writeActive(true);
+      }, 25_000);
     };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
 
-  // messages live
+    const stopHeartbeat = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+      writeActive(false);
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) stopHeartbeat();
+      else startHeartbeat();
+    };
+
+    const onBeforeUnload = () => stopHeartbeat();
+
+    if (!document.hidden) startHeartbeat();
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      stopHeartbeat();
+    };
+  }, [uid, threadId]);
+
+  /* ================================================================
+   *  RIGHT PANEL: typing scheduler
+   * ================================================================ */
+  const typingTimers = useRef<{ startT: any; stopT: any; isTyping: boolean }>({
+    startT: null,
+    stopT: null,
+    isTyping: false,
+  });
+
+  const setTyping = useCallback(
+    async (val: boolean) => {
+      if (!uid || !threadId) return;
+      await updateDoc(doc(db, "threads", threadId), { [`typing.${uid}`]: val }).catch(() => { });
+    },
+    [uid, threadId]
+  );
+
+  const scheduleTyping = useCallback(
+    (hasText: boolean) => {
+      if (!uid || !threadId) return;
+
+      if (typingTimers.current.startT) clearTimeout(typingTimers.current.startT);
+      if (typingTimers.current.stopT) clearTimeout(typingTimers.current.stopT);
+
+      if (!hasText) {
+        typingTimers.current.stopT = setTimeout(() => {
+          if (typingTimers.current.isTyping) {
+            typingTimers.current.isTyping = false;
+            setTyping(false).catch(() => { });
+          }
+        }, 250);
+        return;
+      }
+
+      if (!typingTimers.current.isTyping) {
+        typingTimers.current.startT = setTimeout(() => {
+          typingTimers.current.isTyping = true;
+          setTyping(true).catch(() => { });
+        }, 0);
+      }
+
+      typingTimers.current.stopT = setTimeout(() => {
+        if (typingTimers.current.isTyping) {
+          typingTimers.current.isTyping = false;
+          setTyping(false).catch(() => { });
+        }
+      }, 700);
+    },
+    [uid, threadId, setTyping]
+  );
+
   useEffect(() => {
-    if (!threadReady || !activeThreadId) return;
+    return () => scheduleTyping(false);
+  }, [scheduleTyping]);
+
+  /* ================================================================
+   *  RIGHT PANEL: messages live
+   * ================================================================ */
+  useEffect(() => {
+    if (!threadReady || !threadId) return;
+
     setLoading(true);
 
     const qy = query(
-      collection(db, "threads", activeThreadId, "messages"),
+      collection(db, "threads", threadId, "messages"),
       orderBy("createdAt", "asc"),
       limitToLast(25)
     );
@@ -760,95 +707,135 @@ export default function BongaThreadLayoutPage() {
     const unsub = onSnapshot(
       qy,
       (snap) => {
-        const msgs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Message[];
-        setItems(msgs);
+        const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Message[];
+        setItems(docs);
         setOldestDoc(snap.docs[0] ?? null);
         setLoading(false);
 
-        // mark read (my mirror)
         if (uid) {
           setDoc(
-            doc(db, "userThreads", uid, "threads", activeThreadId),
-            { unread: 0, updatedAt: serverTimestamp() },
+            doc(db, "userThreads", uid, "threads", threadId),
+            { unread: 0, lastReadAt: serverTimestamp() },
             { merge: true }
           ).catch(() => { });
         }
 
         scrollToBottom("auto");
       },
-      () => setLoading(false)
+      (err) => {
+        console.error("messages onSnapshot error:", err);
+        setLoading(false);
+      }
     );
 
     return () => unsub();
-  }, [threadReady, activeThreadId, uid, scrollToBottom]);
+  }, [threadReady, threadId, uid, scrollToBottom]);
 
-  // follow new msgs if at bottom
-  useEffect(() => {
+  /* ================================================================
+   *  RIGHT PANEL: load older
+   * ================================================================ */
+  const loadOlder = useCallback(async () => {
+    if (!oldestDoc || pagingOlder || !threadId) return;
+    setPagingOlder(true);
+
     const el = listRef.current;
-    if (!el || loading) return;
-    const threshold = 120;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-    if (atBottom) scrollToBottom("smooth");
-  }, [items.length, loading, scrollToBottom]);
+    const prevHeight = el?.scrollHeight ?? 0;
+    const prevTop = el?.scrollTop ?? 0;
 
-  useEffect(() => {
-    scrollToBottom("auto");
-  }, [composerH, scrollToBottom]);
-
-  // ✅ typing update uses field-path (does not overwrite typing map)
-  const setTypingDebounced = useMemo(() => {
-    let t: any;
-    return (val: boolean) => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        if (!uid || !activeThreadId) return;
-        updateDoc(doc(db, "threads", activeThreadId), {
-          [`typing.${uid}`]: val,
-          updatedAt: serverTimestamp(),
-        }).catch(() => { });
-      }, val ? 0 : 600);
-    };
-  }, [activeThreadId, uid]);
-
-  const loadMore = useCallback(async () => {
-    if (!oldestDoc || paging) return;
-    setPaging(true);
     try {
       const qOld = query(
-        collection(db, "threads", activeThreadId, "messages"),
+        collection(db, "threads", threadId, "messages"),
         orderBy("createdAt", "asc"),
         endBefore(oldestDoc),
         limitToLast(25)
       );
+
       const snap = await getDocs(qOld);
       const older = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Message[];
+      if (!older.length) return;
 
-      if (older.length > 0 && listRef.current) {
-        const el = listRef.current;
-        const prevBottom = el.scrollHeight - el.scrollTop;
-        setItems((prev) => [...older, ...prev]);
-        setOldestDoc(snap.docs[0] ?? null);
-        requestAnimationFrame(() => {
-          const newScrollTop = el.scrollHeight - prevBottom;
-          el.scrollTop = newScrollTop;
-        });
-      }
+      setItems((prev) => [...older, ...prev]);
+      setOldestDoc(snap.docs[0] ?? null);
+
+      requestAnimationFrame(() => {
+        const el2 = listRef.current;
+        if (!el2) return;
+        const newHeight = el2.scrollHeight;
+        const delta = newHeight - prevHeight;
+        el2.scrollTop = prevTop + delta;
+      });
     } finally {
-      setPaging(false);
+      setPagingOlder(false);
     }
-  }, [oldestDoc, paging, activeThreadId]);
+  }, [oldestDoc, pagingOlder, threadId]);
 
-  /* ---------- SEND (client only writes messages; Cloud Function handles mirrors/lastMessage) ---------- */
+  /* ================================================================
+   *  RIGHT PANEL: jump button
+   * ================================================================ */
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowJump(distance > 160);
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  /* ================================================================
+   *  RIGHT PANEL: send functions
+   * ================================================================ */
+  const sendProduct = useCallback(
+    async (listing: any, text?: string) => {
+      if (!uid || !activePeerId || !threadId) return;
+
+      const t = (text ?? "").trim();
+      const safeListing = stripUndefined(listing);
+
+      const payload: any = {
+        from: uid,
+        to: activePeerId,
+        type: "product",
+        createdAt: serverTimestamp(),
+        readBy: { [uid]: true },
+        listing: safeListing,
+      };
+      if (t) payload.text = t;
+
+      await addDoc(collection(db, "threads", threadId, "messages"), payload);
+    },
+    [uid, activePeerId, threadId]
+  );
+
+
+  // auto-send deep-link pending listing once
+  useEffect(() => {
+    if (!threadReady || !uid || !activePeerId || !threadId) return;
+    if (!pending || pendingSent) return;
+
+    (async () => {
+      try {
+        // await sendProduct(pending);
+        setPendingSent(true);
+        setPending(null);
+        scrollToBottom("smooth");
+      } catch (e) {
+        console.error("auto-send pending listing failed:", e);
+      }
+    })();
+  }, [threadReady, uid, activePeerId, threadId, pending, pendingSent, sendProduct, scrollToBottom]);
 
   const sendText = useCallback(
     async (text: string) => {
-      if (!uid || !activePeerId || !activeThreadId) return;
+      if (!uid || !activePeerId || !threadId) return;
       const t = text.trim();
-      if (!t && !pendingListing) return;
+      if (!t && !pending) return;
 
-      const hasListing = !!pendingListing?.id;
-
-      await addDoc(collection(db, "threads", activeThreadId, "messages"), {
+      const hasListing = !!pending?.id;
+      await addDoc(collection(db, "threads", threadId, "messages"), {
         text: t || "",
 
         from: uid,
@@ -860,13 +847,13 @@ export default function BongaThreadLayoutPage() {
         // ✅ attach listing payload (small + safe)
         listing: hasListing
           ? {
-            id: pendingListing!.id,
-            name: pendingListing!.name || "",
-            image: pendingListing!.image || "",
-            price: typeof pendingListing!.price === "number" ? pendingListing!.price : null,
-            currency: pendingListing!.currency || "KES",
-            type: pendingListing!.type || "marketListing",
-            url: pendingListing!.url || `/market/${encodeURIComponent(pendingListing!.id)}`,
+            id: pending!.id,
+            name: pending!.name || "",
+            image: pending!.image || "",
+            price: typeof pending!.price === "number" ? pending!.price : null,
+            currency: pending!.currency || "KES",
+            type: pending!.type || "marketListing",
+            url: pending!.url || `/market/${encodeURIComponent(pending!.id)}`,
           }
           : null,
 
@@ -875,61 +862,26 @@ export default function BongaThreadLayoutPage() {
       });
 
       // ✅ clear after sending so next msg is normal
-      if (hasListing) setPendingListing(null);
+      if (hasListing) setPending(null);
     },
-    [uid, activePeerId, activeThreadId, pendingListing]
+    [uid, activePeerId, threadId, pending]
   );
-
-  // ✅ Active presence for this thread (does NOT overwrite active map)
-  useEffect(() => {
-    if (!uid || !activeThreadId) return;
-
-    const tRef = doc(db, "threads", activeThreadId);
-
-    const setActive = (val: boolean) =>
-      updateDoc(tRef, {
-        [`active.${uid}`]: val ? serverTimestamp() : null, // or FieldValue.delete()
-      }).catch(() => { });
-
-    const onVisibility = () => setActive(!document.hidden);
-    const onBeforeUnload = () => setActive(false);
-
-    setActive(!document.hidden);
-
-    document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("beforeunload", onBeforeUnload);
-
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      setActive(false);
-    };
-  }, [uid, activeThreadId]);
-
   const onSend = useCallback(async () => {
     const t = input.trim();
-    if (!t && !pendingListing?.id) return;
+    if (!t && !pending?.id) return;
 
     await sendText(t);
     setInput("");
-    setTypingDebounced(false);
+    scheduleTyping(false);
     scrollToBottom("smooth");
-    if (textareaRef.current) textareaRef.current.style.height = "40px";
-  }, [input, pendingListing, sendText, setTypingDebounced, scrollToBottom]);
+    // if (textareaRef.current) textareaRef.current.style.height = "40px";
+  }, [input, pending, sendText, scheduleTyping, scrollToBottom]);
 
-  const onPickImage = () => fileInputRef.current?.click();
+  const sendImageFile = useCallback(
+    async (file: File) => {
+      if (!uid || !activePeerId || !threadId) return;
 
-  const onImageChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setPreview(URL.createObjectURL(file));
-
-    try {
-      if (!uid || !activePeerId || !activeThreadId) return;
-
-      // create message placeholder
-      const msgDoc = await addDoc(collection(db, "threads", activeThreadId, "messages"), {
+      const msgDoc = await addDoc(collection(db, "threads", threadId, "messages"), {
         from: uid,
         to: activePeerId,
         type: "image" as const,
@@ -938,1315 +890,697 @@ export default function BongaThreadLayoutPage() {
         uploading: true,
       });
 
-      const path = `threads/${activeThreadId}/images/${msgDoc.id}/original-${file.name}`;
+      try {
+        const path = `threads/${threadId}/images/${msgDoc.id}/original-${file.name || "image"}`;
+        const blobRef = storageRef(storage, path);
+        await uploadBytes(blobRef, file);
+        const url = await getDownloadURL(blobRef);
+
+        await updateDoc(doc(db, "threads", threadId, "messages", msgDoc.id), {
+          imageUrl: url,
+          uploading: false,
+        });
+
+        scrollToBottom("smooth");
+      } catch (e) {
+        console.error("image upload failed:", e);
+        await updateDoc(doc(db, "threads", threadId, "messages", msgDoc.id), {
+          error: true,
+          uploading: false,
+        }).catch(() => { });
+      }
+    },
+    [uid, activePeerId, threadId, scrollToBottom]
+  );
+
+  const onPickImage = () => fileInputRef.current?.click();
+  const onPickCamera = () => cameraInputRef.current?.click();
+  const onFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    await sendImageFile(f);
+    e.target.value = "";
+  };
+
+  /* ================================================================
+   *  RIGHT PANEL: audio record/send
+   * ================================================================ */
+  const startRecording = useCallback(async () => {
+    if (!uid || !activePeerId || !threadId) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      recChunksRef.current = [];
+
+      mr.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) recChunksRef.current.push(ev.data);
+      };
+
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+      };
+
+      mr.start();
+      mediaRecRef.current = mr;
+
+      setIsRecording(true);
+      setRecMs(0);
+
+      if (recTimerRef.current) clearInterval(recTimerRef.current);
+      recTimerRef.current = setInterval(() => setRecMs((p) => p + 200), 200);
+    } catch (e) {
+      console.error("mic permission/recording failed:", e);
+    }
+  }, [uid, activePeerId, threadId]);
+
+  const cancelRecording = useCallback(async () => {
+    try {
+      if (recTimerRef.current) clearInterval(recTimerRef.current);
+      recTimerRef.current = null;
+
+      const mr = mediaRecRef.current;
+      if (mr && mr.state !== "inactive") mr.stop();
+      mediaRecRef.current = null;
+
+      setIsRecording(false);
+      setRecMs(0);
+      recChunksRef.current = [];
+    } catch (e) {
+      console.error("cancelRecording error:", e);
+    }
+  }, []);
+
+  const finishRecording = useCallback(async () => {
+    if (!uid || !activePeerId || !threadId) return;
+
+    const mr = mediaRecRef.current;
+    if (!mr) return;
+
+    await new Promise<void>((resolve) => {
+      mr.onstop = () => resolve();
+      if (mr.state !== "inactive") mr.stop();
+      else resolve();
+    });
+
+    if (recTimerRef.current) clearInterval(recTimerRef.current);
+    recTimerRef.current = null;
+
+    setIsRecording(false);
+
+    const blob = new Blob(recChunksRef.current, { type: "audio/webm" });
+    recChunksRef.current = [];
+    mediaRecRef.current = null;
+
+    const msgDoc = await addDoc(collection(db, "threads", threadId, "messages"), {
+      from: uid,
+      to: activePeerId,
+      type: "audio" as const,
+      createdAt: serverTimestamp(),
+      readBy: { [uid]: true },
+      uploading: true,
+    });
+
+    try {
+      const path = `threads/${threadId}/audio/${msgDoc.id}/recording.webm`;
       const blobRef = storageRef(storage, path);
-      await uploadBytes(blobRef, file);
+      await uploadBytes(blobRef, blob);
       const url = await getDownloadURL(blobRef);
 
-      await updateDoc(doc(db, "threads", activeThreadId, "messages", msgDoc.id), {
-        imageUrl: url,
+      await updateDoc(doc(db, "threads", threadId, "messages", msgDoc.id), {
+        audioUrl: url,
         uploading: false,
       });
 
       scrollToBottom("smooth");
-    } catch (err) {
-      console.error("Image send failed:", err);
+    } catch (e) {
+      console.error("audio upload failed:", e);
+      await updateDoc(doc(db, "threads", threadId, "messages", msgDoc.id), {
+        error: true,
+        uploading: false,
+      }).catch(() => { });
     } finally {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      setTimeout(() => setPreview(null), 1200);
+      setRecMs(0);
     }
+  }, [uid, activePeerId, threadId, scrollToBottom]);
+
+  const toggleAudio = useCallback((msgId: string, url: string) => {
+    if (activeAudioRef.current) {
+      const a = activeAudioRef.current;
+      if ((a as any).__msgId !== msgId) a.pause();
+    }
+
+    let audioEl: HTMLAudioElement | null = null;
+
+    if (activeAudioRef.current && (activeAudioRef.current as any).__msgId === msgId) {
+      audioEl = activeAudioRef.current;
+    } else {
+      audioEl = new Audio(url);
+      (audioEl as any).__msgId = msgId;
+      activeAudioRef.current = audioEl;
+
+      audioEl.addEventListener("timeupdate", () => {
+        const pct = audioEl!.duration ? audioEl!.currentTime / audioEl!.duration : 0;
+        setAudioState((p) => ({ ...p, [msgId]: { playing: !audioEl!.paused, pct } }));
+      });
+
+      audioEl.addEventListener("ended", () => {
+        setAudioState((p) => ({ ...p, [msgId]: { playing: false, pct: 0 } }));
+      });
+    }
+
+    if (!audioEl) return;
+
+    if (audioEl.paused) {
+      audioEl.play().catch(() => { });
+      setAudioState((p) => ({ ...p, [msgId]: { playing: true, pct: p[msgId]?.pct ?? 0 } }));
+    } else {
+      audioEl.pause();
+      setAudioState((p) => ({ ...p, [msgId]: { playing: false, pct: p[msgId]?.pct ?? 0 } }));
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (recTimerRef.current) clearInterval(recTimerRef.current);
+      recTimerRef.current = null;
+
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+        activeAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  /* ================================================================
+   *  UI Helpers
+   * ================================================================ */
+  const mmss = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    const mm = Math.floor(s / 60);
+    const ss = String(s % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
   };
 
-  // bubble colors
-  const mineBg = hexToRgba(EKARI.gold, 0.18);
-  const mineBorder = hexToRgba(EKARI.gold, 0.38);
-  const theirsBg = hexToRgba(EKARI.forest, 0.12);
-  const theirsBrd = hexToRgba(EKARI.forest, 0.28);
-
-  // autoresize textarea
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = "40px";
-    ta.style.height = Math.min(160, ta.scrollHeight) + "px";
-  }, [input]);
-
-  const headerTitle =
-    peer?.firstName ||
-    activePeerQs.peerName ||
-    peer?.handle ||
-    activePeerQs.peerHandle ||
-    "Message";
-
-  const onlineNow = !!peer?.online;
-  const lastActiveAny = peer?.lastActiveAt;
-  const hasMessages = items.length > 0;
-
-  const ringStyle: React.CSSProperties = { ["--tw-ring-color" as any]: EKARI.forest };
-
-  const EmptyState = () => (
-    <div className="h-full flex flex-col items-center justify-center px-4" style={{ color: EKARI.sub }}>
-      <div className="max-w-md w-full bg-white border rounded-2xl shadow-sm p-4 text-center">
-        <div className="mx-auto mb-3 h-16 w-16 rounded-2xl flex items-center justify-center bg-gray-50">
-          <IoChatbubblesOutline size={34} color={EKARI.forest} />
-        </div>
-        <div className="font-extrabold text-slate-900 text-lg">Start a conversation</div>
-        <div className="text-xs text-slate-500 mt-1">{lastSeenText(onlineNow, lastActiveAny)}</div>
-
-        <p className="mt-4 text-sm text-slate-600">
-          You haven&apos;t sent any messages yet. Say hi, share a question, or send an image.
-        </p>
-
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {["👋", "😊", "🔥", "👍"].map((q) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => setInput((p) => (p ? `${p} ${q}` : q))}
-              className="inline-flex items-center justify-center rounded-full border text-sm font-semibold px-3 py-1.5 hover:bg-black/5"
-              style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => textareaRef.current?.focus()}
-          className="mt-6 inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold shadow-sm hover:shadow-md"
-          style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-        >
-          <IoChatbubblesOutline className="mr-2" size={16} />
-          Start chatting
-        </button>
+  const TypingBubble = () => (
+    <div className="px-4 mt-2 mb-2">
+      <div
+        className="inline-flex items-center gap-2 border shadow-sm px-3 py-2"
+        style={{
+          maxWidth: "75%",
+          backgroundColor: "rgba(199,146,87,0.10)",
+          borderRadius: 16,
+          borderTopLeftRadius: 6,
+          borderColor: "rgba(199,146,87,0.35)",
+        }}
+      >
+        <span className="inline-flex gap-1">
+          <span className="w-2 h-2 rounded-full bg-slate-400 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-slate-400 animate-pulse" style={{ animationDelay: "120ms" }} />
+          <span className="w-2 h-2 rounded-full bg-slate-400 animate-pulse" style={{ animationDelay: "240ms" }} />
+        </span>
+        <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+          Typing…
+        </span>
       </div>
     </div>
   );
 
+  const openThread = (t: ThreadRow) => {
+    const p = peerCache[t.peerId];
+    const qs = new URLSearchParams();
+    if (t.peerId) qs.set("peerId", t.peerId);
+    if (p?.firstName) qs.set("peerName", p.firstName);
+    if (p?.handle) qs.set("peerHandle", p.handle);
+    if (p?.photoURL) qs.set("peerPhotoURL", p.photoURL);
+    router.push(`/bonga/${encodeURIComponent(t.threadId)}?${qs.toString()}`);
+  };
+
+  /* ================================================================
+   *  Guard: not signed in
+   * ================================================================ */
   if (!uid) {
     return (
-      <>
-        {isMobile ? (
-
-          <div
-            className="min-h-screen flex items-center justify-center px-6 text-center"
-            style={{ backgroundColor: EKARI.sand }}
-          >
-            <div>
-              <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
-                Sign in to view your chats
-              </div>
-              <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                Your conversations will appear here.
-              </div>
+      <AppShell>
+        <div className="min-h-screen flex items-center justify-center px-6 text-center" style={{ backgroundColor: EKARI.sand }}>
+          <div>
+            <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
+              Sign in to view your chats
+            </div>
+            <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
+              Your conversations will appear here.
             </div>
           </div>
-
-        ) : (
-          <AppShell>
-            <div
-              className="min-h-screen flex items-center justify-center px-6 text-center"
-              style={{ backgroundColor: EKARI.sand }}
-            >
-              <div>
-                <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
-                  Sign in to view your chats
-                </div>
-                <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                  Your conversations will appear here.
-                </div>
-              </div>
-            </div>
-          </AppShell>
-        )}
-      </>
-
+        </div>
+      </AppShell>
     );
   }
 
-  const ctxListing = threadCtx?.listing;
-
-  return (<>
-    {isMobile ? (
-
-      <div
-        className="h-[calc(100vh-0rem)] w-full overflow-hidden min-h-0"
-        style={{ backgroundColor: EKARI.sand }}
-      >
-        <div
-          className={clsx(
-            "h-full min-h-0",
-            isDesktop ? "grid grid-cols-[360px_1fr]" : "flex flex-col"
-          )}
-        >
-          {/* ================= Sidebar (Desktop) ================= */}
-          <aside
-            className="hidden md:flex h-full min-h-0 border-r bg-white"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <div className="h-full min-h-0 w-full flex flex-col">
-              {/* Sidebar header */}
-              <div
-                className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <div className="h-14 px-4 flex items-center justify-between">
-                  <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
-                    Chats
-                  </div>
-                  <button
-                    onClick={() => router.push("/bonga")}
-                    className="text-xs font-extrabold px-3 py-1.5 rounded-full hover:bg-black/5"
-                    style={{ color: EKARI.text }}
-                  >
-                    All
-                  </button>
-                </div>
-
-                <div className="px-4 pb-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                      onClick={() => setTab("all")}
-                      style={{
-                        backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
-                        color: tab === "all" ? EKARI.sand : EKARI.text,
-                      }}
-                    >
-                      All
-                    </button>
-                    <button
-                      className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                      onClick={() => setTab("unread")}
-                      style={{
-                        backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
-                        color: tab === "unread" ? EKARI.sand : EKARI.text,
-                      }}
-                    >
-                      Unread
-                    </button>
-
-                    <span className="ml-auto text-xs" style={{ color: EKARI.dim }}>
-                      {rows.length} thread{rows.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      value={qStr}
-                      onChange={(e) => setQStr(e.target.value)}
-                      placeholder="Search chats…"
-                      className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
-                      aria-label="Filter chats"
-                      style={{ borderColor: EKARI.hair, ["--tw-ring-color" as any]: EKARI.forest }}
-                    />
-                    {qStr ? (
-                      <button
-                        onClick={() => setQStr("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
-                        aria-label="Clear search"
-                        style={{ color: EKARI.dim }}
-                      >
-                        ✕
-                      </button>
-                    ) : (
-                      <IoSearchOutline
-                        size={16}
-                        className="absolute right-3 top-1/2 -translate-y-1/2"
-                        style={{ color: "#94A3B8" }}
-                      />
-                    )}
-                  </div>
-                </div>
+  /* ================================================================
+   *  Layout
+   * ================================================================ */
+  const Layout = (
+    <div className="w-full h-[100dvh] overflow-hidden" style={{ backgroundColor: EKARI.sand }}>
+      <div className="mx-auto w-full max-w-6xl h-[100dvh] flex bg-white border-x overflow-hidden" style={{ borderColor: EKARI.hair }}>
+        {/* ===================== LEFT: Sidebar (desktop) ===================== */}
+        <aside className="hidden md:flex w-[360px] border-r flex-col h-full overflow-hidden" style={{ borderColor: EKARI.hair }}>
+          <div className="h-[54px] px-3 flex items-center justify-between border-b bg-white shrink-0" style={{ borderColor: EKARI.hair }}>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-9 rounded-xl grid place-items-center" style={{ backgroundColor: "rgba(35,63,57,0.10)", color: EKARI.forest }}>
+                <IoChatbubblesOutline size={18} />
               </div>
-
-              {/* Sidebar list */}
-              {/* ✅ IMPORTANT: min-h-0 here makes the scroll area work */}
-              <div className="flex-1 min-h-0 overflow-y-auto">
-                {rowsLoading ? (
-                  <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-                    <BouncingBallLoader />
-                  </div>
-                ) : filteredRows.length === 0 ? (
-                  <div className="px-6 py-16 text-center">
-                    <div
-                      className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center"
-                      style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}
-                    >
-                      💬
-                    </div>
-                    <div className="font-extrabold" style={{ color: EKARI.text }}>
-                      No conversations
-                    </div>
-                    <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                      {qStr ? "Try a different search." : "Start a chat from a profile to see it here."}
-                    </div>
-                  </div>
-                ) : (
-                  <ul className="divide-y p-2" style={{ borderColor: EKARI.hair }}>
-                    {filteredRows.map((item) => {
-                      const name = item.peer?.firstName || item.peer?.handle || "User";
-                      const last = previewOf(item.lastMessage) || "No messages yet";
-                      const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
-                      const hasUnread = (item.unread ?? 0) > 0;
-                      const active = item.threadId === activeThreadId;
-
-                      return (
-                        <li key={item.threadId}>
-                          <motion.button
-                            whileTap={{ scale: 0.985 }}
-                            className={clsx(
-                              "w-full px-4 py-3 flex items-center gap-3 transition text-left hover:bg-black/5 focus:bg-black/5 focus:outline-none focus:ring-2",
-                              active && "bg-black/5"
-                            )}
-                            onClick={() => openThreadFromSidebar(item)}
-                            aria-label={`Open chat with ${name}`}
-                            style={ringStyle}
-                          >
-                            <div className="relative">
-                              <SmartAvatar
-                                src={item.peer?.photoURL || ""}
-                                alt={name}
-                                size={46}
-                                className={clsx(hasUnread && "ring-2")}
-                              />
-                              {hasUnread && (
-                                <span
-                                  className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                                  title="Unread"
-                                  style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                                />
-                              )}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
-                                  style={{ color: EKARI.text }}
-                                >
-                                  {name}
-                                </div>
-                                <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
-                                  {when}
-                                </div>
-                              </div>
-
-                              <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                                <div
-                                  className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")}
-                                  style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
-                                >
-                                  {last}
-                                </div>
-
-                                {hasUnread && (
-                                  <span
-                                    className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                                    style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                                  >
-                                    {item.unread > 99 ? "99+" : item.unread}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <IoChevronForward size={18} style={{ color: EKARI.sub }} />
-                          </motion.button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                {/* Load more */}
-                {filteredRows.length > 0 && (
-                  <div className="p-4 grid place-items-center">
-                    <button
-                      onClick={loadMoreRows}
-                      disabled={pagingRows || !cursor}
-                      className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                      style={{
-                        borderColor: EKARI.hair,
-                        color: EKARI.text,
-                        backgroundColor: EKARI.sand,
-                      }}
-                    >
-                      {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
-                    </button>
-                  </div>
-                )}
+              <div className="min-w-0">
+                <div className="font-extrabold text-sm" style={{ color: EKARI.text }}>Inbox</div>
+                <div className="text-[11px] truncate" style={{ color: EKARI.dim }}>Your conversations</div>
               </div>
             </div>
-          </aside>
+            <button className="p-2 rounded-lg hover:bg-black/5" title="Search" type="button">
+              <IoSearchOutline size={18} color={EKARI.dim} />
+            </button>
+          </div>
 
-          {/* ================= Mobile Sidebar Drawer ================= */}
-          {sidebarOpen && (
-            <div
-              className="md:hidden fixed inset-0 z-[80] bg-black/40"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <div
-                className="absolute left-0 top-0 bottom-0 w-[88%] max-w-[360px] bg-white shadow-xl flex flex-col min-h-0"
-                style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="h-14 px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
-                  <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
-                    Chats
-                  </div>
-                  <button
-                    className="p-2 rounded-lg hover:bg-black/5"
-                    onClick={() => setSidebarOpen(false)}
-                    aria-label="Close sidebar"
-                  >
-                    <IoClose size={20} color={EKARI.text} />
-                  </button>
-                </div>
+          <div className="px-3 py-2 border-b bg-white shrink-0" style={{ borderColor: EKARI.hair }}>
+            <div className="flex items-center gap-2 rounded-xl border px-3 py-2 bg-gray-50" style={{ borderColor: EKARI.hair }}>
+              <IoSearchOutline size={16} color={EKARI.dim} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search inbox..."
+                className="w-full bg-transparent outline-none text-sm"
+                style={{ color: EKARI.text }}
+              />
+            </div>
+          </div>
 
-                <div className="px-4 py-3 space-y-2 border-b" style={{ borderColor: EKARI.hair }}>
-                  <div className="flex items-center gap-2">
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {threadsLoading ? (
+              <div className="h-full flex items-center justify-center py-10"><BouncingBallLoader /></div>
+            ) : filteredThreads.length === 0 ? (
+              <div className="px-4 py-10 text-center">
+                <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>No conversations</div>
+                <div className="text-xs mt-1" style={{ color: EKARI.dim }}>Start chatting from a profile or listing.</div>
+              </div>
+            ) : (
+              <div className="py-2">
+                {filteredThreads.map((t) => {
+                  const p = peerCache[t.peerId];
+                  if (!p?.handle) return null;
+                  const name = (p?.firstName || p?.handle || "User") + (p?.surname ? ` ${p.surname}` : "");
+                  const isActive = t.threadId === threadId;
+                  const ts = t.lastMessageAt || t.updatedAt;
+
+                  const subtitle =
+                    t.lastMessageType === "image"
+                      ? "📷 Photo"
+                      : t.lastMessageType === "audio"
+                        ? "🎤 Voice"
+                        : t.lastMessageType === "product"
+                          ? "🛒 Product"
+                          : t.lastMessageText || "Say hi 👋";
+
+                  return (
                     <button
-                      className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                      onClick={() => setTab("all")}
-                      style={{
-                        backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
-                        color: tab === "all" ? EKARI.sand : EKARI.text,
-                      }}
-                    >
-                      All
-                    </button>
-                    <button
-                      className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                      onClick={() => setTab("unread")}
-                      style={{
-                        backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
-                        color: tab === "unread" ? EKARI.sand : EKARI.text,
-                      }}
-                    >
-                      Unread
-                    </button>
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      value={qStr}
-                      onChange={(e) => setQStr(e.target.value)}
-                      placeholder="Search chats…"
-                      className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
-                      style={{ borderColor: EKARI.hair, ["--tw-ring-color" as any]: EKARI.forest }}
-                    />
-                    {qStr ? (
-                      <button
-                        onClick={() => setQStr("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
-                        style={{ color: EKARI.dim }}
-                      >
-                        ✕
-                      </button>
-                    ) : (
-                      <IoSearchOutline
-                        size={16}
-                        className="absolute right-3 top-1/2 -translate-y-1/2"
-                        style={{ color: "#94A3B8" }}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {ctxListing?.id && (
-                  <div
-                    className="border-b bg-white px-3 py-2"
-                    style={{ borderColor: EKARI.hair }}
-                  >
-                    <button
+                      key={t.threadId}
                       type="button"
-                      onClick={() => {
-                        const url = ctxListing.url || `/market/${encodeURIComponent(ctxListing.id)}`;
-                        router.push(url);
+                      onClick={() => openThread(t)}
+                      className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-black/5"
+                      style={{
+                        backgroundColor: isActive ? "rgba(35,63,57,0.06)" : "transparent",
+                        borderLeft: isActive ? `3px solid ${EKARI.forest}` : "3px solid transparent",
                       }}
-                      className="w-full flex items-center gap-2 rounded-xl border bg-gray-50 hover:bg-white transition p-2 text-left"
-                      style={{ borderColor: EKARI.hair }}
-                      title="Open product"
                     >
-                      <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                        <Image
-                          src={ctxListing.image || "/avatar-placeholder.png"}
-                          alt={ctxListing.name || "Product"}
-                          fill
-                          className="object-cover"
-                          sizes="40px"
-                        />
+                      <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                        <Image src={p?.photoURL || "/avatar-placeholder.png"} alt={name} fill className="object-cover" sizes="44px" />
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs font-extrabold text-slate-900 truncate">
-                          {ctxListing.name || "Product"}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-extrabold text-sm truncate" style={{ color: EKARI.text }}>{name}</div>
+                          <div className="text-[11px] shrink-0" style={{ color: EKARI.dim }}>{formatListTime(ts)}</div>
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate">
-                          Conversation about this item
+
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          <div className="text-xs truncate" style={{ color: EKARI.dim }}>{subtitle}</div>
+
+                          {!!(t.unread && t.unread > 0) && (
+                            <div className="min-w-[20px] h-5 px-2 rounded-full text-[11px] font-extrabold flex items-center justify-center shrink-0" style={{ backgroundColor: EKARI.gold, color: "#fff" }}>
+                              {t.unread > 99 ? "99+" : t.unread}
+                            </div>
+                          )}
                         </div>
                       </div>
-
-                      <IoChevronForward size={16} style={{ color: EKARI.dim }} />
                     </button>
-                  </div>
-                )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </aside>
 
-                {/* ✅ make this flex-1 min-h-0 so list never “vanishes” */}
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  {rowsLoading ? (
-                    <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-                      <BouncingBallLoader />
-                    </div>
-                  ) : (
-                    <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
-                      {filteredRows.map((item) => {
-                        const name = item.peer?.firstName || item.peer?.handle || "User";
-                        const last = previewOf(item.lastMessage) || "No messages yet";
-                        const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
-                        const hasUnread = (item.unread ?? 0) > 0;
-                        const active = item.threadId === activeThreadId;
+        {/* ===================== RIGHT: Thread Panel ===================== */}
+        <main className="relative flex-1 min-w-0 flex flex-col h-full overflow-hidden">
+          {/* Header */}
+          <div className="h-[54px] px-3 flex items-center justify-between border-b bg-white sticky top-0 z-30 shrink-0" style={{ borderColor: EKARI.hair }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <button onClick={() => router.back()} className="md:hidden p-2 rounded-lg hover:bg-black/5" aria-label="Back" title="Back" type="button">
+                <IoArrowBack size={20} color={EKARI.text} />
+              </button>
 
-                        return (
-                          <li key={item.threadId}>
-                            <button
-                              className={clsx(
-                                "w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-black/5",
-                                active && "bg-black/5"
-                              )}
-                              onClick={() => openThreadFromSidebar(item)}
-                            >
-                              <div className="relative">
-                                <SmartAvatar
-                                  src={item.peer?.photoURL || ""}
-                                  alt={name}
-                                  size={44}
-                                  className={clsx(hasUnread && "ring-2")}
-                                />
-                                {hasUnread && (
-                                  <span
-                                    className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                                    style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                                  />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
-                                    style={{ color: EKARI.text }}
-                                  >
-                                    {name}
-                                  </div>
-                                  <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
-                                    {when}
-                                  </div>
-                                </div>
-                                <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                                  <div className="truncate text-[13px]" style={{ color: hasUnread ? EKARI.text : EKARI.dim }}>
-                                    {last}
-                                  </div>
-                                  {hasUnread && (
-                                    <span
-                                      className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                                      style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                                    >
-                                      {item.unread > 99 ? "99+" : item.unread}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-100">
+                  {onlineNow && (
+                    <span className="absolute right-0.5 bottom-0.5 w-[14px] h-[14px] rounded-full border-2 z-10" style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }} />
                   )}
+                  <Image src={peer?.photoURL || peerQs.peerPhotoURL || "/avatar-placeholder.png"} alt={headerTitle} fill className="object-cover" sizes="36px" />
                 </div>
 
-                {/* drawer load more */}
-                {filteredRows.length > 0 && (
-                  <div className="p-4 grid place-items-center border-t" style={{ borderColor: EKARI.hair }}>
-                    <button
-                      onClick={loadMoreRows}
-                      disabled={pagingRows || !cursor}
-                      className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                      style={{
-                        borderColor: EKARI.hair,
-                        color: EKARI.text,
-                        backgroundColor: EKARI.sand,
-                      }}
-                    >
-                      {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
-                    </button>
+                <div className="min-w-0">
+                  <div className="font-extrabold text-slate-900 text-sm truncate">{headerTitle}</div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {peerTyping ? "Typing…" : peerActiveNow ? "Active now" : lastSeenText(onlineNow, lastActiveAny)}
                   </div>
-                )}
+                </div>
+              </div>
+            </div>
+
+            <button className="p-2 rounded-lg hover:bg-black/5" aria-label="Report" title="Report conversation" type="button">
+              <IoFlagOutline size={18} color={EKARI.dim} />
+            </button>
+          </div>
+
+          {/* Debug panel */}
+          {debug && (
+            <div className="border-b bg-white px-3 py-2 text-[12px]" style={{ borderColor: EKARI.hair, color: EKARI.text }}>
+              <div className="flex flex-wrap gap-x-5 gap-y-1 items-center">
+                <div><b>myActiveNow:</b> {String(myActiveNow)}</div>
+                <div><b>peerActiveNow:</b> {String(peerActiveNow)}</div>
+                <div><b>my active:</b> {agoShort(activeMapSnap.myMs)}</div>
+                <div><b>peer active:</b> {agoShort(activeMapSnap.peerMs)}</div>
+                <div><b>threadId:</b> {threadId}</div>
+              </div>
+              <div className="text-[11px]" style={{ color: EKARI.dim }}>
+                Tip: open same thread on another device, add <b>?debug=1</b>, watch peerActiveNow flip true/false.
               </div>
             </div>
           )}
 
-          {/* ================= Right Chat Panel ================= */}
-          <main
-            className="h-full min-h-0 bg-white relative"
-            style={{
-              paddingBottom: isDesktop
-                ? 0
-                : `calc(${composerH}px + env(safe-area-inset-bottom))`,
-            }}
+          {/* Messages */}
+          <div
+            ref={listRef}
+            className="flex-1 min-h-0 overflow-y-auto bg-gray-50"
+            style={{ paddingTop: 8, paddingBottom: 16, scrollbarGutter: "stable both-edges" }}
           >
-            <div className="h-full min-h-0 flex flex-col">
-              {/* Top header (chat) */}
-              <div ref={headerRef} className="border-b bg-white z-30" style={{ borderColor: EKARI.hair }}>
-                <div className="h-[54px] px-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {/* Mobile: back + chats drawer */}
-                    <button
-                      className="md:hidden p-2 rounded-lg hover:bg-black/5"
-                      onClick={onBack}
-                      aria-label="Back to chats"
-                    >
-                      <IoArrowBack size={20} color={EKARI.text} />
-                    </button>
-
-                    <button
-                      className="md:hidden p-2 rounded-lg hover:bg-black/5"
-                      onClick={() => setSidebarOpen(true)}
-                      aria-label="Open chats"
-                    >
-                      <IoMenu size={20} color={EKARI.text} />
-                    </button>
-
-                    {/* Desktop: back */}
-                    <button
-                      onClick={onBack}
-                      className="hidden md:inline-flex p-2 rounded-lg hover:bg-black/5"
-                      aria-label="Back"
-                    >
-                      <IoArrowBack size={20} color={EKARI.text} />
-                    </button>
-
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-100">
-                        {onlineNow && (
-                          <span
-                            className="absolute right-0.5 bottom-0.5 w-[14px] h-[14px] rounded-full border-2 z-10"
-                            style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }}
-                          />
-                        )}
-                        <Image
-                          src={
-                            peer?.photoURL ||
-                            activePeerQs.peerPhotoURL ||
-                            selectedRow?.peer?.photoURL ||
-                            "/avatar-placeholder.png"
-                          }
-                          alt={headerTitle}
-                          fill
-                          className="object-cover"
-                          sizes="36px"
-                        />
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="font-extrabold text-slate-900 text-sm truncate">{headerTitle}</div>
-                        <div className="text-xs text-slate-500">
-                          {peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}
-                        </div>
-                      </div>
-                    </div>
+            {loading || !threadReady ? (
+              <div className="h-full flex items-center justify-center" style={{ color: EKARI.dim }}>
+                <BouncingBallLoader />
+              </div>
+            ) : items.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center px-6 text-center">
+                <div className="w-full max-w-md rounded-2xl border bg-white shadow-sm p-4" style={{ borderColor: EKARI.hair }}>
+                  <div className="mx-auto mb-3 h-16 w-16 rounded-2xl flex items-center justify-center bg-gray-50">
+                    <IoChatbubblesOutline size={34} color={EKARI.forest} />
                   </div>
+                  <div className="font-extrabold text-slate-900 text-lg">Start a conversation</div>
+                  <div className="text-xs text-slate-500 mt-1">{lastSeenText(onlineNow, lastActiveAny)}</div>
 
-                  <button className="p-2 rounded-lg hover:bg-black/5" aria-label="Report" title="Report conversation">
-                    <IoFlagOutline size={18} color={EKARI.dim} />
-                  </button>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    {["👋", "😊", "🔥", "👍"].map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setInput((p) => (p ? `${p} ${q}` : q))}
+                        className="inline-flex items-center justify-center rounded-full border text-sm font-semibold px-3 py-1.5 hover:bg-black/5"
+                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* Messages scroller */}
-              {/* ✅ min-h-0 + extra paddingBottom so messages never hide behind composer */}
-              <div
-                ref={listRef}
-                className="flex-1 min-h-0 overflow-y-auto bg-gray-50"
-                style={{
-                  paddingTop: 8,
-                  paddingBottom: composerH + 16,
-                  scrollPaddingBottom: composerH + 16,
-                  scrollbarGutter: "stable both-edges",
-                } as React.CSSProperties}
-              >
-                {loading ? (
-                  <div className="h-full flex items-center justify-center" style={{ color: EKARI.dim }}>
-                    <BouncingBallLoader />
+            ) : (
+              <div className="px-4 py-4 pb-0">
+                {oldestDoc && (
+                  <div className="mb-2 flex justify-center">
+                    <button
+                      onClick={loadOlder}
+                      disabled={pagingOlder}
+                      className="h-8 px-3 rounded-lg border text-xs font-bold transition hover:bg-black/5 disabled:opacity-60"
+                      style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                      type="button"
+                    >
+                      {pagingOlder ? "Loading…" : "Load older"}
+                    </button>
                   </div>
-                ) : !hasMessages ? (
-                  <EmptyState />
-                ) : (
-                  <div className="px-4 py-4 pb-0">
-                    {oldestDoc && (
-                      <div className="mb-2 flex justify-center">
-                        <button
-                          onClick={loadMore}
-                          className="h-8 px-3 rounded-lg border text-xs font-bold transition hover:bg-black/5"
-                          disabled={paging}
-                          style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                        >
-                          {paging ? "Loading…" : "Load older"}
-                        </button>
-                      </div>
-                    )}
+                )}
 
-                    {items.map((msg, i) => {
-                      const mine = msg.from === uid;
+                {items.map((msg, idx) => {
+                  const mine = msg.from === uid;
+                  const prev = items[idx - 1];
+                  const next = items[idx + 1];
+                  const prevSame = !!prev && prev.from === msg.from;
+                  const nextSame = !!next && next.from === msg.from;
+                  const isFirst = !prevSame;
+                  const isLast = !nextSame;
+                  const showAvatar = !mine && isLast;
 
-                      const prev = items[i - 1];
-                      const next = items[i + 1];
+                  const bubbleBg = mine ? "rgba(35,63,57,0.10)" : "rgba(199,146,87,0.10)";
+                  const bubbleBr = mine ? "rgba(35,63,57,0.35)" : "rgba(199,146,87,0.35)";
 
-                      const prevSameSender = !!prev && prev.from === msg.from;
-                      const nextSameSender = !!next && next.from === msg.from;
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${isFirst ? "mt-3" : "mt-1"} ${isLast ? "mb-1" : "mb-0"}`}
+                    >
+                      {!mine && (
+                        <div className="w-7 flex justify-center">
+                          {showAvatar ? (
+                            <div className="relative w-7 h-7 rounded-full overflow-hidden bg-gray-200">
+                              <Image src={peer?.photoURL || peerQs.peerPhotoURL || "/avatar-placeholder.png"} alt="avatar" fill className="object-cover" sizes="28px" />
+                            </div>
+                          ) : (
+                            <div className="w-7 h-7" />
+                          )}
+                        </div>
+                      )}
 
-                      const isFirstInGroup = !prevSameSender;
-                      const isLastInGroup = !nextSameSender;
-
-                      const rowMt = isFirstInGroup ? "mt-3" : "mt-1";
-                      const rowMb = isLastInGroup ? "mb-1" : "mb-0";
-
-                      const showAvatar = !mine && isLastInGroup;
-
-                      return (
+                      <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[78%]`}>
                         <div
-                          key={msg.id}
-                          className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${rowMt} ${rowMb}`}
+                          className={[
+                            "text-[15px] border shadow-sm px-3 py-2",
+                            "max-w-full break-words whitespace-pre-wrap leading-5",
+                            mine
+                              ? isFirst
+                                ? "rounded-2xl rounded-tr-md"
+                                : "rounded-2xl rounded-tr-md rounded-br-md"
+                              : isFirst
+                                ? "rounded-2xl rounded-tl-md"
+                                : "rounded-2xl rounded-tl-md rounded-bl-md",
+                          ].join(" ")}
+                          style={{ backgroundColor: bubbleBg, borderColor: bubbleBr }}
                         >
-                          {!mine && (
-                            <div className="w-7 flex justify-center">
-                              {showAvatar ? (
-                                <div className="relative w-7 h-7 rounded-full overflow-hidden bg-gray-200">
+                          {msg.uploading ? (
+                            <div className="flex items-center gap-2 opacity-80">
+                              <span className="w-3 h-3 rounded-full animate-pulse bg-slate-400" />
+                              <span>Uploading…</span>
+                            </div>
+                          ) : msg.error ? (
+                            <span className="text-red-500">Failed to send</span>
+                          ) : msg.type === "image" && msg.imageUrl ? (
+                            <button type="button" onClick={() => setViewer({ open: true, url: msg.imageUrl! })} className="block" title="Open image">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={msg.imageUrl} alt="Sent image" className="rounded-xl bg-gray-100 max-w-full" style={{ width: 280, height: "auto", objectFit: "cover" }} />
+                            </button>
+                          ) : msg.type === "audio" && msg.audioUrl ? (
+                            <div className="w-[240px] max-w-full">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleAudio(msg.id, msg.audioUrl!)}
+                                  className="w-9 h-9 rounded-full border bg-white flex items-center justify-center hover:bg-black/5"
+                                  style={{ borderColor: EKARI.hair }}
+                                  title="Play/Pause"
+                                >
+                                  {audioState[msg.id]?.playing ? <IoPause size={18} color={EKARI.text} /> : <IoPlay size={18} color={EKARI.text} />}
+                                </button>
+
+                                <div className="flex-1">
+                                  <div className="h-2 rounded-full bg-black/10 overflow-hidden">
+                                    <div
+                                      className="h-2 rounded-full"
+                                      style={{
+                                        width: `${Math.round((audioState[msg.id]?.pct ?? 0) * 100)}%`,
+                                        backgroundColor: EKARI.forest,
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                                    Voice message
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : msg.type === "product" && msg.listing?.id ? (
+                            <div className="space-y-2">
+                              {!!msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const url = msg.listing?.url || `/market/${encodeURIComponent(msg.listing!.id)}`;
+                                  router.push(url);
+                                }}
+                                className="w-full text-left rounded-xl border bg-white/70 hover:bg-white transition p-2 flex items-center gap-2"
+                                style={{ borderColor: EKARI.hair }}
+                                title="Open product"
+                              >
+                                <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                                   <Image
-                                    src={
-                                      peer?.photoURL ||
-                                      activePeerQs.peerPhotoURL ||
-                                      selectedRow?.peer?.photoURL ||
-                                      "/avatar-placeholder.png"
-                                    }
-                                    alt="avatar"
+                                    src={msg.listing.image || "/product-placeholder.jpg"}
+                                    alt={msg.listing.name || "Product"}
                                     fill
                                     className="object-cover"
-                                    sizes="28px"
+                                    sizes="48px"
                                   />
                                 </div>
-                              ) : (
-                                <div className="w-7 h-7" />
-                              )}
-                            </div>
-                          )}
 
-                          <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[78%]`}>
-                            <div
-                              style={{
-                                background: mine ? mineBg : theirsBg,
-                                borderColor: mine ? mineBorder : theirsBrd,
-                              }}
-                              className={[
-                                "text-[15px] border shadow-sm px-3 py-2",
-                                "max-w-full break-words whitespace-pre-wrap leading-5",
-                                mine
-                                  ? isFirstInGroup
-                                    ? "rounded-2xl rounded-tr-md"
-                                    : "rounded-2xl rounded-tr-md rounded-br-md"
-                                  : isFirstInGroup
-                                    ? "rounded-2xl rounded-tl-md"
-                                    : "rounded-2xl rounded-tl-md rounded-bl-md",
-                              ].join(" ")}
-                            >
-                              {msg.uploading ? (
-                                <div className="flex items-center gap-2 opacity-80">
-                                  <span className="w-3 h-3 rounded-full animate-pulse bg-slate-400" />
-                                  <span>Uploading…</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-extrabold text-slate-900 truncate">
+                                    {msg.listing.name || "Product"}
+                                  </div>
+
+                                  <div className="text-[11px] text-slate-600 truncate">
+                                    {msg.listing.currency === "USD"
+                                      ? `USD ${(Number(msg.listing.price || 0)).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                                      : `KSh ${(Number(msg.listing.price || 0)).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`}
+                                  </div>
                                 </div>
-                              ) : msg.error ? (
-                                <span className="text-red-500">Failed to send</span>
-                              ) : msg.type === "image" && msg.imageUrl ? (
-                                <a href={msg.imageUrl} target="_blank" rel="noreferrer" className="block">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={msg.imageUrl}
-                                    alt="Sent image"
-                                    className="rounded-xl bg-gray-100 max-w-full"
-                                    style={{ width: 280, height: "auto", objectFit: "cover" }}
-                                    onLoad={() => scrollToBottom("auto")}
-                                  />
-                                </a>
-                              ) : msg.type === "product" && msg.listing?.id ? (
-                                <div className="space-y-2">
-                                  {!!msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
 
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const url = msg.listing?.url || `/market/${encodeURIComponent(msg.listing!.id)}`;
-                                      router.push(url);
-                                    }}
-                                    className="w-full text-left rounded-xl border bg-white/70 hover:bg-white transition p-2 flex items-center gap-2"
-                                    style={{ borderColor: EKARI.hair }}
-                                    title="Open product"
-                                  >
-                                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                                      <Image
-                                        src={msg.listing.image || "/product-placeholder.jpg"}
-                                        alt={msg.listing.name || "Product"}
-                                        fill
-                                        className="object-cover"
-                                        sizes="48px"
-                                      />
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-xs font-extrabold text-slate-900 truncate">
-                                        {msg.listing.name || "Product"}
-                                      </div>
-
-                                      <div className="text-[11px] text-slate-600 truncate">
-                                        {msg.listing.currency === "USD"
-                                          ? `USD ${(Number(msg.listing.price || 0)).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
-                                          : `KSh ${(Number(msg.listing.price || 0)).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`}
-                                      </div>
-                                    </div>
-
-                                    <IoChevronForward size={16} style={{ color: EKARI.dim }} />
-                                  </button>
-                                </div>
-                              ) : (
-                                !!msg.text && <span>{msg.text}</span>
-                              )}
+                                <IoChevronForward size={16} style={{ color: EKARI.dim }} />
+                              </button>
                             </div>
-
-                            {isLastInGroup && (
-                              <div className="mt-1 text-[11px] text-slate-500 px-1">
-                                {formatMsgTime(msg.createdAt)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    <div ref={endRef} className="h-0" />
-                  </div>
-                )}
-              </div>
-
-              {/* Jump to latest */}
-              {showJump && hasMessages && (
-                <button
-                  onClick={() => scrollToBottom("smooth")}
-                  className="absolute md:static md:hidden bottom-[88px] right-4 z-40 h-9 px-3 rounded-full text-sm font-extrabold shadow-md"
-                  style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                >
-                  Jump to latest
-                </button>
-              )}
-
-              {/* Composer (sticky on desktop, fixed on mobile) */}
-              <div
-                ref={composerRef}
-                className={clsx(
-                  "z-40 border-t bg-white",
-                  isDesktop ? "sticky bottom-0" : "fixed left-0 right-0 bottom-0"
-                )}
-                style={{
-                  borderColor: EKARI.hair,
-                  paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
-                }}
-              >
-                <div className="w-full px-3">
-                  <div className="flex items-end gap-2 py-2 relative">
-                    <div
-                      className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2"
-                      style={{ borderColor: EKARI.hair }}
-                    >
-                      {pendingListing && (
-                        <div
-                          className="mb-2 rounded-xl border bg-white p-2 flex items-center gap-2"
-                          style={{ borderColor: EKARI.hair }}
-                        >
-                          <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                            <Image
-                              src={pendingListing.image || "/product-placeholder.jpg"}
-                              alt={pendingListing.name || "Product"}
-                              fill
-                              className="object-cover"
-                              sizes="40px"
-                            />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-extrabold text-slate-900 truncate">
-                              {pendingListing.name || "Product inquiry"}
-                            </div>
-                            <div className="text-[11px] text-slate-500 truncate">
-                              {pendingListing.url}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="h-8 w-8 rounded-full hover:bg-black/5 text-slate-600 font-black"
-                            onClick={() => setPendingListing(null)}
-                            title="Remove product"
-                            aria-label="Remove product"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
-
-                      {!pendingListing?.id && threadContextListing?.id && (
-                        <div className="mb-2">
-                          <button
-                            type="button"
-                            onClick={() => setPendingListing(threadContextListing)}
-                            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold hover:bg-black/5"
-                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                            title="Attach last referenced product"
-                          >
-                            🛒 Attach product
-                          </button>
-                        </div>
-                      )}
-
-                      <textarea
-                        ref={textareaRef}
-                        value={input}
-                        onChange={(e) => {
-                          setInput(e.target.value);
-                          setTypingDebounced(!!e.target.value.trim());
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            onSend();
-                          }
-                        }}
-                        onBlur={() => setTypingDebounced(false)}
-                        placeholder="Message…"
-                        rows={1}
-                        className="w-full bg-transparent outline-none text-[15px] resize-none max-h-40 leading-5"
-                        style={{ height: 40 }}
-                      />
-
-                      {preview && (
-                        <div className="mt-2 relative">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={preview}
-                            alt="Preview"
-                            className="w-24 h-24 rounded-md object-cover border"
-                            onLoad={() => scrollToBottom("auto")}
-                            style={{ borderColor: EKARI.hair }}
-                          />
-                          <button
-                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs"
-                            onClick={() => setPreview(null)}
-                            aria-label="Remove preview"
-                            title="Remove preview"
-                            type="button"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2 pt-2">
-                        <button
-                          className="w-9 h-9 rounded-full flex items-center justify-center"
-                          title="Emoji"
-                          type="button"
-                          onClick={() => setShowEmoji((p) => !p)}
-                          style={{ backgroundColor: "#F3F4F6" }}
-                        >
-                          <IoHappyOutline size={20} color={EKARI.text} />
-                          {showEmoji && (
-                            <div
-                              className="absolute bottom-14 left-3 z-50 bg-white rounded-xl shadow-lg p-2 max-w-[260px] w-[240px] h-[180px] overflow-y-auto grid grid-cols-8 gap-1 border"
-                              onMouseLeave={() => setShowEmoji(false)}
-                              style={{ borderColor: EKARI.hair }}
-                            >
-                              {EmojiPickerList.map((emo) => (
-                                <button
-                                  key={emo}
-                                  onClick={() => {
-                                    setInput((prev) => prev + emo);
-                                    setShowEmoji(false);
-                                    textareaRef.current?.focus();
-                                  }}
-                                  className="text-xl rounded-md hover:bg-black/5"
-                                  title={emo}
-                                  type="button"
-                                >
-                                  {emo}
-                                </button>
-                              ))}
-                            </div>
+                          ) : (
+                            !!msg.text && <span>{msg.text}</span>
                           )}
-                        </button>
+                        </div>
 
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={onImageChosen}
-                        />
-
-                        <button
-                          className="w-9 h-9 rounded-full flex items-center justify-center"
-                          title="Image"
-                          type="button"
-                          onClick={onPickImage}
-                          style={{ backgroundColor: "#F3F4F6" }}
-                        >
-                          <IoImageOutline size={20} color={EKARI.text} />
-                        </button>
-
-                        <button
-                          className="w-9 h-9 rounded-full flex items-center justify-center"
-                          title="Camera"
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          style={{ backgroundColor: "#F3F4F6" }}
-                        >
-                          <IoCameraOutline size={20} color={EKARI.text} />
-                        </button>
+                        {isLast && <div className="mt-1 text-[11px] text-slate-500 px-1">{formatMsgTime(msg.createdAt)}</div>}
                       </div>
                     </div>
+                  );
+                })}
 
-                    <Button
-                      onClick={onSend}
-                      disabled={!input.trim() && !pendingListing?.id}
-                      className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
-                      title="Send"
+                {peerTyping && <TypingBubble />}
+                <div ref={endRef} className="h-0" />
+              </div>
+            )}
+          </div>
+
+          {/* Jump to latest */}
+          {showJump && items.length > 0 && (
+            <button
+              onClick={() => scrollToBottom("smooth")}
+              className="absolute right-4 bottom-[88px] z-40 h-9 px-3 rounded-full text-sm font-extrabold shadow-md"
+              style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
+              type="button"
+            >
+              Jump to latest
+            </button>
+          )}
+
+          {/* Attached product preview */}
+          {!!pending && (
+            <div className="absolute left-0 right-0 bottom-[72px] z-40 px-3">
+              <div className="mx-auto w-full max-w-3xl">
+                <div className="rounded-2xl border bg-white shadow-md px-3 py-2 flex items-center justify-between" style={{ borderColor: EKARI.hair }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                      <Image src={pending.image || pending.imageUrl || "/product-placeholder.jpg"} alt={pending.name || "Attached product"} fill className="object-cover" sizes="44px" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-extrabold truncate" style={{ color: EKARI.text }}>{pending.name || "Attached product"}</div>
+                      <div className="text-xs truncate" style={{ color: EKARI.dim }}>
+                        {fmtMoney(pending.price, (pending.currency as any) || "KES")}
+                        {pending.unit ? ` • ${pending.unit}` : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
                       type="button"
-                      style={{ backgroundColor: EKARI.gold }}
+                      onClick={() => router.push(pending.url || `/market/${encodeURIComponent(pending.id)}`)}
+                      className="h-8 px-3 rounded-full border text-xs font-extrabold hover:bg-black/5"
+                      style={{ borderColor: "rgba(199,146,87,0.32)", backgroundColor: "rgba(199,146,87,0.16)", color: EKARI.text }}
                     >
-                      <IoSend size={18} color="#fff" />
-                    </Button>
+                      View
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPending(null)}
+                      className="h-8 w-8 rounded-full border bg-gray-50 hover:bg-white grid place-items-center"
+                      style={{ borderColor: EKARI.hair }}
+                      aria-label="Remove attachment"
+                      title="Remove"
+                    >
+                      <IoClose size={18} color={EKARI.dim} />
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
-          </main>
-        </div>
-      </div>
+          )}
 
-    ) : (
-      <AppShell>
-        {/* ✅ IMPORTANT: min-h-0 fixes sidebar list “disappearing” in grid/flex layouts */}
-        <div
-          className="h-[calc(100vh-0rem)] w-full overflow-hidden min-h-0"
-          style={{ backgroundColor: EKARI.sand }}
-        >
-          <div
-            className={clsx(
-              "h-full min-h-0",
-              isDesktop ? "grid grid-cols-[360px_1fr]" : "flex flex-col"
-            )}
-          >
-            {/* ================= Sidebar (Desktop) ================= */}
-            <aside
-              className="hidden md:flex h-full min-h-0 border-r bg-white"
-              style={{ borderColor: EKARI.hair }}
-            >
-              <div className="h-full min-h-0 w-full flex flex-col">
-                {/* Sidebar header */}
-                <div
-                  className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <div className="h-14 px-4 flex items-center justify-between">
-                    <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
-                      Chats
-                    </div>
-                    <button
-                      onClick={() => router.push("/bonga")}
-                      className="text-xs font-extrabold px-3 py-1.5 rounded-full hover:bg-black/5"
-                      style={{ color: EKARI.text }}
-                    >
-                      All
-                    </button>
-                  </div>
-
-                  <div className="px-4 pb-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                        onClick={() => setTab("all")}
-                        style={{
-                          backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
-                          color: tab === "all" ? EKARI.sand : EKARI.text,
-                        }}
-                      >
-                        All
-                      </button>
-                      <button
-                        className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                        onClick={() => setTab("unread")}
-                        style={{
-                          backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
-                          color: tab === "unread" ? EKARI.sand : EKARI.text,
-                        }}
-                      >
-                        Unread
-                      </button>
-
-                      <span className="ml-auto text-xs" style={{ color: EKARI.dim }}>
-                        {rows.length} thread{rows.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        value={qStr}
-                        onChange={(e) => setQStr(e.target.value)}
-                        placeholder="Search chats…"
-                        className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
-                        aria-label="Filter chats"
-                        style={{ borderColor: EKARI.hair, ["--tw-ring-color" as any]: EKARI.forest }}
-                      />
-                      {qStr ? (
-                        <button
-                          onClick={() => setQStr("")}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
-                          aria-label="Clear search"
-                          style={{ color: EKARI.dim }}
-                        >
-                          ✕
-                        </button>
-                      ) : (
-                        <IoSearchOutline
-                          size={16}
-                          className="absolute right-3 top-1/2 -translate-y-1/2"
-                          style={{ color: "#94A3B8" }}
-                        />
-                      )}
+          {/* Composer / Recorder */}
+          <div className="sticky bottom-0 z-40 border-t bg-white shrink-0" style={{ borderColor: EKARI.hair }}>
+            {isRecording ? (
+              <div className="px-3 py-2">
+                <div className="flex items-center gap-3 rounded-2xl border bg-white px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                    <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
+                      {mmss(recMs)}
                     </div>
                   </div>
-                </div>
 
-                {/* Sidebar list */}
-                {/* ✅ IMPORTANT: min-h-0 here makes the scroll area work */}
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  {rowsLoading ? (
-                    <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-                      <BouncingBallLoader />
-                    </div>
-                  ) : filteredRows.length === 0 ? (
-                    <div className="px-6 py-16 text-center">
-                      <div
-                        className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center"
-                        style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}
-                      >
-                        💬
-                      </div>
-                      <div className="font-extrabold" style={{ color: EKARI.text }}>
-                        No conversations
-                      </div>
-                      <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                        {qStr ? "Try a different search." : "Start a chat from a profile to see it here."}
-                      </div>
-                    </div>
-                  ) : (
-                    <ul className="divide-y p-2" style={{ borderColor: EKARI.hair }}>
-                      {filteredRows.map((item) => {
-                        const name = item.peer?.firstName || item.peer?.handle || "User";
-                        const last = previewOf(item.lastMessage) || "No messages yet";
-                        const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
-                        const hasUnread = (item.unread ?? 0) > 0;
-                        const active = item.threadId === activeThreadId;
+                  <div className="flex-1 h-7 rounded-xl bg-black/5" />
 
-                        return (
-                          <li key={item.threadId}>
-                            <motion.button
-                              whileTap={{ scale: 0.985 }}
-                              className={clsx(
-                                "w-full px-4 py-3 flex items-center gap-3 transition text-left hover:bg-black/5 focus:bg-black/5 focus:outline-none focus:ring-2",
-                                active && "bg-black/5"
-                              )}
-                              onClick={() => openThreadFromSidebar(item)}
-                              aria-label={`Open chat with ${name}`}
-                              style={ringStyle}
-                            >
-                              <div className="relative">
-                                <SmartAvatar
-                                  src={item.peer?.photoURL || ""}
-                                  alt={name}
-                                  size={46}
-                                  className={clsx(hasUnread && "ring-2")}
-                                />
-                                {hasUnread && (
-                                  <span
-                                    className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                                    title="Unread"
-                                    style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                                  />
-                                )}
-                              </div>
+                  <button
+                    type="button"
+                    onClick={cancelRecording}
+                    className="h-9 w-9 rounded-full border bg-red-50 grid place-items-center hover:bg-red-100"
+                    style={{ borderColor: "#FCA5A5" }}
+                    title="Cancel"
+                  >
+                    <IoPause size={0} />
+                    <IoClose size={18} color="#EF4444" />
+                  </button>
 
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
-                                    style={{ color: EKARI.text }}
-                                  >
-                                    {name}
-                                  </div>
-                                  <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
-                                    {when}
-                                  </div>
-                                </div>
-
-                                <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                                  <div
-                                    className={clsx("truncate text-[13px]", hasUnread ? "font-semibold" : "font-normal")}
-                                    style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
-                                  >
-                                    {last}
-                                  </div>
-
-                                  {hasUnread && (
-                                    <span
-                                      className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                                      style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                                    >
-                                      {item.unread > 99 ? "99+" : item.unread}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <IoChevronForward size={18} style={{ color: EKARI.sub }} />
-                            </motion.button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-
-                  {/* Load more */}
-                  {filteredRows.length > 0 && (
-                    <div className="p-4 grid place-items-center">
-                      <button
-                        onClick={loadMoreRows}
-                        disabled={pagingRows || !cursor}
-                        className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                        style={{
-                          borderColor: EKARI.hair,
-                          color: EKARI.text,
-                          backgroundColor: EKARI.sand,
-                        }}
-                      >
-                        {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={finishRecording}
+                    className="h-9 px-4 rounded-full font-extrabold text-sm shadow-sm"
+                    style={{ backgroundColor: EKARI.gold, color: "#fff" }}
+                    title="Send voice"
+                  >
+                    Send
+                  </button>
                 </div>
               </div>
-            </aside>
-
-            {/* ================= Mobile Sidebar Drawer ================= */}
-            {sidebarOpen && (
-              <div
-                className="md:hidden fixed inset-0 z-[80] bg-black/40"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <div
-                  className="absolute left-0 top-0 bottom-0 w-[88%] max-w-[360px] bg-white shadow-xl flex flex-col min-h-0"
-                  style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="h-14 px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
-                    <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
-                      Chats
-                    </div>
-                    <button
-                      className="p-2 rounded-lg hover:bg-black/5"
-                      onClick={() => setSidebarOpen(false)}
-                      aria-label="Close sidebar"
-                    >
-                      <IoClose size={20} color={EKARI.text} />
-                    </button>
-                  </div>
-
-                  <div className="px-4 py-3 space-y-2 border-b" style={{ borderColor: EKARI.hair }}>
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                        onClick={() => setTab("all")}
-                        style={{
-                          backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
-                          color: tab === "all" ? EKARI.sand : EKARI.text,
-                        }}
-                      >
-                        All
-                      </button>
-                      <button
-                        className="h-8 px-3 rounded-full text-xs font-extrabold transition"
-                        onClick={() => setTab("unread")}
-                        style={{
-                          backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
-                          color: tab === "unread" ? EKARI.sand : EKARI.text,
-                        }}
-                      >
-                        Unread
-                      </button>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        value={qStr}
-                        onChange={(e) => setQStr(e.target.value)}
-                        placeholder="Search chats…"
-                        className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
-                        style={{ borderColor: EKARI.hair, ["--tw-ring-color" as any]: EKARI.forest }}
-                      />
-                      {qStr ? (
-                        <button
-                          onClick={() => setQStr("")}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
-                          style={{ color: EKARI.dim }}
-                        >
-                          ✕
-                        </button>
-                      ) : (
-                        <IoSearchOutline
-                          size={16}
-                          className="absolute right-3 top-1/2 -translate-y-1/2"
-                          style={{ color: "#94A3B8" }}
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {ctxListing?.id && (
-                    <div
-                      className="border-b bg-white px-3 py-2"
-                      style={{ borderColor: EKARI.hair }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = ctxListing.url || `/market/${encodeURIComponent(ctxListing.id)}`;
-                          router.push(url);
-                        }}
-                        className="w-full flex items-center gap-2 rounded-xl border bg-gray-50 hover:bg-white transition p-2 text-left"
+            ) : (
+              <div className="px-3 py-2">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 rounded-2xl border bg-gray-50 px-3 py-2 relative" style={{ borderColor: EKARI.hair }}>
+                    {pending && (
+                      <div
+                        className="mb-2 rounded-xl border bg-white p-2 flex items-center gap-2"
                         style={{ borderColor: EKARI.hair }}
-                        title="Open product"
                       >
                         <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                           <Image
-                            src={ctxListing.image || "/avatar-placeholder.png"}
-                            alt={ctxListing.name || "Product"}
+                            src={pending.image || "/product-placeholder.jpg"}
+                            alt={pending.name || "Product"}
                             fill
                             className="object-cover"
                             sizes="40px"
@@ -2255,566 +1589,149 @@ export default function BongaThreadLayoutPage() {
 
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-extrabold text-slate-900 truncate">
-                            {ctxListing.name || "Product"}
+                            {pending.name || "Product inquiry"}
                           </div>
                           <div className="text-[11px] text-slate-500 truncate">
-                            Conversation about this item
+                            {pending.url}
                           </div>
                         </div>
 
-                        <IoChevronForward size={16} style={{ color: EKARI.dim }} />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* ✅ make this flex-1 min-h-0 so list never “vanishes” */}
-                  <div className="flex-1 min-h-0 overflow-y-auto">
-                    {rowsLoading ? (
-                      <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-                        <BouncingBallLoader />
+                        <button
+                          type="button"
+                          className="h-8 w-8 rounded-full hover:bg-black/5 text-slate-600 font-black"
+                          onClick={() => setPending(null)}
+                          title="Remove product"
+                          aria-label="Remove product"
+                        >
+                          ×
+                        </button>
                       </div>
-                    ) : (
-                      <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
-                        {filteredRows.map((item) => {
-                          const name = item.peer?.firstName || item.peer?.handle || "User";
-                          const last = previewOf(item.lastMessage) || "No messages yet";
-                          const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
-                          const hasUnread = (item.unread ?? 0) > 0;
-                          const active = item.threadId === activeThreadId;
-
-                          return (
-                            <li key={item.threadId}>
-                              <button
-                                className={clsx(
-                                  "w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-black/5",
-                                  active && "bg-black/5"
-                                )}
-                                onClick={() => openThreadFromSidebar(item)}
-                              >
-                                <div className="relative">
-                                  <SmartAvatar
-                                    src={item.peer?.photoURL || ""}
-                                    alt={name}
-                                    size={44}
-                                    className={clsx(hasUnread && "ring-2")}
-                                  />
-                                  {hasUnread && (
-                                    <span
-                                      className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                                      style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                                    />
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
-                                      style={{ color: EKARI.text }}
-                                    >
-                                      {name}
-                                    </div>
-                                    <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
-                                      {when}
-                                    </div>
-                                  </div>
-                                  <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                                    <div className="truncate text-[13px]" style={{ color: hasUnread ? EKARI.text : EKARI.dim }}>
-                                      {last}
-                                    </div>
-                                    {hasUnread && (
-                                      <span
-                                        className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                                        style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                                      >
-                                        {item.unread > 99 ? "99+" : item.unread}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
                     )}
-                  </div>
-
-                  {/* drawer load more */}
-                  {filteredRows.length > 0 && (
-                    <div className="p-4 grid place-items-center border-t" style={{ borderColor: EKARI.hair }}>
-                      <button
-                        onClick={loadMoreRows}
-                        disabled={pagingRows || !cursor}
-                        className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
-                        style={{
-                          borderColor: EKARI.hair,
-                          color: EKARI.text,
-                          backgroundColor: EKARI.sand,
-                        }}
-                      >
-                        {pagingRows ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ================= Right Chat Panel ================= */}
-            <main
-              className="h-full min-h-0 bg-white relative"
-              style={{
-                paddingBottom: isDesktop
-                  ? 0
-                  : `calc(${composerH}px + env(safe-area-inset-bottom))`,
-              }}
-            >
-              <div className="h-full min-h-0 flex flex-col">
-                {/* Top header (chat) */}
-                <div ref={headerRef} className="border-b bg-white z-30" style={{ borderColor: EKARI.hair }}>
-                  <div className="h-[54px] px-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {/* Mobile: back + chats drawer */}
-                      <button
-                        className="md:hidden p-2 rounded-lg hover:bg-black/5"
-                        onClick={onBack}
-                        aria-label="Back to chats"
-                      >
-                        <IoArrowBack size={20} color={EKARI.text} />
-                      </button>
-
-                      <button
-                        className="md:hidden p-2 rounded-lg hover:bg-black/5"
-                        onClick={() => setSidebarOpen(true)}
-                        aria-label="Open chats"
-                      >
-                        <IoMenu size={20} color={EKARI.text} />
-                      </button>
-
-                      {/* Desktop: back */}
-                      <button
-                        onClick={onBack}
-                        className="hidden md:inline-flex p-2 rounded-lg hover:bg-black/5"
-                        aria-label="Back"
-                      >
-                        <IoArrowBack size={20} color={EKARI.text} />
-                      </button>
-
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-100">
-                          {onlineNow && (
-                            <span
-                              className="absolute right-0.5 bottom-0.5 w-[14px] h-[14px] rounded-full border-2 z-10"
-                              style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }}
-                            />
-                          )}
-                          <Image
-                            src={
-                              peer?.photoURL ||
-                              activePeerQs.peerPhotoURL ||
-                              selectedRow?.peer?.photoURL ||
-                              "/avatar-placeholder.png"
-                            }
-                            alt={headerTitle}
-                            fill
-                            className="object-cover"
-                            sizes="36px"
-                          />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="font-extrabold text-slate-900 text-sm truncate">{headerTitle}</div>
-                          <div className="text-xs text-slate-500">
-                            {peerTyping ? "Typing…" : lastSeenText(onlineNow, lastActiveAny)}
-                          </div>
-                        </div>
+                    {!pending?.id && ctxListing?.id && (
+                      <div className="mb-2">
+                        <button
+                          type="button"
+                          onClick={() => setPending(ctxListing)}
+                          className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold hover:bg-black/5"
+                          style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                          title="Attach last referenced product"
+                        >
+                          🛒 Attach product
+                        </button>
                       </div>
+                    )}
+
+                    <textarea
+                      value={input}
+                      onChange={(e) => {
+                        setInput(e.target.value);
+                        scheduleTyping(e.target.value.trim().length > 0);
+                      }}
+                      onBlur={() => scheduleTyping(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          onSend();
+                        }
+                      }}
+                      placeholder="Message..."
+                      rows={1}
+                      className="w-full bg-transparent outline-none text-[15px] resize-none max-h-40 leading-5"
+                      style={{ minHeight: 40 }}
+                    />
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <button className="w-9 h-9 rounded-full flex items-center justify-center" title="Emoji" type="button" onClick={() => setEmojiOpen(true)} style={{ backgroundColor: "#F3F4F6" }}>
+                        <IoHappyOutline size={20} color={EKARI.text} />
+                      </button>
+
+                      <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={onFileChosen} />
+                      <button className="w-9 h-9 rounded-full flex items-center justify-center" title="Image" type="button" onClick={onPickImage} style={{ backgroundColor: "#F3F4F6" }}>
+                        <IoImageOutline size={20} color={EKARI.text} />
+                      </button>
+
+                      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={onFileChosen} />
+                      <button className="w-9 h-9 rounded-full flex items-center justify-center" title="Camera" type="button" onClick={onPickCamera} style={{ backgroundColor: "#F3F4F6" }}>
+                        <IoCameraOutline size={20} color={EKARI.text} />
+                      </button>
+
+                      <button className="w-9 h-9 rounded-full flex items-center justify-center" title="Voice" type="button" onClick={startRecording} style={{ backgroundColor: "#F3F4F6" }}>
+                        <IoMicOutline size={20} color={EKARI.text} />
+                      </button>
                     </div>
 
-                    <button className="p-2 rounded-lg hover:bg-black/5" aria-label="Report" title="Report conversation">
-                      <IoFlagOutline size={18} color={EKARI.dim} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Messages scroller */}
-                {/* ✅ min-h-0 + extra paddingBottom so messages never hide behind composer */}
-                <div
-                  ref={listRef}
-                  className="flex-1 min-h-0 overflow-y-auto bg-gray-50"
-                  style={{
-                    paddingTop: 8,
-                    paddingBottom: composerH + 16,
-                    scrollPaddingBottom: composerH + 16,
-                    scrollbarGutter: "stable both-edges",
-                  } as React.CSSProperties}
-                >
-                  {loading ? (
-                    <div className="h-full flex items-center justify-center" style={{ color: EKARI.dim }}>
-                      <BouncingBallLoader />
-                    </div>
-                  ) : !hasMessages ? (
-                    <EmptyState />
-                  ) : (
-                    <div className="px-4 py-4 pb-0">
-                      {oldestDoc && (
-                        <div className="mb-2 flex justify-center">
-                          <button
-                            onClick={loadMore}
-                            className="h-8 px-3 rounded-lg border text-xs font-bold transition hover:bg-black/5"
-                            disabled={paging}
-                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                          >
-                            {paging ? "Loading…" : "Load older"}
-                          </button>
-                        </div>
-                      )}
-
-                      {items.map((msg, i) => {
-                        const mine = msg.from === uid;
-
-                        const prev = items[i - 1];
-                        const next = items[i + 1];
-
-                        const prevSameSender = !!prev && prev.from === msg.from;
-                        const nextSameSender = !!next && next.from === msg.from;
-
-                        const isFirstInGroup = !prevSameSender;
-                        const isLastInGroup = !nextSameSender;
-
-                        const rowMt = isFirstInGroup ? "mt-3" : "mt-1";
-                        const rowMb = isLastInGroup ? "mb-1" : "mb-0";
-
-                        const showAvatar = !mine && isLastInGroup;
-
-                        return (
-                          <div
-                            key={msg.id}
-                            className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${rowMt} ${rowMb}`}
-                          >
-                            {!mine && (
-                              <div className="w-7 flex justify-center">
-                                {showAvatar ? (
-                                  <div className="relative w-7 h-7 rounded-full overflow-hidden bg-gray-200">
-                                    <Image
-                                      src={
-                                        peer?.photoURL ||
-                                        activePeerQs.peerPhotoURL ||
-                                        selectedRow?.peer?.photoURL ||
-                                        "/avatar-placeholder.png"
-                                      }
-                                      alt="avatar"
-                                      fill
-                                      className="object-cover"
-                                      sizes="28px"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="w-7 h-7" />
-                                )}
-                              </div>
-                            )}
-
-                            <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[78%]`}>
-                              <div
-                                style={{
-                                  background: mine ? mineBg : theirsBg,
-                                  borderColor: mine ? mineBorder : theirsBrd,
-                                }}
-                                className={[
-                                  "text-[15px] border shadow-sm px-3 py-2",
-                                  "max-w-full break-words whitespace-pre-wrap leading-5",
-                                  mine
-                                    ? isFirstInGroup
-                                      ? "rounded-2xl rounded-tr-md"
-                                      : "rounded-2xl rounded-tr-md rounded-br-md"
-                                    : isFirstInGroup
-                                      ? "rounded-2xl rounded-tl-md"
-                                      : "rounded-2xl rounded-tl-md rounded-bl-md",
-                                ].join(" ")}
-                              >
-                                {msg.uploading ? (
-                                  <div className="flex items-center gap-2 opacity-80">
-                                    <span className="w-3 h-3 rounded-full animate-pulse bg-slate-400" />
-                                    <span>Uploading…</span>
-                                  </div>
-                                ) : msg.error ? (
-                                  <span className="text-red-500">Failed to send</span>
-                                ) : msg.type === "image" && msg.imageUrl ? (
-                                  <a href={msg.imageUrl} target="_blank" rel="noreferrer" className="block">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src={msg.imageUrl}
-                                      alt="Sent image"
-                                      className="rounded-xl bg-gray-100 max-w-full"
-                                      style={{ width: 280, height: "auto", objectFit: "cover" }}
-                                      onLoad={() => scrollToBottom("auto")}
-                                    />
-                                  </a>
-                                ) : msg.type === "product" && msg.listing?.id ? (
-                                  <div className="space-y-2">
-                                    {!!msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
-
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const url = msg.listing?.url || `/market/${encodeURIComponent(msg.listing!.id)}`;
-                                        router.push(url);
-                                      }}
-                                      className="w-full text-left rounded-xl border bg-white/70 hover:bg-white transition p-2 flex items-center gap-2"
-                                      style={{ borderColor: EKARI.hair }}
-                                      title="Open product"
-                                    >
-                                      <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                                        <Image
-                                          src={msg.listing.image || "/product-placeholder.jpg"}
-                                          alt={msg.listing.name || "Product"}
-                                          fill
-                                          className="object-cover"
-                                          sizes="48px"
-                                        />
-                                      </div>
-
-                                      <div className="min-w-0 flex-1">
-                                        <div className="text-xs font-extrabold text-slate-900 truncate">
-                                          {msg.listing.name || "Product"}
-                                        </div>
-
-                                        <div className="text-[11px] text-slate-600 truncate">
-                                          {msg.listing.currency === "USD"
-                                            ? `USD ${(Number(msg.listing.price || 0)).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
-                                            : `KSh ${(Number(msg.listing.price || 0)).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`}
-                                        </div>
-                                      </div>
-
-                                      <IoChevronForward size={16} style={{ color: EKARI.dim }} />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  !!msg.text && <span>{msg.text}</span>
-                                )}
-                              </div>
-
-                              {isLastInGroup && (
-                                <div className="mt-1 text-[11px] text-slate-500 px-1">
-                                  {formatMsgTime(msg.createdAt)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      <div ref={endRef} className="h-0" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Jump to latest */}
-                {showJump && hasMessages && (
-                  <button
-                    onClick={() => scrollToBottom("smooth")}
-                    className="absolute md:static md:hidden bottom-[88px] right-4 z-40 h-9 px-3 rounded-full text-sm font-extrabold shadow-md"
-                    style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                  >
-                    Jump to latest
-                  </button>
-                )}
-
-                {/* Composer (sticky on desktop, fixed on mobile) */}
-                <div
-                  ref={composerRef}
-                  className={clsx(
-                    "z-40 border-t bg-white",
-                    isDesktop ? "sticky bottom-0" : "fixed left-0 right-0 bottom-0"
-                  )}
-                  style={{
-                    borderColor: EKARI.hair,
-                    paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)",
-                  }}
-                >
-                  <div className="w-full px-3">
-                    <div className="flex items-end gap-2 py-2 relative">
-                      <div
-                        className="flex-1 border bg-gray-50 rounded-2xl px-3 py-2"
-                        style={{ borderColor: EKARI.hair }}
-                      >
-                        {pendingListing && (
-                          <div
-                            className="mb-2 rounded-xl border bg-white p-2 flex items-center gap-2"
-                            style={{ borderColor: EKARI.hair }}
-                          >
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                              <Image
-                                src={pendingListing.image || "/product-placeholder.jpg"}
-                                alt={pendingListing.name || "Product"}
-                                fill
-                                className="object-cover"
-                                sizes="40px"
-                              />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="text-xs font-extrabold text-slate-900 truncate">
-                                {pendingListing.name || "Product inquiry"}
-                              </div>
-                              <div className="text-[11px] text-slate-500 truncate">
-                                {pendingListing.url}
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              className="h-8 w-8 rounded-full hover:bg-black/5 text-slate-600 font-black"
-                              onClick={() => setPendingListing(null)}
-                              title="Remove product"
-                              aria-label="Remove product"
-                            >
-                              ×
+                    {emojiOpen && (
+                      <div className="fixed inset-0 z-[100] bg-black/40 flex items-end justify-center" onClick={() => setEmojiOpen(false)}>
+                        <div className="w-full max-w-3xl bg-white rounded-t-2xl border-t border-x p-3" style={{ borderColor: EKARI.hair }} onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-extrabold" style={{ color: EKARI.text }}>Choose emoji</div>
+                            <button type="button" onClick={() => setEmojiOpen(false)} className="h-9 w-9 rounded-full border bg-gray-50 grid place-items-center" style={{ borderColor: EKARI.hair }} aria-label="Close">
+                              <IoClose size={18} color={EKARI.dim} />
                             </button>
                           </div>
-                        )}
 
-                        {!pendingListing?.id && threadContextListing?.id && (
-                          <div className="mb-2">
-                            <button
-                              type="button"
-                              onClick={() => setPendingListing(threadContextListing)}
-                              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold hover:bg-black/5"
-                              style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                              title="Attach last referenced product"
-                            >
-                              🛒 Attach product
-                            </button>
-                          </div>
-                        )}
-
-                        <textarea
-                          ref={textareaRef}
-                          value={input}
-                          onChange={(e) => {
-                            setInput(e.target.value);
-                            setTypingDebounced(!!e.target.value.trim());
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              onSend();
-                            }
-                          }}
-                          onBlur={() => setTypingDebounced(false)}
-                          placeholder="Message…"
-                          rows={1}
-                          className="w-full bg-transparent outline-none text-[15px] resize-none max-h-40 leading-5"
-                          style={{ height: 40 }}
-                        />
-
-                        {preview && (
-                          <div className="mt-2 relative">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={preview}
-                              alt="Preview"
-                              className="w-24 h-24 rounded-md object-cover border"
-                              onLoad={() => scrollToBottom("auto")}
-                              style={{ borderColor: EKARI.hair }}
-                            />
-                            <button
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs"
-                              onClick={() => setPreview(null)}
-                              aria-label="Remove preview"
-                              title="Remove preview"
-                              type="button"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-2">
-                          <button
-                            className="w-9 h-9 rounded-full flex items-center justify-center"
-                            title="Emoji"
-                            type="button"
-                            onClick={() => setShowEmoji((p) => !p)}
-                            style={{ backgroundColor: "#F3F4F6" }}
-                          >
-                            <IoHappyOutline size={20} color={EKARI.text} />
-                            {showEmoji && (
-                              <div
-                                className="absolute bottom-14 left-3 z-50 bg-white rounded-xl shadow-lg p-2 max-w-[260px] w-[240px] h-[180px] overflow-y-auto grid grid-cols-8 gap-1 border"
-                                onMouseLeave={() => setShowEmoji(false)}
-                                style={{ borderColor: EKARI.hair }}
-                              >
-                                {EmojiPickerList.map((emo) => (
+                          <div className="max-h-[45vh] overflow-y-auto">
+                            {EMOJI_SETS.map((row, idx) => (
+                              <div key={idx} className="grid grid-cols-12 gap-1 mb-2">
+                                {row.map((emo) => (
                                   <button
                                     key={emo}
-                                    onClick={() => {
-                                      setInput((prev) => prev + emo);
-                                      setShowEmoji(false);
-                                      textareaRef.current?.focus();
-                                    }}
-                                    className="text-xl rounded-md hover:bg-black/5"
-                                    title={emo}
                                     type="button"
+                                    className="h-10 rounded-lg hover:bg-black/5 text-2xl"
+                                    onClick={() => {
+                                      setInput((v) => (v ? `${v} ${emo}` : emo));
+                                      setEmojiOpen(false);
+                                    }}
+                                    title={emo}
                                   >
                                     {emo}
                                   </button>
                                 ))}
                               </div>
-                            )}
-                          </button>
-
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={onImageChosen}
-                          />
-
-                          <button
-                            className="w-9 h-9 rounded-full flex items-center justify-center"
-                            title="Image"
-                            type="button"
-                            onClick={onPickImage}
-                            style={{ backgroundColor: "#F3F4F6" }}
-                          >
-                            <IoImageOutline size={20} color={EKARI.text} />
-                          </button>
-
-                          <button
-                            className="w-9 h-9 rounded-full flex items-center justify-center"
-                            title="Camera"
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            style={{ backgroundColor: "#F3F4F6" }}
-                          >
-                            <IoCameraOutline size={20} color={EKARI.text} />
-                          </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
-
-                      <Button
-                        onClick={onSend}
-                        disabled={!input.trim() && !pendingListing?.id}
-                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
-                        title="Send"
-                        type="button"
-                        style={{ backgroundColor: EKARI.gold }}
-                      >
-                        <IoSend size={18} color="#fff" />
-                      </Button>
-                    </div>
+                    )}
                   </div>
+
+                  <button
+                    onClick={onSend}
+                    disabled={(!input.trim() && !pending?.id) || sending}
+                    className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50 shadow-sm"
+                    title="Send"
+                    type="button"
+                    style={{ backgroundColor: EKARI.gold }}
+                  >
+                    {sending ? <span className="text-white text-sm font-extrabold">…</span> : <IoSend size={18} color="#fff" />}
+                  </button>
                 </div>
               </div>
-            </main>
+            )}
           </div>
-        </div>
-      </AppShell>
-    )}
-  </>
+        </main>
+      </div>
 
+      {/* Full-screen image viewer */}
+      {viewer.open && (
+        <div className="fixed inset-0 z-[120] bg-black/90 flex items-center justify-center p-4" onClick={() => setViewer({ open: false, url: "" })}>
+          <button className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center" onClick={() => setViewer({ open: false, url: "" })} aria-label="Close" type="button">
+            <IoClose size={22} color="#fff" />
+          </button>
+
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={viewer.url} alt="Full" className="max-h-[90vh] max-w-[92vw] object-contain rounded-xl" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <div className="md:hidden">{Layout}</div>
+      <div className="hidden md:block">
+        <AppShell>{Layout}</AppShell>
+      </div>
+    </>
   );
 }

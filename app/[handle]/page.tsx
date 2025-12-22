@@ -803,7 +803,7 @@ function Header({
           {/* Zoomable image */}
           <div className="relative max-h-[80vh] overflow-hidden flex items-center justify-center">
             <Image
-              src={profile.photoURL || "/avatar-blank.png"}
+              src={profile.photoURL || "/avatar-placeholder.png"}
               alt={profile.handle || "Profile photo"}
               width={900}
               height={900}
@@ -838,17 +838,14 @@ function Header({
             aria-label="View profile photo"
           >
             <div className="rounded-full bg-white p-[3px]">
-              <div
-                className="relative rounded-full overflow-hidden"
-                style={{ height: 104, width: 104 }}
-              >
-                <SmartAvatar
-                  src={profile.photoURL || "/avatar-blank.png"}
-                  alt={profile.handle || "avatar"}
-                  size={112}
-                  rounded="full"
-                />
-              </div>
+
+              <SmartAvatar
+                src={profile.photoURL || "/avatar-placeholder.png"}
+                alt={profile.handle || "avatar"}
+                size={112}
+                rounded="full"
+              />
+
             </div>
           </button>
         </div>

@@ -16,6 +16,7 @@ import { app, db } from "@/lib/firebase";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { DeedStats } from "@/lib/fire-queries";
+import Image from "next/image";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 
 /* -------------------- Types -------------------- */
@@ -112,7 +113,7 @@ const PLACEHOLDER_DEED_THUMB =
 const PLACEHOLDER_EVENT_THUMB =
     "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=800&auto=format&fit=crop";
 const PLACEHOLDER_AVATAR =
-    "https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=400&auto=format&fit=crop";
+    "/avatar-placeholder.png";
 
 const TRENDING_DEFAULT = [
     "maize spacing",
@@ -709,11 +710,14 @@ export default function SearchPageClient() {
                         onClick={() => handleAccountClick(a.handle)}
                         className="flex w-full items-center gap-3 rounded-xl py-3 text-left hover:bg-gray-50"
                     >
-                        <img
-                            src={a.photoURL || PLACEHOLDER_AVATAR}
+                        <Image
+                            src={a.photoURL || "/avatar-placeholder.png"}
                             alt={a.firstName || "User"}
+                            width={400}
+                            height={400}
                             className="h-11 w-11 rounded-full bg-gray-100 object-cover"
                         />
+
                         <div className="flex-1">
                             <p className="text-sm font-semibold text-gray-900">
                                 {a.firstName} {a.surname}
@@ -857,9 +861,11 @@ export default function SearchPageClient() {
                                                         onClick={() => onSelectHandleSuggestion(a)}
                                                         className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
                                                     >
-                                                        <img
-                                                            src={a.photoURL || PLACEHOLDER_AVATAR}
+                                                        <Image
+                                                            src={a.photoURL || "/avatar-placeholder.png"}
                                                             alt={a.firstName || "User"}
+                                                            width={400}
+                                                            height={400}
                                                             className="h-8 w-8 rounded-full bg-gray-100 object-cover"
                                                         />
                                                         <div className="flex-1">
@@ -1170,9 +1176,11 @@ export default function SearchPageClient() {
                                             onClick={() => handleAccountClick(a.handle)}
                                             className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                                         >
-                                            <img
-                                                src={a.photoURL || PLACEHOLDER_AVATAR}
+                                            <Image
+                                                src={a.photoURL || "/avatar-placeholder.png"}
                                                 alt={a.firstName || "User"}
+                                                width={400}
+                                                height={400}
                                                 className="h-11 w-11 rounded-full bg-gray-100 object-cover"
                                             />
                                             <div className="flex-1">
@@ -1315,9 +1323,11 @@ export default function SearchPageClient() {
                                                         onClick={() => onSelectHandleSuggestion(a)}
                                                         className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
                                                     >
-                                                        <img
-                                                            src={a.photoURL || PLACEHOLDER_AVATAR}
+                                                        <Image
+                                                            src={a.photoURL || "/avatar-placeholder.png"}
                                                             alt={a.firstName || "User"}
+                                                            width={400}
+                                                            height={400}
                                                             className="h-8 w-8 rounded-full bg-gray-100 object-cover"
                                                         />
                                                         <div className="flex-1">
