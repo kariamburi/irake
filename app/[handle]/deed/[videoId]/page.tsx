@@ -722,23 +722,22 @@ export default function PlayerByHandlePage() {
         );
     }
 
+    const h = String(handleWithAt ?? "").trim();
+    const normalized = h.startsWith("@") ? h : `@${h}`;
     const webUrl =
         typeof window !== "undefined"
             ? window.location.href
-            : `https://ekarihub.com/${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(
-                deedId
-            )}`;
+            : `https://ekarihub.com/${encodeURIComponent(normalized)}/deed/${encodeURIComponent(deedId)}`;
 
-    const appUrl = `ekarihub:///${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(
-        deedId
-    )}`;
+    const appUrl = `ekarihub:///${encodeURIComponent(normalized)}/deed/${encodeURIComponent(deedId)}`;
+
 
     return (
         <div className="fixed inset-0 bg-black text-white">
             <OpenInAppBanner
                 webUrl={webUrl}
                 appUrl={appUrl}
-                title="Open this profile in ekarihub"
+                title="Open this deed in ekarihub"
                 subtitle="Faster loading, messaging, and full features."
                 playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
                 appStoreUrl="https://apps.apple.com" // replace later

@@ -2325,7 +2325,9 @@ export default function HandleProfilePage() {
 
   const cleanHandle = decoded.startsWith("@") ? decoded : `@${decoded}`;
   const webUrl = `https://ekarihub.com/${cleanHandle}`;
-  const appUrl = `ekarihub:///${cleanHandle}`;
+
+  // ✅ safer: no triple slash, plus explicit path
+  const appUrl = `ekarihub://profile/${encodeURIComponent(cleanHandle)}`;
 
   // ---- shared content (header + tab body) ----
   const Body = (
