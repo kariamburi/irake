@@ -67,6 +67,7 @@ import OpenInAppBanner from "./components/OpenInAppBanner";
 // 🔗 single source of truth for deed data
 import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
+import { useUserProfile } from "./providers/UserProfileProvider";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -832,39 +833,6 @@ function useDeedBox(params: {
   return box;
 }
 
-/* ---------- Profiles ---------- */
-function useUserProfile(uid?: string) {
-  const [profile, setProfile] = useState<{
-    handle?: string;
-    photoURL?: string;
-    dataSaverVideos?: boolean;
-    uid?: string;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!uid) {
-      setProfile(null);
-      return;
-    }
-    const ref = doc(db, "users", uid);
-    const unsub = onSnapshot(ref, (snap) => {
-      const data = snap.data() as any | undefined;
-      if (!data) {
-        setProfile(null);
-        return;
-      }
-      setProfile({
-        uid,
-        handle: data?.handle,
-        photoURL: data?.photoURL,
-        dataSaverVideos: !!data?.dataSaverVideos,
-      });
-    });
-    return () => unsub();
-  }, [uid]);
-
-  return profile;
-}
 
 function useNetworkProfile() {
   const [state, setState] = useState<{ effectiveType?: string; saveData?: boolean }>({});
@@ -1817,7 +1785,7 @@ function FeedShell() {
   const uid = user?.uid;
 
   const router = useRouter();
-  const profile = useUserProfile(uid);
+  const { profile, loading: profileLoading } = useUserProfile();
 
   const isDesktop = useIsDesktop();
   const isMobile = useIsMobile();

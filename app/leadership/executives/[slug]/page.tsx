@@ -18,7 +18,7 @@ export default function ExecProfilePage() {
   if (!exec) {
     return (
       <main className="max-w-6xl mx-auto px-6 py-8">
-        <BackBar label="Back to Executives" href="/about/executives" />
+        <BackBar label="Back to Executives" href="/leadership/executives" />
         <p className="mt-8">Profile not found.</p>
       </main>
     );
@@ -30,7 +30,7 @@ export default function ExecProfilePage() {
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-8">
-      <BackBar label="Back to Executives" href="/about/executives" />
+      <BackBar label="Back to Executives" href="/leadership/executives" />
 
       <div className="mt-6 grid lg:grid-cols-[1fr_1.2fr] gap-8">
         <motion.div

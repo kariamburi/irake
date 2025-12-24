@@ -80,6 +80,7 @@ type Profile = {
   handle?: string;
   name?: string;
   bio?: string;
+  roles?: string[];
   website?: string;
   phone?: string;
   photoURL?: string;
@@ -407,6 +408,7 @@ function useProfileByUid(uid?: string) {
             bio: d.bio,
             website: d.website,
             phone: d.phone,
+            roles: d.roles,
             photoURL: d.photoURL || d.avatarUrl,
             followersCount: Number(d.followersCount ?? 0),
             followingCount: Number(d.followingCount ?? 0),
@@ -1061,7 +1063,17 @@ function Header({
               {profile.bio}
             </p>
           )}
-
+          <div className="flex flex-wrap gap-2">
+            {Array.isArray(profile?.roles) && profile?.roles.length !== 0 && profile?.roles.map((role, i) => (
+              <span
+                key={`role-${i}`}
+                className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                style={{ backgroundColor: EKARI.forest, color: EKARI.bg }}
+              >
+                {role}
+              </span>
+            ))}
+          </div>
           {canSeeContacts && (
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
               {profile.phone && (

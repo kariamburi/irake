@@ -46,7 +46,7 @@ export default function AboutHeroPage() {
             </p>
 
             <button
-              onClick={() => router.push("/about/executives")}
+              onClick={() => router.push("/leadership/executives")}
               className="mt-2 inline-flex items-center gap-2 rounded-full px-5 py-3 font-extrabold text-white"
               style={{ backgroundColor: EKARI.gold }}
             >

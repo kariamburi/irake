@@ -20,6 +20,7 @@ import {
   IoChatbubblesOutline,
   IoRibbonOutline,
 } from "react-icons/io5";
+import { useAuth } from "../hooks/useAuth";
 
 const EKARI = {
   forest: "#233F39",
@@ -183,6 +184,8 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 export default function AboutPage() {
   const reduceMotion = useReducedMotion();
 
+  const { user, loading: authLoading } = useAuth();
+  const isGuest = !authLoading && !user?.uid;
   // Right-side “serious” stats
   const stats = {
     verifiedProfiles: "Verified profiles • Trust layer",
@@ -243,15 +246,24 @@ export default function AboutPage() {
               Explore Marketplace
             </Link>
 
-            <Link
-              href="/onboarding"
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
-              style={{
-                background: "linear-gradient(135deg, #233F39, #111827)",
-              }}
-            >
-              Get Started <IoArrowForwardOutline className="text-base" />
-            </Link>
+            {isGuest ? (
+              <Link
+                href="/getstarted?next=/"
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                style={{ background: "linear-gradient(135deg, #233F39, #111827)" }}
+              >
+                Get Started <IoArrowForwardOutline className="text-base" />
+              </Link>
+            ) : (
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                style={{ background: "linear-gradient(135deg, #233F39, #111827)" }}
+              >
+                Get Started <IoArrowForwardOutline className="text-base" />
+              </Link>
+            )}
+
           </div>
         </div>
 
@@ -575,13 +587,22 @@ export default function AboutPage() {
 
             {/* Bottom CTA */}
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href="/onboarding"
-                className="inline-flex items-center justify-center gap-2 rounded-xl py-3 px-4 text-sm font-semibold text-white shadow-sm active:scale-[0.98] transition"
+
+              {isGuest ? (
+                <Link
+                  href="/getstarted?next=/about"
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                  style={{ background: "linear-gradient(135deg, #233F39, #111827)" }}
+                >
+                  Join ekarihub <IoArrowForwardOutline className="text-base" />
+                </Link>
+              ) : (<Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
                 style={{ background: "linear-gradient(135deg, #233F39, #111827)" }}
               >
                 Join ekarihub <IoArrowForwardOutline className="text-base" />
-              </Link>
+              </Link>)}
 
 
               <Link

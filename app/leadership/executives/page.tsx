@@ -39,7 +39,7 @@ export default function ExecutivesPage() {
           <motion.button
             key={e.slug}
             variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
-            onClick={() => router.push(`/about/executives/${e.slug}`)}
+            onClick={() => router.push(`/leadership/executives/${e.slug}`)}
             className="text-left rounded-2xl overflow-hidden border bg-white hover:shadow-md transition"
             style={{ borderColor: EKARI.hair }}
           >
