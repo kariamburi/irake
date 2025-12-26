@@ -1380,111 +1380,117 @@ function VideoCard({
         </div>
 
         {/* bottom overlay */}
+
         <div
           className={cn(
             "absolute left-0 right-0 bottom-0",
             "bg-gradient-to-t from-black/85 via-black/35 to-transparent",
             "transition-opacity duration-200",
             mediaReady ? "opacity-100" : "opacity-0 pointer-events-none",
-            isMobile ? "p-4 pb-16 mr-[60px]" : "p-4"
           )}
         >
-          <div className="flex items-center gap-2 mb-2">
-            <div
-              onClick={onViewProfileClick}
-              className={cn(
-                "relative h-10 w-10 rounded-full overflow-hidden bg-gray-200 shrink-0",
-                (authorProfile?.handle || item.authorUsername) ? "cursor-pointer" : "cursor-default"
-              )}
-            >
-              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#C79257] via-transparent to-[#233F39] opacity-70" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={avatar}
-                alt={authorProfile?.handle || item.authorUsername || item.authorId || "author"}
-                className="relative h-full w-full object-cover border border-white/30 rounded-full"
-              />
-            </div>
-
-            <div onClick={onViewProfileClick} className="cursor-pointer min-w-0 flex flex-col">
-              <div className="text-white/95 font-bold text-sm truncate">
-                {authorProfile?.handle
-                  ? authorProfile.handle
-                  : item.authorUsername
-                    ? item.authorUsername
-                    : (item.authorId ?? "").slice(0, 6)}
-              </div>
-              <div className="text-white/70 text-[11px]" title={`${followersCount} followers`}>
-                {formatCount(followersCount)} Followers
-              </div>
-            </div>
-
-            {showFollow && (
-              <button
-                onClick={onFollowClick}
-                className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-white bg-[#C79257] hover:bg-[#FCD34D] shadow-sm"
-              >
-                Follow
-              </button>
+          <div
+            className={cn(
+              isMobile ? "p-4 pb-16 mr-[60px]" : "p-4"
             )}
-          </div>
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                onClick={onViewProfileClick}
+                className={cn(
+                  "relative h-10 w-10 rounded-full overflow-hidden bg-gray-200 shrink-0",
+                  (authorProfile?.handle || item.authorUsername) ? "cursor-pointer" : "cursor-default"
+                )}
+              >
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#C79257] via-transparent to-[#233F39] opacity-70" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={avatar}
+                  alt={authorProfile?.handle || item.authorUsername || item.authorId || "author"}
+                  className="relative h-full w-full object-cover border border-white/30 rounded-full"
+                />
+              </div>
 
-          {/* ✅ TikTok-style caption spacing */}
-          {(hasCaption || hasTags) && (
-            <motion.div className="mt-1 w-full" layout transition={{ type: "spring", stiffness: 260, damping: 26 }}>
-              {hasCaption && (
-                <div className="relative w-full">
-                  <motion.p
-                    layout
-                    className={cn(
-                      "text-white/95 w-full text-[14px] leading-5",
-                      "cursor-pointer",
-                      captionExpanded ? "" : "line-clamp-2"
+              <div onClick={onViewProfileClick} className="cursor-pointer min-w-0 flex flex-col">
+                <div className="text-white/95 font-bold text-sm truncate">
+                  {authorProfile?.handle
+                    ? authorProfile.handle
+                    : item.authorUsername
+                      ? item.authorUsername
+                      : (item.authorId ?? "").slice(0, 6)}
+                </div>
+                <div className="text-white/70 text-[11px]" title={`${followersCount} followers`}>
+                  {formatCount(followersCount)} Followers
+                </div>
+              </div>
+
+              {showFollow && (
+                <button
+                  onClick={onFollowClick}
+                  className="ml-auto rounded-full px-3 py-1 text-xs font-bold text-white bg-[#C79257] hover:bg-[#FCD34D] shadow-sm"
+                >
+                  Follow
+                </button>
+              )}
+            </div>
+
+            {/* ✅ TikTok-style caption spacing */}
+            {(hasCaption || hasTags) && (
+              <motion.div className="mt-1 w-full" layout transition={{ type: "spring", stiffness: 260, damping: 26 }}>
+                {hasCaption && (
+                  <div className="relative w-full">
+                    <motion.p
+                      layout
+                      className={cn(
+                        "text-white/95 w-full text-[14px] leading-5",
+                        "cursor-pointer",
+                        captionExpanded ? "" : "line-clamp-2"
+                      )}
+                      onClick={() => setCaptionExpanded((v) => !v)}
+                    >
+                      {item.text}
+                    </motion.p>
+                  </div>
+                )}
+
+                {hasTags && (
+                  <motion.div layout className="mt-2 w-full flex flex-wrap items-center gap-2">
+                    {visibleTags.map((tag: any) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="px-2.5 py-1 rounded-full border border-white/25 bg-black/25 text-[12px] text-white font-semibold hover:bg-black/60 transition-colors"
+                        onClick={() => router.push(`/search?tag=${encodeURIComponent(tag)}&tab=Tags`)}
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                    {showMoreToggle && (
+                      <button
+                        type="button"
+                        onClick={() => setCaptionExpanded((v) => !v)}
+                        className="text-[12px] text-white/90 font-semibold"
+                      >
+                        {captionExpanded ? "less" : "… more"}
+                      </button>
                     )}
-                    onClick={() => setCaptionExpanded((v) => !v)}
-                  >
-                    {item.text}
-                  </motion.p>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+
+            {/* sound row */}
+            <div className="mt-3 flex items-center gap-2">
+              {isLibrarySound && (
+                <div className="h-6 w-6 rounded-full overflow-hidden bg-black/40 flex-shrink-0 border border-white/25">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={soundAvatar} alt={soundLabel} className="h-full w-full object-cover" />
                 </div>
               )}
-
-              {hasTags && (
-                <motion.div layout className="mt-2 w-full flex flex-wrap items-center gap-2">
-                  {visibleTags.map((tag: any) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      className="px-2.5 py-1 rounded-full border border-white/25 bg-black/25 text-[12px] text-white font-semibold hover:bg-black/60 transition-colors"
-                      onClick={() => router.push(`/search?tag=${encodeURIComponent(tag)}&tab=Tags`)}
-                    >
-                      #{tag}
-                    </button>
-                  ))}
-                  {showMoreToggle && (
-                    <button
-                      type="button"
-                      onClick={() => setCaptionExpanded((v) => !v)}
-                      className="text-[12px] text-white/90 font-semibold"
-                    >
-                      {captionExpanded ? "less" : "… more"}
-                    </button>
-                  )}
-                </motion.div>
-              )}
-            </motion.div>
-          )}
-
-          {/* sound row */}
-          <div className="mt-3 flex items-center gap-2">
-            {isLibrarySound && (
-              <div className="h-6 w-6 rounded-full overflow-hidden bg-black/40 flex-shrink-0 border border-white/25">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={soundAvatar} alt={soundLabel} className="h-full w-full object-cover" />
+              <div className="flex items-center gap-2 text-[12px] text-white/85 min-w-0">
+                <IoMusicalNotesOutline className="flex-shrink-0" size={16} />
+                <span className="truncate max-w-[220px]">{soundLabel}</span>
               </div>
-            )}
-            <div className="flex items-center gap-2 text-[12px] text-white/85 min-w-0">
-              <IoMusicalNotesOutline className="flex-shrink-0" size={16} />
-              <span className="truncate max-w-[220px]">{soundLabel}</span>
             </div>
           </div>
         </div>
@@ -2461,13 +2467,13 @@ function MobileShell(props: any) {
               </button>
 
               <button
-                onClick={() => (window.location.href = uid ? "/profile" : "/getstarted?next=/")}
+                onClick={() => (window.location.href = uid ? "/" + profile?.handle : "/getstarted?next=/")}
                 className="h-10 w-10 rounded-full overflow-hidden bg-white/10 border border-white/10"
                 aria-label="Profile"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={profile?.photoURL ?? user?.photoURL ?? "/avatar-placeholder.png"}
+                  src={profile?.photoURL ?? "/avatar-placeholder.png"}
                   alt="Me"
                   className="h-full w-full object-cover"
                 />
