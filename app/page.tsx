@@ -92,6 +92,69 @@ const LABEL: Record<TabKey, string> = {
 function cn(...xs: (string | false | null | undefined)[]) {
   return xs.filter(Boolean).join(" ");
 }
+// ---------- time utils ----------
+function toMillisSafe(v: any): number | null {
+  if (!v) return null;
+
+  // Firestore Timestamp
+  if (typeof v?.toMillis === "function") return v.toMillis();
+
+  // stored as { seconds, nanoseconds }
+  if (typeof v?.seconds === "number") return v.seconds * 1000;
+
+  // stored as ms number
+  if (typeof v === "number") return v > 10_000_000_000 ? v : v * 1000; // handles seconds vs ms
+
+  // ISO string / date string
+  if (typeof v === "string") {
+    const ms = Date.parse(v);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  // JS Date
+  if (v instanceof Date) return v.getTime();
+
+  return null;
+}
+
+function formatTimeAgoShort(ms: number): string {
+  const now = Date.now();
+  const diff = Math.max(0, now - ms);
+
+  const sec = Math.floor(diff / 1000);
+  if (sec < 10) return "now";
+  if (sec < 60) return `${sec}s`;
+
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d`;
+
+  // older: show date like "Dec 28" (or include year if different)
+  const d = new Date(ms);
+  const yNow = new Date().getFullYear();
+  const sameYear = d.getFullYear() === yNow;
+
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "2-digit",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+function formatAbsDateTime(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 function formatCount(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(n % 1_000_000 ? 1 : 0) + "M";
@@ -1069,6 +1132,14 @@ function VideoCard({
   const tagsHidden = tags.length > MAX_COLLAPSED_TAGS;
   const visibleTags = captionExpanded ? tags : tags.slice(0, MAX_COLLAPSED_TAGS);
   const showMoreToggle = captionTooLong || tagsHidden;
+  const createdAtMs =
+    toMillisSafe((item as any).createdAt) ??
+    toMillisSafe((item as any).createdAtMs) ??
+    toMillisSafe((item as any).postedAt) ??
+    null;
+
+  const timeAgo = createdAtMs ? formatTimeAgoShort(createdAtMs) : "";
+  const timeTitle = createdAtMs ? formatAbsDateTime(createdAtMs) : "";
 
   // fire first frame
   const fireFirstFrameOnce = useCallback(() => {
@@ -1391,7 +1462,7 @@ function VideoCard({
         >
           <div
             className={cn(
-              isMobile ? "p-4 pb-16 mr-[60px]" : "p-4"
+              isMobile ? "p-4 pb-16 mr-[60px]" : "p-4 mr-[50px]"
             )}
           >
             <div className="flex items-center gap-2 mb-2">
@@ -1419,9 +1490,21 @@ function VideoCard({
                       ? item.authorUsername
                       : (item.authorId ?? "").slice(0, 6)}
                 </div>
-                <div className="text-white/70 text-[11px]" title={`${followersCount} followers`}>
-                  {formatCount(followersCount)} Followers
+                <div className="text-white/70 text-[11px] flex items-center gap-2">
+                  <span title={`${followersCount} followers`}>
+                    {formatCount(followersCount)} Followers
+                  </span>
+
+                  {timeAgo && (
+                    <>
+                      <span className="opacity-60">•</span>
+                      <span title={timeTitle} className="opacity-90">
+                        {timeAgo}
+                      </span>
+                    </>
+                  )}
                 </div>
+
               </div>
 
               {showFollow && (

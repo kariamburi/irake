@@ -5,12 +5,15 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+    collection,
     deleteDoc,
     doc,
     getDoc,
     onSnapshot,
+    query,
     serverTimestamp,
     setDoc,
+    where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -173,6 +176,85 @@ function AdjacentPreloadWeb({
         </div>
     );
 }
+function useFollowingCount(userId?: string) {
+    const [count, setCount] = useState(0);
+
+    useEffect(() => {
+        if (!userId) {
+            setCount(0);
+            return;
+        }
+
+        // follow docs: { followerId, followingId }
+        // "following count" = how many people this user follows
+        const qy = query(collection(db, "follows"), where("followerId", "==", userId));
+
+        const unsub = onSnapshot(
+            qy,
+            (snap) => setCount(snap.size),
+            () => setCount(0)
+        );
+
+        return () => unsub();
+    }, [userId]);
+
+    return count;
+}
+
+// ---------- time utils ----------
+function toMillisSafe(v: any): number | null {
+    if (!v) return null;
+
+    if (typeof v?.toMillis === "function") return v.toMillis(); // Firestore Timestamp
+    if (typeof v?.seconds === "number") return v.seconds * 1000; // {seconds,nanoseconds}
+    if (typeof v === "number") return v > 10_000_000_000 ? v : v * 1000; // ms or seconds
+
+    if (typeof v === "string") {
+        const ms = Date.parse(v);
+        return Number.isFinite(ms) ? ms : null;
+    }
+
+    if (v instanceof Date) return v.getTime();
+    return null;
+}
+
+function formatTimeAgoShort(ms: number): string {
+    const now = Date.now();
+    const diff = Math.max(0, now - ms);
+
+    const sec = Math.floor(diff / 1000);
+    if (sec < 10) return "now";
+    if (sec < 60) return `${sec}s`;
+
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+
+    const day = Math.floor(hr / 24);
+    if (day < 7) return `${day}d`;
+
+    const d = new Date(ms);
+    const yNow = new Date().getFullYear();
+    const sameYear = d.getFullYear() === yNow;
+
+    return d.toLocaleDateString(undefined, {
+        month: "short",
+        day: "2-digit",
+        ...(sameYear ? {} : { year: "numeric" }),
+    });
+}
+
+function formatAbsDateTime(ms: number): string {
+    return new Date(ms).toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
 
 /* -------------------- live author profile -------------------- */
 
@@ -239,6 +321,7 @@ function DeedSlide({
     const { following, toggle: toggleFollow } = useFollowAuthor(item.authorId, uid);
 
     const isOwner = !!uid && item.authorId === uid;
+    const followingCount = useFollowingCount(item.authorId);
 
     const avatar =
         authorProfile?.photoURL || item.authorPhotoURL || "/avatar-placeholder.png";
@@ -250,6 +333,14 @@ function DeedSlide({
         ? music?.title || "Library sound"
         : "Original sound";
     const soundAvatar = isLibrarySound ? (music?.coverUrl as string) : avatar;
+    const createdAtMs =
+        toMillisSafe(item?.createdAt) ??
+        toMillisSafe(item?.createdAtMs) ??
+        toMillisSafe(item?.postedAt) ??
+        null;
+
+    const timeAgo = createdAtMs ? formatTimeAgoShort(createdAtMs) : "";
+    const timeTitle = createdAtMs ? formatAbsDateTime(createdAtMs) : "";
 
     const handleToPath = (h?: string) =>
         h ? `/${encodeURIComponent(h.startsWith("@") ? h : `@${h}`)}` : null;
@@ -435,14 +526,33 @@ function DeedSlide({
 
                             <div
                                 onClick={() => onViewProfileClick(item.authorUsername)}
-                                className="cursor-pointer min-w-0"
+                                className="cursor-pointer min-w-0 flex flex-col"
                             >
                                 <div className="text-white/95 font-bold text-sm truncate">
                                     {item.authorUsername
                                         ? `${item.authorUsername}`
                                         : (item.authorId ?? "").slice(0, 6)}
                                 </div>
+
+                                {(followingCount > 0 || timeAgo) && (
+                                    <div className="text-white/70 text-[11px] flex items-center gap-2">
+                                        <span title={`${followingCount} following`}>
+                                            {nfmt(followingCount)} Following
+                                        </span>
+
+                                        {timeAgo && (
+                                            <>
+                                                <span className="opacity-60">•</span>
+                                                <span title={timeTitle} className="opacity-90">
+                                                    {timeAgo}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
                             </div>
+
 
                             {ready && item && !isOwner && (
                                 <button
