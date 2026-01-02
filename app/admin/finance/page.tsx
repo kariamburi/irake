@@ -31,12 +31,15 @@ type FinanceSettings = {
   platformSharePercent?: number; // % to ekariHub, rest to creator
   updatedAt?: any;
   verificationFeeUSD?: number;
+  // ✅ NEW: market posting gate
+  requireVerifiedToPostProduct?: boolean;
 };
 
 export default function AdminFinancePage() {
   const [settings, setSettings] = useState<FinanceSettings | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [requireVerifiedToPostProduct, setRequireVerifiedToPostProduct] = useState(true);
 
   // Local form state
   const [minWithdrawInput, setMinWithdrawInput] = useState("50");
@@ -90,6 +93,12 @@ export default function AdminFinancePage() {
         if (data.verificationFeeUSD != null) {
           setVerificationFeeUSDInput(String(data.verificationFeeUSD));
         }
+        if (typeof data.requireVerifiedToPostProduct === "boolean") {
+          setRequireVerifiedToPostProduct(data.requireVerifiedToPostProduct);
+        } else {
+          setRequireVerifiedToPostProduct(true); // default: require verification
+        }
+
         setLoaded(true);
       },
       (err) => {
@@ -201,6 +210,7 @@ export default function AdminFinancePage() {
           donationPresetsUSD: presetsNums,
           platformSharePercent: platformShare,
           verificationFeeUSD,
+          requireVerifiedToPostProduct, // ✅ NEW
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -624,6 +634,68 @@ export default function AdminFinancePage() {
                 >
                   Stored in USD; converted to KSh using the active FX rate
                   when charging via Paystack.
+                </p>
+              </div>
+            </div>
+          </section>
+          {/* Market posting gate */}
+          <section className="space-y-3 border-b border-slate-100 pb-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+              <div className="flex-1">
+                <h2 className="text-sm md:text-base font-bold" style={{ color: EKARI.ink }}>
+                  ekariMarket posting rule
+                </h2>
+                <p className="mt-1 text-xs md:text-sm" style={{ color: EKARI.dim }}>
+                  Control whether users must verify their account before posting products for sale.
+                </p>
+
+                {loaded && (
+                  <p className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                    Current rule:{" "}
+                    <span className="font-semibold text-emerald-700">
+                      {requireVerifiedToPostProduct ? "Verified accounts only" : "Any account can post"}
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              <div className="w-full max-w-xs">
+                <label className="mb-1 block text-xs font-semibold" style={{ color: EKARI.dim }}>
+                  Require verification to post
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setRequireVerifiedToPostProduct((v) => !v)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm hover:bg-slate-50 flex items-center justify-between"
+                  aria-pressed={requireVerifiedToPostProduct}
+                >
+                  <div className="text-left">
+                    <div className="text-sm font-bold" style={{ color: EKARI.ink }}>
+                      {requireVerifiedToPostProduct ? "ON" : "OFF"}
+                    </div>
+                    <div className="text-[11px]" style={{ color: EKARI.dim }}>
+                      {requireVerifiedToPostProduct
+                        ? "Unverified users cannot publish listings"
+                        : "Unverified users can publish listings"}
+                    </div>
+                  </div>
+
+                  <span
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${requireVerifiedToPostProduct ? "bg-emerald-600" : "bg-slate-300"
+                      }`}
+                    role="switch"
+                    aria-checked={requireVerifiedToPostProduct}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${requireVerifiedToPostProduct ? "translate-x-5" : "translate-x-1"
+                        }`}
+                    />
+                  </span>
+                </button>
+
+                <p className="mt-2 text-[11px]" style={{ color: EKARI.dim }}>
+                  Remember to click <span className="font-semibold">Save all settings</span> to apply.
                 </p>
               </div>
             </div>

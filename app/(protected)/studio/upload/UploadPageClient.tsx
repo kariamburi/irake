@@ -140,7 +140,53 @@ type DeedDoc = {
       startOffsetSec?: number;
     };
   };
+  authorBadge?: {
+    verificationStatus?: "approved" | "pending" | "rejected" | "none";
+    verificationType?: "individual" | "business" | "company" | "organization";
+    verificationRoleLabel?: string | null;
+    verificationOrganizationName?: string | null;
+  };
+
 };
+function buildAuthorBadge(userProfile: any) {
+  // If you already store verification fields differently, map them here.
+  // This fallback keeps your requested example as default.
+  const status =
+    userProfile?.verified?.status ||
+    userProfile?.verificationStatus ||
+    (userProfile?.verified ? "approved" : undefined);
+
+  const type =
+    userProfile?.verified?.type ||
+    userProfile?.verificationType ||
+    "individual";
+
+  const roleLabel =
+    userProfile?.verified?.roleLabel ||
+    userProfile?.verificationRoleLabel ||
+    userProfile?.roleLabel ||
+    "Veterinary Doctor";
+
+  const orgName =
+    userProfile?.verified?.organizationName ||
+    userProfile?.verificationOrganizationName ||
+    null;
+
+  return pruneUndefined({
+    verificationStatus: (status || "approved") as
+      | "approved"
+      | "pending"
+      | "rejected"
+      | "none",
+    verificationType: (type || "individual") as
+      | "individual"
+      | "business"
+      | "company"
+      | "organization",
+    verificationRoleLabel: roleLabel ?? null,
+    verificationOrganizationName: orgName ?? null,
+  });
+}
 
 /* ---------- helpers ---------- */
 const pruneUndefined = <T extends Record<string, any>>(obj: T) => {
@@ -610,7 +656,7 @@ export default function UploadPage() {
       setErrorMsg("Please sign in to post.");
       return;
     }
-
+    const authorBadge = buildAuthorBadge(userProfile);
     if (!isEditing && !file) {
       setErrorMsg("Pick a media file and let it load first.");
       setStep?.(0);
@@ -748,6 +794,7 @@ export default function UploadPage() {
           authorId: uid,
           authorUsername: userProfile?.handle,
           authorPhotoURL: userProfile?.photoURL,
+          authorBadge, // ✅ ADD
           type: "video" as const,
           media,
           caption: caption?.trim() || undefined,
@@ -819,6 +866,7 @@ export default function UploadPage() {
           authorId: uid,
           authorUsername: userProfile?.handle,
           authorPhotoURL: userProfile?.photoURL,
+          authorBadge, // ✅ ADD
           type: "photo" as const,
           media,
           caption: caption?.trim() || undefined,
@@ -922,6 +970,7 @@ export default function UploadPage() {
           authorId: uid,
           authorUsername: userProfile?.handle,
           authorPhotoURL: userProfile?.photoURL,
+          authorBadge, // ✅ ADD
           type: "video" as const,
           media,
           caption: caption?.trim() || undefined,

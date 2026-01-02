@@ -255,6 +255,43 @@ function formatAbsDateTime(ms: number): string {
         minute: "2-digit",
     });
 }
+type AuthorBadge = {
+    verificationStatus?: "approved" | "pending" | "rejected" | "none";
+    verificationType?: "individual" | "business" | "company" | "organization";
+    verificationRoleLabel?: string | null;
+    verificationOrganizationName?: string | null;
+};
+
+export function AuthorBadgePill({ badge }: { badge?: AuthorBadge }) {
+    if (!badge) return null;
+
+    // only show when approved
+    const verified = badge.verificationStatus === "approved";
+    if (!verified) return null;
+
+    const role =
+        (badge.verificationRoleLabel && badge.verificationRoleLabel.trim()) ||
+        // fallback: show type if role missing
+        (badge.verificationType ? badge.verificationType : "Verified");
+
+    const org =
+        (badge.verificationOrganizationName &&
+            badge.verificationOrganizationName.trim()) ||
+        null;
+
+    return (
+        <span
+            className="ml-2 inline-flex items-center gap-1 px-2 py-[2px] rounded-full text-[10px] font-extrabold bg-[#C79257] text-black"
+            title={org ? `${role} • ${org}` : role}
+        >
+            ✓
+            <span className="leading-none truncate max-w-[140px]">{role}</span>
+            {org && <span className="opacity-80">•</span>}
+            {org && <span className="opacity-80 truncate max-w-[120px]">{org}</span>}
+        </span>
+    );
+}
+
 
 /* -------------------- live author profile -------------------- */
 
@@ -364,14 +401,12 @@ function DeedSlide({
             (authorProfile?.handle as string | undefined) ||
             "";
         const handleWithAt = h ? (h.startsWith("@") ? h : `@${h}`) : "";
-        const url = `${location.origin}/${encodeURIComponent(handleWithAt)}/deed/${encodeURIComponent(
-            item.id
-        )}`;
+        const url = `${location.origin}/${handleWithAt}/deed/${item.id}`;
 
         try {
             if (navigator.share) {
                 await navigator.share({
-                    title: item.text || "EkariHub",
+                    title: item.text || "ekarihub",
                     text: item.text || "",
                     url,
                 });
@@ -532,6 +567,7 @@ function DeedSlide({
                                     {item.authorUsername
                                         ? `${item.authorUsername}`
                                         : (item.authorId ?? "").slice(0, 6)}
+                                    <AuthorBadgePill badge={(item as any).authorBadge} />
                                 </div>
 
                                 {(followingCount > 0 || timeAgo) && (

@@ -68,6 +68,7 @@ import OpenInAppBanner from "./components/OpenInAppBanner";
 import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { useUserProfile } from "./providers/UserProfileProvider";
+import { AuthorBadgePill } from "./components/AuthorBadgePill";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -1068,6 +1069,7 @@ function SkeletonCard({
   );
 }
 
+
 /* ---------- VideoCard ---------- */
 function VideoCard({
   item,
@@ -1281,7 +1283,7 @@ function VideoCard({
   const onShare = async () => {
     const handle = authorProfile?.handle || item.authorUsername;
     const url = handle
-      ? `${location.origin}/${encodeURIComponent(handle.startsWith("@") ? handle : `@${handle}`)}/deed/${item.id}`
+      ? `${location.origin}/${handle.startsWith("@") ? handle : `@${handle}`}/deed/${item.id}`
       : `${location.origin}/`;
 
     try {
@@ -1489,6 +1491,7 @@ function VideoCard({
                     : item.authorUsername
                       ? item.authorUsername
                       : (item.authorId ?? "").slice(0, 6)}
+                  <AuthorBadgePill badge={(item as any).authorBadge} />
                 </div>
                 <div className="text-white/70 text-[11px] flex items-center gap-2">
                   <span title={`${followersCount} followers`}>

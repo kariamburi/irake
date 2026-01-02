@@ -51,7 +51,7 @@ export default function PaystackCallbackClient() {
 
     useEffect(() => {
         if (!donationId) {
-            setError("Missing donation reference.");
+            setError("Missing uplift reference.");
             setLoading(false);
             return;
         }
@@ -63,7 +63,7 @@ export default function PaystackCallbackClient() {
             ref,
             async (snap) => {
                 if (!snap.exists()) {
-                    setError("We couldn't find this donation.");
+                    setError("We couldn't find this uplift.");
                     setDonation(null);
                     setLoading(false);
                     return;
@@ -97,8 +97,8 @@ export default function PaystackCallbackClient() {
                 }
             },
             (err) => {
-                console.error("Error loading donation callback doc", err);
-                setError("Something went wrong while loading your donation.");
+                console.error("Error loading uplift callback doc", err);
+                setError("Something went wrong while loading your uplift.");
                 setLoading(false);
             }
         );
@@ -119,14 +119,14 @@ export default function PaystackCallbackClient() {
     ).toUpperCase();
 
     let statusIcon = <IoTimeOutline size={40} color={EKARI.dim} />;
-    let statusTitle = "Processing your donation…";
+    let statusTitle = "Processing your uplift…";
     let statusMessage =
         "We’re confirming your payment with our gateway. This page will update automatically.";
 
     if (donation?.status === "succeeded") {
         statusIcon = <IoCheckmarkCircleOutline size={48} color={EKARI.forest} />;
-        statusTitle = "Thank you for your support!";
-        statusMessage = `Your donation has been received${creatorName ? ` by ${creatorName}` : ""
+        statusTitle = "Thank you for your uplift!";
+        statusMessage = `Your uplift has been received${creatorName ? ` by ${creatorName}` : ""
             }.`;
     } else if (donation?.status === "failed") {
         statusIcon = <IoCloseCircleOutline size={48} color="#DC2626" />;
@@ -168,7 +168,7 @@ export default function PaystackCallbackClient() {
                             color: EKARI.ink,
                         }}
                     >
-                        ekarihub Donation
+                        ekarihub Uplift
                     </h1>
                     <p
                         style={{
@@ -177,7 +177,7 @@ export default function PaystackCallbackClient() {
                             color: EKARI.dim,
                         }}
                     >
-                        Secure tip & donation checkout
+                        Secure tip & uplift checkout
                     </p>
                 </div>
 
@@ -316,7 +316,7 @@ export default function PaystackCallbackClient() {
                                         textTransform: "uppercase",
                                     }}
                                 >
-                                    Donation amount
+                                    Uplift amount
                                 </span>
                                 <span
                                     style={{
@@ -353,7 +353,7 @@ export default function PaystackCallbackClient() {
                             <div
                                 style={{ display: "flex", justifyContent: "space-between" }}
                             >
-                                <span>Donation ID</span>
+                                <span>Uplift ID</span>
                                 <span style={{ fontFamily: "monospace" }}>{donation.id}</span>
                             </div>
                             {donation.deedId && (

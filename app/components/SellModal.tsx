@@ -322,6 +322,57 @@ async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
     });
     return img;
 }
+type AuthorBadge = {
+    verificationStatus?: "approved" | "pending" | "rejected" | "none";
+    verificationType?: "individual" | "business" | "company" | "organization";
+    verificationRoleLabel?: string | null;
+    verificationOrganizationName?: string | null;
+};
+
+function pruneUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
+    const out: any = {};
+    Object.keys(obj).forEach((k) => {
+        if (obj[k] !== undefined) out[k] = obj[k];
+    });
+    return out;
+}
+
+function buildAuthorBadge(userProfile: any): AuthorBadge | undefined {
+    if (!userProfile) return undefined;
+
+    // Adjust these mappings to match your real user doc shape
+    const status =
+        userProfile?.verification?.status || // you already use this in SellModal
+        userProfile?.verified?.status ||
+        userProfile?.verificationStatus ||
+        (userProfile?.verified ? "approved" : "none");
+
+    const type =
+        userProfile?.verification?.type ||
+        userProfile?.verified?.type ||
+        userProfile?.verificationType ||
+        "individual";
+
+    const roleLabel =
+        userProfile?.verification?.roleLabel ||
+        userProfile?.verified?.roleLabel ||
+        userProfile?.verificationRoleLabel ||
+        userProfile?.roleLabel ||
+        null;
+
+    const orgName =
+        userProfile?.verification?.organizationName ||
+        userProfile?.verified?.organizationName ||
+        userProfile?.verificationOrganizationName ||
+        null;
+
+    return pruneUndefined({
+        verificationStatus: (status || "none") as AuthorBadge["verificationStatus"],
+        verificationType: (type || "individual") as AuthorBadge["verificationType"],
+        verificationRoleLabel: roleLabel ? String(roleLabel).trim() : null,
+        verificationOrganizationName: orgName ? String(orgName).trim() : null,
+    }) as AuthorBadge;
+}
 
 /**
  * High-quality client compression
@@ -1561,6 +1612,9 @@ export default function SellModal({
     // 👇 avoid SSR mismatch when using document.body
     // Smooth open animation like ConfirmModal
     const [sheetVisible, setSheetVisible] = useState(false);
+    const [requireVerifiedToPostProduct, setRequireVerifiedToPostProduct] = useState(true);
+    const [marketGateLoaded, setMarketGateLoaded] = useState(false);
+
     const ui = useConfirmUI();
 
     useEffect(() => {
@@ -1577,7 +1631,7 @@ export default function SellModal({
     // ==== NEW: verification status for current user ====
     const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("none");
     const [verificationLoading, setVerificationLoading] = useState<boolean>(true);
-
+    const [profile, setProfile] = useState<any>([]);
     // Currency preference (KES / USD)
     const [currency, setCurrency] = useState<CurrencyCode>("KES");
     useEffect(() => {
@@ -1596,6 +1650,7 @@ export default function SellModal({
             const data = snap.data() as any | undefined;
             const status =
                 (data?.verification?.status as VerificationStatus) ?? "none";
+            setProfile(data)
             setVerificationStatus(status);
             setVerificationLoading(false);
             const pref = data?.preferredCurrency;
@@ -1630,6 +1685,33 @@ export default function SellModal({
         },
         [savePreferredCurrency]
     );
+    useEffect(() => {
+        const db = getFirestore();
+        const ref = doc(db, "adminSettings", "finance");
+
+        const unsub = onSnapshot(
+            ref,
+            (snap) => {
+                const data = (snap.data() as any) || {};
+                // default true (safer)
+                setRequireVerifiedToPostProduct(
+                    typeof data.requireVerifiedToPostProduct === "boolean"
+                        ? data.requireVerifiedToPostProduct
+                        : true
+                );
+                setMarketGateLoaded(true);
+            },
+            (err) => {
+                console.error("Failed to load market gate setting", err);
+                setRequireVerifiedToPostProduct(true);
+                setMarketGateLoaded(true);
+            }
+        );
+
+        return () => unsub();
+    }, []);
+    const canPublish =
+        !requireVerifiedToPostProduct || verificationStatus === "approved";
 
     // Build type options from Firestore with a fallback order
     const fallbackTypes: MarketType[] = ["product", "animal", "tree", "lease", "service"];
@@ -1690,11 +1772,11 @@ export default function SellModal({
         const q = norm(name);
         if (!q) {
             // initial: show top chunk
-            return allNamesForType.slice(0, 40);
+            return allNamesForType.slice(0, 6000);
         }
         return allNamesForType
             .filter((n) => n.toLowerCase().includes(q))
-            .slice(0, 40);
+            .slice(0, 6000);
     }, [typeSel, allNamesForType, name]);
 
     // For service (old path), we now use Firestore items
@@ -1945,6 +2027,10 @@ export default function SellModal({
         if (!photos.length) return ui.alert("Please add at least one photo.");
         if (!name.trim()) return ui.alert("Please choose what you’re selling.");
         if (!category) return ui.alert("Pick a category.");
+        if (requireVerifiedToPostProduct && verificationStatus !== "approved") {
+            setSaving(false);
+            return ui.alert("Your account must be verified before you can post on ekariMarket.");
+        }
 
         if (typeSel === "lease" || typeSel === "service") {
             if (!rate.trim() || !billingUnit.trim()) {
@@ -2017,7 +2103,7 @@ export default function SellModal({
                 typeSel === "lease" || typeSel === "service"
                     ? 0
                     : Number(String(price).replace(/[^\d.]/g, ""));
-
+            const badge = buildAuthorBadge(profile);
             const base: any = {
                 name: name.trim(),
                 price: nPrice,
@@ -2025,7 +2111,16 @@ export default function SellModal({
                 category,
                 imageUrl: urls[0],
                 imageUrls: urls,
-                sellerId: user.uid,
+                seller: {
+                    id: user.uid,
+                    verified: verificationStatus === "approved",
+                    // optional nice-to-have for UI:
+                    name: profile?.firstName + " " + profile?.surname,
+                    handle: profile?.handle ?? null,
+                    photoURL: profile?.photoURL ?? null,
+                }
+                ,
+                authorBadge: badge,
                 createdAt: serverTimestamp(),
                 type: typeSel,
                 nameLower: name.trim().toLowerCase(),
@@ -2291,7 +2386,7 @@ export default function SellModal({
                                     />
                                     {catalogItems.length > 0 && (
                                         <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                                            {catalogItems.slice(0, 60).map((it) => (
+                                            {catalogItems.slice(0, 600).map((it) => (
                                                 <button
                                                     key={it}
                                                     onClick={() => setName(it)}
@@ -2337,7 +2432,7 @@ export default function SellModal({
                                 />
                                 {unitsitems.length > 0 && (
                                     <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                                        {unitsitems.slice(0, 20).map((u) => (
+                                        {unitsitems.slice(0, 50).map((u) => (
                                             <button
                                                 key={u}
                                                 onClick={() => setUnit(u)}
@@ -2641,55 +2736,85 @@ export default function SellModal({
                                 </div>
                             </div>
                             {/* ==== NEW: Account verification gate ==== */}
-                            <div className="border border-amber-200 rounded-xl p-3 bg-amber-50 flex items-start gap-3">
-                                <div className="mt-0.5 h-2 w-2 rounded-full bg-amber-500" />
-                                <div className="flex-1 space-y-1">
-                                    <div className="flex items-center justify-between">
-                                        <div className="font-black text-sm text-gray-900">
-                                            Account verification required
-                                        </div>
-                                        <span
-                                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${verificationStatus === "approved"
+                            {requireVerifiedToPostProduct ? (
+                                <div className="border border-amber-200 rounded-xl p-3 bg-amber-50 flex items-start gap-3">
+                                    <div className="mt-0.5 h-2 w-2 rounded-full bg-amber-500" />
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <div className="font-black text-sm text-gray-900">
+                                                Account verification required
+                                            </div>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${verificationStatus === "approved"
                                                 ? "bg-emerald-100 text-emerald-800"
                                                 : verificationStatus === "pending"
                                                     ? "bg-amber-100 text-amber-800"
                                                     : verificationStatus === "rejected"
                                                         ? "bg-red-100 text-red-700"
                                                         : "bg-gray-100 text-gray-600"
-                                                }`}
-                                        >
-                                            {verificationLoading
-                                                ? "Checking..."
-                                                : verificationStatus === "approved"
-                                                    ? "Verified"
-                                                    : verificationStatus === "pending"
-                                                        ? "Pending review"
-                                                        : verificationStatus === "rejected"
-                                                            ? "Rejected"
-                                                            : "Not verified"}
-                                        </span>
-                                    </div>
+                                                }`}>
+                                                {verificationLoading
+                                                    ? "Checking..."
+                                                    : verificationStatus === "approved"
+                                                        ? "Verified"
+                                                        : verificationStatus === "pending"
+                                                            ? "Pending review"
+                                                            : verificationStatus === "rejected"
+                                                                ? "Rejected"
+                                                                : "Not verified"}
+                                            </span>
+                                        </div>
 
-                                    {verificationStatus === "approved" ? (
-                                        <p className="text-xs text-gray-600">
-                                            Your account is verified. You can publish this listing.
-                                        </p>
-                                    ) : (
-                                        <>
+                                        {verificationStatus === "approved" ? (
                                             <p className="text-xs text-gray-600">
-                                                To sell on ekariMarket, please verify your account first. This helps
-                                                keep buyers safe and builds trust in your listings.
+                                                Your account is verified. You can publish this listing.
                                             </p>
+                                        ) : (
+                                            <>
+                                                <p className="text-xs text-gray-600">
+                                                    To sell on ekariMarket, please verify your account first. This helps keep buyers safe and builds trust.
+                                                </p>
+                                                <a
+                                                    href="/account/verification"
+                                                    className="inline-flex mt-1 text-xs font-bold text-emerald-800 underline"
+                                                >
+                                                    Go to verification page
+                                                </a>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50 flex items-start gap-3">
+                                    <div className="mt-0.5 h-2 w-2 rounded-full bg-emerald-600" />
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <div className="font-black text-sm text-gray-900">
+                                                Verification is optional
+                                            </div>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${verificationStatus === "approved"
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : "bg-white text-gray-700 border border-emerald-200"
+                                                }`}>
+                                                {verificationLoading ? "Checking..." : verificationStatus === "approved" ? "Verified" : "Not verified"}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-600">
+                                            You can publish even without verification. Verified sellers may get more buyer trust and better visibility.
+                                        </p>
+                                        {verificationStatus !== "approved" && (
                                             <a
                                                 href="/account/verification"
                                                 className="inline-flex mt-1 text-xs font-bold text-emerald-800 underline"
                                             >
-                                                Go to verification page
+                                                Verify anyway
                                             </a>
-                                        </>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+
+
+
                         </div>
                     )}
 
@@ -2722,7 +2847,7 @@ export default function SellModal({
                     ) : (
                         <button
                             onClick={() => {
-                                if (verificationStatus !== "approved") {
+                                if (!canPublish) {
                                     ui.alert(
                                         verificationStatus === "pending"
                                             ? "Your verification is still under review. You’ll be able to sell once it is approved."
@@ -2732,11 +2857,10 @@ export default function SellModal({
                                 }
                                 createProduct();
                             }}
-                            disabled={saving || verificationStatus !== "approved"}
+                            disabled={saving || !canPublish}
                             className="h-11 px-5 rounded-xl text-white font-black inline-flex items-center gap-2 disabled:opacity-60 hover:opacity-90"
                             style={{
-                                backgroundColor:
-                                    verificationStatus === "approved" ? EKARI.gold : "#9CA3AF",
+                                backgroundColor: canPublish ? EKARI.gold : "#9CA3AF",
                             }}
                         >
                             {saving ? (
@@ -2744,14 +2868,17 @@ export default function SellModal({
                             ) : (
                                 <>
                                     <IoCheckmarkDone />
-                                    {verificationStatus === "approved"
+                                    {!requireVerifiedToPostProduct
                                         ? "Finish"
-                                        : verificationStatus === "pending"
-                                            ? "Awaiting approval"
-                                            : "Verify to publish"}
+                                        : verificationStatus === "approved"
+                                            ? "Finish"
+                                            : verificationStatus === "pending"
+                                                ? "Awaiting approval"
+                                                : "Verify to publish"}
                                 </>
                             )}
                         </button>
+
                     )}
                 </div>
             </div>

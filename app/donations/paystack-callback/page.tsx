@@ -18,7 +18,7 @@ export default function PaystackCallbackPage() {
           }}
         >
           <p style={{ fontSize: 14, color: "#6B7280" }}>
-            Loading donation callback…
+            Loading uplift callback…
           </p>
         </div>
       }

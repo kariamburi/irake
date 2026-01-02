@@ -39,6 +39,7 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SellerReviewsSection from "@/app/components/SellerReviewsSection";
 import { createPortal } from "react-dom";
 import AppShell from "@/app/components/AppShell";
+import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
 
 /* ---------------- utils ---------------- */
 function useMediaQuery(queryStr: string) {
@@ -76,7 +77,14 @@ type ProductDoc = {
     category?: string;
     imageUrl?: string;
     imageUrls?: string[];
-    sellerId: string;
+    sellerId?: string;
+    seller?: {
+        id?: string;
+        verified?: boolean;
+        handle?: string | null;
+        photoURL?: string | null;
+        name?: string | null;
+    };
     createdAt?: Timestamp | any;
     type?: string;
     unit?: string;
@@ -132,7 +140,6 @@ export default function ProductDetailsClient({
 
     const [loading, setLoading] = useState(true);
     const [product, setProduct] = useState<ProductDoc | null>(null);
-    const [seller, setSeller] = useState<any>(null);
 
     // gallery (page)
     const [active, setActive] = useState(0);
@@ -166,27 +173,35 @@ export default function ProductDetailsClient({
 
         (async () => {
             try {
+                // 1) Try cache first
+                const key = `market:listing:${productid}`;
+                const cachedRaw = typeof window !== "undefined" ? sessionStorage.getItem(key) : null;
+
+                if (cachedRaw) {
+                    const cached = JSON.parse(cachedRaw) as ProductDoc;
+                    if (alive && cached?.id === productid) {
+                        setProduct(cached);
+                        setLoading(false);
+                        return; // ✅ no Firestore read
+                    }
+                }
+
+                // 2) Fallback: fetch from Firestore (direct open / refresh)
                 const pRef = doc(dbi, "marketListings", productid);
                 const pSnap = await getDoc(pRef);
+
                 if (!pSnap.exists()) {
                     router.push("/market");
                     return;
                 }
 
                 if (!alive) return;
+
                 const p = { id: pSnap.id, ...(pSnap.data() as any) } as ProductDoc;
                 setProduct(p);
 
-                if (p.sellerId) {
-                    const uRef = doc(dbi, "users", p.sellerId);
-                    const uSnap = await getDoc(uRef);
-                    if (!alive) return;
-                    setSeller(
-                        uSnap.exists()
-                            ? { id: uSnap.id, ...(uSnap.data() as any) }
-                            : { id: p.sellerId }
-                    );
-                }
+                // Prefer embedded seller if you store it
+
             } finally {
                 if (alive) setLoading(false);
             }
@@ -196,6 +211,7 @@ export default function ProductDetailsClient({
             alive = false;
         };
     }, [dbi, productid, router]);
+
 
     // ===== Live reviews on listing (summary only) =====
     useEffect(() => {
@@ -222,19 +238,6 @@ export default function ProductDetailsClient({
         return () => unsub();
     }, [productid]);
 
-    async function fetchUserLite(uid: string) {
-        const snap = await getDoc(doc(dbi, "users", uid));
-        const d = snap.exists() ? (snap.data() as any) : null;
-        return {
-            handle: d?.handle || "",
-            photoURL: d?.photoURL || "",
-            name:
-                (d?.firstName ? `${d.firstName} ${d?.surname || ""}`.trim() : "") ||
-                d?.displayName ||
-                d?.handle ||
-                "Seller",
-        };
-    }
 
     const images = useMemo(() => {
         if (!product) return [];
@@ -400,14 +403,14 @@ export default function ProductDetailsClient({
 
         setMsgLoading(true);
         try {
-            const peer = await fetchUserLite(peerId);
+
             const threadId = makeThreadId(uid, peerId);
 
             const qs = new URLSearchParams();
             qs.set("peerId", peerId);
-            if (peer.name) qs.set("peerName", peer.name);
-            if (peer.photoURL) qs.set("peerPhotoURL", peer.photoURL);
-            if (peer.handle) qs.set("peerHandle", peer.handle);
+            if (product.seller?.name) qs.set("peerName", product.seller.name);
+            if (product.seller?.photoURL) qs.set("peerPhotoURL", product.seller.photoURL);
+            if (product.seller?.handle) qs.set("peerHandle", product.seller.handle);
 
             const lqs = buildListingContextQs(product);
             lqs.forEach((v, k) => qs.set(k, v));
@@ -417,7 +420,7 @@ export default function ProductDetailsClient({
             setMsgLoading(false);
         }
     };
-
+    const sellerId = product.seller?.id ?? product.sellerId;
     /* ===================== Shared Body ===================== */
     const Body = (
         <main
@@ -613,26 +616,31 @@ export default function ProductDetailsClient({
                 </div>
 
                 {/* Seller card */}
+
+                {/* Seller card */}
                 <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
                     <div className="flex items-center gap-3">
                         <Image
-                            src={seller?.photoURL || "/avatar-placeholder.png"}
+                            src={product.seller?.photoURL || "/avatar-placeholder.png"}
                             alt="Seller"
                             width={44}
                             height={44}
                             className="rounded-full object-cover border bg-[#F3F4F6]"
                             style={{ borderColor: EKARI.hair }}
                         />
-                    </div>
 
-                    <div className="flex items-center gap-3 mt-2">
                         <div className="flex-1 min-w-0">
-                            <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
-                                {seller?.firstName || seller?.displayName || "Seller"}
-                            </p>
-                            {seller?.handle && (
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                                    {product.seller?.name || "Seller"}
+                                </p>
+                                <AuthorBadgePill badge={(product as any).authorBadge} />
+
+                            </div>
+
+                            {product.seller?.handle && (
                                 <p className="text-xs truncate" style={{ color: EKARI.dim }}>
-                                    {seller.handle}
+                                    {product.seller.handle}
                                 </p>
                             )}
                         </div>
@@ -677,7 +685,7 @@ export default function ProductDetailsClient({
                 </div>
 
                 {/* Seller Reviews */}
-                {product.sellerId && <SellerReviewsSection sellerId={product.sellerId} />}
+                {sellerId ? <SellerReviewsSection sellerId={sellerId} /> : null}
             </div>
 
             {/* Fullscreen modal */}

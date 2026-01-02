@@ -24,6 +24,7 @@ import {
   setDoc,
   serverTimestamp,
   getDoc,
+  getFirestore,
 } from "firebase/firestore";
 import { ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -267,6 +268,8 @@ type EventItem = {
   dateISO?: string;
   location?: string;
   coverUrl?: string;
+  author?: any;
+  authorBadge?: any;
   createdAt?: any;
   price?: number | null;
   currency?: CurrencyCode;
@@ -281,6 +284,8 @@ type DiscussionItem = {
   title: string;
   body?: string;
   authorId?: string;
+  author?: any;
+  authorBadge?: any;
   createdAt?: any;
   repliesCount?: number;
   category?: DiscCategory;
@@ -747,6 +752,7 @@ function EventForm({
       })}`;
   }, [dateISO]);
 
+  const [userProfile, setUserProfile] = useState<any | null>(null);
   useEffect(() => {
     if (!uid) return;
     (async () => {
@@ -755,6 +761,7 @@ function EventForm({
         const uSnap = await getDoc(uRef);
         if (uSnap.exists()) {
           const data = uSnap.data() as any;
+          setUserProfile(data);
           const pref = data?.preferredCurrency;
           if (pref === "USD" || pref === "KES") setCurrency(pref);
         }
@@ -801,13 +808,20 @@ function EventForm({
         price && /[0-9]/.test(price)
           ? Number(price.replace(/[^\d.]/g, ""))
           : null;
-
+      const badge = buildAuthorBadge(userProfile);
       await setDoc(refDoc, {
         title: title.trim(),
         dateISO: dateISO || null,
         location: location || null,
         coverUrl,
         organizerId: uid,
+        author: {
+          id: uid,
+          name: userProfile?.firstName + " " + userProfile?.surname,
+          handle: userProfile?.handle ?? null,
+          photoURL: userProfile?.photoURL ?? null,
+        },
+        authorBadge: badge,
         createdAt: serverTimestamp(),
         price: priceNum,
         currency: priceNum ? currency : null,
@@ -1121,6 +1135,57 @@ function EventForm({
 /* ============================== */
 /* Discussion Create Form (Sheet) */
 /* ============================== */
+type AuthorBadge = {
+  verificationStatus?: "approved" | "pending" | "rejected" | "none";
+  verificationType?: "individual" | "business" | "company" | "organization";
+  verificationRoleLabel?: string | null;
+  verificationOrganizationName?: string | null;
+};
+
+function pruneUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
+  const out: any = {};
+  Object.keys(obj).forEach((k) => {
+    if (obj[k] !== undefined) out[k] = obj[k];
+  });
+  return out;
+}
+
+function buildAuthorBadge(userProfile: any): AuthorBadge | undefined {
+  if (!userProfile) return undefined;
+
+  // Adjust these mappings to match your real user doc shape
+  const status =
+    userProfile?.verification?.status || // you already use this in SellModal
+    userProfile?.verified?.status ||
+    userProfile?.verificationStatus ||
+    (userProfile?.verified ? "approved" : "none");
+
+  const type =
+    userProfile?.verification?.type ||
+    userProfile?.verified?.type ||
+    userProfile?.verificationType ||
+    "individual";
+
+  const roleLabel =
+    userProfile?.verification?.roleLabel ||
+    userProfile?.verified?.roleLabel ||
+    userProfile?.verificationRoleLabel ||
+    userProfile?.roleLabel ||
+    null;
+
+  const orgName =
+    userProfile?.verification?.organizationName ||
+    userProfile?.verified?.organizationName ||
+    userProfile?.verificationOrganizationName ||
+    null;
+
+  return pruneUndefined({
+    verificationStatus: (status || "none") as AuthorBadge["verificationStatus"],
+    verificationType: (type || "individual") as AuthorBadge["verificationType"],
+    verificationRoleLabel: roleLabel ? String(roleLabel).trim() : null,
+    verificationOrganizationName: orgName ? String(orgName).trim() : null,
+  }) as AuthorBadge;
+}
 function DiscussionForm({
   onDone,
   provideFooter,
@@ -1158,7 +1223,25 @@ function DiscussionForm({
   );
 
   const canPublish = mergedTags.length > 0;
+  const [userProfile, setUserProfile] = useState<any | null>(null);
+  useEffect(() => {
 
+    if (!user) return;
+
+    const db = getFirestore();
+    (async () => {
+      try {
+        const uRef = doc(db, "users", user.uid);
+        const uSnap = await getDoc(uRef);
+        if (uSnap.exists()) {
+          const data = uSnap.data() as any;
+          setUserProfile(data);
+        }
+      } catch (e) {
+        console.warn("Failed to load user profile for trending tags", e);
+      }
+    })();
+  }, []);
   const save = useCallback(async () => {
     if (!title.trim()) {
       alert("Title is required");
@@ -1172,10 +1255,18 @@ function DiscussionForm({
     try {
       setSaving(true);
       const refDoc = doc(collection(db, "discussions"));
+      const badge = buildAuthorBadge(userProfile);
       await setDoc(refDoc, {
         title: title.trim(),
         body: body.trim() || null,
         authorId: uid,
+        author: {
+          id: uid,
+          name: userProfile?.firstName + " " + userProfile?.surname,
+          handle: userProfile?.handle ?? null,
+          photoURL: userProfile?.photoURL ?? null,
+        },
+        authorBadge: badge,
         createdAt: serverTimestamp(),
         repliesCount: 0,
         category,

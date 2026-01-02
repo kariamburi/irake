@@ -121,7 +121,12 @@ export default function EarningsPage() {
   const isMobile = useIsMobile();
 
   // IMPORTANT: your db stores handle WITH @, and the route param is without @
-  const handle = "@" + (params?.handle || "");
+  const rawHandle = params?.handle.replace("%40", "@");
+  const handle =
+    rawHandle && !rawHandle.startsWith("@")
+      ? `@${rawHandle}`
+      : rawHandle;
+  // const handle = "@" + (params?.handle || "");
 
   const { user, loading: authLoading } = useAuth();
 
@@ -303,7 +308,7 @@ export default function EarningsPage() {
         setDonations(items);
       },
       (err) => {
-        console.error("Error loading donations", err);
+        console.error("Error loading uplifts", err);
         setDonations([]);
       }
     );
@@ -579,7 +584,7 @@ export default function EarningsPage() {
               href={`/${params?.handle}/deed/${item.deedId}`}
               className="hover:text-emerald-800 cursor-pointer"
             >
-              Donation for deed{" "}
+              Uplift for deed{" "}
               <span className="font-mono text-xs break-all">{item.deedId}</span>
             </Link>
           </p>
@@ -689,7 +694,7 @@ export default function EarningsPage() {
           Sign in to view earnings
         </h1>
         <p className="text-sm" style={{ color: EKARI.dim }}>
-          You need to be signed in to see your ekarihub wallet and donation history.
+          You need to be signed in to see your ekarihub wallet and uplift history.
         </p>
       </div>
     </main>
@@ -810,7 +815,7 @@ export default function EarningsPage() {
                 My Earnings 💸
               </h1>
               <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-                Track tips, topups, and donations flowing into your ekarihub wallet.
+                Track tips, topups, and uplifts flowing into your ekarihub wallet.
               </p>
             </div>
           </header>
@@ -836,7 +841,7 @@ export default function EarningsPage() {
               {totalReceivedDisplayMajor.toFixed(displayCurrency === "KES" ? 0 : 2)}
             </p>
             <p className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-              Across {wallet?.totalDonations || 0} donations
+              Across {wallet?.totalDonations || 0} uplifts
             </p>
           </div>
 
@@ -957,7 +962,7 @@ export default function EarningsPage() {
                   : "text-slate-600"
                   }`}
               >
-                Donations
+                Uplifts
               </button>
               <button
                 type="button"
@@ -983,7 +988,7 @@ export default function EarningsPage() {
             donations.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
                 <p className="mb-1 text-sm font-extrabold" style={{ color: EKARI.ink }}>
-                  No donations yet
+                  No uplifts yet
                 </p>
                 <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
                   When viewers support your deeds with tips, they’ll appear here in real-time.

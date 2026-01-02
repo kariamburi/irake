@@ -117,7 +117,16 @@ type Product = {
   category?: string;
   imageUrl?: string;
   imageUrls?: string[];
-  sellerId: string;
+  sellerId?: string;
+
+  // ✅ embed seller summary in listing
+  seller?: {
+    id?: string;
+    verified?: boolean;
+    name?: string;
+    handle?: string | null;
+    photoURL?: string | null;
+  };
   createdAt?: any;
   type?: MarketType;
   unit?: string;

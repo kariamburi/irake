@@ -24,6 +24,13 @@ export type DeedStats = {
   watchMs?: number; // tolerate stats.watchMs or root watchMs
 };
 
+export type AuthorBadge = {
+  verificationStatus?: "approved" | "pending" | "rejected" | "none";
+  verificationType?: "individual" | "business" | "company" | "organization";
+  verificationRoleLabel?: string | null;
+  verificationOrganizationName?: string | null;
+};
+
 export type DeedMedia = {
   muxPlaybackId?: string;
   muxUploadId?: string;
@@ -37,6 +44,7 @@ export type DeedMedia = {
 export type DeedDoc = {
   id: string;
   authorId: string;
+  authorBadge?: AuthorBadge,
   caption?: string;
   text?: string;
   allowComments?: boolean;
@@ -143,6 +151,7 @@ export type PlayerItem = {
   authorId: string;
   authorUsername?: string;
   authorPhotoURL?: string;
+  authorBadge?: AuthorBadge; // ✅ ADD
   mediaUrl: string | null;
   posterUrl?: string;
   mediaType: "video" | "photo" | "none";
@@ -222,6 +231,7 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
     authorId: d.authorId,
     authorUsername: d.authorUsername,
     authorPhotoURL: d.authorPhotoURL,
+    authorBadge: d?.authorBadge ?? undefined, // ✅ ADD
     mediaUrl,
     posterUrl,
     mediaType,

@@ -8,6 +8,7 @@ import {
     IoImagesOutline,
     IoTimeOutline,
     IoEyeOffOutline,
+    IoShieldCheckmark,
 } from "react-icons/io5";
 import clsx from "clsx";
 
@@ -27,7 +28,13 @@ export type Product = {
     category?: string;
     imageUrl?: string;
     imageUrls?: string[];
-    sellerId: string;
+    sellerId?: string;
+    seller?: {
+        id?: string;
+        verified?: boolean;
+        handle?: string | null;
+        photoURL?: string | null;
+    };
     createdAt?: any;
     type?: "product" | "lease" | "service";
     unit?: string;
@@ -107,6 +114,7 @@ export default function ProductCard({
     const isSold = status === "sold";
     const isReserved = status === "reserved";
     const isHidden = status === "hidden";
+    const isSellerVerified = !!p.seller?.verified;
 
     const ringStyle = {
         "--tw-ring-color": `${EKARI.forest}`,
@@ -121,6 +129,12 @@ export default function ProductCard({
         setImgLoading(!!cover);
         setImgError(false);
     }, [cover]);
+    const openProduct = (p: Product) => {
+        try {
+            sessionStorage.setItem(`market:listing:${p.id}`, JSON.stringify(p));
+        } catch { }
+        router.push(`/market/${p.id}`);
+    };
 
     return (
         <button
@@ -233,10 +247,30 @@ export default function ProductCard({
                 <div className="text-[13px] leading-5 font-extrabold text-gray-900 line-clamp-2">
                     {p.name || "Untitled"}
                 </div>
-                {!!p.category && (
-                    <div className="text-[12px] text-gray-700">{p.category}</div>
-                )}
+
+                <div className="flex items-center justify-between gap-2">
+                    {!!p.category ? (
+                        <div className="text-[12px] text-gray-700 truncate">{p.category}</div>
+                    ) : (
+                        <div />
+                    )}
+
+                    {!isSellerVerified && (
+                        <span
+                            className="shrink-0 text-[10px] font-black inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
+                            style={{
+                                color: EKARI.forest,
+                                border: `1px solid ${EKARI.hair}`,
+                                backgroundColor: "white",
+                            }}
+                            title="Verified seller"
+                        >
+                            ✓ Verified Seller
+                        </span>
+                    )}
+                </div>
             </div>
+
         </button>
     );
 }

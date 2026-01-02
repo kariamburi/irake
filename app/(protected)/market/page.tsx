@@ -786,6 +786,12 @@ export default function MarketPage() {
       </>
     );
   }
+  const openProduct = (p: Product) => {
+    try {
+      sessionStorage.setItem(`market:listing:${p.id}`, JSON.stringify(p));
+    } catch { }
+    router.push(`/market/${p.id}`);
+  };
 
   /* ---------------- desktop shell (already light) ---------------- */
   return (
@@ -839,7 +845,7 @@ export default function MarketPage() {
         <div className="max-w-[1180px] mx-auto px-4 pt-3 pb-24">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {items.map((p) => (
-              <ProductCard key={p.id} p={p} onClick={() => router.push(`/market/${p.id}`)} />
+              <ProductCard key={p.id} p={p} onClick={() => openProduct(p)} />
             ))}
           </div>
 
