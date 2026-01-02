@@ -11,6 +11,7 @@ import {
     IoShieldCheckmark,
 } from "react-icons/io5";
 import clsx from "clsx";
+import { useRouter } from "next/navigation";
 
 const EKARI = {
     forest: "#233F39",
@@ -89,6 +90,7 @@ export default function ProductCard({
     onClick?: () => void;
 }) {
     const cover = (p.imageUrl || p.imageUrls?.[0]) as string | undefined;
+
     const imgCount = Array.isArray(p.imageUrls)
         ? p.imageUrls.length
         : cover
@@ -129,12 +131,6 @@ export default function ProductCard({
         setImgLoading(!!cover);
         setImgError(false);
     }, [cover]);
-    const openProduct = (p: Product) => {
-        try {
-            sessionStorage.setItem(`market:listing:${p.id}`, JSON.stringify(p));
-        } catch { }
-        router.push(`/market/${p.id}`);
-    };
 
     return (
         <button

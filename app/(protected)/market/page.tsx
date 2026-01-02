@@ -487,6 +487,12 @@ export default function MarketPage() {
     },
     [debouncedSearch, filters.locationText, filters.center, filters.radiusKm]
   );
+  const openProduct = (p: Product) => {
+    try {
+      sessionStorage.setItem(`market:listing:${p.id}`, JSON.stringify(p));
+    } catch { }
+    router.push(`/market/${p.id}`);
+  };
 
   const runInitialLoad = useCallback(async () => {
     try {
@@ -786,12 +792,6 @@ export default function MarketPage() {
       </>
     );
   }
-  const openProduct = (p: Product) => {
-    try {
-      sessionStorage.setItem(`market:listing:${p.id}`, JSON.stringify(p));
-    } catch { }
-    router.push(`/market/${p.id}`);
-  };
 
   /* ---------------- desktop shell (already light) ---------------- */
   return (
