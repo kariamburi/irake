@@ -32,6 +32,7 @@ import { ArrowLeft } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import clsx from "clsx";
+import { getCachedDiscussion } from "@/lib/discussionCache";
 
 // Avoid static optimization since we read client-side
 export const dynamic = "force-dynamic";
@@ -187,6 +188,17 @@ export default function DiscussionThreadPage() {
       try {
         if (!discussionId) return;
 
+        // ✅ 1) hydrate from cache instantly (no fetch)
+        const cached = getCachedDiscussion(discussionId);
+        if (cached) {
+          setDisc({
+            id: cached.id,
+            title: cached.title ?? "",
+            body: (cached as any)?.body ?? "",
+          });
+        }
+
+        // ✅ 2) fallback fetch (also refreshes cached view if changed)
         const snap = await getDoc(doc(db, "discussions", discussionId));
         if (snap.exists()) {
           const data = snap.data() as any;
@@ -195,6 +207,7 @@ export default function DiscussionThreadPage() {
           setDisc(null);
         }
 
+        // replies page fetch (same as you have)
         const qRef = query(
           collection(db, "discussions", discussionId, "replies"),
           orderBy("createdAt", "asc"),
@@ -210,6 +223,7 @@ export default function DiscussionThreadPage() {
       }
     })();
   }, [discussionId]);
+
 
   // Load more replies
   const loadMore = useCallback(async () => {

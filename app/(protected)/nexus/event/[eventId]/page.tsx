@@ -32,6 +32,7 @@ import { ArrowLeft } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import clsx from "clsx";
+import { getCachedEvent } from "@/lib/eventCache";
 
 export const dynamic = "force-dynamic";
 
@@ -178,6 +179,14 @@ export default function EventDetailsPage() {
       return;
     }
 
+    // ✅ 1) hydrate immediately from cache (no fetch)
+    const cached = getCachedEvent(eventId);
+    if (cached) {
+      setEv(cached as any);
+      setLoadingEv(false);
+    }
+
+    // ✅ 2) subscribe for fresh data (optional but recommended)
     const pickNum = (...vals: any[]) => {
       for (const v of vals) {
         const n = Number(v);
@@ -202,8 +211,7 @@ export default function EventDetailsPage() {
         setEv(exists ? { id: snap.id, ...(data as any) } : null);
         setLoadingEv(false);
       },
-      (err) => {
-        console.error("Firestore error loading event:", err?.code, err?.message);
+      () => {
         setEv(null);
         setLoadingEv(false);
       }
@@ -211,6 +219,7 @@ export default function EventDetailsPage() {
 
     return unsub;
   }, [eventId]);
+
 
   // RSVPs avatars
   useEffect(() => {

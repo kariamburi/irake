@@ -66,6 +66,8 @@ import { useTrendingTags } from "@/app/hooks/useTrendingTags";
 import { buildEkariTrending } from "@/utils/ekariTags";
 import { usePathname } from "next/navigation";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
+import { cacheEvent } from "@/lib/eventCache";
+import { cacheDiscussion } from "@/lib/discussionCache";
 
 /* ---------- Theme ---------- */
 const EKARI = {
@@ -1866,6 +1868,7 @@ export default function DivePage() {
             {filteredEvents.map((e) => (
               <Link
                 href={`/nexus/event/${e.id}`}
+                onClick={() => cacheEvent(e)}   // ✅ store full event object
                 key={e.id}
                 className="block border rounded-xl overflow-hidden bg-white hover:shadow-md transition"
                 style={{ borderColor: EKARI.hair }}
@@ -1949,6 +1952,7 @@ export default function DivePage() {
             {filteredDiscs.map((d) => (
               <Link
                 href={`/nexus/discussion/${d.id}`}
+                onClick={() => cacheDiscussion(d)}   // ✅ add this
                 key={d.id}
                 className="block border rounded-xl bg-white p-3 hover:shadow-md transition"
                 style={{ borderColor: EKARI.hair }}
