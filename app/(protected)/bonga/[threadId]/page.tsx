@@ -20,6 +20,7 @@ import {
   setDoc,
   updateDoc,
   DocumentSnapshot,
+  deleteField,
 } from "firebase/firestore";
 import { getDatabase, onValue, ref as rtdbRef } from "firebase/database";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
@@ -597,7 +598,7 @@ export default function BongaThreadPage() {
     const tRef = doc(db, "threads", threadId);
 
     const writeActive = (val: boolean) =>
-      updateDoc(tRef, { [`active.${uid}`]: val ? serverTimestamp() : null }).catch(() => { });
+      updateDoc(tRef, { [`active.${uid}`]: val ? serverTimestamp() : deleteField() }).catch(() => { });
 
     let timer: any = null;
 
