@@ -143,6 +143,9 @@ export default function EventDetailsPage() {
 
   const [ev, setEv] = useState<EventItem | null>(null);
   const [loadingEv, setLoadingEv] = useState(true);
+  // Fullscreen cover loading
+  const [fsImgLoading, setFsImgLoading] = useState(false);
+  const [fsImgError, setFsImgError] = useState(false);
 
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -180,6 +183,8 @@ export default function EventDetailsPage() {
     setFsTx(0);
     setFsTy(0);
     setFsOpen(true);
+    setFsImgError(false);
+    setFsImgLoading(true); // ✅ show loader immediately
   };
   const closeCoverFullscreen = () => setFsOpen(false);
 
@@ -733,15 +738,36 @@ export default function EventDetailsPage() {
                         transition: drag.current ? "none" : "transform 120ms ease",
                       }}
                     >
+                      {/* ✅ Loader overlay */}
+                      {(fsImgLoading || fsImgError) && (
+                        <div className="absolute inset-0 grid place-items-center">
+                          {fsImgError ? (
+                            <div className="text-sm font-bold text-white/80">Failed to load image</div>
+                          ) : (
+                            <BouncingBallLoader />
+                          )}
+                        </div>
+                      )}
+
                       <Image
+                        key={ev?.coverUrl || "placeholder"} // ✅ important: forces reload when URL changes
                         src={ev?.coverUrl || "/placeholder-wide.jpg"}
                         alt={ev?.title || "Event cover"}
                         width={1600}
                         height={1000}
-                        className="object-contain max-h-[80vh] lg:max-h-[88vh] rounded"
+                        className={clsx(
+                          "object-contain max-h-[80vh] lg:max-h-[88vh] rounded",
+                          fsImgLoading ? "opacity-0" : "opacity-100"
+                        )}
                         priority
+                        onLoad={() => setFsImgLoading(false)}
+                        onError={() => {
+                          setFsImgLoading(false);
+                          setFsImgError(true);
+                        }}
                       />
                     </div>
+
                   </div>
                 </div>,
                 document.body
