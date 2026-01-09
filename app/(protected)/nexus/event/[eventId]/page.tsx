@@ -4,6 +4,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
+
 import {
   collection,
   deleteDoc,
@@ -27,12 +29,18 @@ import {
   IoOpenOutline,
   IoCalendar,
   IoCheckmarkCircle,
+  IoArrowRedo,
+  IoExpandOutline,
+  IoAdd,
+  IoRemove,
+  IoContractOutline,
 } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import clsx from "clsx";
 import { getCachedEvent } from "@/lib/eventCache";
+import OpenInAppBanner from "@/app/components/OpenInAppBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +115,7 @@ function useIsMobile() {
 export default function EventDetailsPage() {
   const router = useRouter();
   const params = useParams() as Record<string, string | string[]>;
+  const [coverOpen, setCoverOpen] = useState(false);
 
   // support multiple param casings
   const eventIdRaw =
@@ -146,6 +155,70 @@ export default function EventDetailsPage() {
     rsvps?: number;
   }>({});
   const [rsvps, setRsvps] = useState<Array<{ userId: string; photoURL?: string }>>([]);
+  const webUrl =
+    typeof window !== "undefined"
+      ? window.location.href
+      : eventId
+        ? `https://ekarihub.com/nexus/event/${encodeURIComponent(eventId)}`
+        : "https://ekarihub.com/nexus";
+
+  const appUrl = eventId
+    ? `ekarihub:///nexus/event/${encodeURIComponent(eventId)}`
+    : "ekarihub:///nexus";
+  // Fullscreen cover
+  const [fsOpen, setFsOpen] = useState(false);
+  const [fsScale, setFsScale] = useState(1);
+  const [fsTx, setFsTx] = useState(0);
+  const [fsTy, setFsTy] = useState(0);
+  const drag = useRef<{ x: number; y: number; sx: number; sy: number } | null>(null);
+
+  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+  const zoomBy = (delta: number) => setFsScale((s) => clamp(s + delta, 1, 4));
+
+  const openCoverFullscreen = () => {
+    setFsScale(1);
+    setFsTx(0);
+    setFsTy(0);
+    setFsOpen(true);
+  };
+  const closeCoverFullscreen = () => setFsOpen(false);
+
+  const onFsWheel: React.WheelEventHandler<HTMLDivElement> = (e) => {
+    e.preventDefault();
+    zoomBy(e.deltaY > 0 ? -0.2 : 0.2);
+  };
+  const onFsDouble = () => setFsScale((s) => (s > 1 ? 1 : 2));
+
+  const onFsPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    if (fsScale === 1) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { x: fsTx, y: fsTy, sx: e.clientX, sy: e.clientY };
+  };
+  const onFsPointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    if (!drag.current) return;
+    const dx = e.clientX - drag.current.sx;
+    const dy = e.clientY - drag.current.sy;
+    const limit = 240 * (fsScale - 1);
+    setFsTx(clamp(drag.current.x + dx, -limit, limit));
+    setFsTy(clamp(drag.current.y + dy, -limit, limit));
+  };
+  const onFsPointerUp: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    drag.current = null;
+  };
+
+  // ESC + +/- shortcuts
+  useEffect(() => {
+    if (!fsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeCoverFullscreen();
+      if (e.key === "+") zoomBy(0.2);
+      if (e.key === "-") zoomBy(-0.2);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fsOpen]);
 
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -381,6 +454,7 @@ export default function EventDetailsPage() {
       ) : (
         <>
           {/* HERO / COVER */}
+          {/* HERO / COVER */}
           <div className={clsx(isDesktop ? "px-4 pt-4" : "")}>
             <div className="relative w-full overflow-hidden rounded-none md:rounded-2xl">
               <div className="relative w-full aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9]">
@@ -388,14 +462,28 @@ export default function EventDetailsPage() {
                   src={ev.coverUrl || "/placeholder-wide.jpg"}
                   alt={ev.title}
                   fill
-                  className="object-cover object-center"
+                  className="object-cover object-center cursor-zoom-in"
                   sizes="100vw"
                   priority
+                  onClick={openCoverFullscreen}
                 />
+
+                {/* Fullscreen button */}
+                <button
+                  type="button"
+                  onClick={openCoverFullscreen}
+                  className="absolute top-3 right-3 z-10 bg-white/85 hover:bg-white rounded-full p-2 shadow-md"
+                  aria-label="View fullscreen"
+                  title="View fullscreen"
+                >
+                  <IoExpandOutline size={18} className="text-gray-800" />
+                </button>
+
                 <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-black/10" />
               </div>
             </div>
           </div>
+
 
           {/* CARD */}
           <div className={clsx(isDesktop ? "px-4 pb-8" : "px-3 pb-8")} style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
@@ -548,7 +636,8 @@ export default function EventDetailsPage() {
                       className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border"
                       style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}
                     >
-                      <IoShareSocialOutline size={18} color={EKARI.text} />
+
+                      <IoArrowRedo size={18} color={EKARI.text} />
                       <span className="font-extrabold text-sm" style={{ color: EKARI.text }}>
                         {counts.shares || 0}
                       </span>
@@ -579,7 +668,85 @@ export default function EventDetailsPage() {
             </div>
 
             {/* bottom breathing room */}
+            {/* bottom breathing room */}
             <div className="h-10" />
+
+            {/* ✅ Fullscreen cover modal */}
+            {fsOpen &&
+              createPortal(
+                <div className="fixed inset-0 z-[80] bg-black/90 text-white">
+                  {/* top bar */}
+                  <div className="absolute top-0 left-0 right-0 h-12 px-3 flex items-center justify-between">
+                    <button
+                      onClick={closeCoverFullscreen}
+                      className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                      aria-label="Close fullscreen"
+                    >
+                      <IoContractOutline size={18} />
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => zoomBy(-0.2)}
+                        className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                        aria-label="Zoom out"
+                      >
+                        <IoRemove size={18} />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setFsScale(1);
+                          setFsTx(0);
+                          setFsTy(0);
+                        }}
+                        className="px-2 h-9 rounded-full bg-white/10 text-xs font-bold"
+                        aria-label="Reset zoom"
+                        title="Reset zoom"
+                      >
+                        {Math.round(fsScale * 100)}%
+                      </button>
+
+                      <button
+                        onClick={() => zoomBy(0.2)}
+                        className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                        aria-label="Zoom in"
+                      >
+                        <IoAdd size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* image area */}
+                  <div
+                    className="h-full w-full flex items-center justify-center select-none"
+                    onWheel={onFsWheel}
+                    onDoubleClick={onFsDouble}
+                    onPointerDown={onFsPointerDown}
+                    onPointerMove={onFsPointerMove}
+                    onPointerUp={onFsPointerUp}
+                  >
+                    <div
+                      className="relative"
+                      style={{
+                        transform: `translate(${fsTx}px, ${fsTy}px) scale(${fsScale})`,
+                        transition: drag.current ? "none" : "transform 120ms ease",
+                      }}
+                    >
+                      <Image
+                        src={ev?.coverUrl || "/placeholder-wide.jpg"}
+                        alt={ev?.title || "Event cover"}
+                        width={1600}
+                        height={1000}
+                        className="object-contain max-h-[80vh] lg:max-h-[88vh] rounded"
+                        priority
+                      />
+                    </div>
+                  </div>
+                </div>,
+                document.body
+              )}
+
           </div>
         </>
       )}
@@ -609,11 +776,21 @@ export default function EventDetailsPage() {
   if (isMobile) {
     return (
       <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+        <OpenInAppBanner
+          webUrl={webUrl}
+          appUrl={appUrl}
+          title="Open this event in ekarihub"
+          subtitle="Faster loading, messaging, and full features."
+          playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+          appStoreUrl="https://apps.apple.com" // replace later
+        />
+
         {Header}
         <div className="flex-1 overflow-y-auto overscroll-contain">{Content}</div>
       </div>
     );
   }
+
 
   // DESKTOP: AppShell + max width like bonga/discussion
   return (

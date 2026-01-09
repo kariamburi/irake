@@ -205,7 +205,7 @@ export default function NotificationsPage() {
         setNotifPreview(`${n.byName || "Someone"} checked out your profile 👀`);
       else if (n.type === "payment_success")
         setNotifPreview(n.preview || n.title || "Payment successful ✅");
-      else setNotifPreview(n.title || "New activity on Ekarihub 🔔");
+      else setNotifPreview(n.title || "New activity on ekarihub 🔔");
     });
 
     return () => {

@@ -21,6 +21,7 @@ import {
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import {
+  IoArrowRedo,
   IoChatbubblesOutline,
   IoClose,
   IoCreateOutline,
@@ -33,6 +34,7 @@ import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import clsx from "clsx";
 import { getCachedDiscussion } from "@/lib/discussionCache";
+import OpenInAppBanner from "@/app/components/OpenInAppBanner";
 
 // Avoid static optimization since we read client-side
 export const dynamic = "force-dynamic";
@@ -144,6 +146,16 @@ export default function DiscussionThreadPage() {
   const [userCache, setUserCache] = useState<
     Record<string, { name?: string | null; handle?: string | null; photoURL?: string | null }>
   >({});
+  const webUrl =
+    typeof window !== "undefined"
+      ? window.location.href
+      : discussionId
+        ? `https://ekarihub.com/nexus/discussion/${encodeURIComponent(discussionId)}`
+        : "https://ekarihub.com/nexus";
+
+  const appUrl = discussionId
+    ? `ekarihub:///nexus/discussion/${encodeURIComponent(discussionId)}`
+    : "ekarihub:///nexus";
 
   const ringStyle: React.CSSProperties = {
     ["--tw-ring-color" as any]: EKARI.forest,
@@ -224,7 +236,33 @@ export default function DiscussionThreadPage() {
     })();
   }, [discussionId]);
 
+  const shareDiscussion = useCallback(async () => {
+    if (!disc || !discussionId) return;
 
+    const url =
+      typeof window !== "undefined"
+        ? window.location.href
+        : `https://ekarihub.com/nexus/discussion/${encodeURIComponent(discussionId)}`;
+
+    const message = `${disc.title}${disc.body ? "\n\n" + disc.body.slice(0, 140) : ""}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: disc.title || "Discussion",
+          text: message,
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(`${message}\n${url}`);
+        alert("Link copied to clipboard");
+      }
+
+      // optional analytics
+    } catch {
+      // ignore
+    }
+  }, [disc, discussionId, uid]);
   // Load more replies
   const loadMore = useCallback(async () => {
     if (paging || !hasMore || !lastSnapRef.current || !discussionId) return;
@@ -688,7 +726,16 @@ export default function DiscussionThreadPage() {
             </div>
           </div>
 
-          <div className="w-10" />
+          <button
+            onClick={shareDiscussion}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            aria-label="Share discussion"
+            title="Share"
+          >
+            <IoArrowRedo size={18} color={EKARI.text} />
+          </button>
+
         </div>
       </div>
     </div>
@@ -837,11 +884,21 @@ export default function DiscussionThreadPage() {
   if (isMobile) {
     return (
       <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+        <OpenInAppBanner
+          webUrl={webUrl}
+          appUrl={appUrl}
+          title="Open this discussion in ekarihub"
+          subtitle="Faster loading, messaging, and full features."
+          playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+          appStoreUrl="https://apps.apple.com"
+        />
+
         {Header}
         <div className="flex-1 overflow-y-auto overscroll-contain">{Content}</div>
       </div>
     );
   }
+
 
   // DESKTOP: AppShell + max width container like /bonga desktop
   return (
