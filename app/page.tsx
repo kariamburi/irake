@@ -52,6 +52,9 @@ import {
   getDocs,
   documentId,
   serverTimestamp,
+  QueryDocumentSnapshot,
+  DocumentData,
+  startAfter,
 } from "firebase/firestore";
 
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -285,23 +288,41 @@ function useFollowing(uid?: string) {
 }
 
 /* ---------- Public For You (logged-out fallback) ---------- */
-async function fetchPublicForYou(limitCount = 30) {
+type PageCursor = QueryDocumentSnapshot<DocumentData> | null;
+
+async function fetchPublicForYouPage(params: { limitCount?: number; cursor?: PageCursor }) {
+  const limitCount = params.limitCount ?? 30;
+  const cursor = params.cursor ?? null;
+
   try {
-    const qRef = query(
+    const base = [
       collection(db, "deeds"),
       where("visibility", "==", "public"),
       orderBy("createdAt", "desc"),
-      limit(limitCount)
-    );
+      limit(limitCount),
+    ] as const;
+
+    const qRef = cursor
+      ? query(base[0], base[1], base[2], startAfter(cursor), base[3])
+      : query(base[0], base[1], base[2], base[3]);
+
     const snap = await getDocs(qRef);
+
     const rows: PlayerItem[] = [];
     snap.forEach((d) => {
       const it = toPlayerItem(d.data(), d.id);
       if (it && it.visibility === "public") rows.push(it);
     });
-    return rows;
+
+    const last = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+
+    return {
+      items: rows,
+      cursor: last,
+      hasMore: snap.docs.length === limitCount, // if we got a full page, assume there may be more
+    };
   } catch {
-    return [];
+    return { items: [], cursor: null as PageCursor, hasMore: false };
   }
 }
 
@@ -1020,6 +1041,85 @@ function ChannelTabs({
 /* ---------- Feed data ---------- */
 function useChannelFeed(tab: TabKey, uid?: string) {
   const following = useFollowing(uid);
+
+  const [items, setItems] = useState<PlayerItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ✅ pagination state only for "forYou"
+  const cursorRef = useRef<any>(null);
+  const hasMoreRef = useRef<boolean>(true);
+  const fetchingMoreRef = useRef<boolean>(false);
+
+  const loadInitial = useCallback(async () => {
+    setLoading(true);
+    try {
+      cursorRef.current = null;
+      hasMoreRef.current = true;
+      fetchingMoreRef.current = false;
+
+      if (tab === "forYou") {
+        const res = await fetchPublicForYouPage({ limitCount: 30, cursor: null });
+        cursorRef.current = res.cursor;
+        hasMoreRef.current = res.hasMore;
+        setItems(res.items);
+        return;
+      }
+
+      // keep your server feeds for other tabs
+      if (!uid) {
+        setItems([]);
+        return;
+      }
+      setItems(await fetchServerFeed(tab, uid));
+    } finally {
+      setLoading(false);
+    }
+  }, [tab, uid]);
+
+  const loadMoreForYou = useCallback(async () => {
+    if (tab !== "forYou") return;
+    if (!hasMoreRef.current) return;
+    if (fetchingMoreRef.current) return;
+
+    fetchingMoreRef.current = true;
+    try {
+      const res = await fetchPublicForYouPage({
+        limitCount: 30,
+        cursor: cursorRef.current,
+      });
+
+      cursorRef.current = res.cursor;
+      hasMoreRef.current = res.hasMore;
+
+      // ✅ dedupe to prevent duplicates if cursor loads overlap
+      setItems((prev) => {
+        const seen = new Set(prev.map((x) => x.id));
+        const next = res.items.filter((x) => !seen.has(x.id));
+        return next.length ? [...prev, ...next] : prev;
+      });
+    } finally {
+      fetchingMoreRef.current = false;
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    loadInitial();
+  }, [loadInitial]);
+
+  const visible = useMemo(() => {
+    return uid ? items.filter((it) => canSee(it, uid, following)) : items;
+  }, [items, uid, following]);
+
+  return {
+    items: visible,
+    loading,
+    reload: loadInitial,
+    loadMoreForYou, // ✅ expose this
+  };
+}
+
+function useChannelFeedX(tab: TabKey, uid?: string) {
+  const following = useFollowing(uid);
   const [items, setItems] = useState<PlayerItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1027,7 +1127,9 @@ function useChannelFeed(tab: TabKey, uid?: string) {
     setLoading(true);
     try {
       if (tab === "forYou") {
-        if (!uid) setItems(await fetchPublicForYou(40));
+        if (!uid) {
+          //setItems(await fetchPublicForYou(40));
+        }
         else setItems(await fetchServerFeed("forYou", uid));
       } else {
         if (!uid) setItems([]);
@@ -1491,8 +1593,9 @@ function VideoCard({
                     : item.authorUsername
                       ? item.authorUsername
                       : (item.authorId ?? "").slice(0, 6)}
-                  <AuthorBadgePill badge={(item as any).authorBadge} />
+
                 </div>
+                <AuthorBadgePill badge={(item as any).authorBadge} />
                 <div className="text-white/70 text-[11px] flex items-center gap-2">
                   <span title={`${followersCount} followers`}>
                     {formatCount(followersCount)} Followers
