@@ -149,42 +149,39 @@ type DeedDoc = {
 
 };
 function buildAuthorBadge(userProfile: any) {
-  // If you already store verification fields differently, map them here.
-  // This fallback keeps your requested example as default.
-  const status =
-    userProfile?.verified?.status ||
-    userProfile?.verificationStatus ||
-    (userProfile?.verified ? "approved" : undefined);
+  const v = userProfile?.verification ?? {};
 
-  const type =
-    userProfile?.verified?.type ||
-    userProfile?.verificationType ||
-    "individual";
+  const statusRaw = String(v.status ?? "none").toLowerCase();
+  const typeRaw = String(v.verificationType ?? "individual").toLowerCase();
 
-  const roleLabel =
-    userProfile?.verified?.roleLabel ||
-    userProfile?.verificationRoleLabel ||
-    userProfile?.roleLabel ||
-    "Veterinary Doctor";
+  const status = (["approved", "pending", "rejected", "none"] as const).includes(
+    statusRaw as any
+  )
+    ? (statusRaw as "approved" | "pending" | "rejected" | "none")
+    : "none";
+
+  const type = (["individual", "business", "company", "organization"] as const).includes(
+    typeRaw as any
+  )
+    ? (typeRaw as "individual" | "business" | "company" | "organization")
+    : "individual";
+
+  const roleLabel = typeof v.roleLabel === "string" && v.roleLabel.trim()
+    ? v.roleLabel.trim()
+    : null;
 
   const orgName =
-    userProfile?.verified?.organizationName ||
-    userProfile?.verificationOrganizationName ||
-    null;
+    (type === "business" || type === "company" || type === "organization") &&
+      typeof v.organizationName === "string" &&
+      v.organizationName.trim()
+      ? v.organizationName.trim()
+      : null;
 
   return pruneUndefined({
-    verificationStatus: (status || "approved") as
-      | "approved"
-      | "pending"
-      | "rejected"
-      | "none",
-    verificationType: (type || "individual") as
-      | "individual"
-      | "business"
-      | "company"
-      | "organization",
-    verificationRoleLabel: roleLabel ?? null,
-    verificationOrganizationName: orgName ?? null,
+    verificationStatus: status,
+    verificationType: type,
+    verificationRoleLabel: roleLabel,
+    verificationOrganizationName: orgName,
   });
 }
 

@@ -1152,42 +1152,43 @@ function pruneUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
   return out;
 }
 
-function buildAuthorBadge(userProfile: any): AuthorBadge | undefined {
-  if (!userProfile) return undefined;
+function buildAuthorBadge(userProfile: any) {
+  const v = userProfile?.verification ?? {};
 
-  // Adjust these mappings to match your real user doc shape
-  const status =
-    userProfile?.verification?.status || // you already use this in SellModal
-    userProfile?.verified?.status ||
-    userProfile?.verificationStatus ||
-    (userProfile?.verified ? "approved" : "none");
+  const statusRaw = String(v.status ?? "none").toLowerCase();
+  const typeRaw = String(v.verificationType ?? "individual").toLowerCase();
 
-  const type =
-    userProfile?.verification?.type ||
-    userProfile?.verified?.type ||
-    userProfile?.verificationType ||
-    "individual";
+  const status = (["approved", "pending", "rejected", "none"] as const).includes(
+    statusRaw as any
+  )
+    ? (statusRaw as "approved" | "pending" | "rejected" | "none")
+    : "none";
 
-  const roleLabel =
-    userProfile?.verification?.roleLabel ||
-    userProfile?.verified?.roleLabel ||
-    userProfile?.verificationRoleLabel ||
-    userProfile?.roleLabel ||
-    null;
+  const type = (["individual", "business", "company", "organization"] as const).includes(
+    typeRaw as any
+  )
+    ? (typeRaw as "individual" | "business" | "company" | "organization")
+    : "individual";
+
+  const roleLabel = typeof v.roleLabel === "string" && v.roleLabel.trim()
+    ? v.roleLabel.trim()
+    : null;
 
   const orgName =
-    userProfile?.verification?.organizationName ||
-    userProfile?.verified?.organizationName ||
-    userProfile?.verificationOrganizationName ||
-    null;
+    (type === "business" || type === "company" || type === "organization") &&
+      typeof v.organizationName === "string" &&
+      v.organizationName.trim()
+      ? v.organizationName.trim()
+      : null;
 
   return pruneUndefined({
-    verificationStatus: (status || "none") as AuthorBadge["verificationStatus"],
-    verificationType: (type || "individual") as AuthorBadge["verificationType"],
-    verificationRoleLabel: roleLabel ? String(roleLabel).trim() : null,
-    verificationOrganizationName: orgName ? String(orgName).trim() : null,
-  }) as AuthorBadge;
+    verificationStatus: status,
+    verificationType: type,
+    verificationRoleLabel: roleLabel,
+    verificationOrganizationName: orgName,
+  });
 }
+
 function DiscussionForm({
   onDone,
   provideFooter,

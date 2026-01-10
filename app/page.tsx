@@ -1198,6 +1198,10 @@ function VideoCard({
   const { muted, toggleMute, registerVideo, unregisterVideo } = useGlobalMute();
   const router = useRouter();
   const authorProfile = useAuthorProfile(item.authorId);
+  const [thumbVisible, setThumbVisible] = useState(true);
+  const [thumbSrc, setThumbSrc] = useState<string | null>(
+    item.mediaType === "video" ? (item.posterUrl ?? null) : (item.mediaUrl ?? null)
+  );
 
   const [mediaReady, setMediaReady] = useState(item.mediaType !== "video");
   const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
@@ -1236,6 +1240,11 @@ function VideoCard({
   const tagsHidden = tags.length > MAX_COLLAPSED_TAGS;
   const visibleTags = captionExpanded ? tags : tags.slice(0, MAX_COLLAPSED_TAGS);
   const showMoreToggle = captionTooLong || tagsHidden;
+  useEffect(() => {
+    setThumbVisible(true);
+    setThumbSrc(item.mediaType === "video" ? (item.posterUrl ?? null) : (item.mediaUrl ?? null));
+  }, [item.id, item.mediaType, item.mediaUrl, item.posterUrl]);
+
   const createdAtMs =
     toMillisSafe((item as any).createdAt) ??
     toMillisSafe((item as any).createdAtMs) ??
@@ -1253,21 +1262,28 @@ function VideoCard({
 
   const handleVideoReady = () => {
     const v = videoRef.current;
+
     if (v && (v as any).videoWidth && (v as any).videoHeight) {
       setFitMode((v as any).videoWidth > (v as any).videoHeight ? "contain" : "cover");
     }
+
     setMediaReady(true);
+    setThumbVisible(false); // ✅ hide thumb once video is ready
     fireFirstFrameOnce();
   };
 
   const handleImageReady: React.ReactEventHandler<HTMLImageElement> = (e) => {
     const img = e.currentTarget;
+
     if (img.naturalWidth && img.naturalHeight) {
       setFitMode(img.naturalWidth > img.naturalHeight ? "contain" : "cover");
     }
+
     setMediaReady(true);
+    setThumbVisible(false); // ✅ hide thumb once image is ready
     fireFirstFrameOnce();
   };
+
 
   // autoplay
   useAutoPlay(videoRef, {
@@ -1523,7 +1539,31 @@ function VideoCard({
         )}
 
         {/* media */}
-        <div className="w-full h-full flex items-center justify-center bg-black">
+
+        <div className="relative w-full h-full flex items-center justify-center bg-black">
+          {/* ✅ thumbnail layer (stays visible while we determine orientation / until ready) */}
+          {thumbSrc && thumbVisible && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={thumbSrc}
+              alt="thumbnail"
+              className={cn(
+                "absolute inset-0 h-full w-full",
+                fitMode === "contain" ? "object-contain" : "object-cover",
+                "transition-opacity duration-300",
+              )}
+              style={{ opacity: thumbVisible ? 1 : 0 }}
+              onLoad={(e) => {
+                // optional: helps for image thumbs too
+                const img = e.currentTarget;
+                if (img.naturalWidth && img.naturalHeight) {
+                  setFitMode(img.naturalWidth > img.naturalHeight ? "contain" : "cover");
+                }
+              }}
+            />
+          )}
+
+          {/* actual media */}
           {item.mediaType === "video" && item.mediaUrl ? (
             <video
               ref={videoRef}
@@ -1533,7 +1573,7 @@ function VideoCard({
               controlsList="nodownload noremoteplayback"
               preload={dataSaverOn ? "metadata" : "auto"}
               className={cn(
-                "h-full w-full",
+                "relative h-full w-full",
                 fitMode === "contain" ? "object-contain" : "object-cover"
               )}
               onClick={togglePlay}
@@ -1546,13 +1586,14 @@ function VideoCard({
             <img
               src={item.mediaUrl}
               alt={item.text || "photo"}
-              className={cn("h-full w-full", fitMode === "contain" ? "object-contain" : "object-cover")}
+              className={cn("relative h-full w-full", fitMode === "contain" ? "object-contain" : "object-cover")}
               onLoad={handleImageReady}
             />
           ) : (
-            <div className="h-full w-full flex items-center justify-center text-white/90">No media</div>
+            <div className="relative h-full w-full flex items-center justify-center text-white/90">No media</div>
           )}
         </div>
+
 
         {/* bottom overlay */}
 
