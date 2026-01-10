@@ -701,7 +701,6 @@ export default function ProductDetailsClient({
                                 <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
                                     {product.seller?.name || "Seller"}
                                 </p>
-                                <AuthorBadgePill badge={(product as any).authorBadge} />
 
                             </div>
 
@@ -712,12 +711,8 @@ export default function ProductDetailsClient({
                             )}
                         </div>
 
-                        <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-                            <IoStar className="text-amber-400" size={14} />
-                            <span className="text-xs font-extrabold" style={{ color: EKARI.text }}>
-                                {avgRating.toFixed(1)} · {reviewCount}
-                            </span>
-                        </div>
+                        <AuthorBadgePill badge={(product as any).authorBadge} />
+
                     </div>
 
                     <div className="mt-3">
