@@ -21,6 +21,7 @@ import {
   updateDoc,
   DocumentSnapshot,
   deleteField,
+  where,
 } from "firebase/firestore";
 import { getDatabase, onValue, ref as rtdbRef } from "firebase/database";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
@@ -363,6 +364,9 @@ export default function BongaThreadPage() {
       url: l.url || `/market/${encodeURIComponent(String(l.id))}`,
     };
   }, [threadCtx]);
+  const hasProductIntent = useMemo(() => {
+    return !!(pending?.id || ctxListing?.id || initialListing?.id);
+  }, [pending?.id, ctxListing?.id, initialListing?.id]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     requestAnimationFrame(() => {
@@ -586,6 +590,20 @@ export default function BongaThreadPage() {
     });
     return () => unsub();
   }, [threadId, activePeerId, uid]);
+  async function threadHasListing(threadId: string, listingId: string) {
+    try {
+      const qy = query(
+        collection(db, "threads", threadId, "messages"),
+        where("type", "==", "product"),
+        where("listing.id", "==", listingId),
+        limit(1)
+      );
+      const snap = await getDocs(qy);
+      return !snap.empty;
+    } catch {
+      return false;
+    }
+  }
 
   /* ================================================================
    *  RIGHT PANEL: active presence heartbeat ✅ IMPORTANT
@@ -815,19 +833,62 @@ export default function BongaThreadPage() {
   // auto-send deep-link pending listing once
   useEffect(() => {
     if (!threadReady || !uid || !activePeerId || !threadId) return;
-    if (!pending || pendingSent) return;
+    if (!pending?.id || pendingSent) return;
+
+    let cancelled = false;
 
     (async () => {
       try {
-        // await sendProduct(pending);
-        setPendingSent(true);
-        setPending(null);
-        scrollToBottom("smooth");
+        // ✅ quick local check first (last loaded messages)
+        const existsLocal = items.some(
+          (m) => m.type === "product" && String(m.listing?.id || "") === String(pending.id)
+        );
+        if (existsLocal) {
+          if (!cancelled) {
+            setPendingSent(true);
+            // keep preview visible if you want:
+            // setPending(null);
+          }
+          return;
+        }
+
+        // ✅ authoritative check (entire thread history)
+        const existsRemote = await threadHasListing(threadId, pending.id);
+        if (existsRemote) {
+          if (!cancelled) {
+            setPendingSent(true);
+            // keep preview visible if you want:
+            // setPending(null);
+          }
+          return;
+        }
+
+        // ✅ now safe to auto-send once
+        await sendProduct(pending);
+        if (!cancelled) {
+          setPendingSent(true);
+          setPending(null); // or keep it if you want preview to remain
+          scrollToBottom("auto");
+        }
       } catch (e) {
         console.error("auto-send pending listing failed:", e);
       }
     })();
-  }, [threadReady, uid, activePeerId, threadId, pending, pendingSent, sendProduct, scrollToBottom]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    threadReady,
+    uid,
+    activePeerId,
+    threadId,
+    pending?.id,
+    pendingSent,
+    items,
+    sendProduct,
+    scrollToBottom,
+  ]);
 
   const sendText = useCallback(
     async (text: string) => {
@@ -1296,29 +1357,38 @@ export default function BongaThreadPage() {
                 <BouncingBallLoader />
               </div>
             ) : items.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center px-6 text-center">
-                <div className="w-full max-w-md rounded-2xl border bg-white shadow-sm p-4" style={{ borderColor: EKARI.hair }}>
-                  <div className="mx-auto mb-3 h-16 w-16 rounded-2xl flex items-center justify-center bg-gray-50">
-                    <IoChatbubblesOutline size={34} color={EKARI.forest} />
-                  </div>
-                  <div className="font-extrabold text-slate-900 text-lg">Start a conversation</div>
-                  <div className="text-xs text-slate-500 mt-1">{lastSeenText(onlineNow, lastActiveAny)}</div>
+              hasProductIntent ? (
+                // ✅ no empty-state card; keep the chat area empty and let user type/send
+                <div className="px-4 py-4 pb-0">
+                  {peerTyping && <TypingBubble />}
+                  <div ref={endRef} className="h-0" />
+                </div>
+              ) : (
+                // ✅ normal empty state only when NOT coming from a product
+                <div className="h-full flex flex-col items-center justify-center px-6 text-center">
+                  <div className="w-full max-w-md rounded-2xl border bg-white shadow-sm p-4" style={{ borderColor: EKARI.hair }}>
+                    <div className="mx-auto mb-3 h-16 w-16 rounded-2xl flex items-center justify-center bg-gray-50">
+                      <IoChatbubblesOutline size={34} color={EKARI.forest} />
+                    </div>
+                    <div className="font-extrabold text-slate-900 text-lg">Start a conversation</div>
+                    <div className="text-xs text-slate-500 mt-1">{lastSeenText(onlineNow, lastActiveAny)}</div>
 
-                  <div className="mt-4 flex flex-wrap justify-center gap-2">
-                    {["👋", "😊", "🔥", "👍"].map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => setInput((p) => (p ? `${p} ${q}` : q))}
-                        className="inline-flex items-center justify-center rounded-full border text-sm font-semibold px-3 py-1.5 hover:bg-black/5"
-                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                      >
-                        {q}
-                      </button>
-                    ))}
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      {["👋", "😊", "🔥", "👍"].map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => setInput((p) => (p ? `${p} ${q}` : q))}
+                          className="inline-flex items-center justify-center rounded-full border text-sm font-semibold px-3 py-1.5 hover:bg-black/5"
+                          style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )
             ) : (
               <div className="px-4 py-4 pb-0">
                 {oldestDoc && (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -34,12 +34,14 @@ import {
     IoChevronForward,
     IoCubeOutline,
     IoLeafOutline,
+    IoArrowRedo,
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SellerReviewsSection from "@/app/components/SellerReviewsSection";
 import { createPortal } from "react-dom";
 import AppShell from "@/app/components/AppShell";
 import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
+import OpenInAppBanner from "@/app/components/OpenInAppBanner";
 
 /* ---------------- utils ---------------- */
 function useMediaQuery(queryStr: string) {
@@ -166,6 +168,12 @@ export default function ProductDetailsClient({
     const [reviewCount, setReviewCount] = useState(0);
 
     const [msgLoading, setMsgLoading] = useState(false);
+    const webUrl =
+        typeof window !== "undefined"
+            ? window.location.href
+            : `https://ekarihub.com/market/${encodeURIComponent(productid)}`;
+
+    const appUrl = `ekarihub:///market/${encodeURIComponent(productid)}`;
 
     // ===== Load product & seller =====
     useEffect(() => {
@@ -288,6 +296,43 @@ export default function ProductDetailsClient({
         }
         touchStartX.current = touchEndX.current = null;
     };
+    const shareProduct = useCallback(async () => {
+        if (!product) return;
+
+        const url =
+            typeof window !== "undefined"
+                ? window.location.href
+                : `https://ekarihub.com/market/${encodeURIComponent(product.id)}`;
+
+        const priceText =
+            product.type === "lease" || product.type === "service"
+                ? `${product.rate ? KES(Number(product.rate)) : "-"}${product.billingUnit ? ` / ${product.billingUnit}` : ""}`
+                : formatMoney(product.price, product.currency);
+
+        const statusText =
+            product.status === "sold" || product.sold
+                ? "Sold"
+                : product.status === "reserved"
+                    ? "Reserved"
+                    : "Available";
+
+        const message = `${product.name}\n${priceText} • ${statusText}`;
+
+        try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: product.name || "Product",
+                    text: message,
+                    url,
+                });
+            } else {
+                await navigator.clipboard.writeText(`${message}\n${url}`);
+                alert("Link copied to clipboard");
+            }
+        } catch {
+            // ignore cancel / errors
+        }
+    }, [product]);
 
     // ===== Fullscreen helpers =====
     const openFullscreen = (index: number) => {
@@ -368,7 +413,7 @@ export default function ProductDetailsClient({
         );
     }
 
-    const isOwner = product.sellerId === auth.currentUser?.uid;
+    const isOwner = product.seller?.id === auth.currentUser?.uid;
     const isSold = product.status === "sold" || product.sold;
     const isReserved = product.status === "reserved";
     const isTree = product.type === "tree";
@@ -394,7 +439,7 @@ export default function ProductDetailsClient({
 
     const handleMessageClick = async () => {
         const uid = auth.currentUser?.uid;
-        const peerId = product?.sellerId;
+        const peerId = product?.seller?.id;
 
         if (!uid) return router.replace("/login");
         if (!peerId) return;
@@ -443,19 +488,41 @@ export default function ProductDetailsClient({
                     borderColor: EKARI.hair,
                 }}
             >
-                <div className="h-[56px] lg:h-14 px-3 lg:px-4 flex items-center max-w-4xl mx-auto">
+                <div className="justify-between h-[56px] lg:h-14 px-3 lg:px-4 flex items-center max-w-4xl mx-auto">
+                    <div className="flex items-center gap-2">
+
+                        <button
+                            onClick={() => router.back()}
+                            className="w-10 h-10 rounded-full border grid place-items-center hover:bg-black/[0.03]"
+                            style={{ borderColor: EKARI.hair }}
+                        >
+                            <IoArrowBack style={{ color: EKARI.text }} size={20} />
+                        </button>
+                        <h1 className="ml-3 font-black text-base" style={{ color: EKARI.text }}>
+                            Product Details
+                        </h1>
+                    </div>
                     <button
-                        onClick={() => router.back()}
+                        onClick={shareProduct}
                         className="w-10 h-10 rounded-full border grid place-items-center hover:bg-black/[0.03]"
                         style={{ borderColor: EKARI.hair }}
+                        aria-label="Share product"
+                        title="Share"
                     >
-                        <IoArrowBack style={{ color: EKARI.text }} size={20} />
+                        <IoArrowRedo size={18} color={EKARI.text} />
                     </button>
-                    <h1 className="ml-3 font-black text-base" style={{ color: EKARI.text }}>
-                        Product Details
-                    </h1>
                 </div>
             </div>
+            {isMobile && (
+                <OpenInAppBanner
+                    webUrl={webUrl}
+                    appUrl={appUrl}
+                    title="Open this product in ekarihub"
+                    subtitle="Faster loading, messaging, and full features."
+                    playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+                    appStoreUrl="https://apps.apple.com"
+                />
+            )}
 
             {/* Body container */}
             <div className="max-w-4xl mx-auto px-3 lg:px-4 pt-3 lg:pt-4 pb-4 lg:pb-6">

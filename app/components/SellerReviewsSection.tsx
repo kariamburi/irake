@@ -199,6 +199,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
     const auth = getAuth();
     const dbi = getFirestore();
     const router = useRouter();
+    const [expanded, setExpanded] = useState(false); // collapsed by default
 
     const [reviews, setReviews] = useState<Review[]>([]);
     const [avgRating, setAvgRating] = useState(0);
@@ -375,12 +376,32 @@ export default function SellerReviewsSection({ sellerId }: Props) {
         <>
             {/* Reviews card */}
             <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
-                <div className="flex items-center justify-between">
-                    <h3 className="font-black text-[color:var(--text,#0F172A)] text-lg">Reviews</h3>
+                <div className="flex items-center justify-between gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setExpanded((v) => !v)}
+                        className="flex items-center gap-2 hover:opacity-90"
+                        aria-expanded={expanded}
+                        aria-controls="seller-reviews-list"
+                    >
+                        <h3 className="font-black text-[color:var(--text,#0F172A)] text-lg">Reviews</h3>
+                        <span className="text-xs font-bold text-[color:var(--dim,#6B7280)]">
+                            {expanded ? "Hide" : "Show"}
+                        </span>
+                        <span
+                            className="text-[color:var(--dim,#6B7280)] text-sm"
+                            style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                        >
+                            ▾
+                        </span>
+                    </button>
 
                     {!isOwner && (
                         <button
-                            onClick={openReview}
+                            onClick={(e) => {
+                                e.stopPropagation(); // ✅ don’t toggle collapse
+                                openReview();
+                            }}
                             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-extrabold text-white hover:opacity-95"
                             style={{ backgroundColor: EKARI.forest }}
                         >
@@ -389,6 +410,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                         </button>
                     )}
                 </div>
+
 
                 {reviewCount > 0 && (
                     <div className="mt-2 flex items-center justify-between">
@@ -412,10 +434,14 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                     </div>
                 )}
 
-                {reviews.length === 0 ? (
+                {!expanded ? (
+                    <p onClick={() => setExpanded((v) => !v)} className="cursor-pointer text-[color:var(--dim,#6B7280)] text-sm mt-3">
+                        Tap “Show” to view reviews.
+                    </p>
+                ) : reviews.length === 0 ? (
                     <p className="text-[color:var(--dim,#6B7280)] text-sm mt-2">No reviews yet.</p>
                 ) : (
-                    <div className="space-y-4 mt-3">
+                    <div id="seller-reviews-list" className="space-y-4 mt-3">
                         {reviews.map((r) => (
                             <ReviewRow
                                 key={r.id}
@@ -428,6 +454,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                         ))}
                     </div>
                 )}
+
             </div>
 
             {/* Review modal */}
