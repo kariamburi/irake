@@ -533,9 +533,9 @@ function DeedSlide({
                                     {item.authorUsername
                                         ? `${item.authorUsername}`
                                         : (item.authorId ?? "").slice(0, 6)}
-                                    <AuthorBadgePill badge={(item as any).authorBadge} />
-                                </div>
 
+                                </div>
+                                <AuthorBadgePill badge={(item as any).authorBadge} />
                                 {(followingCount > 0 || timeAgo) && (
                                     <div className="text-white/70 text-[11px] flex items-center gap-2">
                                         <span title={`${followingCount} following`}>

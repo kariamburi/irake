@@ -1183,10 +1183,14 @@ function VideosGrid({
   items,
   handle,
   isOwner,
+  loading,
+  showEmpty,
 }: {
   items: DeedDoc[];
   handle: string;
   isOwner: boolean;
+  loading: boolean;
+  showEmpty: boolean; // ✅ NEW
 }) {
   return (
     <div className="px-3 md:px-6 pb-12">
@@ -1195,14 +1199,16 @@ function VideosGrid({
           <VideoTile key={d.id} deed={d} handle={handle} isOwner={isOwner} />
         ))}
       </div>
-      {items.length === 0 && (
+
+      {showEmpty && !loading && items.length === 0 && (
         <div className="py-16 text-center text-sm" style={{ color: EKARI.subtext }}>
-          No deeds yet.
+          No deeds yet
         </div>
       )}
     </div>
   );
 }
+
 
 function VideoTile({
   deed,
@@ -2346,7 +2352,8 @@ export default function HandleProfilePage() {
 
   // ✅ safer: no triple slash, plus explicit path
   const appUrl = `ekarihub://profile/${encodeURIComponent(cleanHandle)}`;
-
+  const showDeedsEmpty =
+    !loadingProfile && !!profile && uid !== undefined; // ✅ profile is visible now
   // ---- shared content (header + tab body) ----
   const Body = (
     <>
@@ -2397,14 +2404,20 @@ export default function HandleProfilePage() {
 
         {/* tab content */}
         {tab === "deeds" &&
-          (loadingDeeds ? (
+          (loadingDeeds || loadingProfile || uid === undefined ? (
             <div className="px-3 md:px-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="h-48 md:h-56 rounded-xl bg-gray-100 animate-pulse" />
               ))}
             </div>
           ) : (
-            <VideosGrid items={items} handle={handleWithAt} isOwner={isOwner} />
+            <VideosGrid
+              items={items}
+              handle={handleWithAt}
+              isOwner={isOwner}
+              loading={loadingDeeds}
+              showEmpty={showDeedsEmpty} // ✅ NEW
+            />
           ))}
 
         {tab === "listings" && uid && <OwnerListingsGrid uid={uid} isOwner={isOwner} />}

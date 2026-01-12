@@ -24,7 +24,7 @@ export function AuthorBadgePill({ badge }: { badge?: AuthorBadge }) {
 
     return (
         <span
-            className="inline-flex items-center gap-1 px-2 py-[2px] rounded-full text-[10px] font-extrabold bg-green-600 text-white"
+            className="inline-flex items-center mt-1 mb-1 gap-1 px-2 py-[2px] rounded-full text-[10px] bg-green-600 text-white"
             title={org ? `${role} • ${org}` : role}
         >
             ✓
