@@ -1751,8 +1751,8 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
     if (!isOwner) return;
     const storage = getStorage();
     const organizer = e.organizerId || uid;
-    const folderRef = sRef(storage, `events/${organizer}/${e.id}`);
-    const parentPath = `events/${e.id}`;
+    const folderRef = sRef(storage, `event/${organizer}/${e.id}`);
+    const parentPath = `event/${e.id}`;
 
     try {
       try {
@@ -2109,7 +2109,7 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
                 className="border border-gray-200 rounded-xl bg-white shadow-sm p-4"
               >
                 <button
-                  onClick={() => router.push(`/nexus/discussions/${item.id}`)}
+                  onClick={() => router.push(`/nexus/discussion/${item.id}`)}
                   className="block w-full text-left"
                 >
                   <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">
