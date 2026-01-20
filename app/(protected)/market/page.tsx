@@ -1154,7 +1154,7 @@ export default function MarketPage() {
                   ekariMarket
                 </div>
                 <div className="text-[12px] font-semibold" style={{ color: EKARI.dim }}>
-                  Premium marketplace for Ekarihub
+                  Premium marketplace for ekarihub
                 </div>
               </div>
             </div>
