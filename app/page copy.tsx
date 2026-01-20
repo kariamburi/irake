@@ -82,122 +82,6 @@ const EKARI = {
   hair: "#E5E7EB",
   primary: "#C79257",
 };
-function hexToRgba(hex: string, alpha: number) {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
-  if (!m) return hex;
-  const r = parseInt(m[1], 16);
-  const g = parseInt(m[2], 16);
-  const b = parseInt(m[3], 16);
-  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
-}
-
-function PageGlowBg({ mode }: { mode: "light" | "dark" }) {
-  if (mode === "dark") {
-    return (
-      <div
-        aria-hidden
-        className="fixed inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(900px circle at 20% 0%, rgba(199,146,87,0.18), transparent 55%), radial-gradient(850px circle at 85% 20%, rgba(35,63,57,0.18), transparent 55%), linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(3,7,18,1) 100%)",
-        }}
-      />
-    );
-  }
-
-  return (
-    <div
-      aria-hidden
-      className="fixed inset-0 -z-10"
-      style={{
-        background:
-          "radial-gradient(1100px circle at 12% 8%, rgba(199,146,87,0.18), transparent 55%), radial-gradient(1000px circle at 92% 18%, rgba(35,63,57,0.12), transparent 55%), linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 55%, rgba(255,255,255,1) 100%)",
-      }}
-    />
-  );
-}
-
-function GlassBar({
-  children,
-  variant = "forestGold",
-  className,
-}: React.PropsWithChildren<{
-  variant?: "forestGold" | "dark";
-  className?: string;
-}>) {
-  const bg =
-    variant === "dark"
-      ? "linear-gradient(180deg, rgba(0,0,0,0.70), rgba(0,0,0,0.15))"
-      : "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.86))";
-
-  return (
-    <div
-      className={cn(
-        "relative border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl",
-        className
-      )}
-      style={{
-        background: bg,
-        borderColor:
-          variant === "dark" ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.18)",
-        boxShadow:
-          variant === "dark"
-            ? "0 18px 55px rgba(0,0,0,0.45)"
-            : "0 18px 55px rgba(15,23,42,0.18)",
-      }}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(900px circle at 12% 10%, rgba(199,146,87,0.18), transparent 45%), radial-gradient(800px circle at 92% 20%, rgba(35,63,57,0.14), transparent 55%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{ background: "rgba(255,255,255,0.65)" }}
-      />
-      <div className="relative">{children}</div>
-    </div>
-  );
-}
-
-function PremiumIconButton({
-  onClick,
-  children,
-  label,
-  variant = "light",
-}: {
-  onClick?: () => void;
-  children: React.ReactNode;
-  label: string;
-  variant?: "light" | "dark";
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      className={cn(
-        "h-10 w-10 rounded-2xl grid place-items-center border transition",
-        "hover:scale-[1.03] active:scale-[0.98]",
-        variant === "dark"
-          ? "bg-white/10 border-white/15 text-white hover:bg-white/15"
-          : "bg-white/80 border-white/30 text-gray-900 hover:bg-white"
-      )}
-      style={{
-        boxShadow:
-          variant === "dark"
-            ? "0 18px 55px rgba(0,0,0,0.35)"
-            : "0 18px 55px rgba(15,23,42,0.08)",
-        backdropFilter: "blur(10px)",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
 
 /* ---------- Channels ---------- */
 type TabKey = "forYou" | "following" | "nearby";
@@ -746,91 +630,53 @@ function pauseIfCurrent(el: HTMLVideoElement) {
 function useHls(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   src?: string | null,
-  opts: { maxHeight?: number; warmup?: boolean } = {}
+  opts: { maxHeight?: number } = {}
 ) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
 
     const isHls = src.endsWith(".m3u8");
-
-    // helper: warm up first segment
-    const warmup = () => {
-      if (opts.warmup === false) return; // allow disabling
-      // only warmup when we actually want fast start (not data saver)
-      setTimeout(() => {
-        try {
-          video.muted = true;
-          // tiny play to force buffering; pause immediately
-          video.play()
-            .then(() => {
-              video.pause();
-              video.currentTime = 0;
-            })
-            .catch(() => { });
-        } catch { }
-      }, 50);
-    };
-
-    // ---- non-HLS (mp4 etc.) ----
     if (!isHls) {
       (video as any).src = src;
-      warmup();
       return;
     }
 
-    // ---- Safari / iOS native HLS ----
     if (video.canPlayType("application/vnd.apple.mpegURL")) {
       (video as any).src = src;
-      warmup();
       return;
     }
 
-    // ---- Hls.js ----
     let hls: any;
 
     (async () => {
       const mod = await import("hls.js");
       const Hls = mod.default;
-
       if (Hls?.isSupported()) {
         hls = new Hls({
           enableWorker: true,
           capLevelToPlayerSize: true,
-
-          // (optional) faster startup defaults
-          startLevel: 0,
-          maxBufferLength: 10,
-          maxMaxBufferLength: 20,
-          backBufferLength: 0,
         });
 
         hls.loadSource(src);
         hls.attachMedia(video);
 
-        // after attach + manifest, warm it up
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          // cap by height if you want
-          const maxHeight = opts.maxHeight;
-          if (typeof maxHeight === "number") {
+        const maxHeight = opts.maxHeight;
+        if (typeof maxHeight === "number") {
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
             const levels = hls.levels || [];
             let capIndex = -1;
+
             for (let i = 0; i < levels.length; i++) {
               const h = levels[i]?.height || 0;
               if (h <= maxHeight && i > capIndex) capIndex = i;
             }
+
             if (capIndex >= 0) hls.autoLevelCapping = capIndex;
-          }
-
-          // start low for instant first frame
-          hls.startLevel = 0;
-
-          // ✅ put your setTimeout warmup here
-          warmup();
-        });
+          });
+        }
       } else {
         (video as any).src = src;
-        warmup();
       }
     })();
 
@@ -839,20 +685,19 @@ function useHls(
         hls?.destroy?.();
       } catch { }
     };
-  }, [videoRef, src, opts.maxHeight, opts.warmup]);
+  }, [videoRef, src, opts.maxHeight]);
 }
-
 
 function VideoPreload({ src, poster }: { src: string; poster?: string | null }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
-  useHls(videoRef, src, { warmup: true });
+  useHls(videoRef, src);
 
   return (
     <video
       ref={videoRef}
       muted
       playsInline
-      preload="auto"
+      preload="metadata"
       poster={poster || undefined}
       style={{
         position: "absolute",
@@ -1134,19 +979,11 @@ function ChannelTabs({
   onToggleDataSaver: () => void;
 }) {
   const router = useRouter();
-
   return (
     <div className="relative h-full flex items-center">
       <div className="mx-auto w-full px-3 flex items-center justify-center">
-        <div className="flex w-full justify-center items-center gap-2 overflow-x-auto no-scrollbar">
-          {/* premium segmented control */}
-          <div
-            className={cn(
-              "relative inline-flex items-center gap-1 rounded-full px-1 py-1",
-              "border border-white/20 bg-white/10 backdrop-blur-md",
-              "shadow-[0_18px_55px_rgba(0,0,0,0.18)]"
-            )}
-          >
+        <div className={cn("flex w-full justify-center items-center gap-2", "overflow-x-auto no-scrollbar")}>
+          <div className="inline-flex items-center gap-1 rounded-full bg-white/85 border border-white/30 shadow-sm px-1 py-1 backdrop-blur-md">
             {TABS.map((k) => {
               const isActive = active === k;
               return (
@@ -1154,16 +991,10 @@ function ChannelTabs({
                   key={k}
                   onClick={() => onChange(k)}
                   className={cn(
-                    "relative px-2 lg:px-3 py-1.5 text-xs lg:text-sm w-[74px] lg:w-[98px]",
-                    "rounded-full font-extrabold flex-shrink-0 flex items-center justify-center transition"
+                    "relative px-2 lg:px-3 py-1.5 text-xs lg:text-sm w-[72px] lg:w-[92px]",
+                    "rounded-full font-semibold flex-shrink-0 flex items-center justify-center transition",
+                    isActive ? "bg-[#233F39] text-white shadow-sm" : "text-gray-800 hover:bg-white/60"
                   )}
-                  style={{
-                    color: isActive ? "#0B1220" : "rgba(255,255,255,0.88)",
-                    background: isActive
-                      ? "linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,255,255,0.72))"
-                      : "transparent",
-                    boxShadow: isActive ? "0 14px 40px rgba(0,0,0,0.22)" : "none",
-                  }}
                 >
                   <span className="relative z-10">{LABEL[k]}</span>
                 </button>
@@ -1171,23 +1002,32 @@ function ChannelTabs({
             })}
           </div>
 
-          {/* Dive in */}
           <button
             onClick={() => router.push("/dive")}
-            className={cn(
-              "flex px-2 lg:px-3 py-1.5 text-xs lg:text-sm w-[96px] lg:w-[120px] gap-2 rounded-full items-center justify-center font-extrabold",
-              "border border-white/20 bg-white/10 text-white hover:bg-white/15",
-              "shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-md flex-shrink-0"
-            )}
+            className="flex px-2 lg:px-3 py-1.5 text-xs lg:text-sm w-[92px] lg:w-[110px] gap-2 rounded-full items-center justify-center font-semibold border transition
+                       bg-white/85 text-gray-900 border-white/30 hover:bg-white flex-shrink-0 shadow-sm"
           >
             <IoTelescopeOutline />
             <span>Dive In</span>
           </button>
 
-          {/* Search */}
+          {/**  <button
+            type="button"
+            onClick={onToggleDataSaver}
+            disabled={!uid}
+            className={cn(
+              "ml-1 flex items-center gap-2 px-2 py-1.5 rounded-full border text-[11px] font-semibold flex-shrink-0 shadow-sm",
+              "bg-black/30 text-white border-white/20 hover:bg-black/40 disabled:opacity-60"
+            )}
+            title="Data saver"
+          >
+            <span className="inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: dataSaverOn ? "#16A34A" : "#9CA3AF" }} />
+            <span>Data saver</span>
+          </button>*/}
+
           <button
             onClick={() => router.push("/search")}
-            className="hidden lg:inline-flex items-center justify-center rounded-full border border-white/20 text-white hover:bg-white/10 shadow-sm p-2 flex-shrink-0 backdrop-blur-md"
+            className="hidden lg:inline-flex items-center justify-center rounded-full border border-white/25 text-white hover:bg-white/10 shadow-sm p-2 flex-shrink-0"
             aria-label="Search"
           >
             <IoSearch />
@@ -1453,7 +1293,7 @@ function VideoCard({
     initialMuted: muted,
   });
 
-  useHls(videoRef, item.mediaUrl || undefined, { maxHeight: hlsMaxHeight, warmup: false });
+  useHls(videoRef, item.mediaUrl || undefined, { maxHeight: hlsMaxHeight });
   useHls(
     fsVideoRef,
     fullscreenOpen && fullscreenKind === "video" ? item.mediaUrl || undefined : undefined,
@@ -2314,7 +2154,8 @@ function FeedShell() {
             />
           }
         >
-          <PageGlowBg mode="light" />
+          {/* ✅ nicer desktop background */}
+          <div className={cn("fixed inset-0 -z-10", isMobile ? "bg-black" : "bg-gradient-to-b from-gray-50 via-white to-gray-50")} />
 
           <OpenInAppBanner
             webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
@@ -2340,22 +2181,25 @@ function FeedShell() {
           >
             {/* sticky bar */}
             <div className="sticky top-0 z-30 w-full">
-
-              <GlassBar className="h-[60px] w-full flex items-center justify-center">
-                <div className="h-[60px] px-2 flex items-center">
-                  <ChannelTabs
-                    uid={uid}
-                    commentsId={commentsId ?? ""}
-                    active={tab}
-                    onChange={changeTab}
-                    dataSaverOn={dataSaverOn}
-                    onToggleDataSaver={toggleUserDataSaver}
-                  />
-                </div>
+              <div
+                className="relative h-[56px] w-full p-1 border-b backdrop-blur-xl supports-[backdrop-filter]:backdrop-blur-xl"
+                style={{
+                  background: "linear-gradient(135deg, rgba(35,63,57,0.94), rgba(199,146,87,0.87))",
+                  borderColor: "rgba(15,23,42,0.18)",
+                  boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
+                }}
+              >
+                <ChannelTabs
+                  uid={uid}
+                  commentsId={commentsId ?? ""}
+                  active={tab}
+                  onChange={changeTab}
+                  dataSaverOn={dataSaverOn}
+                  onToggleDataSaver={toggleUserDataSaver}
+                />
                 <TopLoader active={showTopLoader} color="#FDE68A" />
-              </GlassBar>
+              </div>
             </div>
-
 
             {/* loading skeleton */}
             {showTopLoader && items.length === 0 && (
@@ -2416,14 +2260,22 @@ function FeedShell() {
           {/* desktop up/down */}
           <div className="hidden lg:inline">
             <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3">
-              <PremiumIconButton onClick={goPrev} label="Previous" variant="light">
+              <button
+                onClick={goPrev}
+                disabled={atTop}
+                aria-label="Previous"
+                className="rounded-full border border-gray-200 bg-white shadow p-2 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
+              >
                 <IoChevronUp size={18} />
-              </PremiumIconButton>
-
-              <PremiumIconButton onClick={goNext} label="Next" variant="light">
+              </button>
+              <button
+                onClick={goNext}
+                disabled={atEnd}
+                aria-label="Next"
+                className="rounded-full border border-gray-200 bg-white shadow p-2 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none"
+              >
                 <IoChevronDown size={18} />
-              </PremiumIconButton>
-
+              </button>
             </div>
           </div>
 
@@ -2770,8 +2622,7 @@ function MobileShell(props: any) {
 
   // ✅ Full-bleed black background like TikTok / your app
   return (
-    <div className="fixed inset-0">
-      <PageGlowBg mode="dark" />
+    <div className="fixed inset-0 bg-black">
       {/* TikTok-style "Open app" bar */}
       <OpenInAppBanner
         webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}

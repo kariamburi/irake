@@ -9,9 +9,12 @@ import {
     IoTimeOutline,
     IoEyeOffOutline,
     IoShieldCheckmark,
+    IoStar,
 } from "react-icons/io5";
 import clsx from "clsx";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { bumpListingClick, bumpStoreView } from "@/lib/storeAnalytics";
 
 const EKARI = {
     forest: "#233F39",
@@ -56,6 +59,17 @@ export type Product = {
     };
     status?: "active" | "sold" | "reserved" | "hidden";
     sold?: boolean;
+    sellerPlan?: {
+        verifiedBadge?: boolean;
+        storefront?: boolean;
+        packageId?: string | null;
+        active?: boolean;
+        topOfSearch?: boolean;
+        priorityRanking?: boolean;
+    };
+    featured?: boolean;
+    featuredUntil?: any;
+
 };
 
 export const KES = (n: number) =>
@@ -84,12 +98,13 @@ export function computeStatus(
 
 export default function ProductCard({
     p,
-    onClick,
+    // onClick,
 }: {
     p: Product;
-    onClick?: () => void;
+    // onClick?: () => void;
 }) {
     const cover = (p.imageUrl || p.imageUrls?.[0]) as string | undefined;
+    const router = useRouter();
 
     const imgCount = Array.isArray(p.imageUrls)
         ? p.imageUrls.length
@@ -116,8 +131,9 @@ export default function ProductCard({
     const isSold = status === "sold";
     const isReserved = status === "reserved";
     const isHidden = status === "hidden";
-    const isSellerVerified = !!p.seller?.verified;
 
+    const showVerified =
+        p.seller?.verified === true || p.sellerPlan?.verifiedBadge === true;
     const ringStyle = {
         "--tw-ring-color": `${EKARI.forest}`,
     } as React.CSSProperties;
@@ -125,7 +141,10 @@ export default function ProductCard({
     // --- image loading state ---
     const [imgLoading, setImgLoading] = React.useState<boolean>(!!cover);
     const [imgError, setImgError] = React.useState<boolean>(false);
-
+    const ownerId =
+        (p.seller?.id as string | undefined) ||
+        (p.sellerId as string | undefined) ||
+        ((p as any).ownerId as string | "");
     // if `cover` changes, reset loading state
     React.useEffect(() => {
         setImgLoading(!!cover);
@@ -133,9 +152,9 @@ export default function ProductCard({
     }, [cover]);
 
     return (
-        <button
-            onClick={onClick}
-            disabled={isHidden}
+        <div
+            //onClick={onClick}
+            // disabled={isHidden}
             className={clsx(
                 "w-full text-left rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow transition",
                 "focus:outline-none focus:ring-2 disabled:opacity-60"
@@ -144,7 +163,16 @@ export default function ProductCard({
             aria-label={`${p.name}, ${status}`}
         >
             {/* Image */}
-            <div className="relative w-full aspect-[1/1] bg-gray-50">
+            <button
+
+                onClick={async () => {
+                    try {
+                        await bumpListingClick({ sellerId: ownerId, listingId: p.id });
+                    } finally {
+                        router.push(`/market/${p.id}`);
+                    }
+                }}
+                className="relative w-full aspect-[1/1] bg-gray-50">
                 {cover && !imgError ? (
                     <>
                         {/* loader overlay */}
@@ -185,39 +213,14 @@ export default function ProductCard({
                         No photo
                     </div>
                 )}
+                {/* Featured badge */}
+                {p.featured && p.featuredUntil?.toMillis() > Date.now() && (
+                    <div className="inline-flex absolute top-2 left-2 z-10 bg-yellow-500 text-black text-[11px] font-bold px-2 py-1 rounded shadow">
+                        <IoStar size={14} /> Featured
+                    </div>
+                )}
 
-                {/* Status badge */}
-                <div
-                    className={clsx(
-                        "absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-white text-[11px]",
-                        isSold
-                            ? "bg-red-600"
-                            : isReserved
-                                ? "bg-yellow-500"
-                                : isHidden
-                                    ? "bg-gray-500"
-                                    : "bg-emerald-600"
-                    )}
-                >
-                    {isSold ? (
-                        <IoCloseCircle size={12} />
-                    ) : isReserved ? (
-                        <IoTimeOutline size={12} />
-                    ) : isHidden ? (
-                        <IoEyeOffOutline size={12} />
-                    ) : (
-                        <IoCheckmarkCircle size={12} />
-                    )}
-                    <span>
-                        {isSold
-                            ? "Sold"
-                            : isReserved
-                                ? "Reserved"
-                                : isHidden
-                                    ? "Hidden"
-                                    : "Available"}
-                    </span>
-                </div>
+
 
                 {/* Photo count */}
                 {!!imgCount && imgCount > 1 && (
@@ -227,16 +230,52 @@ export default function ProductCard({
                     </div>
                 )}
 
-                {/* Price chip */}
-                <div className="absolute left-2 bottom-2">
+                {/* Price + Status row */}
+                <div className="absolute left-2 right-2 bottom-2 flex items-center justify-between">
+                    {/* Price chip */}
                     <div
-                        className="inline-flex rounded-full text-white px-2.5 py-1 text-[12px] font-black"
+                        className="inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-black text-white"
                         style={{ backgroundColor: EKARI.forest }}
                     >
                         {priceText}
                     </div>
+
+                    {/* Status badge */}
+                    <div
+                        className={clsx(
+                            "inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] text-white",
+                            isSold
+                                ? "bg-red-600"
+                                : isReserved
+                                    ? "bg-yellow-500"
+                                    : isHidden
+                                        ? "bg-gray-500"
+                                        : "bg-emerald-600"
+                        )}
+                    >
+                        {isSold ? (
+                            <IoCloseCircle size={12} />
+                        ) : isReserved ? (
+                            <IoTimeOutline size={12} />
+                        ) : isHidden ? (
+                            <IoEyeOffOutline size={12} />
+                        ) : (
+                            <IoCheckmarkCircle size={12} />
+                        )}
+
+                        <span>
+                            {isSold
+                                ? "Sold"
+                                : isReserved
+                                    ? "Reserved"
+                                    : isHidden
+                                        ? "Hidden"
+                                        : "Available"}
+                        </span>
+                    </div>
                 </div>
-            </div>
+            </button>
+
 
             {/* Meta */}
             <div className="p-2.5 space-y-1.5">
@@ -251,7 +290,7 @@ export default function ProductCard({
                         <div />
                     )}
 
-                    {!isSellerVerified && (
+                    {showVerified && (
                         <span
                             className="shrink-0 text-[10px] font-black inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
                             style={{
@@ -261,12 +300,27 @@ export default function ProductCard({
                             }}
                             title="Verified seller"
                         >
-                            ✓ Verified Seller
+                            <IoShieldCheckmark size={12} /> Verified
                         </span>
                     )}
                 </div>
+
+
+                {p.sellerPlan?.storefront && p.seller?.id && (
+                    <Link
+                        href={`/store/${p.seller.id}?src=market`}
+                    >
+                        <button
+                            className="mt-1 text-xs font-semibold text-emerald-700 border border-emerald-500 px-2 py-1 rounded"
+                        >
+                            Visit Store
+                        </button>
+                    </Link>
+                )}
+
+
             </div>
 
-        </button>
+        </div >
     );
 }

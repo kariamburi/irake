@@ -133,8 +133,9 @@ export function LeftRailCompact() {
 
     const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
 
-    return (<>
-        {/* Logo pill 
+    return (
+        <>
+            {/* Logo pill 
       <aside
             className="lg:hidden sticky top-0 h-screen w-[60px] shrink-0 border-r flex flex-col items-center py-3 gap-4 bg-white/95 backdrop-blur-sm"
             style={{ borderColor: EKARI.hair }}
@@ -178,8 +179,7 @@ export function LeftRailCompact() {
                 ekari
             </div>
         </aside>*/}
-    </>
-
+        </>
     );
 }
 
@@ -229,10 +229,7 @@ function RailLink({
                 )}
             </span>
             <span
-                className={cn(
-                    "text-[10px] leading-3",
-                    active && "font-semibold"
-                )}
+                className={cn("text-[10px] leading-3", active && "font-semibold")}
                 style={{ color: active ? activeColor : EKARI.subtext }}
             >
                 {label}
@@ -249,6 +246,7 @@ export function LeftNavDesktop({
     uid?: string;
     handle?: string;
 }) {
+    const router = useRouter();
     const { user } = useAuth();
     const authUid = uid ?? user?.uid;
 
@@ -296,27 +294,49 @@ export function LeftNavDesktop({
             className="hidden lg:flex xl:w-[260px] lg:w-[260px] shrink-0 sticky top-0 h-screen flex-col border-r bg-white/90 backdrop-blur-sm"
             style={{ borderColor: EKARI.hair }}
         >
-            {/* Logo + app name */}
-            <div className="px-4 pt-3 pb-2 border-b" style={{ borderColor: EKARI.hair }}>
-                <Link
-                    href="/"
-                    className="inline-flex items-center gap-2 rounded-2xl px-2.5 py-2 hover:bg-gray-50 transition-colors"
-                >
-                    <Image
-                        src="/ekarihub-logo.png"
-                        alt="ekarihub"
-                        width={140}
-                        height={36}
-                    />
-                </Link>
-                <p className="mt-2 text-[11px] text-gray-500">
-                    Collaborate • Innovate • Cultivate
-                </p>
+            {/* Logo + Search button */}
+            <div
+                className="px-4 pt-3 pb-3 border-b"
+                style={{ borderColor: EKARI.hair }}
+            >
+                <div className="flex items-center justify-between gap-2">
+                    <Link
+                        href="/"
+                        className="inline-flex items-center gap-2 rounded-2xl px-2.5 py-2 hover:bg-gray-50 transition-colors"
+                    >
+                        <Image
+                            src="/ekarihub-logo.png"
+                            alt="ekarihub"
+                            width={140}
+                            height={36}
+                        />
+                    </Link>
+
+                    <button
+                        type="button"
+                        onClick={() => router.push("/search")}
+                        className={cn(
+                            "inline-flex items-center gap-2 rounded-2xl px-3 py-2",
+                            "border bg-white hover:bg-gray-50 transition-colors",
+                            "text-[13px] font-semibold"
+                        )}
+                        style={{
+                            borderColor: "rgba(35,63,57,0.16)",
+                            color: EKARI.forest,
+                        }}
+                        aria-label="Search"
+                        title="Search"
+                    >
+                        <span className="text-[18px]">
+                            <IoSearch />
+                        </span>
+                        <span className="hidden xl:inline">Search</span>
+                    </button>
+                </div>
             </div>
 
             {/* Main nav */}
             <nav className="px-3 pt-2 space-y-1 text-[15px]">
-
                 {items.map((it) => {
                     const active = useIsActive(it.href, it.alsoMatch);
                     return (
@@ -344,15 +364,13 @@ export function LeftNavDesktop({
                     label="About ekarihub"
                     href="/about"
                 />
-                {/* Profile & about section */}
-
             </nav>
 
-            {/* Footer 
+            {/* Footer */}
             <div className="mt-auto px-4 pb-4 pt-3 text-[11px] text-gray-400 border-t" style={{ borderColor: EKARI.hair }}>
                 <div>© {new Date().getFullYear()} ekarihub</div>
                 <div className="mt-0.5">Collaborate • Innovate • Cultivate</div>
-            </div>*/}
+            </div>
         </aside>
     );
 }

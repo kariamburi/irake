@@ -40,6 +40,8 @@ import {
 import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { ConfirmModal } from "./ConfirmModal";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { app } from "@/lib/firebase";
 
 /* ================= Theme ================= */
 const EKARI = {
@@ -2112,6 +2114,8 @@ export default function SellModal({
                 category,
                 imageUrl: urls[0],
                 imageUrls: urls,
+                ownerId: user.uid,
+                collectionType: "marketListing", // optional (helps debugging)
                 seller: {
                     id: user.uid,
                     verified: verificationStatus === "approved",
@@ -2128,7 +2132,7 @@ export default function SellModal({
                 categoryLower: category.toLowerCase(),
                 place,
                 location: coords,
-                status: "active",
+                status: "draft",
                 sold: false,
             };
             // NEW: attach polygon for arable land
@@ -2151,9 +2155,23 @@ export default function SellModal({
                 }
             }
             await setDoc(prodRef, base);
-            onCreated({ id: docId, ...base } as Product);
-            setSaving(false);
-            onClose();
+            try {
+                const fn = httpsCallable(getFunctions(app, "us-central1"), "publishMarketListing");
+                await fn({ listingId: docId });
+                onCreated({ id: docId, ...base } as Product);
+                setSaving(false);
+                onClose();
+            } catch (err: any) {
+                console.error("Publish failed", err);
+                setSaving(false);
+                ui.alert(
+                    err?.message ||
+                    "Saved as draft, but could not publish (possibly listing limit reached)."
+                );
+                // you can keep it draft, or delete it if you prefer
+            }
+
+
         } catch (e: any) {
             console.error(e);
             setSaving(false);

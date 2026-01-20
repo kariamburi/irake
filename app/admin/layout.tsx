@@ -43,6 +43,12 @@ const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/usermanagement", label: "User management" },
     { href: "/admin/catalog", label: "Catalog management" },
     { href: "/admin/taxonomies", label: "Taxonomy" },
+    { href: "/admin/packages", label: "Packages" },
+    { href: "/admin/subscriptions", label: "Subscriptions" },
+    { href: "/admin/payments", label: "Payments" },
+    { href: "/admin/analytics", label: "Market Analytics" },
+
+
 
 ];
 
@@ -63,6 +69,10 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/usermanagement")) return "User management";
     if (pathname.startsWith("/admin/catalog")) return "Catalog management";
     if (pathname.startsWith("/admin/taxonomies")) return "Taxonomy";
+    if (pathname.startsWith("/admin/packages")) return "Packages";
+    if (pathname.startsWith("/admin/subscriptions")) return "Subscriptions";
+    if (pathname.startsWith("/admin/payments")) return "Payments";
+    if (pathname.startsWith("/admin/analytics")) return "Market Analytics";
 
     return "Admin";
 }

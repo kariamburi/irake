@@ -16,8 +16,23 @@ import {
   startAfter,
   DocumentSnapshot,
 } from "firebase/firestore";
-import { IoAdd, IoCartOutline, IoChatbubblesOutline, IoChevronForward, IoCloseCircle, IoCompassOutline, IoHomeOutline, IoInformationCircleOutline, IoMenu, IoNotificationsOutline, IoPersonCircleOutline, IoSearchOutline, IoSparklesOutline } from "react-icons/io5";
-import { ArrowLeft } from "lucide-react";
+import {
+  IoAdd,
+  IoCartOutline,
+  IoChatbubblesOutline,
+  IoChevronForward,
+  IoCloseCircle,
+  IoCompassOutline,
+  IoHomeOutline,
+  IoInformationCircleOutline,
+  IoMenu,
+  IoNotificationsOutline,
+  IoPersonCircleOutline,
+  IoSearchOutline,
+  IoSparklesOutline,
+  IoMailUnreadOutline,
+  IoTimeOutline,
+} from "react-icons/io5";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
@@ -37,6 +52,7 @@ const EKARI = {
   sub: "#5C6B66",
 };
 
+/* -------------------- Types -------------------- */
 type UserLite = {
   firstName?: string;
   surname?: string;
@@ -70,6 +86,7 @@ type RowData = {
   updatedAt?: any;
 };
 
+/* -------------------- Utils -------------------- */
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
   if (typeof ts?.toDate === "function") return ts.toDate();
@@ -116,6 +133,15 @@ function nameOf(peer: UserLite | null | undefined) {
   return "User";
 }
 
+function hexToRgba(hex: string, alpha: number) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
+}
+
 /* ---------------- responsive helpers ---------------- */
 function useMediaQuery(queryStr: string) {
   const [matches, setMatches] = useState(false);
@@ -152,6 +178,7 @@ function badgeText(n?: number) {
   return String(n);
 }
 
+/* -------------------- Menu -------------------- */
 type MenuItem = {
   key: string;
   label: string;
@@ -191,9 +218,15 @@ function SideMenuSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  const heroBg =
+    "radial-gradient(900px circle at 10% 10%, rgba(199,146,87,0.18), transparent 45%), radial-gradient(820px circle at 85% 30%, rgba(35,63,57,0.18), transparent 55%), linear-gradient(135deg, rgba(35,63,57,0.06), rgba(255,255,255,1))";
+
   return (
     <div
-      className={cn("fixed inset-0 z-[120] transition", open ? "pointer-events-auto" : "pointer-events-none")}
+      className={cn(
+        "fixed inset-0 z-[120] transition",
+        open ? "pointer-events-auto" : "pointer-events-none"
+      )}
       aria-hidden={!open}
     >
       <div
@@ -206,7 +239,7 @@ function SideMenuSheet({
 
       <div
         className={cn(
-          "absolute left-0 top-0 h-full w-[86%] max-w-[340px]",
+          "absolute left-0 top-0 h-full w-[86%] max-w-[360px]",
           "bg-white shadow-2xl border-r",
           "transition-transform duration-300 will-change-transform",
           open ? "translate-x-0" : "-translate-x-full"
@@ -215,25 +248,39 @@ function SideMenuSheet({
         role="dialog"
         aria-modal="true"
       >
-        <div className="h-[56px] px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
-          <div className="font-black" style={{ color: EKARI.text }}>
-            Menu
+        <div className="relative">
+          <div className="h-[76px] px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair, background: heroBg }}>
+            <div>
+              <div className="text-[12px] font-extrabold tracking-wide" style={{ color: EKARI.sub }}>
+                ekarihub
+              </div>
+              <div className="text-[16px] font-black leading-tight" style={{ color: EKARI.text }}>
+                Menu
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="h-10 w-10 rounded-2xl grid place-items-center border hover:bg-black/5"
+              style={{ borderColor: EKARI.hair }}
+              aria-label="Close menu"
+            >
+              <IoCloseCircle size={18} style={{ color: EKARI.text }} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="h-10 w-10 rounded-xl grid place-items-center border hover:bg-black/5"
-            style={{ borderColor: EKARI.hair }}
-            aria-label="Close menu"
-          >
-            <IoCloseCircle size={18} />
-          </button>
         </div>
 
-        <nav className="p-2 overflow-y-auto h-[calc(100%-56px)]">
+        <nav className="p-2 overflow-y-auto h-[calc(100%-76px)]">
           {items.map((it) => (
             <MenuRow key={it.key} item={it} onNavigate={onNavigate} />
           ))}
         </nav>
+
+        <div className="p-3 border-t" style={{ borderColor: EKARI.hair }}>
+          <div className="text-[11px]" style={{ color: EKARI.dim }}>
+            Tip: Use “Unread” to jump to active chats faster.
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -253,18 +300,28 @@ function MenuRow({
   return (
     <button
       onClick={() => onNavigate(item.href, item.requiresAuth)}
-      className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition", "hover:bg-black/5")}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition",
+        "hover:bg-black/5"
+      )}
       style={{
         color: EKARI.text,
         backgroundColor: active ? "rgba(199,146,87,0.10)" : undefined,
-        border: active ? "1px solid rgba(199,146,87,0.35)" : "1px solid transparent",
+        border: active
+          ? "1px solid rgba(199,146,87,0.35)"
+          : "1px solid transparent",
       }}
     >
       <span
-        className="relative h-10 w-10 rounded-xl grid place-items-center border bg-white"
-        style={{ borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair }}
+        className="relative h-10 w-10 rounded-2xl grid place-items-center border bg-white shadow-sm"
+        style={{
+          borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair,
+        }}
       >
-        <span style={{ color: active ? EKARI.gold : EKARI.forest }} className="text-[18px]">
+        <span
+          style={{ color: active ? EKARI.gold : EKARI.forest }}
+          className="text-[18px]"
+        >
           {item.icon}
         </span>
 
@@ -276,13 +333,16 @@ function MenuRow({
       </span>
 
       <div className="flex-1 min-w-0">
-        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>{item.label}</div>
+        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>
+          {item.label}
+        </div>
       </div>
 
       <IoChevronForward size={18} style={{ color: EKARI.dim }} />
     </button>
   );
 }
+
 /* ---------- Profiles ---------- */
 function useUserProfile(uid?: string) {
   const [profile, setProfile] = useState<{
@@ -316,6 +376,7 @@ function useUserProfile(uid?: string) {
 
   return profile;
 }
+
 /* ----------------------------- Page ----------------------------- */
 export default function MessagesPage() {
   const { user } = useAuth();
@@ -346,8 +407,9 @@ export default function MessagesPage() {
   const profile = useUserProfile(uid);
   const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
 
-  const handle = (profile as any)?.handle ?? null; // if you store handle elsewhere, use that instead
-  const profileHref = handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
+  const handle = (profile as any)?.handle ?? null;
+  const profileHref =
+    handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
 
   const fullMenu: MenuItem[] = useMemo(
     () => [
@@ -388,11 +450,6 @@ export default function MessagesPage() {
     }
     window.location.href = href;
   };
-
-  const goBack = useCallback(() => {
-    if (window.history.length > 1) router.back();
-    else router.push("/");
-  }, [router]);
 
   function normalizeUser(raw: any): UserLite | null {
     if (!raw) return null;
@@ -466,7 +523,6 @@ export default function MessagesPage() {
             const base: RowData[] = await Promise.all(
               docs.map(async (d) => {
                 const m = d.data() as ThreadMirror;
-
                 const mirrorLast = (m as any).lastMessage as LastMessage | undefined;
 
                 const [peer, lastMessageFallback] = await Promise.all([
@@ -584,70 +640,83 @@ export default function MessagesPage() {
     });
   }, [rows, qStr, tab]);
 
+  const unreadCount = useMemo(
+    () => rows.reduce((acc, r) => acc + ((r.unread ?? 0) > 0 ? 1 : 0), 0),
+    [rows]
+  );
+
+  const heroBg =
+    "radial-gradient(900px circle at 10% 10%, rgba(199,146,87,0.18), transparent 45%), radial-gradient(820px circle at 85% 30%, rgba(35,63,57,0.18), transparent 55%), linear-gradient(135deg, rgba(35,63,57,0.06), rgba(255,255,255,1))";
+
+  /* -------------------- Empty / Signed out -------------------- */
   if (!uid) {
-    return (
-      <> {isDesktop ? (<AppShell>
-        <div
-          className="min-h-screen flex items-center justify-center px-6 text-center"
-          style={{ backgroundColor: EKARI.sand }}
-        >
-          <div>
-            <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
-              Sign in to view your messages
-            </div>
-            <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-              Chats appear here once you start conversations from profiles or ads.
-            </div>
+    const Empty = (
+      <div className="min-h-screen flex items-center justify-center px-6 text-center" style={{ backgroundColor: EKARI.sand }}>
+        <div className="max-w-[420px]">
+          <div
+            className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center"
+            style={{ backgroundColor: hexToRgba(EKARI.forest, 0.06), color: EKARI.forest }}
+          >
+            <IoChatbubblesOutline size={22} />
           </div>
-        </div>
-      </AppShell>) : (
-
-        <div
-          className="min-h-screen flex items-center justify-center px-6 text-center"
-          style={{ backgroundColor: EKARI.sand }}
-        >
-          <div>
-            <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
-              Sign in to view your messages
-            </div>
-            <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
-              Chats appear here once you start conversations from profiles or ads.
-            </div>
+          <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
+            Sign in to view your messages
           </div>
+          <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
+            Chats appear here once you start conversations from profiles or ads.
+          </div>
+          <button
+            onClick={() => (window.location.href = "/getstarted?next=/bonga")}
+            className="mt-5 h-11 px-5 rounded-2xl font-extrabold shadow-sm border"
+            style={{
+              background: `linear-gradient(135deg, ${hexToRgba(EKARI.gold, 0.22)}, ${hexToRgba(EKARI.forest, 0.10)})`,
+              borderColor: "rgba(199,146,87,0.35)",
+              color: EKARI.text,
+            }}
+          >
+            Continue
+          </button>
         </div>
-
-      )}
-
-      </>
+      </div>
     );
+
+    return isDesktop ? <AppShell>{Empty}</AppShell> : Empty;
   }
 
+  /* -------------------- Header (premium like notifications) -------------------- */
   const Header = (
-    <div
-      className={clsx("border-b", isDesktop ? "sticky top-0 z-20 backdrop-blur" : "sticky top-0 z-50")}
-      style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+    <div className={clsx("border-b sticky top-0 z-50 backdrop-blur")}
+      style={{
+        backgroundColor: "rgba(255,255,255,0.92)",
+        borderColor: EKARI.hair,
+      }}
     >
-      <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")} >
+      <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")}>
         <div className="h-full flex items-center justify-between gap-2">
+          {/* Left: menu */}
           <button
             onClick={() => setMenuOpen(true)}
-            className="h-9 w-9 rounded-full bg-black/[0.04] grid place-items-center backdrop-blur-md border"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
             aria-label="Open menu"
           >
-            <IoMenu size={20} />
+            <IoMenu size={20} style={{ color: EKARI.text }} />
           </button>
-          <div className="flex-1">
-            <div className="font-black text-[18px] leading-none" style={{ color: EKARI.text }}>
-              Messages
+
+          {/* Center: title */}
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
+              Bonga
             </div>
             {isMobile && (
               <div className="text-[11px] mt-0.5" style={{ color: EKARI.dim }}>
                 {rows.length} thread{rows.length === 1 ? "" : "s"}
+                {unreadCount > 0 ? ` • ${unreadCount} unread` : " • all caught up"}
               </div>
             )}
           </div>
 
+          {/* Right: search */}
           <button
             onClick={() => router.push("/search")}
             className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
@@ -659,63 +728,82 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Filters & Search */}
+      {/* Premium toolbar */}
       <div className={clsx(isDesktop ? "px-4 pb-3 max-w-[1180px] mx-auto" : "px-3 pb-3")}>
-        <div className="space-y-2">
+        <div
+          className={clsx(
+            "rounded-2xl border overflow-hidden",
+            isDesktop ? "p-3" : "p-2.5"
+          )}
+          style={{
+            borderColor: "rgba(229,231,235,0.9)",
+            background: heroBg,
+          }}
+        >
           <div className="flex items-center gap-2">
             <button
-              className="h-8 px-3 rounded-full text-xs font-extrabold transition"
+              className="h-9 px-3.5 rounded-full text-xs font-extrabold transition border"
               onClick={() => setTab("all")}
               style={{
-                backgroundColor: tab === "all" ? EKARI.forest : "#F3F4F6",
+                backgroundColor: tab === "all" ? EKARI.forest : "rgba(255,255,255,0.9)",
                 color: tab === "all" ? EKARI.sand : EKARI.text,
+                borderColor: tab === "all" ? "rgba(35,63,57,0.35)" : "rgba(229,231,235,0.9)",
               }}
             >
-              All
+              <span className="inline-flex items-center gap-2">
+                <IoTimeOutline />
+                All
+              </span>
             </button>
+
             <button
-              className="h-8 px-3 rounded-full text-xs font-extrabold transition"
+              className="h-9 px-3.5 rounded-full text-xs font-extrabold transition border"
               onClick={() => setTab("unread")}
               style={{
-                backgroundColor: tab === "unread" ? EKARI.forest : "#F3F4F6",
+                backgroundColor: tab === "unread" ? EKARI.forest : "rgba(255,255,255,0.9)",
                 color: tab === "unread" ? EKARI.sand : EKARI.text,
+                borderColor: tab === "unread" ? "rgba(35,63,57,0.35)" : "rgba(229,231,235,0.9)",
               }}
             >
-              Unread
+              <span className="inline-flex items-center gap-2">
+                <IoMailUnreadOutline />
+                Unread
+              </span>
             </button>
 
             {isDesktop && (
-              <span className="ml-auto text-xs" style={{ color: EKARI.dim }}>
+              <div className="ml-auto text-xs font-semibold" style={{ color: EKARI.dim }}>
                 {rows.length} thread{rows.length === 1 ? "" : "s"}
-              </span>
+                {unreadCount > 0 ? ` • ${unreadCount} unread` : ""}
+              </div>
             )}
           </div>
 
-          <div className="relative">
+          <div className="mt-2 relative">
             <input
               value={qStr}
               onChange={(e) => setQStr(e.target.value)}
               placeholder="Search by name, handle, or message…"
-              className="w-full h-10 rounded-xl px-3 pr-9 text-sm outline-none border focus:ring-2"
+              className="w-full h-11 rounded-2xl px-3.5 pr-10 text-sm outline-none border focus:ring-2 bg-white/90"
               aria-label="Filter messages"
               style={{
-                borderColor: EKARI.hair,
+                borderColor: "rgba(229,231,235,0.9)",
                 ["--tw-ring-color" as any]: EKARI.forest,
               }}
             />
             {qStr ? (
               <button
                 onClick={() => setQStr("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs hover:opacity-80"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl grid place-items-center border hover:bg-black/5"
                 aria-label="Clear search"
-                style={{ color: EKARI.dim }}
+                style={{ color: EKARI.dim, borderColor: "rgba(229,231,235,0.9)" }}
               >
                 ✕
               </button>
             ) : (
               <IoSearchOutline
                 size={16}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2"
                 style={{ color: "#94A3B8" }}
               />
             )}
@@ -724,6 +812,8 @@ export default function MessagesPage() {
       </div>
     </div>
   );
+
+  /* -------------------- Mobile bottom tabs (keep logic) -------------------- */
   function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
     const router = useRouter();
 
@@ -741,88 +831,65 @@ export default function MessagesPage() {
       <button
         onClick={onClick}
         className={clsx(
-          "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition",
+          "flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition",
           active ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"
         )}
         aria-current={active ? "page" : undefined}
       >
         <div style={{ color: active ? EKARI.forest : EKARI.text }}>{icon}</div>
-        <span
-          className="text-[11px] font-semibold"
-          style={{ color: active ? EKARI.forest : EKARI.text }}
-        >
+        <span className="text-[11px] font-semibold" style={{ color: active ? EKARI.forest : EKARI.text }}>
           {label}
         </span>
       </button>
     );
 
-    const isBongaActive = true; // because this file is /bonga/page.tsx
+    const isBongaActive = true;
 
     return (
-      <div
-        className="fixed left-0 right-0 z-[60]"
-        style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
+      <div className="fixed left-0 right-0 z-[60]" style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div
-          className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
+          className="mx-auto w-full max-w-[520px] h-[72px] px-4 flex items-center justify-between"
           style={{
             backgroundColor: "#FFFFFF",
             borderTop: `1px solid ${EKARI.hair}`,
           }}
         >
-          <TabBtn
-            label="Deeds"
-            icon={<IoHomeOutline size={20} />}
-            onClick={() => router.push("/")}
-          />
-          <TabBtn
-            label="ekariMarket"
-            icon={<IoCartOutline size={20} />}
-            onClick={() => router.push("/market")}
-          />
+          <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} onClick={() => router.push("/")} />
+          <TabBtn label="ekariMarket" icon={<IoCartOutline size={20} />} onClick={() => router.push("/market")} />
 
           <button
             onClick={onCreate}
-            className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg"
-            style={{ backgroundColor: EKARI.gold }}
+            className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg border"
+            style={{
+              background: `linear-gradient(135deg, ${EKARI.gold}, ${hexToRgba(EKARI.gold, 0.78)})`,
+              borderColor: "rgba(0,0,0,0.06)",
+            }}
             aria-label="New chat"
           >
             <IoAdd size={26} color="#111827" />
           </button>
 
-          <TabBtn
-            label="Nexus"
-            icon={<IoCompassOutline size={20} />}
-            onClick={() => router.push("/nexus")}
-          />
-
-          <TabBtn
-            label="Bonga"
-            icon={<IoChatbubblesOutline size={20} />}
-            onClick={() => router.push("/bonga")}
-            active={isBongaActive}
-          />
+          <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} onClick={() => router.push("/nexus")} />
+          <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} onClick={() => router.push("/bonga")} active={isBongaActive} />
         </div>
       </div>
     );
   }
 
-
+  /* -------------------- Content list (premium cards) -------------------- */
   const Content = (
     <>
       {loading ? (
         <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
-          <span className="ml-2">
-            <BouncingBallLoader />
-          </span>
+          <BouncingBallLoader />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="px-6 py-16 text-center">
+        <div className={clsx(isDesktop ? "px-4 py-16 max-w-[1180px] mx-auto" : "px-6 py-16", "text-center")}>
           <div
             className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center"
-            style={{ backgroundColor: "#F3F4F6", color: EKARI.text }}
+            style={{ backgroundColor: hexToRgba(EKARI.forest, 0.06), color: EKARI.forest }}
           >
-            💬
+            <IoChatbubblesOutline size={22} />
           </div>
           <div className="font-extrabold" style={{ color: EKARI.text }}>
             No conversations found
@@ -830,111 +897,139 @@ export default function MessagesPage() {
           <div className="text-sm mt-1" style={{ color: EKARI.dim }}>
             {qStr ? "Try clearing the search or filters." : "Start a chat from a profile to see it here."}
           </div>
-        </div>
-      ) : (
-        <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
-          {filtered.map((item) => {
-            const name = nameOf(item.peer);
-            const last = previewOf(item.lastMessage) || "";
-            const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
-            const hasUnread = (item.unread ?? 0) > 0;
 
-            return (
-              <li key={item.threadId}>
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  className={clsx(
-                    "w-full flex items-center gap-3 transition text-left hover:bg-black/5 focus:bg-black/5 focus:outline-none focus:ring-2",
-                    isDesktop ? "px-4 py-3" : "px-3 py-3"
-                  )}
-                  onClick={() => openThread(item)}
-                  aria-label={`Open chat with ${name}`}
-                  style={ringStyle}
-                >
-                  <div className="relative">
-                    <SmartAvatar
-                      src={item.peer?.photoURL || ""}
-                      alt={name}
-                      size={46}
-                      className={clsx(hasUnread && "ring-2")}
-                    />
-                    {hasUnread && (
-                      <span
-                        className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
-                        title="Unread"
-                        style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
-                      />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={clsx("truncate text-[15px]", hasUnread ? "font-black" : "font-extrabold")}
-                        style={{ color: EKARI.text }}
-                      >
-                        {name}
-                      </div>
-                      <div className="ml-auto text-[11px]" style={{ color: EKARI.dim }}>
-                        {when}
-                      </div>
-                    </div>
-
-                    <div className="mt-0.5 flex items-center gap-2 min-w-0">
-                      <div
-                        className={clsx(
-                          "truncate text-[13px]",
-                          hasUnread ? "font-semibold" : "font-normal"
-                        )}
-                        style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
-                      >
-                        {last || <span style={{ color: "#94A3B8" }}>No messages yet</span>}
-                      </div>
-
-                      {hasUnread && (
-                        <span
-                          className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
-                          style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
-                        >
-                          {item.unread > 99 ? "99+" : item.unread}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <IoChevronForward size={18} style={{ color: EKARI.sub }} className="hidden sm:block" />
-                </motion.button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {/* Load more */}
-      {filtered.length > 0 && (
-        <div className={clsx(isDesktop ? "p-6" : "p-4", "grid place-items-center")}>
           <button
-            onClick={loadMore}
-            disabled={paging || !cursor}
-            className="h-10 rounded-lg px-4 border text-sm font-bold transition disabled:opacity-50"
+            onClick={() => router.push("/search")}
+            className="mt-5 h-11 px-5 rounded-2xl font-extrabold border shadow-sm"
             style={{
-              borderColor: EKARI.hair,
+              borderColor: "rgba(199,146,87,0.35)",
+              background: `linear-gradient(135deg, ${hexToRgba(EKARI.gold, 0.22)}, ${hexToRgba(EKARI.forest, 0.10)})`,
               color: EKARI.text,
-              backgroundColor: EKARI.sand,
             }}
           >
-            {paging ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
+            Start a new chat
           </button>
+        </div>
+      ) : (
+        <div className={clsx(isDesktop ? "max-w-[1180px] mx-auto px-4 pb-6" : "px-3 pb-6")}>
+          <ul className="space-y-2">
+            {filtered.map((item) => {
+              const name = nameOf(item.peer);
+              const last = previewOf(item.lastMessage) || "";
+              const when = shortTime(item.lastMessage?.createdAt ?? item.updatedAt);
+              const hasUnread = (item.unread ?? 0) > 0;
+
+              return (
+                <li key={item.threadId}>
+                  <motion.button
+                    whileTap={{ scale: 0.985 }}
+                    className={cn(
+                      "w-full group text-left",
+                      "rounded-2xl border bg-white/95 shadow-sm",
+                      "hover:shadow-md hover:-translate-y-[0.5px] transition",
+                      "focus:outline-none focus:ring-2"
+                    )}
+                    style={{
+                      borderColor: "rgba(229,231,235,0.9)",
+                      ...ringStyle,
+                    }}
+                    onClick={() => openThread(item)}
+                    aria-label={`Open chat with ${name}`}
+                  >
+                    <div className={clsx("flex items-center gap-3", isDesktop ? "px-4 py-3.5" : "px-3.5 py-3.5")}>
+                      <div className="relative">
+                        <SmartAvatar
+                          src={item.peer?.photoURL || ""}
+                          alt={name}
+                          size={48}
+                          className={clsx(hasUnread && "ring-2")}
+                        />
+                        {hasUnread && (
+                          <span
+                            className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"
+                            title="Unread"
+                            style={{ backgroundColor: EKARI.forest, borderColor: EKARI.sand }}
+                          />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={clsx(
+                              "truncate text-[15px]",
+                              hasUnread ? "font-black" : "font-extrabold"
+                            )}
+                            style={{ color: EKARI.text }}
+                          >
+                            {name}
+                          </div>
+
+                          <div className="ml-auto flex items-center gap-2">
+                            <div className="text-[11px]" style={{ color: EKARI.dim }}>
+                              {when}
+                            </div>
+
+                            {hasUnread && (
+                              <span
+                                className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold"
+                                style={{ backgroundColor: EKARI.forest, color: EKARI.sand }}
+                                title="Unread messages"
+                              >
+                                {item.unread > 99 ? "99+" : item.unread}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-0.5 flex items-center gap-2 min-w-0">
+                          <div
+                            className={clsx(
+                              "truncate text-[13px]",
+                              hasUnread ? "font-semibold" : "font-normal"
+                            )}
+                            style={{ color: hasUnread ? EKARI.text : EKARI.dim }}
+                          >
+                            {last || <span style={{ color: "#94A3B8" }}>No messages yet</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <IoChevronForward
+                        size={18}
+                        style={{ color: EKARI.sub }}
+                        className="hidden sm:block opacity-70 group-hover:opacity-100 transition"
+                      />
+                    </div>
+                  </motion.button>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Load more */}
+          <div className={clsx(isDesktop ? "pt-6" : "pt-4", "grid place-items-center")}>
+            <button
+              onClick={loadMore}
+              disabled={paging || !cursor}
+              className="h-11 rounded-2xl px-5 border text-sm font-extrabold transition disabled:opacity-50 shadow-sm hover:shadow"
+              style={{
+                borderColor: "rgba(229,231,235,0.9)",
+                color: EKARI.text,
+                background: `linear-gradient(135deg, ${hexToRgba(EKARI.gold, 0.18)}, rgba(255,255,255,1))`,
+              }}
+            >
+              {paging ? <BouncingBallLoader /> : cursor ? "Load more…" : "No more"}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Mobile: safe bottom spacer so last row doesn't touch browser bar */}
       {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
     </>
   );
 
-  // MOBILE: fixed inset like Market, no bottom tabs, just sticky header + list
-  // MOBILE: fixed inset + MobileBottomTabs (like Market)
+  /* -------------------- Mobile layout -------------------- */
   if (isMobile) {
     return (
       <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
@@ -942,31 +1037,37 @@ export default function MessagesPage() {
 
         <div
           className="flex-1 overflow-y-auto overscroll-contain"
-          style={{ paddingBottom: "calc(84px + env(safe-area-inset-bottom))" }}
+          style={{ paddingBottom: "calc(92px + env(safe-area-inset-bottom))" }}
         >
           {Content}
         </div>
 
         <MobileBottomTabs onCreate={() => router.push("/search")} />
+
         <SideMenuSheet
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           onNavigate={navigateFromMenu}
           items={fullMenu}
         />
-
       </div>
     );
   }
 
-
-  // DESKTOP: AppShell + max width container like Market desktop
+  /* -------------------- Desktop layout -------------------- */
   return (
     <AppShell>
       <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
         {Header}
-        <div className="max-w-[1180px] mx-auto">{Content}</div>
+        {Content}
       </div>
+
+      <SideMenuSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onNavigate={navigateFromMenu}
+        items={fullMenu}
+      />
     </AppShell>
   );
 }

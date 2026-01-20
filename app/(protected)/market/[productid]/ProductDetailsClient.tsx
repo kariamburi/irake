@@ -16,7 +16,7 @@ import {
     DocumentData,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { db } from "@/lib/firebase";
+import { app, db } from "@/lib/firebase";
 import {
     IoArrowBack,
     IoChatbubbleEllipsesOutline,
@@ -35,6 +35,13 @@ import {
     IoCubeOutline,
     IoLeafOutline,
     IoArrowRedo,
+    IoStorefrontOutline,
+    IoShieldCheckmark,
+    IoStarOutline,
+    IoRocketOutline,
+    IoArrowForwardOutline,
+    IoSparklesOutline,
+    IoLockClosedOutline,
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SellerReviewsSection from "@/app/components/SellerReviewsSection";
@@ -42,6 +49,8 @@ import { createPortal } from "react-dom";
 import AppShell from "@/app/components/AppShell";
 import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
 import OpenInAppBanner from "@/app/components/OpenInAppBanner";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { bumpLead, bumpListingView } from "@/lib/storeAnalytics";
 
 /* ---------------- utils ---------------- */
 function useMediaQuery(queryStr: string) {
@@ -96,6 +105,17 @@ type ProductDoc = {
     status?: "active" | "sold" | "reserved" | "hidden";
     sold?: boolean;
     useCase?: string;
+    sellerPlan?: {
+        verifiedBadge?: boolean;
+        storefront?: boolean;
+        packageId?: string | null;
+        active?: boolean;
+        topOfSearch?: boolean;
+        priorityRanking?: boolean;
+    };
+    featured?: boolean;
+    featuredUntil?: any;
+
 };
 
 const EKARI = {
@@ -163,17 +183,78 @@ export default function ProductDetailsClient({
     );
 
     // listing reviews summary (for seller card chip)
-    const [reviews, setReviews] = useState<Review[]>([]);
-    const [avgRating, setAvgRating] = useState(0);
-    const [reviewCount, setReviewCount] = useState(0);
+    const fn = getFunctions(app);
+    const boostCallable = useMemo(() => httpsCallable(fn, "boostMarketListing"), [fn]);
+    const featureCallable = useMemo(() => httpsCallable(fn, "featureMarketListing"), [fn]);
+
+    const [perkLoading, setPerkLoading] = useState<"boost" | "feature" | null>(null);
+    const [perkMsg, setPerkMsg] = useState<string | null>(null);
+
 
     const [msgLoading, setMsgLoading] = useState(false);
+
+
+    const doBoost = async () => {
+        if (!product) return;
+        if (!auth.currentUser?.uid) return router.replace("/login");
+        if (!isOwner) return;
+
+        setPerkMsg(null);
+        setPerkLoading("boost");
+        try {
+            const res: any = await boostCallable({ listingId: product.id });
+            setPerkMsg(res?.data?.message || "Boost applied ✅");
+        } catch (e: any) {
+            setPerkMsg(e?.message || "Boost failed.");
+        } finally {
+            setPerkLoading(null);
+        }
+    };
+
+    const doFeature = async () => {
+        if (!product) return;
+        if (!auth.currentUser?.uid) return router.replace("/login");
+        if (!isOwner) return;
+
+        setPerkMsg(null);
+        setPerkLoading("feature");
+        try {
+            const res: any = await featureCallable({ listingId: product.id });
+            setPerkMsg(res?.data?.message || "Featured ✅");
+        } catch (e: any) {
+            setPerkMsg(e?.message || "Feature failed.");
+        } finally {
+            setPerkLoading(null);
+        }
+    };
+
     const webUrl =
         typeof window !== "undefined"
             ? window.location.href
             : `https://ekarihub.com/market/${encodeURIComponent(productid)}`;
 
     const appUrl = `ekarihub:///market/${encodeURIComponent(productid)}`;
+    const [subActive, setSubActive] = useState(false);
+
+    useEffect(() => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) {
+            setSubActive(false);
+            return;
+        }
+
+        const subRef = doc(dbi, "sellerSubscriptions", uid);
+        return onSnapshot(subRef, (snap) => {
+            const sub = snap.exists() ? (snap.data() as any) : null;
+
+            const statusOk = String(sub?.status || "").toLowerCase() === "active";
+            const endMs = sub?.currentPeriodEnd?.toMillis?.() ?? 0;
+
+            // ✅ active if status active AND period end is in future
+            setSubActive(statusOk && endMs > Date.now());
+        });
+    }, [dbi, auth]);
+
 
     // ===== Load product & seller =====
     useEffect(() => {
@@ -221,30 +302,6 @@ export default function ProductDetailsClient({
     }, [dbi, productid, router]);
 
 
-    // ===== Live reviews on listing (summary only) =====
-    useEffect(() => {
-        const qRef = query(
-            collection(db, "marketListings", productid, "reviews"),
-            orderBy("createdAt", "desc")
-        );
-        const unsub = onSnapshot(qRef, (snap: QuerySnapshot<DocumentData>) => {
-            const rows = snap.docs.map((d) => ({
-                id: d.id,
-                ...(d.data() as any),
-            })) as Review[];
-            setReviews(rows);
-
-            if (rows.length) {
-                const total = rows.reduce((s, r) => s + (Number(r.rating) || 0), 0);
-                setAvgRating(total / rows.length);
-                setReviewCount(rows.length);
-            } else {
-                setAvgRating(0);
-                setReviewCount(0);
-            }
-        });
-        return () => unsub();
-    }, [productid]);
 
 
     const images = useMemo(() => {
@@ -397,6 +454,20 @@ export default function ProductDetailsClient({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fsOpen, fsIndex, images.length]);
 
+    useEffect(() => {
+        if (!product?.id) return;
+
+        const sellerId =
+            (product.seller?.id as string | undefined) ||
+            (product.sellerId as string | undefined) ||
+            ((product as any).ownerId as string | undefined);
+
+        if (!sellerId) return;
+
+        bumpListingView({ sellerId, listingId: product.id }).catch(() => { });
+    }, [product?.id]);
+
+
     if (loading) {
         return (
             <div className="flex h-screen items-center justify-center text-gray-500">
@@ -412,11 +483,29 @@ export default function ProductDetailsClient({
             </div>
         );
     }
+    const uid = auth.currentUser?.uid;
 
-    const isOwner = product.seller?.id === auth.currentUser?.uid;
+    // old + new schemas supported
+    const ownerId =
+        (product.seller?.id as string | undefined) ||
+        (product.sellerId as string | undefined) ||
+        ((product as any).ownerId as string | "");
+
+    const isOwner = !!uid && !!ownerId && ownerId === uid;
+    const hasActivePlan = isOwner ? subActive : (product.sellerPlan?.active === true);
+
     const isSold = product.status === "sold" || product.sold;
     const isReserved = product.status === "reserved";
     const isTree = product.type === "tree";
+    const nowMs = Date.now();
+
+    const showFeatured =
+        !!product.featured && (product.featuredUntil?.toMillis?.() ?? 0) > nowMs;
+
+    const showVerified =
+        product.seller?.verified === true || product.sellerPlan?.verifiedBadge === true;
+
+    const showStorefront = product.sellerPlan?.storefront === true;
 
     const created =
         product.createdAt?.toDate?.() instanceof Date
@@ -459,13 +548,15 @@ export default function ProductDetailsClient({
 
             const lqs = buildListingContextQs(product);
             lqs.forEach((v, k) => qs.set(k, v));
-
+            bumpLead({ sellerId: peerId, listingId: null, kind: "message" }).catch(() => { });
             router.push(`/bonga/${encodeURIComponent(threadId)}?${qs.toString()}`);
         } finally {
             setMsgLoading(false);
         }
     };
     const sellerId = product.seller?.id ?? product.sellerId;
+    const storeUrl = sellerId ? `/store/${encodeURIComponent(sellerId)}?src=market` : null;
+
     /* ===================== Shared Body ===================== */
     const Body = (
         <main
@@ -680,6 +771,43 @@ export default function ProductDetailsClient({
                             Posted {created.toLocaleDateString()}
                         </p>
                     )}
+                    {/* Badges row */}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {showFeatured && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500 text-black text-[11px] font-extrabold px-3 py-1">
+                                <IoStar size={14} />
+                                Featured
+                            </span>
+                        )}
+
+                        {showVerified && (
+                            <span
+                                className="inline-flex items-center gap-1 rounded-full text-[11px] font-extrabold px-3 py-1 border bg-white"
+                                style={{ borderColor: EKARI.hair, color: EKARI.forest }}
+                                title="Verified seller"
+                            >
+                                <IoShieldCheckmark size={14} />
+                                Verified
+                            </span>
+                        )}
+
+
+                        {/* Visit Store (only for storefront sellers) */}
+                        {showStorefront && storeUrl && (
+                            <button
+                                type="button"
+                                onClick={() => router.push(storeUrl)}
+                                className="inline-flex items-center gap-1 rounded-full text-[11px] font-extrabold px-3 py-1 border bg-white hover:bg-gray-100"
+                                style={{ borderColor: EKARI.hair, color: EKARI.text }}
+
+                                title="Open seller storefront"
+                            >
+                                <IoStorefrontOutline size={14} />
+                                Visit Store
+                            </button>
+                        )}
+                    </div>
+
                 </div>
 
                 {/* Seller card */}
@@ -698,9 +826,13 @@ export default function ProductDetailsClient({
 
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                                <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
-                                    {product.seller?.name || "Seller"}
-                                </p>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                                        {product.seller?.name || "Seller"}
+                                    </p>
+
+                                </div>
+
 
                             </div>
 
@@ -716,6 +848,7 @@ export default function ProductDetailsClient({
                     </div>
 
                     <div className="mt-3">
+
                         {!isOwner ? (
                             <button
                                 onClick={handleMessageClick}
@@ -739,9 +872,133 @@ export default function ProductDetailsClient({
                                 )}
                             </button>
                         ) : (
-                            <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
-                                This is you
+                            <div className="space-y-2">
+                                <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
+                                    This is you
+                                </div>
+
+                                {/* Owner perks */}
+                                <div
+                                    className="rounded-2xl border p-3"
+                                    style={{ borderColor: EKARI.hair, background: "#FAFAFA" }}
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <span
+                                                className="h-8 w-8 rounded-xl grid place-items-center"
+                                                style={{ background: "rgba(199,146,87,0.16)" }}
+                                            >
+                                                <IoSparklesOutline size={16} style={{ color: EKARI.gold }} />
+                                            </span>
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-black" style={{ color: EKARI.text }}>
+                                                    Listing perks
+                                                </div>
+                                                <div className="text-[12px]" style={{ color: EKARI.dim }}>
+                                                    Boost reach & get featured placement
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {!hasActivePlan && (
+                                            <span
+                                                className="shrink-0 inline-flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full border bg-white"
+                                                style={{ borderColor: EKARI.hair, color: EKARI.dim }}
+                                                title="Upgrade required"
+                                            >
+                                                <IoLockClosedOutline size={12} />
+                                                Locked
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* If NOT subscribed -> CTA */}
+                                    {!hasActivePlan ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => router.push("/seller/dashboard")} // <-- change to your real packages route
+                                            className="mt-3 w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white hover:opacity-95 transition focus:ring-2"
+                                            style={{ backgroundColor: EKARI.forest, ["--tw-ring-color" as any]: EKARI.forest }}
+                                            title="Upgrade to unlock Boost & Feature"
+                                        >
+                                            <IoSparklesOutline size={18} />
+                                            Upgrade to unlock perks
+                                            <IoArrowForwardOutline size={16} />
+                                        </button>
+                                    ) : (
+                                        <>
+                                            {/* Subscribed -> show real actions */}
+                                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={doBoost}
+                                                    disabled={perkLoading !== null}
+                                                    className="h-11 rounded-xl border font-extrabold text-sm disabled:opacity-60 hover:bg-black/[0.03] transition flex items-center justify-center gap-2"
+                                                    style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#fff" }}
+                                                    title="Use a boost credit to improve ranking"
+                                                >
+                                                    {perkLoading === "boost" ? (
+                                                        <>
+                                                            <span className="inline-block h-4 w-4 rounded-full border-2 border-black/20 border-t-black/60 animate-spin" />
+                                                            Boosting…
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <IoRocketOutline size={18} style={{ color: EKARI.gold }} />
+                                                            Boost
+                                                        </>
+                                                    )}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={doFeature}
+                                                    disabled={perkLoading !== null}
+                                                    className="h-11 rounded-xl font-extrabold text-sm text-white disabled:opacity-60 hover:opacity-95 transition flex items-center justify-center gap-2"
+                                                    style={{ backgroundColor: EKARI.forest }}
+                                                    title="Use a featured credit to appear in featured slots"
+                                                >
+                                                    {perkLoading === "feature" ? (
+                                                        <>
+                                                            <span className="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                                                            Featuring…
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <IoStarOutline size={18} />
+                                                            Feature
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+
+                                            {/* Optional small helper row */}
+                                            <div className="mt-2 flex items-center justify-between text-[12px]" style={{ color: EKARI.dim }}>
+                                                <span>Available on your plan</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => router.push("/market/packages")}
+                                                    className="underline font-bold"
+                                                    style={{ color: EKARI.forest }}
+                                                >
+                                                    Manage plan
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {perkMsg && (
+                                        <div
+                                            className="mt-3 text-xs rounded-xl px-3 py-2 border"
+                                            style={{ borderColor: EKARI.hair, color: EKARI.dim, background: "#FFFFFF" }}
+                                        >
+                                            {perkMsg}
+                                        </div>
+                                    )}
+                                </div>
+
                             </div>
+
                         )}
                     </div>
                 </div>

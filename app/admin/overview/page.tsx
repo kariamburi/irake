@@ -42,6 +42,12 @@ type OverviewStats = {
     donationGrossUsdLast30: number;
     platformShareUsdLast30: number;
     creatorShareUsdLast30: number;
+
+    // ✅ subscriptions
+    activeSubscriptions: number;
+    trialingSubscriptions: number;
+    expiredSubscriptions: number;
+    canceledSubscriptions: number;
 };
 
 type DeedRow = {
@@ -254,6 +260,11 @@ export default function AdminOverviewPage() {
                     usersSnap,
                     verifiedUsersSnap,
                     pendingVerifSnap,
+                    // ✅ subscriptions
+                    activeSubSnap,
+                    trialingSubSnap,
+                    expiredSubSnap,
+                    canceledSubSnap,
                 ] = await Promise.all([
                     getCountFromServer(collection(db, "deeds")),
                     getCountFromServer(collection(db, "marketListings")),
@@ -279,6 +290,11 @@ export default function AdminOverviewPage() {
                             where("verification.status", "==", "pending")
                         )
                     ),
+                    // ✅ sellerSubscriptions counts
+                    getCountFromServer(query(collection(db, "sellerSubscriptions"), where("status", "==", "active"))),
+                    getCountFromServer(query(collection(db, "sellerSubscriptions"), where("status", "==", "trialing"))),
+                    getCountFromServer(query(collection(db, "sellerSubscriptions"), where("status", "==", "expired"))),
+                    getCountFromServer(query(collection(db, "sellerSubscriptions"), where("status", "==", "canceled"))),
                 ]);
 
                 // Compute pending withdrawal totals (first 200 requests)
@@ -349,6 +365,11 @@ export default function AdminOverviewPage() {
                     donationGrossUsdLast30,
                     platformShareUsdLast30,
                     creatorShareUsdLast30,
+                    // ✅ subscriptions
+                    activeSubscriptions: activeSubSnap.data().count,
+                    trialingSubscriptions: trialingSubSnap.data().count,
+                    expiredSubscriptions: expiredSubSnap.data().count,
+                    canceledSubscriptions: canceledSubSnap.data().count,
                 });
             } catch (err) {
                 console.error("Admin overview stats error", err);
@@ -515,7 +536,7 @@ export default function AdminOverviewPage() {
                 </div>
 
                 {/* Finance & verification snapshot */}
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
                     {/* Finance snapshot */}
                     <Link
                         href="/admin/wallets"
@@ -661,6 +682,46 @@ export default function AdminOverviewPage() {
                             Review verification requests →
                         </div>
                     </Link>
+                    <Link
+                        href="/admin/subscriptions"
+                        className="rounded-2xl border shadow-sm bg-white p-4 md:p-5 hover:shadow-md transition flex flex-col justify-between"
+                        style={{ borderColor: EKARI.hair }}
+                    >
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <div
+                                    className="text-xs font-semibold uppercase tracking-wide"
+                                    style={{ color: EKARI.dim }}
+                                >
+                                    Subscriptions
+                                </div>
+                                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">
+                                    ★
+                                </span>
+                            </div>
+
+                            <p className="mt-1 text-sm md:text-base font-extrabold" style={{ color: EKARI.text }}>
+                                {formatNumber(stats?.activeSubscriptions ?? 0)} active
+                            </p>
+
+                            <ul className="mt-2 space-y-0.5 text-[11px]" style={{ color: EKARI.dim }}>
+                                <li>
+                                    Trialing: <span className="font-semibold">{formatNumber(stats?.trialingSubscriptions ?? 0)}</span>
+                                </li>
+                                <li>
+                                    Expired: <span className="font-semibold">{formatNumber(stats?.expiredSubscriptions ?? 0)}</span>
+                                </li>
+                                <li>
+                                    Canceled: <span className="font-semibold">{formatNumber(stats?.canceledSubscriptions ?? 0)}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div className="mt-3 text-[11px] text-emerald-700 font-semibold">
+                            View subscriptions →
+                        </div>
+                    </Link>
+
                 </div>
 
                 {/* Two-column: recent donations + recent deeds */}

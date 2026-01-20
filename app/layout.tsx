@@ -26,6 +26,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://stream.mux.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="//stream.mux.com" />
+
+        {/* optional if you use Mux thumbnails/posters */}
+        <link rel="preconnect" href="https://image.mux.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="//image.mux.com" />
+      </head>
       <body className={`${poppins.variable} font-sans antialiased`}>
         <AuthProvider>
 

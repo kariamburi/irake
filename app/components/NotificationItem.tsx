@@ -155,9 +155,8 @@ function routeForNotification(n: Notif, handle?: string): string | undefined {
 
         if (kind === "wallet_topup") return handle ? `/${handle}/earnings` : "/";
         if (kind === "donation") return handle ? `/${handle}/earnings` : "/";
-
         if (kind === "account_verification") return "/account/verification"; // change to your route
-
+        if (kind === "package_checkout") return `/seller/dashboard`;
         return "/";
     }
 
