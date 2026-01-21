@@ -48,6 +48,7 @@ import { EKARI } from "@/app/constants/constants";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { useAuth } from "@/app/hooks/useAuth";
 import clsx from "clsx";
+import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
 
 /* ---------------- utils ---------------- */
 type SortKey = "recent" | "priceAsc" | "priceDesc";
@@ -215,71 +216,6 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-function MobileBottomTabss({ onCreate }: { onCreate: () => void }) {
-  const router = useRouter();
-
-  const TabBtn = ({
-    label,
-    icon,
-    onClick,
-    active,
-  }: {
-    label: string;
-    icon: React.ReactNode;
-    onClick: () => void;
-    active?: boolean;
-  }) => (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition",
-        active ? "bg-black/[0.05]" : "hover:bg-black/[0.04]"
-      )}
-      aria-current={active ? "page" : undefined}
-    >
-      <div style={{ color: active ? EKARI.gold : EKARI.text }}>{icon}</div>
-      <span className="text-[11px] font-extrabold" style={{ color: active ? EKARI.gold : EKARI.text }}>
-        {label}
-      </span>
-    </button>
-  );
-
-  const isMarketActive = true;
-
-  return (
-    <div className="fixed left-0 right-0 z-[60]" style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="mx-auto w-full max-w-[520px] px-3 pb-3">
-        <PremiumSurface
-          className="h-[72px] px-3 flex items-center justify-between"
-          style={{ borderColor: "rgba(199,146,87,0.25)" }}
-        >
-          <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} onClick={() => router.push("/")} />
-          <TabBtn
-            label="ekariMarket"
-            icon={<IoCartOutline size={20} />}
-            onClick={() => router.push("/market")}
-            active={isMarketActive}
-          />
-
-          <button
-            onClick={onCreate}
-            className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg active:scale-[0.98] transition"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",
-            }}
-            aria-label="Sell / Lease"
-          >
-            <IoAdd size={26} color="#FFFFFF" />
-          </button>
-
-          <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} onClick={() => router.push("/nexus")} />
-          <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} onClick={() => router.push("/bonga")} />
-        </PremiumSurface>
-      </div>
-    </div>
-  );
-}
 
 function useIsActivePath(href: string, alsoMatch: string[] = []) {
   const pathname = usePathname() || "/";
@@ -585,7 +521,7 @@ export default function MarketPage() {
   const featTimer = useRef<number | null>(null);
   const featPausedRef = useRef(false);
 
-
+  const { signOutUser } = useAuth();
   useEffect(() => {
     const now = new Date();
     const q = query(
@@ -1188,7 +1124,17 @@ export default function MarketPage() {
 
           {!sellOpen && <MobileBottomTabs onCreate={() => setSellOpen(true)} />}
 
-          <SideMenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigateFromMenu} items={fullMenu} />
+          <EkariSideMenuSheet
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            uid={uid}
+            handle={(profile as any)?.handle ?? null}
+            photoURL={(profile as any)?.photoURL ?? null}
+            profileHref={profileHref}
+            unreadDM={uid ? unreadDM ?? 0 : 0}
+            notifTotal={uid ? notifTotal ?? 0 : 0}
+            onLogout={signOutUser}
+          />
         </div>
 
         <FilterModal

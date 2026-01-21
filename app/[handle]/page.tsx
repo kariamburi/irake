@@ -342,9 +342,9 @@ function ProfileHeroStorefront({
 
   return (
     <section className="mb-4">
-      <div className="max-w-5xl mx-auto px-4">
+      <div className="max-w-5xl mx-auto px-0 lg:px-4">
         <div
-          className="relative overflow-hidden rounded-[28px] border bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]"
+          className="relative overflow-hidden rounded-[0px] lg:rounded-[28px] border bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]"
           style={{ borderColor: EKARI.hair }}
         >
           {/* Cover */}
@@ -398,11 +398,12 @@ function ProfileHeroStorefront({
 
           {/* Content */}
           <div className="relative px-4 pb-4 md:px-6 md:pb-6">
-            <div className="-mt-10 md:-mt-12 flex items-end gap-4">
+            <div className="-mt-8 md:-mt-12 flex flex-col sm:flex-row sm:items-end gap-3 md:gap-4">
               <div
-                className="relative h-22 w-20 md:h-24 md:w-24 rounded-3xl overflow-hidden border bg-white shadow-[0_12px_30px_rgba(15,23,42,0.10)]"
+                className="relative h-20 w-20 md:h-24 md:w-24 rounded-3xl overflow-hidden border bg-white shadow-[0_12px_30px_rgba(15,23,42,0.10)]"
                 style={{ borderColor: EKARI.hair }}
               >
+
                 <Image
                   src={profile.photoURL || "/avatar-placeholder.png"}
                   alt={profile.handle || "Profile"}
@@ -413,7 +414,7 @@ function ProfileHeroStorefront({
               </div>
 
               <div className="min-w-0 pt-1 flex-1 pb-1">
-                <h1 className="min-w-0 truncate text-xl md:text-2xl font-black" style={{ color: EKARI.text }}>
+                <h1 className="text-[12px] md:text-xs font-bold" style={{ color: EKARI.text }}>
                   {loading ? "Loading…" : profile.name || profile.handle || "Profile"}
                 </h1>
 

@@ -68,6 +68,7 @@ import { usePathname } from "next/navigation";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { cacheEvent } from "@/lib/eventCache";
 import { cacheDiscussion } from "@/lib/discussionCache";
+import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
 
 /* ---------- Theme ---------- */
 const EKARI = {
@@ -1931,7 +1932,7 @@ export default function DivePage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetFooter, setSheetFooter] = useState<ReactNode>(null);
   const provideFooter = useCallback((node: ReactNode) => setSheetFooter(node), []);
-
+  const { signOutUser } = useAuth();
   const ringStyle = { ["--tw-ring-color" as any]: EKARI.forest } as React.CSSProperties;
 
   /* ============================== */
@@ -2463,11 +2464,16 @@ export default function DivePage() {
 
           <MobileBottomTabs onCreate={() => setSheetOpen(true)} />
 
-          <SideMenuSheet
+          <EkariSideMenuSheet
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
-            onNavigate={navigateFromMenu}
-            items={fullMenu}
+            uid={uid}
+            handle={(profile as any)?.handle ?? null}
+            photoURL={(profile as any)?.photoURL ?? null}
+            profileHref={profileHref}
+            unreadDM={uid ? unreadDM ?? 0 : 0}
+            notifTotal={uid ? notifTotal ?? 0 : 0}
+            onLogout={signOutUser}
           />
         </div>
 

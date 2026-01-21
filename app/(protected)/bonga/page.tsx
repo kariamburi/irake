@@ -41,6 +41,7 @@ import SmartAvatar from "@/app/components/SmartAvatar";
 import clsx from "clsx";
 import { cn } from "@/lib/utils";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
+import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
 
 const EKARI = {
   forest: "#233F39",
@@ -390,7 +391,7 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true);
   const [paging, setPaging] = useState(false);
   const [cursor, setCursor] = useState<DocumentSnapshot | null>(null);
-
+  const { signOutUser } = useAuth();
   // UI state
   const [qStr, setQStr] = useState("");
   const [tab, setTab] = useState<"all" | "unread">("all");
@@ -411,45 +412,7 @@ export default function MessagesPage() {
   const profileHref =
     handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
 
-  const fullMenu: MenuItem[] = useMemo(
-    () => [
-      { key: "deeds", label: "Deeds", href: "/", icon: <IoHomeOutline /> },
-      { key: "market", label: "ekariMarket", href: "/market", icon: <IoCartOutline />, alsoMatch: ["/market"] },
-      { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
-      { key: "studio", label: "Deed studio", href: "/studio/upload", icon: <IoAdd />, requiresAuth: true },
 
-      {
-        key: "notifications",
-        label: "Notifications",
-        href: "/notifications",
-        icon: <IoNotificationsOutline />,
-        requiresAuth: true,
-        badgeCount: uid ? notifTotal ?? 0 : 0,
-      },
-      {
-        key: "bonga",
-        label: "Bonga",
-        href: "/bonga",
-        icon: <IoChatbubblesOutline />,
-        requiresAuth: true,
-        badgeCount: uid ? unreadDM ?? 0 : 0,
-      },
-      { key: "ai", label: "ekari AI", href: "/ai", icon: <IoSparklesOutline /> },
-
-      { key: "profile", label: "Profile", href: profileHref, icon: <IoPersonCircleOutline />, requiresAuth: true },
-      { key: "about", label: "About ekarihub", href: "/about", icon: <IoInformationCircleOutline /> },
-    ],
-    [uid, notifTotal, unreadDM, profileHref]
-  );
-
-  const navigateFromMenu = (href: string, requiresAuth?: boolean) => {
-    setMenuOpen(false);
-    if (requiresAuth && !uid) {
-      window.location.href = `/getstarted?next=${encodeURIComponent(href)}`;
-      return;
-    }
-    window.location.href = href;
-  };
 
   function normalizeUser(raw: any): UserLite | null {
     if (!raw) return null;
@@ -1044,11 +1007,16 @@ export default function MessagesPage() {
 
         <MobileBottomTabs onCreate={() => router.push("/search")} />
 
-        <SideMenuSheet
+        <EkariSideMenuSheet
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
-          onNavigate={navigateFromMenu}
-          items={fullMenu}
+          uid={uid}
+          handle={(profile as any)?.handle ?? null}
+          photoURL={(profile as any)?.photoURL ?? null}
+          profileHref={profileHref}
+          unreadDM={uid ? unreadDM ?? 0 : 0}
+          notifTotal={uid ? notifTotal ?? 0 : 0}
+          onLogout={signOutUser}
         />
       </div>
     );
@@ -1061,12 +1029,16 @@ export default function MessagesPage() {
         {Header}
         {Content}
       </div>
-
-      <SideMenuSheet
+      <EkariSideMenuSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        onNavigate={navigateFromMenu}
-        items={fullMenu}
+        uid={uid}
+        handle={(profile as any)?.handle ?? null}
+        photoURL={(profile as any)?.photoURL ?? null}
+        profileHref={profileHref}
+        unreadDM={uid ? unreadDM ?? 0 : 0}
+        notifTotal={uid ? notifTotal ?? 0 : 0}
+        onLogout={signOutUser}
       />
     </AppShell>
   );

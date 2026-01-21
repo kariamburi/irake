@@ -72,6 +72,7 @@ import { PlayerItem, toPlayerItem } from "@/lib/fire-queries";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { useUserProfile } from "./providers/UserProfileProvider";
 import { AuthorBadgePill } from "./components/AuthorBadgePill";
+import { EkariSideMenuSheet } from "./components/EkariSideMenuSheet";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -2744,9 +2745,11 @@ function MobileShell(props: any) {
 
   // ✅ same hook used by LeftNavDesktop
   const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
-
+  const { signOutUser } = useAuth();
   // if you have profile handle available here, pass it. If not, just null.
   const handle = (profile as any)?.handle ?? null;
+  const profileHref =
+    handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
 
   const fullMenu = useMemo(
     () =>
@@ -2793,7 +2796,7 @@ function MobileShell(props: any) {
         }}
       >
         {/* Top overlay bar (tabs + icons) */}
-        <div className="sticky top-2 z-50">
+        <div className="sticky top-0 z-50">
           <div
             className="h-[50px] w-full px-3 flex items-center justify-between"
             style={{
@@ -2930,11 +2933,16 @@ function MobileShell(props: any) {
           />
         </div>
       </div>
-      <SideMenuSheet
+      <EkariSideMenuSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        onNavigate={navigateFromMenu}
-        items={fullMenu}
+        uid={uid}
+        handle={(profile as any)?.handle ?? null}
+        photoURL={(profile as any)?.photoURL ?? null}
+        profileHref={profileHref}
+        unreadDM={uid ? unreadDM ?? 0 : 0}
+        notifTotal={uid ? notifTotal ?? 0 : 0}
+        onLogout={signOutUser}
       />
 
       {/* Bottom tabs like your app */}
