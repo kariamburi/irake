@@ -380,10 +380,11 @@ export function StoreCoverHero({
         <section className="relative">
             {/* Cover */}
             <div
-                className="relative overflow-hidden rounded-3xl border bg-gray-100"
+                className="relative overflow-hidden rounded-0 lg:rounded-3xl border bg-gray-100"
                 style={{ borderColor: EKARI.hair }}
             >
-                <div className="relative h-[180px] md:h-[240px] w-full">
+                <div className="relative h-[220px] md:h-[240px] w-full">
+
                     <Image
                         src={coverUrl}
                         alt="Store cover"
@@ -410,7 +411,7 @@ export function StoreCoverHero({
                                 }}
                             >
                                 <IoCameraOutline size={16} />
-                                {uploading ? "Uploading…" : "Change cover"}
+                                <span className="hidden sm:inline">{uploading ? "Uploading…" : "Change cover"}</span>
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -446,7 +447,8 @@ export function StoreCoverHero({
 
                     {/* bottom meta row */}
                     <div className="absolute left-0 right-0 bottom-0 px-4 pb-4">
-                        <div className="flex items-end gap-4">
+                        <div className="flex flex-col md:flex-row md:items-end gap-3">
+
                             {/* Avatar */}
                             <div className="relative h-16 w-16 md:h-20 md:w-20 rounded-2xl overflow-hidden border-2 border-white bg-gray-200 shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
                                 <Image src={photoURL} alt="Seller" fill className="object-cover" sizes="80px" />
@@ -455,7 +457,8 @@ export function StoreCoverHero({
                             {/* Name + badges */}
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <h1 className="text-white text-lg md:text-2xl font-black truncate">
+                                    <h1 className="text-white text-lg md:text-2xl font-black truncate max-w-[72vw] md:max-w-none">
+
                                         {displayName}
                                     </h1>
 
@@ -536,58 +539,69 @@ export function StoreCoverHero({
                             </div>
                         </div>
 
-                        {/* Stats + contact chips */}
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black bg-white/15 text-white border border-white/20">
-                                <IoPeopleOutline size={14} />
-                                {nfmt(Number(userDoc?.followersCount ?? 0))} <span className="text-white/70">followers</span>
-                            </span>
-                            <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black bg-white/15 text-white border border-white/20">
-                                <IoEyeOutline size={14} />
-                                {nfmt(Number(userDoc?.profileViews ?? 0))} <span className="text-white/70">views</span>
-                            </span>
-                            <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black bg-white/15 text-white border border-white/20">
-                                <IoHeartOutline size={14} />
-                                {nfmt(Number(userDoc?.likes ?? 0))} <span className="text-white/70">likes</span>
-                            </span>
 
-                            {/* contact chips (optional) */}
-                            {phone && (
-                                <button
-                                    type="button"
-                                    onClick={onCall}
-                                    className="ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black bg-white/90 border"
-                                    style={{ borderColor: "rgba(255,255,255,0.25)", color: EKARI.text }}
-                                >
-                                    <IoCallOutline size={14} />
-                                    Call
-                                </button>
-                            )}
-                            {wa && (
-                                <button
-                                    type="button"
-                                    onClick={onWhatsApp}
-                                    className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black bg-white/90 border"
-                                    style={{ borderColor: "rgba(255,255,255,0.25)", color: EKARI.text }}
-                                >
-                                    <IoLogoWhatsapp size={14} />
-                                    WhatsApp
-                                </button>
-                            )}
-                            {website && (
-                                <button
-                                    type="button"
-                                    onClick={onWebsite}
-                                    className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black bg-white/90 border"
-                                    style={{ borderColor: "rgba(255,255,255,0.25)", color: EKARI.text }}
-                                >
-                                    <IoGlobeOutline size={14} />
-                                    Website
-                                </button>
-                            )}
-                        </div>
                     </div>
                 </div>
+            </div>
+            {/* ✅ BELOW cover: mobile-safe stats + contacts (no overlap) */}
+            <div className="mt-3 rounded-3xl border bg-white p-3 md:p-4"
+                style={{ borderColor: EKARI.hair }}>
+                {/* Stats */}
+                <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black border"
+                        style={{ borderColor: EKARI.hair, color: EKARI.text }}>
+                        <IoPeopleOutline size={14} />
+                        {nfmt(Number(userDoc?.followersCount ?? 0))} <span style={{ color: EKARI.dim }}>followers</span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black border"
+                        style={{ borderColor: EKARI.hair, color: EKARI.text }}>
+                        <IoEyeOutline size={14} />
+                        {nfmt(Number(userDoc?.profileViews ?? 0))} <span style={{ color: EKARI.dim }}>views</span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black border"
+                        style={{ borderColor: EKARI.hair, color: EKARI.text }}>
+                        <IoHeartOutline size={14} />
+                        {nfmt(Number(userDoc?.likes ?? 0))} <span style={{ color: EKARI.dim }}>likes</span>
+                    </span>
+                </div>
+
+                {/* Contacts (mobile grid, desktop row) */}
+                {(phone || wa || website) && (
+                    <div className="mt-3 grid grid-cols-3 gap-2 md:flex md:items-center">
+                        {phone && (
+                            <button
+                                type="button"
+                                onClick={onCall}
+                                className="h-10 px-2 rounded-2xl border font-black text-xs inline-flex items-center justify-center gap-2"
+                                style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
+                            >
+                                <IoCallOutline size={14} /> Call
+                            </button>
+                        )}
+                        {wa && (
+                            <button
+                                type="button"
+                                onClick={onWhatsApp}
+                                className="h-10 px-2 rounded-2xl border font-black text-xs inline-flex items-center justify-center gap-2"
+                                style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
+                            >
+                                <IoLogoWhatsapp size={14} /> WhatsApp
+                            </button>
+                        )}
+                        {website && (
+                            <button
+                                type="button"
+                                onClick={onWebsite}
+                                className="h-10 px-2 rounded-2xl border font-black text-xs inline-flex items-center justify-center gap-2"
+                                style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
+                            >
+                                <IoGlobeOutline size={14} /> Website
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Mobile actions row */}
@@ -1425,8 +1439,8 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
 
     return (
         <section className="mb-6">
-            <div className="rounded-3xl border bg-[#FAFAFA] overflow-hidden" style={{ borderColor: EKARI.hair }}>
-                <div className="p-5">
+            <div className="rounded-3xl lg:rounded-3xl border bg-[#FAFAFA] overflow-hidden" style={{ borderColor: EKARI.hair }}>
+                <div className="p-2 lg:p-5">
                     <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-base font-black" style={{ color: EKARI.text }}>
                             Store Insights
