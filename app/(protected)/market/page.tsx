@@ -1186,7 +1186,8 @@ export default function MarketPage() {
             )}
           </div>
 
-          <MobileBottomTabs onCreate={() => setSellOpen(true)} />
+          {!sellOpen && <MobileBottomTabs onCreate={() => setSellOpen(true)} />}
+
           <SideMenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigateFromMenu} items={fullMenu} />
         </div>
 

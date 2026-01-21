@@ -800,7 +800,7 @@ function LocationPickerModal({
                     </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-end gap-2">
+                <div className="mt-3 mb-[60px] flex items-center justify-end gap-2">
                     <button
                         onClick={onCancel}
                         className="h-10 px-4 rounded-xl border border-gray-200 hover:bg-gray-50 font-semibold"
@@ -821,6 +821,7 @@ function LocationPickerModal({
                         Use this location
                     </button>
                 </div>
+
             </div>
             {ui.modal}
         </div>
