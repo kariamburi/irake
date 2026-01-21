@@ -61,6 +61,7 @@ import {
 
 import { Line } from "react-chartjs-2";
 import { ref as sRef, getDownloadURL, uploadBytes } from "firebase/storage";
+import OpenInAppBanner from "./OpenInAppBanner";
 
 // ✅ REQUIRED (register scales/elements)
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
@@ -317,11 +318,6 @@ export function StoreCoverHero({
 }) {
     const auth = getAuth();
     const me = auth.currentUser?.uid || null;
-    const isDesktop = useIsDesktop();
-
-    const coverUrl =
-        (userDoc as any)?.storeCoverUrl ||
-        "/store-cover-default.jpg"; // ✅ add a simple default image in /public or keep null
 
     const [uploading, setUploading] = React.useState(false);
     const [err, setErr] = React.useState<string | null>(null);
@@ -331,6 +327,9 @@ export function StoreCoverHero({
     const phone = cleanPhone(userDoc?.phone || null);
     const wa = toWhatsAppLink(userDoc?.whatsapp || userDoc?.phone || null);
     const website = toWebsiteLink(userDoc?.website || null);
+    const coverUrl =
+        (userDoc as any)?.storeCoverUrl ||
+        "/store-cover-default.jpg"; // ✅ add a simple default image in /public or keep null
 
     async function handlePickCover(file: File) {
         setErr(null);
@@ -2010,6 +2009,23 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
     const wa = toWhatsAppLink(userDoc?.whatsapp || userDoc?.phone || null);
     const website = toWebsiteLink(userDoc?.website || null);
     const isDesktop = useIsDesktop();
+    // ✅ Deep link + "Open in App" banner
+    const srcParam = useMemo(() => {
+        if (typeof window === "undefined") return "profile" as const;
+        const s = new URLSearchParams(window.location.search).get("src");
+        return s === "market" || s === "search" || s === "share" || s === "profile" ? s : "profile";
+    }, []);
+
+    const webUrl = useMemo(() => {
+        if (typeof window !== "undefined") return window.location.href;
+        return `https://ekarihub.com/store/${encodeURIComponent(sellerId)}?src=${encodeURIComponent(srcParam)}`;
+    }, [sellerId, srcParam]);
+
+    // Match your RN linking config (recommended route: ekarihub:///store/:sellerId)
+    const appUrl = useMemo(() => {
+        return `ekarihub:///store/${encodeURIComponent(sellerId)}?src=${encodeURIComponent(srcParam)}`;
+    }, [sellerId, srcParam]);
+
 
     // 4) Apply sorting AFTER filtering:
     const sortedFilteredItems = useMemo(() => {
@@ -2057,9 +2073,12 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         if (!sellerId || !storefrontAllowed) return;
 
         const src = new URLSearchParams(window.location.search).get("src");
-        bumpStoreView(sellerId, src === "market" || src === "search" || src === "share" ? src : "profile").catch(
-            () => { }
-        );
+        const v =
+            src === "market" || src === "search" || src === "share" || src === "profile"
+                ? src
+                : "profile";
+
+        bumpStoreView(sellerId, v).catch(() => { });
     }, [sellerId, storefrontAllowed]);
 
     /**
@@ -2188,6 +2207,15 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
     const Page = (
         <main className="min-h-screen w-full bg-white">
+            {/* ✅ Open in app banner (usually show on mobile web only) */}
+            {!isDesktop && (<OpenInAppBanner
+                webUrl={webUrl}
+                appUrl={appUrl}
+                title="Open this store in ekarihub"
+                subtitle="Faster loading, messaging, and full features."
+                playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+                appStoreUrl="https://apps.apple.com" // replace when ready
+            />)}
             {/* Header */}
             <div className="border-b" style={{ borderColor: EKARI.hair }}>
 
