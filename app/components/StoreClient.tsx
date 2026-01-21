@@ -258,11 +258,24 @@ async function resizeImageWeb(file: File, targetW = 1600, targetH = 600, quality
     return blob;
 }
 
-function safeName(u: UserDoc | null) {
-    if (!u) return null;
-    const full = [u.firstName, u.surname].filter(Boolean).join(" ").trim();
-    return full || null;
+function useMediaQuery(queryStr: string) {
+    const [matches, setMatches] = React.useState(false);
+
+    React.useEffect(() => {
+        const mq = window.matchMedia(queryStr);
+        const onChange = () => setMatches(mq.matches);
+        onChange();
+        mq.addEventListener?.("change", onChange);
+        return () => mq.removeEventListener?.("change", onChange);
+    }, [queryStr]);
+
+    return matches;
 }
+
+function useIsDesktop() {
+    return useMediaQuery("(min-width: 1024px)");
+}
+
 
 /* ---------------- Cover Hero ---------------- */
 
@@ -304,6 +317,7 @@ export function StoreCoverHero({
 }) {
     const auth = getAuth();
     const me = auth.currentUser?.uid || null;
+    const isDesktop = useIsDesktop();
 
     const coverUrl =
         (userDoc as any)?.storeCoverUrl ||
@@ -1981,6 +1995,8 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
     const phone = cleanPhone(userDoc?.phone || null);
     const wa = toWhatsAppLink(userDoc?.whatsapp || userDoc?.phone || null);
     const website = toWebsiteLink(userDoc?.website || null);
+    const isDesktop = useIsDesktop();
+
     // 4) Apply sorting AFTER filtering:
     const sortedFilteredItems = useMemo(() => {
         const arr = [...filteredItems];
@@ -2155,203 +2171,191 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         </button>
     );
 
-    const StatPill = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
-        <div
-            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black"
-            style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
-            title={label}
-        >
-            {icon}
-            <span>{value}</span>
-            <span className="font-semibold" style={{ color: EKARI.dim }}>
-                {label}
-            </span>
-        </div>
-    );
 
-    return (
-        <AppShell>
-            <main className="min-h-screen w-full bg-white">
-                {/* Header */}
-                <div className="border-b" style={{ borderColor: EKARI.hair }}>
+    const Page = (
+        <main className="min-h-screen w-full bg-white">
+            {/* Header */}
+            <div className="border-b" style={{ borderColor: EKARI.hair }}>
 
 
-                    <StoreCoverHero
-                        sellerId={sellerId}
-                        userDoc={userDoc}
-                        displayName={displayName}
-                        photoURL={photoURL}
-                        showVerified={showVerified}
-                        isOwner={isOwner}
-                        isPremiumStore={isPremiumStore}
-                        isFollowing={isFollowing}
-                        onToggleFollow={toggleFollow}
-                        onMessage={onContactSeller}
-                        onShare={onShareStore}
-                        onCall={
-                            phone
-                                ? async () => {
-                                    try {
-                                        await bumpLead({ sellerId, kind: "call" });
-                                    } finally {
-                                        window.location.href = `tel:${phone}`;
-                                    }
+                <StoreCoverHero
+                    sellerId={sellerId}
+                    userDoc={userDoc}
+                    displayName={displayName}
+                    photoURL={photoURL}
+                    showVerified={showVerified}
+                    isOwner={isOwner}
+                    isPremiumStore={isPremiumStore}
+                    isFollowing={isFollowing}
+                    onToggleFollow={toggleFollow}
+                    onMessage={onContactSeller}
+                    onShare={onShareStore}
+                    onCall={
+                        phone
+                            ? async () => {
+                                try {
+                                    await bumpLead({ sellerId, kind: "call" });
+                                } finally {
+                                    window.location.href = `tel:${phone}`;
                                 }
-                                : undefined
-                        }
-                        onWhatsApp={
-                            wa
-                                ? () => {
-                                    bumpLead({ sellerId, kind: "whatsapp" }).catch(() => { });
-                                    window.open(wa, "_blank");
-                                }
-                                : undefined
-                        }
-                        onWebsite={
-                            website
-                                ? () => window.open(website, "_blank")
-                                : undefined
-                        }
-                        locationText={locationText}
-                    />
+                            }
+                            : undefined
+                    }
+                    onWhatsApp={
+                        wa
+                            ? () => {
+                                bumpLead({ sellerId, kind: "whatsapp" }).catch(() => { });
+                                window.open(wa, "_blank");
+                            }
+                            : undefined
+                    }
+                    onWebsite={
+                        website
+                            ? () => window.open(website, "_blank")
+                            : undefined
+                    }
+                    locationText={locationText}
+                />
 
 
-                    {/* Tabs */}
-                    <div className="max-w-5xl mx-auto px-4 mt-2 md:mt-3 mb-5">
-                        <SegmentedTabs value={tab} onChange={setTab} counts={counts} />
+                {/* Tabs */}
+                <div className="max-w-5xl mx-auto px-4 mt-2 md:mt-3 mb-5">
+                    <SegmentedTabs value={tab} onChange={setTab} counts={counts} />
+                </div>
+
+
+            </div>
+
+            {/* Body */}
+            <div className="max-w-5xl mx-auto px-4 py-5">
+                {loading ? (
+                    <div className="text-sm" style={{ color: EKARI.dim }}>
+                        Loading listings…
                     </div>
-
-
-                </div>
-
-                {/* Body */}
-                <div className="max-w-5xl mx-auto px-4 py-5">
-                    {loading ? (
-                        <div className="text-sm" style={{ color: EKARI.dim }}>
-                            Loading listings…
-                        </div>
-                    ) : !storefrontAllowed ? (
-                        <div className="rounded-2xl border p-5 bg-[#FAFAFA]" style={{ borderColor: EKARI.hair }}>
-                            <div className="flex items-start gap-3">
-                                <div className="mt-0.5">
-                                    <IoLockClosedOutline size={18} style={{ color: EKARI.dim }} />
-                                </div>
-                                <div className="min-w-0">
-                                    <h2 className="font-black" style={{ color: EKARI.text }}>
-                                        Storefront locked
-                                    </h2>
-                                    <p className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                                        This seller hasn’t enabled a Dedicated Storefront on their plan yet.
-                                    </p>
-                                    <div className="mt-3">
-                                        <Link href="/market" className="text-sm font-black underline" style={{ color: EKARI.forest }}>
-                                            Browse the market instead
-                                        </Link>
-                                    </div>
+                ) : !storefrontAllowed ? (
+                    <div className="rounded-2xl border p-5 bg-[#FAFAFA]" style={{ borderColor: EKARI.hair }}>
+                        <div className="flex items-start gap-3">
+                            <div className="mt-0.5">
+                                <IoLockClosedOutline size={18} style={{ color: EKARI.dim }} />
+                            </div>
+                            <div className="min-w-0">
+                                <h2 className="font-black" style={{ color: EKARI.text }}>
+                                    Storefront locked
+                                </h2>
+                                <p className="text-sm mt-1" style={{ color: EKARI.dim }}>
+                                    This seller hasn’t enabled a Dedicated Storefront on their plan yet.
+                                </p>
+                                <div className="mt-3">
+                                    <Link href="/market" className="text-sm font-black underline" style={{ color: EKARI.forest }}>
+                                        Browse the market instead
+                                    </Link>
                                 </div>
                             </div>
                         </div>
-                    ) : filteredItems.length === 0 ? (
-                        <div className="text-sm" style={{ color: EKARI.dim }}>
-                            {tab === "all"
-                                ? "No active listings yet."
-                                : tab === "featured"
-                                    ? "No featured listings right now."
-                                    : "No boosted listings right now."}
-                        </div>
-                    ) : (
-                        <>
+                    </div>
+                ) : filteredItems.length === 0 ? (
+                    <div className="text-sm" style={{ color: EKARI.dim }}>
+                        {tab === "all"
+                            ? "No active listings yet."
+                            : tab === "featured"
+                                ? "No featured listings right now."
+                                : "No boosted listings right now."}
+                    </div>
+                ) : (
+                    <>
 
-                            <CatalogHeader
-                                tab={tab}
-                                sort={sort}
-                                onSortChange={setSort}
-                                subtitle={
-                                    tab === "all"
-                                        ? "All active items from this store."
-                                        : tab === "featured"
-                                            ? "Highlighted items with premium exposure."
-                                            : "Boosted items currently getting more reach."
-                                }
-                            />
-
-
-
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                {sortedFilteredItems.map((p: any) => (
-                                    <ProductCard key={p.id} p={p} />
-                                ))}
-                            </div>
-
-                            <div className="mt-6 flex justify-center">
-                                {hasMore && tab === "all" ? (
-                                    <button
-                                        onClick={loadMore}
-                                        disabled={loadingMore}
-                                        className={clsx(
-                                            "h-11 px-5 rounded-xl font-black border transition",
-                                            loadingMore ? "opacity-60 cursor-not-allowed" : "hover:bg-black/[0.03]"
-                                        )}
-                                        style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
-                                    >
-                                        {loadingMore ? "Loading…" : "Load more"}
-                                    </button>
-                                ) : (
-                                    <div className="text-xs" style={{ color: EKARI.dim }}>
-                                        {tab === "all" ? "End of listings." : "Tip: switch to All to load more."}
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {isOwner && (<> {/* ✅ Insights section */}
-                    <div className="max-w-5xl mx-auto px-4">
-                        <StoreInsights
-                            tier={insightsTier}
-                            data={insights}
-                            dailyRows={dailyRows}
-                            onUpgrade={() => router.push("/seller/dashboard")}
-                            onExportCsv={() => {
-                                downloadCSV(`store-${sellerId}-daily-stats.csv`, dailyRows);
-                            }}
-                            onExportSummary={() => {
-                                downloadCSV(`store-${sellerId}-summary.csv`, [
-                                    {
-                                        sellerId,
-                                        storeViews7d: insights.storeViews7d,
-                                        listingClicks7d: insights.listingClicks7d,
-                                        leads7d: insights.leads7d,
-                                        topListingTitle: insights.topListingTitle,
-                                        topListingViews: insights.topListingViews,
-                                        ...insights.traffic7d,
-                                    },
-                                ]);
-                            }}
+                        <CatalogHeader
+                            tab={tab}
+                            sort={sort}
+                            onSortChange={setSort}
+                            subtitle={
+                                tab === "all"
+                                    ? "All active items from this store."
+                                    : tab === "featured"
+                                        ? "Highlighted items with premium exposure."
+                                        : "Boosted items currently getting more reach."
+                            }
                         />
-                    </div>
-                </>)}
-                {/* Guest-only premium badge */}
-                {!isOwner && isPremiumStore && (
-                    <div
-                        className="max-w-5xl mx-auto px-4 mb-4 rounded-2xl border bg-[#FFFBF3] p-4 flex items-start gap-3"
-                        style={{ borderColor: EKARI.hair }}
-                    >
-                        <div className="mt-0.5">
-                            <IoStorefrontOutline size={18} style={{ color: EKARI.gold }} />
+
+
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {sortedFilteredItems.map((p: any) => (
+                                <ProductCard key={p.id} p={p} />
+                            ))}
                         </div>
-                        <div className="min-w-0">
-                            <div className="text-sm font-black" style={{ color: EKARI.text }}>
-                                This store is premium
-                            </div>
-                            <div className="mt-0.5 text-sm" style={{ color: EKARI.dim }}>
-                                Dedicated Storefront sellers often respond faster and keep listings updated.
-                            </div>
+
+                        <div className="mt-6 flex justify-center">
+                            {hasMore && tab === "all" ? (
+                                <button
+                                    onClick={loadMore}
+                                    disabled={loadingMore}
+                                    className={clsx(
+                                        "h-11 px-5 rounded-xl font-black border transition",
+                                        loadingMore ? "opacity-60 cursor-not-allowed" : "hover:bg-black/[0.03]"
+                                    )}
+                                    style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
+                                >
+                                    {loadingMore ? "Loading…" : "Load more"}
+                                </button>
+                            ) : (
+                                <div className="text-xs" style={{ color: EKARI.dim }}>
+                                    {tab === "all" ? "End of listings." : "Tip: switch to All to load more."}
+                                </div>
+                            )}
                         </div>
-                    </div>
+                    </>
                 )}
-            </main>
-        </AppShell>
+            </div>
+
+            {isOwner && (<> {/* ✅ Insights section */}
+                <div className="max-w-5xl mx-auto px-4">
+                    <StoreInsights
+                        tier={insightsTier}
+                        data={insights}
+                        dailyRows={dailyRows}
+                        onUpgrade={() => router.push("/seller/dashboard")}
+                        onExportCsv={() => {
+                            downloadCSV(`store-${sellerId}-daily-stats.csv`, dailyRows);
+                        }}
+                        onExportSummary={() => {
+                            downloadCSV(`store-${sellerId}-summary.csv`, [
+                                {
+                                    sellerId,
+                                    storeViews7d: insights.storeViews7d,
+                                    listingClicks7d: insights.listingClicks7d,
+                                    leads7d: insights.leads7d,
+                                    topListingTitle: insights.topListingTitle,
+                                    topListingViews: insights.topListingViews,
+                                    ...insights.traffic7d,
+                                },
+                            ]);
+                        }}
+                    />
+                </div>
+            </>)}
+            {/* Guest-only premium badge */}
+            {!isOwner && isPremiumStore && (
+                <div
+                    className="max-w-5xl mx-auto px-4 mb-4 rounded-2xl border bg-[#FFFBF3] p-4 flex items-start gap-3"
+                    style={{ borderColor: EKARI.hair }}
+                >
+                    <div className="mt-0.5">
+                        <IoStorefrontOutline size={18} style={{ color: EKARI.gold }} />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="text-sm font-black" style={{ color: EKARI.text }}>
+                            This store is premium
+                        </div>
+                        <div className="mt-0.5 text-sm" style={{ color: EKARI.dim }}>
+                            Dedicated Storefront sellers often respond faster and keep listings updated.
+                        </div>
+                    </div>
+                </div>
+            )}
+        </main>
     );
+
+    return isDesktop ? <AppShell>{Page}</AppShell> : Page;
+
 }

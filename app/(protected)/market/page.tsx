@@ -47,6 +47,7 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { EKARI } from "@/app/constants/constants";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { useAuth } from "@/app/hooks/useAuth";
+import clsx from "clsx";
 
 /* ---------------- utils ---------------- */
 type SortKey = "recent" | "priceAsc" | "priceDesc";
@@ -143,7 +144,78 @@ function PremiumPillButton({
 }
 
 /* ---------------- bottom tabs (premium) ---------------- */
+/* -------------------- Mobile bottom tabs (keep logic) -------------------- */
+function hexToRgba(hex: string, alpha: number) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
+}
 function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
+  const router = useRouter();
+
+  const TabBtn = ({
+    label,
+    icon,
+    onClick,
+    active,
+  }: {
+    label: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+    active?: boolean;
+  }) => (
+    <button
+      onClick={onClick}
+      className={clsx(
+        "flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition",
+        active ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"
+      )}
+      aria-current={active ? "page" : undefined}
+    >
+      <div style={{ color: active ? EKARI.forest : EKARI.text }}>{icon}</div>
+      <span className="text-[11px] font-semibold" style={{ color: active ? EKARI.forest : EKARI.text }}>
+        {label}
+      </span>
+    </button>
+  );
+
+  const isBongaActive = true;
+
+  return (
+    <div className="fixed left-0 right-0 z-[60]" style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <div
+        className="mx-auto w-full max-w-[520px] h-[72px] px-4 flex items-center justify-between"
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderTop: `1px solid ${EKARI.hair}`,
+        }}
+      >
+        <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} onClick={() => router.push("/")} />
+        <TabBtn label="ekariMarket" icon={<IoCartOutline size={20} />} onClick={() => router.push("/market")} />
+
+        <button
+          onClick={onCreate}
+          className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg border"
+          style={{
+            background: `linear-gradient(135deg, ${EKARI.gold}, ${hexToRgba(EKARI.gold, 0.78)})`,
+            borderColor: "rgba(0,0,0,0.06)",
+          }}
+          aria-label="New chat"
+        >
+          <IoAdd size={26} color="#111827" />
+        </button>
+
+        <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} onClick={() => router.push("/nexus")} />
+        <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} onClick={() => router.push("/bonga")} active={isBongaActive} />
+      </div>
+    </div>
+  );
+}
+
+function MobileBottomTabss({ onCreate }: { onCreate: () => void }) {
   const router = useRouter();
 
   const TabBtn = ({
@@ -513,12 +585,6 @@ export default function MarketPage() {
   const featTimer = useRef<number | null>(null);
   const featPausedRef = useRef(false);
 
-  const openProduct = (p: Product) => {
-    try {
-      sessionStorage.setItem(`market:listing:${p.id}`, JSON.stringify(p));
-    } catch { }
-    router.push(`/market/${p.id}`);
-  };
 
   useEffect(() => {
     const now = new Date();
@@ -581,7 +647,7 @@ export default function MarketPage() {
   }, [featuredItems, scrollFeaturedByCards]);
 
   const FeaturedStrip = !initialLoading && featuredItems.length > 0 ? (
-    <div className={cn(isMobile ? "px-3 mt-3" : "px-4 mt-4")}>
+    <div className={cn(isMobile ? "px-3 mb-2 mt-3" : "px-4 mt-4")}>
       <PremiumSurface
         className={cn(isMobile ? "px-3 py-3" : "px-4 py-4")}
         style={{
@@ -639,13 +705,23 @@ export default function MarketPage() {
         <div className="relative">
           <div
             ref={featRef}
-            className={cn("flex gap-3 overflow-x-auto no-scrollbar pb-1", "snap-x snap-mandatory")}
-            onMouseEnter={() => (featPausedRef.current = true)}
-            onMouseLeave={() => (featPausedRef.current = false)}
-            onTouchStart={() => (featPausedRef.current = true)}
-            onTouchEnd={() => (featPausedRef.current = false)}
-            style={{ WebkitOverflowScrolling: "touch" }}
+            className={cn(
+              "flex gap-3 overflow-x-auto overflow-y-hidden no-scrollbar pb-0",
+              "snap-x snap-mandatory"
+            )}
+            style={{
+              WebkitOverflowScrolling: "touch",
+              touchAction: "pan-x",     // ✅ horizontal gestures handled here
+            }}
+            onWheel={(e) => {
+              // ✅ Convert mouse wheel vertical → horizontal scroll on desktop trackpads/mice
+              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.currentTarget.scrollLeft += e.deltaY;
+                e.preventDefault();
+              }
+            }}
           >
+
             {featuredItems.map((p) => (
               <div key={p.id} data-feat-card className="min-w-[190px] max-w-[190px] snap-start">
                 <div
@@ -960,7 +1036,10 @@ export default function MarketPage() {
   if (isMobile) {
     return (
       <>
-        <div className="fixed inset-0" style={premiumBg}>
+        <div className="fixed inset-0 -z-10" style={premiumBg} />
+
+        {/* Scrollable page content */}
+        <div className="min-h-[100dvh] w-full">
           <div
             className="sticky top-0 z-50"
             style={{
