@@ -576,6 +576,9 @@ function ProfileHeroStorefront({
               <span>
                 Powered by <span className="font-black" style={{ color: EKARI.text }}>ekarihub</span>
               </span>
+              <Link href="/seller/dashboard?tab=packages" className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]" style={{ color: EKARI.text }}>
+                <IoGridOutline size={16} /> Seller dashboard
+              </Link>
               {showAdminBadge ? (
                 <Link href="/admin/overview" className="font-black" style={{ color: EKARI.text }}>
                   Admin dashboard
