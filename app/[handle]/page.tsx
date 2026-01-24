@@ -1832,7 +1832,7 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
               >
                 <div className="flex items-start gap-3">
                   <button
-                    onClick={() => router.push(`/nexus/events/${e.id}`)}
+                    onClick={() => router.push(`/nexus/event/${e.id}`)}
                     className="flex-1 min-w-0 text-left"
                   >
                     <div className="flex items-start gap-3">

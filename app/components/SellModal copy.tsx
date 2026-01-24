@@ -16,8 +16,6 @@ import {
     onSnapshot,
     orderBy,
     query,
-    getDocs,
-    where,
 } from "firebase/firestore";
 import {
     getStorage,
@@ -43,8 +41,7 @@ import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { ConfirmModal } from "./ConfirmModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { app, db } from "@/lib/firebase";
-import { ListingLimitDialogSimple } from "./ListingLimitDialog";
+import { app } from "@/lib/firebase";
 
 /* ================= Theme ================= */
 const EKARI = {
@@ -184,47 +181,7 @@ type UseMarketCatalogResult = {
     loading: boolean;
     error?: string;
 };
-type BillingCycle = "monthly" | "yearly";
 
-type PackageDoc = {
-    id: string;
-    name: string;
-    target: string;
-    priceMonthlyUsd: number;
-    yearlyDiscountPct?: number;
-    priceYearlyUsd: number;
-    activeListingsLimit: number | null;
-    recommended?: boolean;
-    priorityRanking: boolean;
-    topOfSearch: boolean;
-    verifiedBadge: boolean;
-    storefront: boolean;
-    analyticsLevel: "none" | "basic" | "advanced";
-    monthlyBoostCredits: number;
-    weeklyFeaturedCredits: number;
-    status: "active" | "disabled";
-    features: string[];
-    sortOrder: number;
-};
-
-type SellerSubscription = {
-    packageId: string;
-    billingCycle: BillingCycle;
-    status: "active" | "trialing" | "expired" | "canceled";
-    currentPeriodEnd?: any;
-    credits?: {
-        boostMonthKey?: string;
-        featuredWeekKey?: string;
-        boostCreditsRemaining?: number;
-        featuredCreditsRemaining?: number;
-    };
-    boostCreditsRemaining?: number;
-    featuredCreditsRemaining?: number;
-};
-
-function isSubActive(sub: SellerSubscription | null) {
-    return sub?.status === "active";
-}
 /* ===== Hook: fetch catalog from Firestore ===== */
 
 function useMarketCatalog(): UseMarketCatalogResult {
@@ -301,50 +258,6 @@ function useMarketCatalog(): UseMarketCatalogResult {
 
     return { types, categories, items, loading, error };
 }
-type SubDoc = SellerSubscription & {
-    entitlements?: { activeListingsLimit?: number | null };
-    activeListingsCount?: number; // mirror
-};
-
-function getActiveLimitForClient(sub: SubDoc | null) {
-    const FREE_TIER_LIMIT = 3;
-
-    const active = isSubActive(sub);
-
-    if (!active) return FREE_TIER_LIMIT;
-
-    // IMPORTANT: preserve null (null => unlimited)
-    const limit = sub?.entitlements?.activeListingsLimit;
-
-    // If it's explicitly null -> unlimited
-    if (limit === null) return null;
-
-    // If it's a valid number -> use it
-    if (typeof limit === "number" && Number.isFinite(limit) && limit >= 0) return limit;
-
-    // If missing/undefined/invalid -> safest default (pick what you prefer)
-    // Option A: treat missing as 0 (no listings)
-    return 0;
-
-    // Option B (alternative): treat missing as FREE tier
-    // return FREE_TIER_LIMIT;
-}
-
-function getRemainingSlots(sub: SubDoc | null) {
-    const limit = getActiveLimitForClient(sub);
-
-    const used = Number.isFinite((sub as any)?.activeListingsCount)
-        ? Math.max(0, Number((sub as any).activeListingsCount))
-        : 0;
-
-    if (limit === null) {
-        return { limit: null as null, used, remaining: null as null, reached: false };
-    }
-
-    const remaining = Math.max(0, limit - used);
-    return { limit, used, remaining, reached: remaining <= 0 };
-}
-
 
 /* ===== Helpers from catalog (Firestore-based) ===== */
 
@@ -391,27 +304,7 @@ const COUNTY_REGEXES = KENYA_COUNTIES.map((c) => {
     const pat = c.replace(/[\-\s]/g, "[\\-\\s]?").replace(/’|'/g, "['’]?");
     return { name: c, re: new RegExp(`\\b${pat}\\b`, "i") };
 });
-function usd(n: number) {
-    return `USD ${n.toLocaleString("en-US")}`;
-}
-function kes(n: number) {
-    return `KES ${Math.round(n).toLocaleString("en-KE")}`;
-}
 
-function tierPill(name: string) {
-    const n = (name || "").toLowerCase();
-    if (n.includes("silver")) return { bg: "#F3F4F6", fg: "#111827", ring: "#E5E7EB" };
-    if (n.includes("gold")) return { bg: "#FFF7ED", fg: "#9A3412", ring: "#FED7AA" };
-    if (n.includes("platinum")) return { bg: "#EEF2FF", fg: "#3730A3", ring: "#C7D2FE" };
-    return { bg: "#F8FAFC", fg: "#0F172A", ring: "#E2E8F0" };
-}
-function pickAccent(name: string) {
-    const n = (name || "").toLowerCase();
-    if (n.includes("platinum")) return { accent: "#4F46E5", soft: "#EEF2FF", ring: "#C7D2FE" };
-    if (n.includes("gold")) return { accent: EKARI.gold, soft: "#FFF7ED", ring: "#FED7AA" };
-    if (n.includes("silver")) return { accent: "#64748B", soft: "#F1F5F9", ring: "#E2E8F0" };
-    return { accent: EKARI.forest, soft: "#ECFDF5", ring: "#BBF7D0" };
-}
 /** Read an ImageBitmap or HTMLImage for drawing onto canvas */
 async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
     if ("createImageBitmap" in window) {
@@ -431,7 +324,12 @@ async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
     });
     return img;
 }
-
+type AuthorBadge = {
+    verificationStatus?: "approved" | "pending" | "rejected" | "none";
+    verificationType?: "individual" | "business" | "company" | "organization";
+    verificationRoleLabel?: string | null;
+    verificationOrganizationName?: string | null;
+};
 
 function pruneUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
     const out: any = {};
@@ -1719,24 +1617,8 @@ export default function SellModal({
     // Smooth open animation like ConfirmModal
     const [sheetVisible, setSheetVisible] = useState(false);
     const [requireVerifiedToPostProduct, setRequireVerifiedToPostProduct] = useState(true);
-    const [billing, setBilling] = useState<BillingCycle>("monthly");
-    const [limitOpen, setLimitOpen] = React.useState(false);
-    const [limitMsg, setLimitMsg] = React.useState("");
-    // subscription + packages
-    const [checkingSub, setCheckingSub] = useState(true);
-    const [sub, setSub] = useState<SellerSubscription | null>(null);
-    const [packages, setPackages] = useState<PackageDoc[]>([]);
+    const [marketGateLoaded, setMarketGateLoaded] = useState(false);
 
-    // flow states
-    type ModalStep = "form" | "plan";
-    const [modalStep, setModalStep] = useState<ModalStep>("form");
-
-
-    const [publishing, setPublishing] = useState(false);
-
-    // draft tracking
-    const [draftListingId, setDraftListingId] = useState<string | null>(null);
-    const [draftBase, setDraftBase] = useState<any>(null);
     const ui = useConfirmUI();
 
     useEffect(() => {
@@ -1756,8 +1638,6 @@ export default function SellModal({
     const [profile, setProfile] = useState<any>([]);
     // Currency preference (KES / USD)
     const [currency, setCurrency] = useState<CurrencyCode>("KES");
-    const [effectiveRate, setEffectiveRate] = useState<number>(130);
-
     useEffect(() => {
         const auth = getAuth();
         const user = auth.currentUser;
@@ -1823,71 +1703,19 @@ export default function SellModal({
                         ? data.requireVerifiedToPostProduct
                         : true
                 );
-                setEffectiveRate(data.usdToKesRate);
+                setMarketGateLoaded(true);
             },
             (err) => {
                 console.error("Failed to load market gate setting", err);
                 setRequireVerifiedToPostProduct(true);
-                // setMarketGateLoaded(true);
+                setMarketGateLoaded(true);
             }
         );
 
         return () => unsub();
     }, []);
-    const displayPriceText = (priceUsdMajor: number) => {
-        if (currency === "USD") return usd(priceUsdMajor);
-        return kes(priceUsdMajor * effectiveRate);
-    };
-
     const canPublish =
         !requireVerifiedToPostProduct || verificationStatus === "approved";
-    const slots = useMemo(() => getRemainingSlots(sub as any), [sub]);
-
-
-    // -------- subscription snapshot --------
-    useEffect(() => {
-        const auth = getAuth(app);
-        if (!auth.currentUser) return;
-
-        const uid = auth.currentUser.uid;
-        const ref = doc(db, "sellerSubscriptions", uid);
-
-        const unsub = onSnapshot(
-            ref,
-            (snap) => {
-                setSub(snap.exists() ? (snap.data() as any) : null);
-                // console.log(snap.data() as any);
-                setCheckingSub(false);
-            },
-            () => {
-                setSub(null);
-                setCheckingSub(false);
-            }
-        );
-
-        return () => unsub();
-    }, []);
-
-    // -------- load packages ONLY if NO active subscription --------
-    useEffect(() => {
-        if (checkingSub) return;
-
-        if (isSubActive(sub)) {
-            setPackages([]);
-            return;
-        }
-
-        (async () => {
-            const qy = query(
-                collection(db, "packages"),
-                where("status", "==", "active"),
-                orderBy("sortOrder", "asc")
-            );
-            const snap = await getDocs(qy);
-            const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as PackageDoc[];
-            setPackages(list);
-        })();
-    }, [checkingSub, sub]);
 
     // Build type options from Firestore with a fallback order
     const fallbackTypes: MarketType[] = ["product", "animal", "tree", "lease", "service"];
@@ -2038,9 +1866,6 @@ export default function SellModal({
             setLandPolygon([]);
             setLandCenter(null);
             setPolygonModalOpen(false);
-
-            setDraftListingId(null);
-            setDraftBase(null);
         }
     }, [open]);
 
@@ -2190,144 +2015,169 @@ export default function SellModal({
     }, [step, canNext, typeSel, name, rate, billingUnit, photos.length, placeText, coords, landPolygon.length]);
 
     const onBack = useCallback(() => {
-        // ✅ If we're on Plan step, go back to the form (last step)
-        if (modalStep === "plan") {
-            setModalStep("form");
-            setStep(4); // or whatever your last form step index is
-            return;
-        }
-
-        // ✅ normal form back logic
         if (step <= 0) return;
 
-        // from step 3 go back to step 1 (because step 2 is skipped)
+        // ✅ from step 3 go back to step 1 (because step 2 is skipped)
         if (step === 3 && (typeSel === "lease" || typeSel === "service")) {
             setStep(1);
             return;
         }
 
         setStep(step - 1);
-    }, [modalStep, step, typeSel]);
+    }, [step, typeSel]);
 
-
-
-    const createDraftListing = useCallback(async (): Promise<{ id: string; base: any }> => {
-        if (!photos.length) throw new Error("Please add at least one photo.");
-        if (!name.trim()) throw new Error("Please choose what you’re selling.");
-        if (!category) throw new Error("Pick a category.");
-
-        // If you want: allow drafts even if not verified, comment out this block.
+    // Upload -> Firestore create (unchanged except using same category/name)
+    const createProduct = useCallback(async () => {
+        if (!photos.length) return ui.alert("Please add at least one photo.");
+        if (!name.trim()) return ui.alert("Please choose what you’re selling.");
+        if (!category) return ui.alert("Pick a category.");
         if (requireVerifiedToPostProduct && verificationStatus !== "approved") {
-            throw new Error("Your account must be verified before you can post on ekariMarket.");
+            setSaving(false);
+            return ui.alert("Your account must be verified before you can post on ekariMarket.");
         }
 
         if (typeSel === "lease" || typeSel === "service") {
-            if (!rate.trim() || !billingUnit.trim()) throw new Error("Provide a rate and billing unit.");
+            if (!rate.trim() || !billingUnit.trim()) {
+                return ui.alert("Provide a rate and billing unit.");
+            }
         } else {
-            const nPrice = Number(String(price).replace(/[^\d.]/g, "")) || 0;
-            if (nPrice <= 0) throw new Error("Please enter a valid numeric price.");
-        }
-
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user) throw new Error("Please sign in to sell.");
-
-        const _db = getFirestore();
-        const storage = getStorage();
-
-        const matchCountyFromText = (globalThis as any).matchCountyFromText as Function | undefined;
-        const guessTownFromText = (globalThis as any).guessTownFromText as Function | undefined;
-        const toLower = (globalThis as any).toLower as Function | undefined;
-        const buildAuthorBadge = (globalThis as any).buildAuthorBadge as Function | undefined;
-
-        const countyFromText = matchCountyFromText ? (matchCountyFromText(placeText) || "") : "";
-        const townFromText = guessTownFromText ? (guessTownFromText(placeText, countyFromText) || "") : "";
-
-        const place: any = {
-            text: placeText,
-            textLower: toLower ? toLower(placeText) : String(placeText || "").toLowerCase(),
-            ...(countyFromText && {
-                county: countyFromText,
-                countyLower: toLower ? toLower(countyFromText) : String(countyFromText).toLowerCase(),
-            }),
-            ...(townFromText && {
-                town: townFromText,
-                townLower: toLower ? toLower(townFromText) : String(townFromText).toLowerCase(),
-            }),
-        };
-
-        if (!coords) throw new Error("Please add a location and pick coordinates.");
-
-        const prodRef = doc(collection(_db, "marketListings"));
-        const docId = prodRef.id;
-
-        const toUpload = photos.slice(0, 5);
-        const urls = await Promise.all(
-            toUpload.map(async (p, i) => {
-                const path = `products/${user.uid}/${docId}/images/${i}.webp`;
-                const ref = sRef(storage, path);
-                await uploadBytes(ref, p.blob, {
-                    contentType: "image/webp",
-                    cacheControl: "public,max-age=31536000,immutable",
-                });
-                return await getDownloadURL(ref);
-            })
-        );
-
-        const nPrice =
-            typeSel === "lease" || typeSel === "service"
-                ? 0
-                : Number(String(price).replace(/[^\d.]/g, "")) || 0;
-
-        const badge = buildAuthorBadge ? buildAuthorBadge(profile) : undefined;
-
-        const base: any = {
-            name: name.trim(),
-            price: nPrice,
-            currency,
-            category,
-            imageUrl: urls[0],
-            imageUrls: urls,
-            ownerId: user.uid,
-            collectionType: "marketListing",
-            seller: {
-                id: user.uid,
-                verified: verificationStatus === "approved",
-                name: `${profile?.firstName ?? ""} ${profile?.surname ?? ""}`.trim() || null,
-                handle: profile?.handle ?? null,
-                photoURL: profile?.photoURL ?? null,
-            },
-            ...(badge ? { authorBadge: badge } : {}),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            type: typeSel,
-            nameLower: name.trim().toLowerCase(),
-            categoryLower: category.toLowerCase(),
-            place,
-            location: coords,
-            status: "draft",
-            sold: false,
-        };
-
-        if (typeSel === ARABLE_LAND_TYPE && landPolygon.length >= 3) base.landPolygon = landPolygon;
-        if (unit?.trim()) base.unit = unit.trim();
-        if (pack?.toString().trim()) base.typicalPackSize = pack;
-
-        if (typeSel === "lease" || typeSel === "service") {
-            base.rate = rate.trim();
-            base.billingUnit = billingUnit.trim();
-        }
-
-        if (typeSel === "tree") {
-            const uc = useCaseTip.trim();
-            if (uc) {
-                base.useCase = uc;
-                base.useCaseLower = uc.toLowerCase();
+            const nPrice = Number(String(price).replace(/[^\d.]/g, ""));
+            if (!nPrice || nPrice <= 0) {
+                return ui.alert("Please enter a valid numeric price.");
             }
         }
 
-        await setDoc(prodRef, base);
-        return { id: docId, base };
+        try {
+            setSaving(true);
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) {
+                setSaving(false);
+                return ui.alert("Please sign in to sell.");
+            }
+
+            const db = getFirestore();
+            const storage = getStorage();
+
+            const countyFromText = matchCountyFromText(placeText) || "";
+            const townFromText = guessTownFromText(placeText, countyFromText) || "";
+
+            const place: {
+                text: string;
+                textLower: string;
+                county?: string;
+                countyLower?: string;
+                town?: string;
+                townLower?: string;
+            } = {
+                text: placeText,
+                textLower: toLower(placeText),
+                ...(countyFromText && {
+                    county: countyFromText,
+                    countyLower: toLower(countyFromText),
+                }),
+                ...(townFromText && {
+                    town: townFromText,
+                    townLower: toLower(townFromText),
+                }),
+            };
+
+            if (!coords) {
+                setSaving(false);
+                return ui.alert("Please add a location and pick coordinates.");
+            }
+
+            const prodRef = doc(collection(db, "marketListings"));
+            const docId = prodRef.id;
+
+            const toUpload = photos.slice(0, 5);
+            const urls = await Promise.all(
+                toUpload.map(async (p, i) => {
+                    const path = `products/${user.uid}/${docId}/images/${i}.webp`;
+                    const ref = sRef(storage, path);
+                    await uploadBytes(ref, p.blob, {
+                        contentType: "image/webp",
+                        cacheControl: "public,max-age=31536000,immutable",
+                    });
+                    return await getDownloadURL(ref);
+                })
+            );
+
+            const nPrice =
+                typeSel === "lease" || typeSel === "service"
+                    ? 0
+                    : Number(String(price).replace(/[^\d.]/g, ""));
+            const badge = buildAuthorBadge(profile);
+            const base: any = {
+                name: name.trim(),
+                price: nPrice,
+                currency, // 👈 store selected currency
+                category,
+                imageUrl: urls[0],
+                imageUrls: urls,
+                ownerId: user.uid,
+                collectionType: "marketListing", // optional (helps debugging)
+                seller: {
+                    id: user.uid,
+                    verified: verificationStatus === "approved",
+                    // optional nice-to-have for UI:
+                    name: profile?.firstName + " " + profile?.surname,
+                    handle: profile?.handle ?? null,
+                    photoURL: profile?.photoURL ?? null,
+                }
+                ,
+                authorBadge: badge,
+                createdAt: serverTimestamp(),
+                type: typeSel,
+                nameLower: name.trim().toLowerCase(),
+                categoryLower: category.toLowerCase(),
+                place,
+                location: coords,
+                status: "draft",
+                sold: false,
+            };
+            // NEW: attach polygon for arable land
+            if (typeSel === ARABLE_LAND_TYPE && landPolygon.length >= 3) {
+                base.landPolygon = landPolygon; // array of { lat, lng }
+            }
+
+            if (unit?.trim()) base.unit = unit.trim();
+            if (pack?.toString().trim()) base.typicalPackSize = pack;
+            if (typeSel === "lease" || typeSel === "service") {
+                base.rate = rate.trim();
+                base.billingUnit = billingUnit.trim();
+            }
+
+            if (typeSel === "tree") {
+                const uc = useCaseTip.trim();
+                if (uc) {
+                    base.useCase = uc;
+                    base.useCaseLower = uc.toLowerCase();
+                }
+            }
+            await setDoc(prodRef, base);
+            try {
+                const fn = httpsCallable(getFunctions(app, "us-central1"), "publishMarketListing");
+                await fn({ listingId: docId });
+                onCreated({ id: docId, ...base } as Product);
+                setSaving(false);
+                onClose();
+            } catch (err: any) {
+                console.error("Publish failed", err);
+                setSaving(false);
+                ui.alert(
+                    err?.message ||
+                    "Saved as draft, but could not publish (possibly listing limit reached)."
+                );
+                // you can keep it draft, or delete it if you prefer
+            }
+
+
+        } catch (e: any) {
+            console.error(e);
+            setSaving(false);
+            ui.alert(e?.message || "Failed to post. Please try again.");
+        }
     }, [
         photos,
         name,
@@ -2342,1066 +2192,13 @@ export default function SellModal({
         landPolygon,
         placeText,
         useCaseTip,
-        currency,
-        profile,
-        verificationStatus,
-        requireVerifiedToPostProduct,
+        onCreated,
+        onClose,
     ]);
-    // ===========================
-    // ✅ PUBLISH + CHECKOUT HANDLERS
-    // ===========================
-    const handlePublish = useCallback(
-        async (listingId: string, createdBase?: any) => {
-            try {
-                setPublishing(true);
-
-                const functions = getFunctions(app, "us-central1");
-                const publishMarketListing = httpsCallable(functions, "publishMarketListing");
-                await publishMarketListing({ listingId });
-
-                // if we have base, we can update UI immediately
-                const base = createdBase ?? draftBase;
-                if (base) onCreated({ id: listingId, ...base } as Product);
-
-                onClose?.();
-            } catch (e: any) {
-                const msg =
-                    e?.message ||
-                    e?.details ||
-                    "Failed to publish listing. Please try again.";
-                ui.alert(String(msg));
-            } finally {
-                setPublishing(false);
-            }
-        },
-        [draftBase, onClose, onCreated, ui]
-    );
-
-    const handleChooseFree = useCallback(async () => {
-        if (!draftListingId) return ui.alert("Missing draft listing id.");
-        // Cloud function enforces FREE limit (3) + verification gate
-        await handlePublish(draftListingId);
-    }, [draftListingId, handlePublish, ui]);
-
-    const handleChoosePaid = useCallback(
-        async (packageId: string) => {
-            if (!draftListingId) return ui.alert("Missing draft listing id.");
-
-            try {
-                setPublishing(true);
-
-                // store pending publish intent (web)
-                localStorage.setItem("pendingPublishListingId", draftListingId);
-
-                const functions = getFunctions(app, "us-central1");
-                const createPackageCheckout = httpsCallable(functions, "createPackageCheckout");
-
-                const res = await createPackageCheckout({
-                    packageId,
-                    billingCycle: billing,
-                    currency,
-                    source: "web",
-                });
-
-                const url = (res.data as any)?.checkoutUrl;
-                if (!url) throw new Error("No checkout URL returned.");
-
-                window.location.href = url;
-            } catch (e: any) {
-                ui.alert(e?.message || "Failed to start checkout.");
-                setPublishing(false);
-            }
-        },
-        [draftListingId, billing, currency, ui]
-    );
-
-    // After payment: if subscription becomes active, auto-publish pending draft
-    useEffect(() => {
-        if (checkingSub) return;
-
-        const pendingId =
-            typeof window !== "undefined" ? localStorage.getItem("pendingPublishListingId") : null;
-
-        if (!pendingId) return;
-
-        if (isSubActive(sub)) {
-            localStorage.removeItem("pendingPublishListingId");
-            handlePublish(pendingId);
-        }
-    }, [checkingSub, sub, handlePublish]);
-    // Upload -> Firestore create (unchanged except using same category/name)
-
-    // ===========================
-    // ✅ FINISH BUTTON: DRAFT -> (ACTIVE SUB? publish : go plan step)
-    // ===========================
-    const onFinish = useCallback(async () => {
-        if (!canPublish) {
-            ui.alert(
-                verificationStatus === "pending"
-                    ? "Your verification is still under review. You’ll be able to sell once it is approved."
-                    : "To sell on ekariMarket, please verify your account first from the Verification page in your profile."
-            );
-            return;
-        }
-
-        setSaving(true);
-        try {
-            const { id, base } = await createDraftListing();
-            setDraftListingId(id);
-            setDraftBase(base);
-
-            // If user already has active subscription -> publish immediately
-            if (isSubActive(sub)) {
-                await handlePublish(id, base);
-                return;
-            }
-
-            // No active subscription -> show plan selection (includes Free)
-            setModalStep("plan");
-        } catch (e: any) {
-            setPublishing(false);
-            const msg = e?.message || "Failed to publish.";
-            const code = e?.code || "";
-
-            // limit reached
-            if (code === "failed-precondition" && String(msg).toLowerCase().includes("limit")) {
-                // when you catch the error:
-                setLimitMsg(msg);
-                setLimitOpen(true);
-                return;
-            }
-            ui.alert(e?.message || "Failed to save draft. Please try again.");
-        } finally {
-            setSaving(false);
-        }
-    }, [canPublish, verificationStatus, ui, createDraftListing, sub, handlePublish]);
 
     if (!mounted || !open) return null;
 
-    // ===========================
-    // UI: PLAN STEP
-    // ===========================
-    // ===========================
-    // UI: PLAN STEP (PREMIUM)
-    // ===========================
-    const PlanStep = (
-        <div className="space-y-5">
-            {/* header card */}
-            <div
-                className="rounded-3xl border bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.06)]"
-                style={{
-                    borderColor: EKARI.hair,
-                    background:
-                        "radial-gradient(900px circle at 12% 10%, rgba(199,146,87,0.16), transparent 55%), radial-gradient(900px circle at 88% 30%, rgba(35,63,57,0.14), transparent 55%), #FFFFFF",
-                }}
-            >
-                <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <div className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: EKARI.forest }}>
-                            Plan
-                        </div>
-                        <div className="mt-1 text-base font-black" style={{ color: EKARI.text }}>
-                            Choose a plan
-                        </div>
-                        <div className="mt-1 text-xs leading-snug" style={{ color: EKARI.dim }}>
-                            Free plan allows up to <span className="font-extrabold" style={{ color: EKARI.text }}>3 active listings</span>.
-                            Paid plans unlock more listings + perks.
-                        </div>
-                    </div>
 
-                    <div
-                        className="shrink-0 rounded-2xl border px-3 py-2 text-[11px] font-extrabold"
-                        style={{ borderColor: EKARI.hair, color: EKARI.dim, background: "#fff" }}
-                    >
-                        Secure checkout
-                    </div>
-                </div>
-            </div>
-
-            {/* toggles row */}
-            <div className="grid gap-3 sm:grid-cols-2">
-                {/* billing toggle */}
-                <div
-                    className="rounded-3xl border bg-white p-3"
-                    style={{ borderColor: EKARI.hair, boxShadow: "0 10px 25px rgba(15,23,42,0.05)" }}
-                >
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                            <div className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: EKARI.dim }}>
-                                Billing cycle
-                            </div>
-                            <div className="mt-0.5 text-xs" style={{ color: EKARI.text }}>
-                                Pick monthly or yearly
-                            </div>
-                        </div>
-
-                        <div className="inline-flex items-center gap-1 rounded-2xl border bg-white p-1" style={{ borderColor: EKARI.hair }}>
-                            <button
-                                type="button"
-                                onClick={() => setBilling("monthly")}
-                                className="h-9 rounded-xl px-3 text-xs font-extrabold transition"
-                                style={{
-                                    background: billing === "monthly" ? EKARI.forest : "transparent",
-                                    color: billing === "monthly" ? "#fff" : EKARI.text,
-                                }}
-                            >
-                                Monthly
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setBilling("yearly")}
-                                className="h-9 rounded-xl px-3 text-xs font-extrabold transition"
-                                style={{
-                                    background: billing === "yearly" ? EKARI.forest : "transparent",
-                                    color: billing === "yearly" ? "#fff" : EKARI.text,
-                                }}
-                            >
-                                Yearly
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* currency toggle (checkout currency only) */}
-                <div
-                    className="rounded-3xl border bg-white p-3"
-                    style={{ borderColor: EKARI.hair, boxShadow: "0 10px 25px rgba(15,23,42,0.05)" }}
-                >
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                            <div className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: EKARI.dim }}>
-                                Pay in
-                            </div>
-                            <div className="mt-0.5 text-xs" style={{ color: EKARI.text }}>
-                                Choose checkout currency
-                            </div>
-                        </div>
-
-                        <div className="inline-flex items-center gap-1 rounded-2xl border bg-white p-1" style={{ borderColor: EKARI.hair }}>
-                            <button
-                                type="button"
-                                onClick={() => handleSetCurrency("KES")}
-                                className="h-9 rounded-xl px-3 text-xs font-extrabold transition"
-                                style={{
-                                    background: currency === "KES" ? EKARI.forest : "transparent",
-                                    color: currency === "KES" ? "#fff" : EKARI.text,
-                                }}
-                            >
-                                KES
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleSetCurrency("USD")}
-                                className="h-9 rounded-xl px-3 text-xs font-extrabold transition"
-                                style={{
-                                    background: currency === "USD" ? EKARI.forest : "transparent",
-                                    color: currency === "USD" ? "#fff" : EKARI.text,
-                                }}
-                            >
-                                USD
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* free plan */}
-            <div
-                className="rounded-3xl border bg-white p-4 shadow-[0_18px_55px_rgba(15,23,42,0.06)]"
-                style={{ borderColor: EKARI.hair }}
-            >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                            <span
-                                className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold border"
-                                style={{ background: "#F8FAFC", color: EKARI.text, borderColor: "#E2E8F0" }}
-                            >
-                                Free
-                            </span>
-                            <span className="text-xs font-extrabold" style={{ color: EKARI.text }}>
-                                Up to 3 active listings
-                            </span>
-                        </div>
-                        <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                            Start publishing immediately. Upgrade anytime.
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleChooseFree}
-                        disabled={publishing || saving || !draftListingId}
-                        className="h-11 rounded-2xl px-5 text-sm font-black text-white disabled:opacity-60"
-                        style={{
-                            background: EKARI.gold,
-                            boxShadow: "0 16px 35px rgba(199,146,87,0.25)",
-                        }}
-                    >
-                        {publishing ? "Publishing…" : "Continue with Free"}
-                    </button>
-                </div>
-            </div>
-
-            {/* paid packages */}
-            <div className="space-y-3">
-                {packages.length === 0 ? (
-                    <div className="text-xs" style={{ color: EKARI.dim }}>
-                        {checkingSub ? "Loading plans…" : "No paid plans available right now."}
-                    </div>
-                ) : (
-                    packages.map((p) => {
-                        const priceUsd =
-                            billing === "yearly" ? Number(p.priceYearlyUsd || 0) : Number(p.priceMonthlyUsd || 0);
-
-                        const subtitle =
-                            p.activeListingsLimit == null ? "Unlimited listings" : `${p.activeListingsLimit} active listings`;
-
-                        // ✅ package color accents like in dashboard
-                        const t = tierPill(p.name);
-                        const a = pickAccent(p.name);
-                        const priceUsdMajor =
-                            billing === "yearly"
-                                ? Number(p.priceYearlyUsd || 0)
-                                : Number(p.priceMonthlyUsd || 0);
-                        const perks = [
-                            p.topOfSearch ? "Top of search" : null,
-                            p.priorityRanking ? "Priority ranking" : null,
-                            p.storefront ? "Storefront" : null,
-                            p.monthlyBoostCredits > 0 ? `${p.monthlyBoostCredits} boosts/mo` : null,
-                            p.weeklyFeaturedCredits > 0 ? `${p.weeklyFeaturedCredits} featured/wk` : null,
-                        ].filter(Boolean) as string[];
-
-                        return (
-                            <div key={p.id} className="relative">
-                                {/* glow */}
-                                <div
-                                    className="pointer-events-none absolute -inset-0.5 rounded-[22px] opacity-40 blur-2xl"
-                                    style={{
-                                        background: `radial-gradient(70% 70% at 20% 10%, ${a.accent}22 0%, transparent 65%)`,
-                                    }}
-                                />
-
-                                <div
-                                    className={clsx(
-                                        "relative rounded-3xl border bg-white p-4 transition-all",
-                                        "hover:-translate-y-0.5 hover:shadow-[0_18px_55px_rgba(15,23,42,0.12)]"
-                                    )}
-                                    style={{
-                                        borderColor: p.recommended ? a.ring : EKARI.hair,
-                                        boxShadow: p.recommended ? "0 16px 40px rgba(15,23,42,0.08)" : "0 10px 25px rgba(15,23,42,0.06)",
-                                    }}
-                                >
-                                    {/* top ribbons */}
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span
-                                                    className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold border"
-                                                    style={{ background: t.bg, color: t.fg, borderColor: t.ring }}
-                                                >
-                                                    {p.name}
-                                                </span>
-
-                                                {p.recommended && (
-                                                    <span
-                                                        className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold border"
-                                                        style={{ background: a.soft, color: a.accent, borderColor: a.ring }}
-                                                    >
-                                                        Most popular
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                                                {subtitle}
-                                            </div>
-
-                                            {/* perks pills */}
-                                            {perks.length > 0 && (
-                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                    {perks.slice(0, 5).map((x, i) => (
-                                                        <span
-                                                            key={i}
-                                                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border"
-                                                            style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#fff" }}
-                                                        >
-                                                            {x}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="shrink-0 text-right">
-                                            <div className="text-[11px] font-semibold" style={{ color: EKARI.dim }}>
-                                                {billing === "yearly" ? "per year" : "per month"}
-                                            </div>
-                                            <div className="mt-1 text-lg font-black" style={{ color: EKARI.text }}>
-                                                {displayPriceText(priceUsdMajor)}
-                                            </div>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => handleChoosePaid(p.id)}
-                                                disabled={publishing || saving || !draftListingId}
-                                                className="mt-2 h-11 w-full rounded-2xl px-5 text-sm font-black text-white disabled:opacity-60"
-                                                style={{
-                                                    background: a.accent,
-                                                    boxShadow: "0 16px 35px rgba(15,23,42,0.10)",
-                                                }}
-                                            >
-                                                {publishing ? "Opening checkout…" : "Choose plan"}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* feature list */}
-                                    {Array.isArray(p.features) && p.features.length > 0 && (
-                                        <div className="mt-4">
-                                            <div className="text-[11px] font-extrabold uppercase tracking-wider" style={{ color: EKARI.dim }}>
-                                                Includes
-                                            </div>
-                                            <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                                {p.features.slice(0, 8).map((f, i) => (
-                                                    <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
-                                                        <span
-                                                            className="mt-1 h-5 w-5 shrink-0 rounded-full border flex items-center justify-center"
-                                                            style={{ borderColor: a.ring, background: a.soft }}
-                                                            aria-hidden="true"
-                                                        >
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                                                                <path
-                                                                    d="M20 6L9 17l-5-5"
-                                                                    stroke={a.accent}
-                                                                    strokeWidth="2.5"
-                                                                    strokeLinecap="round"
-                                                                    strokeLinejoin="round"
-                                                                />
-                                                            </svg>
-                                                        </span>
-                                                        <span className="min-w-0 leading-snug">{f}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
-
-            {/* footer */}
-            <div className="text-[11px]" style={{ color: EKARI.dim }}>
-                You can change your plan anytime from your profile. After payment, we’ll publish your draft automatically.
-            </div>
-        </div>
-    );
-
-    // ===========================
-    // UI: FORM STEP (your existing UI)
-    // NOTE: I kept the structure, but not re-pasted your entire 0-4 UI again.
-    // If you want, I can paste the full form UI exactly as you had it (it’s huge),
-    // but logic-wise, this wrapper works as-is.
-    // ===========================
-    const FormStep = (
-        <div className="text-sm text-gray-700">
-            {/* Stepper */}
-            <div className="flex items-center gap-2 mb-2">
-                {[0, 1, 2, 3, 4].map((i) => (
-                    <div
-                        key={i}
-                        className={`w-2 h-2 rounded-full ${i <= step ? "bg-emerald-700" : "bg-gray-200"}`}
-                    />
-                ))}
-                <div className="ml-2 font-bold text-gray-800">
-                    {step === 0 && "Type"}
-                    {step === 1 &&
-                        (DIRECT_NAME_TYPES.includes(typeSel)
-                            ? "Item"
-                            : "Category & Item")}
-                    {step === 2 && "Quantity & Unit"}
-                    {step === 3 &&
-                        (typeSel === "lease" || typeSel === "service"
-                            ? "Rate & Billing"
-                            : "Price")}
-                    {step === 4 && "Photos & Location • Review"}
-                </div>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto pr-1 mt-2">
-                {/* Step 0: Type */}
-                {step === 0 && (
-                    <div>
-                        <label className="text-xs font-extrabold text-gray-500">
-                            What are you selling?
-                        </label>
-                        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                            {TYPE_OPTIONS.map((t) => {
-                                const active = t === typeSel;
-                                return (
-                                    <button
-                                        key={t}
-                                        onClick={() => {
-                                            setTypeSel(t);
-                                            setName("");
-                                            setUseCaseTip("");
-                                        }}
-                                        className={`shrink-0 px-3 py-2 rounded-full border text-sm font-bold ${active
-                                            ? "bg-emerald-800 text-white border-emerald-800"
-                                            : "bg-gray-50 text-gray-900 border-gray-200"
-                                            }`}
-                                    >
-                                        {t.charAt(0).toUpperCase() + t.slice(1)}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 1: Name-first (product/animal/lease/tree) OR old Category+Item (service) */}
-                {step === 1 && (
-                    <div>
-                        {DIRECT_NAME_TYPES.includes(typeSel) ? (
-                            <>
-                                <label className="text-xs font-extrabold text-gray-500">
-                                    What exactly are you selling?
-                                </label>
-                                <input
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder={
-                                        typeSel === "product"
-                                            ? "e.g. Maize grain, Tomatoes, Milk"
-                                            : typeSel === "animal"
-                                                ? "e.g. Dairy cow, Kienyeji chicken"
-                                                : typeSel === "lease"
-                                                    ? "e.g. Tractor hire, Land lease"
-                                                    : "e.g. Grevillea, Eucalyptus"
-                                    }
-                                    className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                                />
-
-                                {/* Auto category hint (for all DIRECT_NAME_TYPES) */}
-                                {category && (
-                                    <div className="mt-1 text-xs text-gray-500">
-                                        We’ll list this under{" "}
-                                        <span className="font-semibold text-gray-800">
-                                            {category}
-                                        </span>{" "}
-                                        so buyers can find it easily.
-                                    </div>
-                                )}
-
-                                {/* 🌱 Tree use-case chip right under the name */}
-                                {typeSel === "tree" && useCaseTip && (
-                                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1">
-                                        <span className="text-[11px] font-black text-emerald-900">
-                                            Use-case
-                                        </span>
-                                        <span className="text-[11px] text-emerald-800 truncate max-w-[220px]">
-                                            {useCaseTip}
-                                        </span>
-                                    </div>
-                                )}
-
-                                {/* Autosuggest list for names */}
-                                {nameSuggestions.length > 0 && (
-                                    <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-1">
-                                        {nameSuggestions.map((n: any) => (
-                                            <button
-                                                key={n}
-                                                type="button"
-                                                onClick={() => setName(n)}
-                                                className={`w-full text-left text-sm px-3 py-1.5 rounded-lg hover:bg-white ${norm(n) === norm(name)
-                                                    ? "font-semibold text-emerald-800"
-                                                    : "text-gray-800"
-                                                    }`}
-                                            >
-                                                {n}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                {/* Service: Category + Item flow using Firestore categories/items */}
-                                <label className="text-xs font-extrabold text-gray-500">
-                                    Category
-                                </label>
-                                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                                    {categoriesForType.map((c: any) => {
-                                        const active = c === category;
-                                        return (
-                                            <button
-                                                key={c}
-                                                onClick={() => setCategory(c)}
-                                                className={`shrink-0 px-3 py-2 rounded-full border text-sm font-bold ${active
-                                                    ? "bg-emerald-800 text-white border-emerald-800"
-                                                    : "bg-gray-50 text-gray-900 border-gray-200"
-                                                    }`}
-                                            >
-                                                {c}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                <label className="block mt-3 text-xs font-extrabold text-gray-500">
-                                    Item
-                                </label>
-                                <input
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder={
-                                        (catalogItems[0] &&
-                                            `e.g. ${catalogItems[0]}`) ||
-                                        "Type or pick from catalog"
-                                    }
-                                    className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                                />
-                                {catalogItems.length > 0 && (
-                                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                                        {catalogItems.slice(0, 600).map((it) => (
-                                            <button
-                                                key={it}
-                                                onClick={() => setName(it)}
-                                                className="shrink-0 px-3 py-2 rounded-full border text-sm font-bold bg-gray-50 text-gray-900 border-gray-200"
-                                            >
-                                                {it}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {/* Step 2: Pack & Unit (products only; still hidden for lease/service) */}
-                {step === 2 && typeSel !== "lease" && typeSel !== "service" && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-xs font-extrabold text-gray-500">
-                                Quantity
-                            </label>
-                            <input
-                                value={String(pack || "")}
-                                onChange={(e) => setPack(e.target.value)}
-                                placeholder="e.g. 50"
-                                inputMode="numeric"
-                                className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-extrabold text-gray-500">
-                                Unit of measure
-                            </label>
-                            <input
-                                value={unit}
-                                onChange={(e) => setUnit(e.target.value)}
-                                placeholder={
-                                    currentItem?.unit ??
-                                    "kg / bag / carton / head"
-                                }
-                                className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                            />
-                            {unitsitems.length > 0 && (
-                                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                                    {unitsitems.slice(0, 50).map((u) => (
-                                        <button
-                                            key={u}
-                                            onClick={() => setUnit(u)}
-                                            className="shrink-0 px-3 py-2 rounded-full border text-sm font-bold bg-gray-50 text-gray-900 border-gray-200"
-                                        >
-                                            {u}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 3: Price or Rate/Billing */}
-                {step === 3 && (
-                    <>
-                        {typeSel === "lease" || typeSel === "service" ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-
-                                    <label className="text-xs font-extrabold text-gray-500">
-                                        Rate ({currency})
-                                    </label>
-                                    <div className="flex items-center text-[11px] gap-1">
-                                        <span className="text-gray-500 font-semibold">Currency</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSetCurrency("KES")}
-                                            className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "KES"
-                                                ? "bg-emerald-700 text-white border-emerald-800"
-                                                : "bg-white text-gray-700 border-gray-200"
-                                                }`}
-                                        >
-                                            KES
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSetCurrency("USD")}
-                                            className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "USD"
-                                                ? "bg-emerald-700 text-white border-emerald-800"
-                                                : "bg-white text-gray-700 border-gray-200"
-                                                }`}
-                                        >
-                                            USD
-                                        </button>
-                                    </div>
-                                </div>
-                                <input
-                                    value={rate}
-                                    onChange={(e) => setRate(e.target.value)}
-                                    placeholder={currency === "KES" ? "e.g. 1500" : "e.g. 10"}
-                                    inputMode="numeric"
-                                    className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                                />
-
-
-                                <div>
-                                    <label className="text-xs font-extrabold text-gray-500">
-                                        Billing unit
-                                    </label>
-                                    <input
-                                        value={billingUnit}
-                                        onChange={(e) => setBillingUnit(e.target.value)}
-                                        placeholder="e.g. per hour / per acre / per visit"
-                                        className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                                    />
-                                </div>
-                            </div>
-                        ) : (
-                            <div>
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-extrabold text-gray-500">
-                                        Price ({currency})
-                                    </label>
-                                    <div className="flex items-center text-[11px] gap-1">
-                                        <span className="text-gray-500 font-semibold">Currency</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSetCurrency("KES")}
-                                            className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "KES"
-                                                ? "bg-emerald-700 text-white border-emerald-800"
-                                                : "bg-white text-gray-700 border-gray-200"
-                                                }`}
-                                        >
-                                            KES
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSetCurrency("USD")}
-                                            className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "USD"
-                                                ? "bg-emerald-700 text-white border-emerald-800"
-                                                : "bg-white text-gray-700 border-gray-200"
-                                                }`}
-                                        >
-                                            USD
-                                        </button>
-                                    </div>
-                                </div>
-                                <input
-                                    value={price}
-                                    onChange={(e) => setPrice(e.target.value)}
-                                    placeholder={currency === "KES" ? "e.g. 250" : "e.g. 5"}
-                                    inputMode="numeric"
-                                    className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
-                                />
-                            </div>
-
-                        )}
-                    </>
-                )}
-
-                {/* Step 4: Photos + Location + Review */}
-                {step === 4 && (
-                    <div className="space-y-4">
-                        {/* Photos */}
-                        <div>
-                            <label className="text-xs font-extrabold text-gray-500">Photos</label>
-                            <div className="mt-2 flex items-center gap-3">
-                                {photos.length < 5 && (
-                                    <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
-                                        <IoImagesOutline size={18} className="text-gray-600" />
-                                        <span className="text-sm font-semibold text-gray-800">
-                                            Choose images (max 5)
-                                        </span>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            hidden
-                                            onChange={(e) => onPickFiles(e.target.files)}
-                                        />
-                                    </label>
-                                )}
-                                <div className="text-xs text-gray-500">{photos.length}/5 selected</div>
-                            </div>
-
-                            {photos.length > 0 && (
-                                <div className="mt-3 flex flex-wrap gap-3">
-                                    {photos.map((p, idx) => (
-                                        <div key={p.url} className="relative w-24 h-24">
-                                            <img
-                                                src={p.url}
-                                                alt=""
-                                                className="w-full h-full object-cover rounded-xl border border-gray-200"
-                                            />
-                                            <button
-                                                onClick={() => removeImg(idx)}
-                                                className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-6 h-6 grid place-items-center"
-                                                aria-label="Remove"
-                                            >
-                                                <IoClose size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Location */}
-                        {/* Location */}
-                        <div>
-                            <label className="text-xs font-extrabold text-gray-500">
-                                {typeSel === ARABLE_LAND_TYPE ? "Where is the land?" : "Where is the product?"}
-                            </label>
-
-                            <div className="mt-2 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                {typeSel === ARABLE_LAND_TYPE ? (
-                                    // NEW: polygon button for arable land
-                                    <button
-                                        onClick={() => {
-                                            setPolygonModalOpen(true);
-                                        }}
-                                        className="h-11 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 inline-flex items-center gap-2"
-                                    >
-                                        <IoMap size={18} />
-                                        <span className="font-semibold">Draw land area on map</span>
-                                    </button>
-                                ) : (
-                                    // Existing point location picker for other types
-                                    <button
-                                        onClick={() => {
-                                            setCandidateText(placeText || "");
-                                            setCandidateCenter(
-                                                coords || {
-                                                    latitude: -1.286389,
-                                                    longitude: 36.817223, // Nairobi default
-                                                }
-                                            );
-                                            setLocModalOpen(true);
-                                        }}
-                                        className="h-11 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 inline-flex items-center gap-2"
-                                    >
-                                        <IoMap size={18} />
-                                        <span className="font-semibold">Add location</span>
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Info for normal point location */}
-                            {typeSel !== ARABLE_LAND_TYPE && (
-                                <>
-                                    {!!coords && (
-                                        <div className="mt-1 text-xs text-gray-500">
-                                            Coords: {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
-                                        </div>
-                                    )}
-
-                                    {!!placeText && (
-                                        <div className="mt-1 text-xs text-gray-600">
-                                            Place: {placeText}
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* NEW: info for polygon */}
-                            {typeSel === ARABLE_LAND_TYPE && (
-                                <div className="mt-1 text-xs text-gray-600 space-y-1">
-                                    <div>
-                                        <span className="font-bold text-gray-500">Points:</span>{" "}
-                                        {landPolygon.length > 0 ? `${landPolygon.length} vertices set` : "No polygon drawn yet"}
-                                    </div>
-                                    {landCenter && (
-                                        <div className="text-xs text-gray-500">
-                                            Approx. center: {landCenter.latitude.toFixed(4)}, {landCenter.longitude.toFixed(4)}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-
-                        {/* Review */}
-                        <div className="border border-gray-200 rounded-xl p-3 bg-gray-50">
-                            <div className="font-black text-gray-900 mb-1">Review</div>
-                            <div className="space-y-1 text-sm">
-                                <div>
-                                    <span className="font-bold text-gray-500">Type:</span> {typeSel}
-                                </div>
-                                <div>
-                                    <span className="font-bold text-gray-500">Category:</span>{" "}
-                                    {category || "-"}
-                                </div>
-                                <div>
-                                    <span className="font-bold text-gray-500">Item:</span>{" "}
-                                    {name || "-"}
-                                </div>
-                                {typeSel === "tree" && useCaseTip && (
-                                    <div>
-                                        <span className="font-bold text-gray-500">Use-case tips:</span>{" "}
-                                        {useCaseTip}
-                                    </div>
-                                )}
-                                <div>
-                                    <span className="font-bold text-gray-500">Pack/Unit:</span>{" "}
-                                    {pack || "-"} {unit || ""}
-                                </div>
-                                {typeSel === "lease" || typeSel === "service" ? (
-                                    <div>
-                                        <span className="font-bold text-gray-500">Rate:</span>{" "}
-                                        {rate ? `${formatPriceForReview(rate, currency)} (${billingUnit || "-"})` : "-"}
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <span className="font-bold text-gray-500">Price:</span>{" "}
-                                        {formatPriceForReview(price, currency)}
-                                    </div>
-                                )}
-                                <div>
-                                    <span className="font-bold text-gray-500">Photos:</span>{" "}
-                                    {photos.length}/5
-                                </div>
-                                <div>
-                                    <span className="font-bold text-gray-500">Location:</span>{" "}
-                                    {typeSel === ARABLE_LAND_TYPE ? (placeText || "Arable land parcel") : (placeText || "-")}
-                                </div>
-
-                                {typeSel === ARABLE_LAND_TYPE ? (
-                                    <>
-                                        <div>
-                                            <span className="font-bold text-gray-500">Polygon points:</span>{" "}
-                                            {landPolygon.length > 0 ? landPolygon.length : "-"}
-                                        </div>
-                                        <div>
-                                            <span className="font-bold text-gray-500">Center:</span>{" "}
-                                            {landCenter
-                                                ? `${landCenter.latitude.toFixed(4)}, ${landCenter.longitude.toFixed(4)}`
-                                                : "-"}
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div>
-                                        <span className="font-bold text-gray-500">Coords:</span>{" "}
-                                        {coords
-                                            ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
-                                            : "-"}
-                                    </div>
-                                )}
-
-                            </div>
-                        </div>
-                        {/* ==== NEW: Account verification gate ==== */}
-                        {requireVerifiedToPostProduct ? (
-                            <div className="border border-amber-200 rounded-xl p-3 bg-amber-50 flex items-start gap-3">
-                                <div className="mt-0.5 h-2 w-2 rounded-full bg-amber-500" />
-                                <div className="flex-1 space-y-1">
-                                    <div className="flex items-center justify-between">
-                                        <div className="font-black text-sm text-gray-900">
-                                            Account verification required
-                                        </div>
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${verificationStatus === "approved"
-                                            ? "bg-emerald-100 text-emerald-800"
-                                            : verificationStatus === "pending"
-                                                ? "bg-amber-100 text-amber-800"
-                                                : verificationStatus === "rejected"
-                                                    ? "bg-red-100 text-red-700"
-                                                    : "bg-gray-100 text-gray-600"
-                                            }`}>
-                                            {verificationLoading
-                                                ? "Checking..."
-                                                : verificationStatus === "approved"
-                                                    ? "Verified"
-                                                    : verificationStatus === "pending"
-                                                        ? "Pending review"
-                                                        : verificationStatus === "rejected"
-                                                            ? "Rejected"
-                                                            : "Not verified"}
-                                        </span>
-                                    </div>
-
-                                    {verificationStatus === "approved" ? (
-                                        <p className="text-xs text-gray-600">
-                                            Your account is verified. You can publish this listing.
-                                        </p>
-                                    ) : (
-                                        <>
-                                            <p className="text-xs text-gray-600">
-                                                To sell on ekariMarket, please verify your account first. This helps keep buyers safe and builds trust.
-                                            </p>
-                                            <a
-                                                href="/account/verification"
-                                                className="inline-flex mt-1 text-xs font-bold text-emerald-800 underline"
-                                            >
-                                                Go to verification page
-                                            </a>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50 flex items-start gap-3">
-                                <div className="mt-0.5 h-2 w-2 rounded-full bg-emerald-600" />
-                                <div className="flex-1 space-y-1">
-                                    <div className="flex items-center justify-between">
-                                        <div className="font-black text-sm text-gray-900">
-                                            Verification is optional
-                                        </div>
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${verificationStatus === "approved"
-                                            ? "bg-emerald-100 text-emerald-800"
-                                            : "bg-white text-gray-700 border border-emerald-200"
-                                            }`}>
-                                            {verificationLoading ? "Checking..." : verificationStatus === "approved" ? "Verified" : "Not verified"}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-gray-600">
-                                        You can publish even without verification. Verified sellers may get more buyer trust and better visibility.
-                                    </p>
-                                    {verificationStatus !== "approved" && (
-                                        <a
-                                            href="/account/verification"
-                                            className="inline-flex mt-1 text-xs font-bold text-emerald-800 underline"
-                                        >
-                                            Verify anyway
-                                        </a>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-
-
-                    </div>
-                )}
-
-            </div>
-        </div>
-    );
 
     return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -3435,12 +2232,14 @@ export default function SellModal({
                     <div className="text-base font-black text-gray-900">
                         Sell on ekariMarket
                         {catalogLoading && (
-                            <span className="ml-2 text-[11px] font-semibold text-gray-400">(loading catalog…)</span>
+                            <span className="ml-2 text-[11px] font-semibold text-gray-400">
+                                (loading catalog…)
+                            </span>
                         )}
                     </div>
                     <button
-                        onClick={() => !saving && !publishing && onClose()}
-                        disabled={saving || publishing}
+                        onClick={() => !saving && onClose()}
+                        disabled={saving}
                         className="w-10 h-10 grid place-items-center rounded-full hover:bg-gray-50 disabled:opacity-50"
                         aria-label="Close"
                     >
@@ -3448,97 +2247,662 @@ export default function SellModal({
                     </button>
                 </div>
 
-                {/* Stepper label */}
-                <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="font-bold text-gray-800">
-                        {modalStep === "form" ? "Listing details" : "Choose package"}
+                {/* Stepper */}
+                <div className="flex items-center gap-2 mb-2">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                        <div
+                            key={i}
+                            className={`w-2 h-2 rounded-full ${i <= step ? "bg-emerald-700" : "bg-gray-200"}`}
+                        />
+                    ))}
+                    <div className="ml-2 font-bold text-gray-800">
+                        {step === 0 && "Type"}
+                        {step === 1 &&
+                            (DIRECT_NAME_TYPES.includes(typeSel)
+                                ? "Item"
+                                : "Category & Item")}
+                        {step === 2 && "Quantity & Unit"}
+                        {step === 3 &&
+                            (typeSel === "lease" || typeSel === "service"
+                                ? "Rate & Billing"
+                                : "Price")}
+                        {step === 4 && "Photos & Location • Review"}
                     </div>
-                    {draftListingId && (
-                        <div className="text-[11px] text-gray-500">
-                            Draft: <span className="font-mono">{draftListingId}</span>
-                        </div>
-                    )}
                 </div>
 
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto pr-1 mt-2">
-                    {modalStep === "form" ? FormStep : PlanStep}
-                </div>
+                    {/* Step 0: Type */}
+                    {step === 0 && (
+                        <div>
+                            <label className="text-xs font-extrabold text-gray-500">
+                                What are you selling?
+                            </label>
+                            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                                {TYPE_OPTIONS.map((t) => {
+                                    const active = t === typeSel;
+                                    return (
+                                        <button
+                                            key={t}
+                                            onClick={() => {
+                                                setTypeSel(t);
+                                                setName("");
+                                                setUseCaseTip("");
+                                            }}
+                                            className={`shrink-0 px-3 py-2 rounded-full border text-sm font-bold ${active
+                                                ? "bg-emerald-800 text-white border-emerald-800"
+                                                : "bg-gray-50 text-gray-900 border-gray-200"
+                                                }`}
+                                        >
+                                            {t.charAt(0).toUpperCase() + t.slice(1)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
+                    {/* Step 1: Name-first (product/animal/lease/tree) OR old Category+Item (service) */}
+                    {step === 1 && (
+                        <div>
+                            {DIRECT_NAME_TYPES.includes(typeSel) ? (
+                                <>
+                                    <label className="text-xs font-extrabold text-gray-500">
+                                        What exactly are you selling?
+                                    </label>
+                                    <input
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder={
+                                            typeSel === "product"
+                                                ? "e.g. Maize grain, Tomatoes, Milk"
+                                                : typeSel === "animal"
+                                                    ? "e.g. Dairy cow, Kienyeji chicken"
+                                                    : typeSel === "lease"
+                                                        ? "e.g. Tractor hire, Land lease"
+                                                        : "e.g. Grevillea, Eucalyptus"
+                                        }
+                                        className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                                    />
+
+                                    {/* Auto category hint (for all DIRECT_NAME_TYPES) */}
+                                    {category && (
+                                        <div className="mt-1 text-xs text-gray-500">
+                                            We’ll list this under{" "}
+                                            <span className="font-semibold text-gray-800">
+                                                {category}
+                                            </span>{" "}
+                                            so buyers can find it easily.
+                                        </div>
+                                    )}
+
+                                    {/* 🌱 Tree use-case chip right under the name */}
+                                    {typeSel === "tree" && useCaseTip && (
+                                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1">
+                                            <span className="text-[11px] font-black text-emerald-900">
+                                                Use-case
+                                            </span>
+                                            <span className="text-[11px] text-emerald-800 truncate max-w-[220px]">
+                                                {useCaseTip}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Autosuggest list for names */}
+                                    {nameSuggestions.length > 0 && (
+                                        <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-1">
+                                            {nameSuggestions.map((n) => (
+                                                <button
+                                                    key={n}
+                                                    type="button"
+                                                    onClick={() => setName(n)}
+                                                    className={`w-full text-left text-sm px-3 py-1.5 rounded-lg hover:bg-white ${norm(n) === norm(name)
+                                                        ? "font-semibold text-emerald-800"
+                                                        : "text-gray-800"
+                                                        }`}
+                                                >
+                                                    {n}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    {/* Service: Category + Item flow using Firestore categories/items */}
+                                    <label className="text-xs font-extrabold text-gray-500">
+                                        Category
+                                    </label>
+                                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                                        {categoriesForType.map((c) => {
+                                            const active = c === category;
+                                            return (
+                                                <button
+                                                    key={c}
+                                                    onClick={() => setCategory(c)}
+                                                    className={`shrink-0 px-3 py-2 rounded-full border text-sm font-bold ${active
+                                                        ? "bg-emerald-800 text-white border-emerald-800"
+                                                        : "bg-gray-50 text-gray-900 border-gray-200"
+                                                        }`}
+                                                >
+                                                    {c}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <label className="block mt-3 text-xs font-extrabold text-gray-500">
+                                        Item
+                                    </label>
+                                    <input
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder={
+                                            (catalogItems[0] &&
+                                                `e.g. ${catalogItems[0]}`) ||
+                                            "Type or pick from catalog"
+                                        }
+                                        className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                                    />
+                                    {catalogItems.length > 0 && (
+                                        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                                            {catalogItems.slice(0, 600).map((it) => (
+                                                <button
+                                                    key={it}
+                                                    onClick={() => setName(it)}
+                                                    className="shrink-0 px-3 py-2 rounded-full border text-sm font-bold bg-gray-50 text-gray-900 border-gray-200"
+                                                >
+                                                    {it}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Step 2: Pack & Unit (products only; still hidden for lease/service) */}
+                    {step === 2 && typeSel !== "lease" && typeSel !== "service" && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs font-extrabold text-gray-500">
+                                    Quantity
+                                </label>
+                                <input
+                                    value={String(pack || "")}
+                                    onChange={(e) => setPack(e.target.value)}
+                                    placeholder="e.g. 50"
+                                    inputMode="numeric"
+                                    className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-extrabold text-gray-500">
+                                    Unit of measure
+                                </label>
+                                <input
+                                    value={unit}
+                                    onChange={(e) => setUnit(e.target.value)}
+                                    placeholder={
+                                        currentItem?.unit ??
+                                        "kg / bag / carton / head"
+                                    }
+                                    className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                                />
+                                {unitsitems.length > 0 && (
+                                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                                        {unitsitems.slice(0, 50).map((u) => (
+                                            <button
+                                                key={u}
+                                                onClick={() => setUnit(u)}
+                                                className="shrink-0 px-3 py-2 rounded-full border text-sm font-bold bg-gray-50 text-gray-900 border-gray-200"
+                                            >
+                                                {u}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 3: Price or Rate/Billing */}
+                    {step === 3 && (
+                        <>
+                            {typeSel === "lease" || typeSel === "service" ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+
+                                        <label className="text-xs font-extrabold text-gray-500">
+                                            Rate ({currency})
+                                        </label>
+                                        <div className="flex items-center text-[11px] gap-1">
+                                            <span className="text-gray-500 font-semibold">Currency</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetCurrency("KES")}
+                                                className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "KES"
+                                                    ? "bg-emerald-700 text-white border-emerald-800"
+                                                    : "bg-white text-gray-700 border-gray-200"
+                                                    }`}
+                                            >
+                                                KES
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetCurrency("USD")}
+                                                className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "USD"
+                                                    ? "bg-emerald-700 text-white border-emerald-800"
+                                                    : "bg-white text-gray-700 border-gray-200"
+                                                    }`}
+                                            >
+                                                USD
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <input
+                                        value={rate}
+                                        onChange={(e) => setRate(e.target.value)}
+                                        placeholder={currency === "KES" ? "e.g. 1500" : "e.g. 10"}
+                                        inputMode="numeric"
+                                        className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                                    />
+
+
+                                    <div>
+                                        <label className="text-xs font-extrabold text-gray-500">
+                                            Billing unit
+                                        </label>
+                                        <input
+                                            value={billingUnit}
+                                            onChange={(e) => setBillingUnit(e.target.value)}
+                                            placeholder="e.g. per hour / per acre / per visit"
+                                            className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-extrabold text-gray-500">
+                                            Price ({currency})
+                                        </label>
+                                        <div className="flex items-center text-[11px] gap-1">
+                                            <span className="text-gray-500 font-semibold">Currency</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetCurrency("KES")}
+                                                className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "KES"
+                                                    ? "bg-emerald-700 text-white border-emerald-800"
+                                                    : "bg-white text-gray-700 border-gray-200"
+                                                    }`}
+                                            >
+                                                KES
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSetCurrency("USD")}
+                                                className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${currency === "USD"
+                                                    ? "bg-emerald-700 text-white border-emerald-800"
+                                                    : "bg-white text-gray-700 border-gray-200"
+                                                    }`}
+                                            >
+                                                USD
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <input
+                                        value={price}
+                                        onChange={(e) => setPrice(e.target.value)}
+                                        placeholder={currency === "KES" ? "e.g. 250" : "e.g. 5"}
+                                        inputMode="numeric"
+                                        className="mt-2 w-full h-11 rounded-xl border border-gray-200 px-3 outline-none"
+                                    />
+                                </div>
+
+                            )}
+                        </>
+                    )}
+
+                    {/* Step 4: Photos + Location + Review */}
+                    {step === 4 && (
+                        <div className="space-y-4">
+                            {/* Photos */}
+                            <div>
+                                <label className="text-xs font-extrabold text-gray-500">Photos</label>
+                                <div className="mt-2 flex items-center gap-3">
+                                    {photos.length < 5 && (
+                                        <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
+                                            <IoImagesOutline size={18} className="text-gray-600" />
+                                            <span className="text-sm font-semibold text-gray-800">
+                                                Choose images (max 5)
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                hidden
+                                                onChange={(e) => onPickFiles(e.target.files)}
+                                            />
+                                        </label>
+                                    )}
+                                    <div className="text-xs text-gray-500">{photos.length}/5 selected</div>
+                                </div>
+
+                                {photos.length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-3">
+                                        {photos.map((p, idx) => (
+                                            <div key={p.url} className="relative w-24 h-24">
+                                                <img
+                                                    src={p.url}
+                                                    alt=""
+                                                    className="w-full h-full object-cover rounded-xl border border-gray-200"
+                                                />
+                                                <button
+                                                    onClick={() => removeImg(idx)}
+                                                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-6 h-6 grid place-items-center"
+                                                    aria-label="Remove"
+                                                >
+                                                    <IoClose size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Location */}
+                            {/* Location */}
+                            <div>
+                                <label className="text-xs font-extrabold text-gray-500">
+                                    {typeSel === ARABLE_LAND_TYPE ? "Where is the land?" : "Where is the product?"}
+                                </label>
+
+                                <div className="mt-2 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                                    {typeSel === ARABLE_LAND_TYPE ? (
+                                        // NEW: polygon button for arable land
+                                        <button
+                                            onClick={() => {
+                                                setPolygonModalOpen(true);
+                                            }}
+                                            className="h-11 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 inline-flex items-center gap-2"
+                                        >
+                                            <IoMap size={18} />
+                                            <span className="font-semibold">Draw land area on map</span>
+                                        </button>
+                                    ) : (
+                                        // Existing point location picker for other types
+                                        <button
+                                            onClick={() => {
+                                                setCandidateText(placeText || "");
+                                                setCandidateCenter(
+                                                    coords || {
+                                                        latitude: -1.286389,
+                                                        longitude: 36.817223, // Nairobi default
+                                                    }
+                                                );
+                                                setLocModalOpen(true);
+                                            }}
+                                            className="h-11 px-3 rounded-xl border border-gray-200 hover:bg-gray-50 inline-flex items-center gap-2"
+                                        >
+                                            <IoMap size={18} />
+                                            <span className="font-semibold">Add location</span>
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Info for normal point location */}
+                                {typeSel !== ARABLE_LAND_TYPE && (
+                                    <>
+                                        {!!coords && (
+                                            <div className="mt-1 text-xs text-gray-500">
+                                                Coords: {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
+                                            </div>
+                                        )}
+
+                                        {!!placeText && (
+                                            <div className="mt-1 text-xs text-gray-600">
+                                                Place: {placeText}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* NEW: info for polygon */}
+                                {typeSel === ARABLE_LAND_TYPE && (
+                                    <div className="mt-1 text-xs text-gray-600 space-y-1">
+                                        <div>
+                                            <span className="font-bold text-gray-500">Points:</span>{" "}
+                                            {landPolygon.length > 0 ? `${landPolygon.length} vertices set` : "No polygon drawn yet"}
+                                        </div>
+                                        {landCenter && (
+                                            <div className="text-xs text-gray-500">
+                                                Approx. center: {landCenter.latitude.toFixed(4)}, {landCenter.longitude.toFixed(4)}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+
+                            {/* Review */}
+                            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50">
+                                <div className="font-black text-gray-900 mb-1">Review</div>
+                                <div className="space-y-1 text-sm">
+                                    <div>
+                                        <span className="font-bold text-gray-500">Type:</span> {typeSel}
+                                    </div>
+                                    <div>
+                                        <span className="font-bold text-gray-500">Category:</span>{" "}
+                                        {category || "-"}
+                                    </div>
+                                    <div>
+                                        <span className="font-bold text-gray-500">Item:</span>{" "}
+                                        {name || "-"}
+                                    </div>
+                                    {typeSel === "tree" && useCaseTip && (
+                                        <div>
+                                            <span className="font-bold text-gray-500">Use-case tips:</span>{" "}
+                                            {useCaseTip}
+                                        </div>
+                                    )}
+                                    <div>
+                                        <span className="font-bold text-gray-500">Pack/Unit:</span>{" "}
+                                        {pack || "-"} {unit || ""}
+                                    </div>
+                                    {typeSel === "lease" || typeSel === "service" ? (
+                                        <div>
+                                            <span className="font-bold text-gray-500">Rate:</span>{" "}
+                                            {rate ? `${formatPriceForReview(rate, currency)} (${billingUnit || "-"})` : "-"}
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <span className="font-bold text-gray-500">Price:</span>{" "}
+                                            {formatPriceForReview(price, currency)}
+                                        </div>
+                                    )}
+                                    <div>
+                                        <span className="font-bold text-gray-500">Photos:</span>{" "}
+                                        {photos.length}/5
+                                    </div>
+                                    <div>
+                                        <span className="font-bold text-gray-500">Location:</span>{" "}
+                                        {typeSel === ARABLE_LAND_TYPE ? (placeText || "Arable land parcel") : (placeText || "-")}
+                                    </div>
+
+                                    {typeSel === ARABLE_LAND_TYPE ? (
+                                        <>
+                                            <div>
+                                                <span className="font-bold text-gray-500">Polygon points:</span>{" "}
+                                                {landPolygon.length > 0 ? landPolygon.length : "-"}
+                                            </div>
+                                            <div>
+                                                <span className="font-bold text-gray-500">Center:</span>{" "}
+                                                {landCenter
+                                                    ? `${landCenter.latitude.toFixed(4)}, ${landCenter.longitude.toFixed(4)}`
+                                                    : "-"}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div>
+                                            <span className="font-bold text-gray-500">Coords:</span>{" "}
+                                            {coords
+                                                ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
+                                                : "-"}
+                                        </div>
+                                    )}
+
+                                </div>
+                            </div>
+                            {/* ==== NEW: Account verification gate ==== */}
+                            {requireVerifiedToPostProduct ? (
+                                <div className="border border-amber-200 rounded-xl p-3 bg-amber-50 flex items-start gap-3">
+                                    <div className="mt-0.5 h-2 w-2 rounded-full bg-amber-500" />
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <div className="font-black text-sm text-gray-900">
+                                                Account verification required
+                                            </div>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${verificationStatus === "approved"
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : verificationStatus === "pending"
+                                                    ? "bg-amber-100 text-amber-800"
+                                                    : verificationStatus === "rejected"
+                                                        ? "bg-red-100 text-red-700"
+                                                        : "bg-gray-100 text-gray-600"
+                                                }`}>
+                                                {verificationLoading
+                                                    ? "Checking..."
+                                                    : verificationStatus === "approved"
+                                                        ? "Verified"
+                                                        : verificationStatus === "pending"
+                                                            ? "Pending review"
+                                                            : verificationStatus === "rejected"
+                                                                ? "Rejected"
+                                                                : "Not verified"}
+                                            </span>
+                                        </div>
+
+                                        {verificationStatus === "approved" ? (
+                                            <p className="text-xs text-gray-600">
+                                                Your account is verified. You can publish this listing.
+                                            </p>
+                                        ) : (
+                                            <>
+                                                <p className="text-xs text-gray-600">
+                                                    To sell on ekariMarket, please verify your account first. This helps keep buyers safe and builds trust.
+                                                </p>
+                                                <a
+                                                    href="/account/verification"
+                                                    className="inline-flex mt-1 text-xs font-bold text-emerald-800 underline"
+                                                >
+                                                    Go to verification page
+                                                </a>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50 flex items-start gap-3">
+                                    <div className="mt-0.5 h-2 w-2 rounded-full bg-emerald-600" />
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <div className="font-black text-sm text-gray-900">
+                                                Verification is optional
+                                            </div>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${verificationStatus === "approved"
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : "bg-white text-gray-700 border border-emerald-200"
+                                                }`}>
+                                                {verificationLoading ? "Checking..." : verificationStatus === "approved" ? "Verified" : "Not verified"}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-600">
+                                            You can publish even without verification. Verified sellers may get more buyer trust and better visibility.
+                                        </p>
+                                        {verificationStatus !== "approved" && (
+                                            <a
+                                                href="/account/verification"
+                                                className="inline-flex mt-1 text-xs font-bold text-emerald-800 underline"
+                                            >
+                                                Verify anyway
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+
+
+                        </div>
+                    )}
+
+                </div>
 
                 {/* Footer nav */}
                 <div className="mt-3 mb-4 flex items-center justify-between gap-3">
                     <button
                         onClick={onBack}
-                        disabled={(modalStep === "form" && step === 0) || saving || publishing}
-                        className={clsx(
-                            "h-11 px-4 rounded-xl border font-bold inline-flex items-center gap-2 disabled:opacity-60",
-                            (modalStep === "form" && step === 0) ? "text-gray-400 border-gray-200" : "text-gray-800 border-gray-200 hover:bg-gray-50"
-                        )}
+                        disabled={step === 0 || saving}
+                        className={`h-11 px-4 rounded-xl border font-bold inline-flex items-center gap-2 ${step === 0
+                            ? "text-gray-400 border-gray-200"
+                            : "text-gray-800 border-gray-200 hover:bg-gray-50"
+                            } disabled:opacity-60`}
                     >
                         <IoChevronBack />
                         Back
                     </button>
 
-                    {modalStep === "form" ? (
-                        step < 4 ? (
-                            <button
-                                onClick={onNext}
-                                disabled={!canNext || saving || publishing}
-                                className="h-11 px-5 rounded-xl font-black inline-flex items-center gap-2 text-white disabled:opacity-60"
-                                style={{ backgroundColor: canNext ? EKARI.gold : "#9CA3AF" }}
-                            >
-                                Next
-                                <IoChevronForward />
-                            </button>
-                        ) : (<>
-                            {slots.limit !== null ? (
-                                <div className="text-[11px] text-gray-500">
-                                    Active listings: {slots.used}/{slots.limit} • {slots.remaining} slots left
-                                </div>
-                            ) : (
-                                <div className="text-[11px] text-gray-500">
-                                    Active listings: {slots.used} • Unlimited plan
-                                </div>
-                            )}
-                            <button
-                                onClick={onFinish}
-                                disabled={saving || publishing || !canPublish}
-                                className="h-11 px-5 rounded-xl text-white font-black inline-flex items-center gap-2 disabled:opacity-60 hover:opacity-90"
-                                style={{ backgroundColor: canPublish ? EKARI.gold : "#9CA3AF" }}
-                            >
-                                {saving ? (
-                                    <span>Saving…</span>
-                                ) : (
-                                    <>
-                                        <IoCheckmarkDone />
-                                        {isSubActive(sub) ? "Publish" : "Continue"}
-                                    </>
-                                )}
-                            </button>
-
-                        </>)
+                    {step < 4 ? (
+                        <button
+                            onClick={onNext}
+                            disabled={!canNext || saving}
+                            className="h-11 px-5 rounded-xl font-black inline-flex items-center gap-2 text-white disabled:opacity-60"
+                            style={{ backgroundColor: canNext ? EKARI.gold : "#9CA3AF" }}
+                        >
+                            Next
+                            <IoChevronForward />
+                        </button>
                     ) : (
                         <button
                             onClick={() => {
-                                // On plan step, right button can just close or do nothing
-                                ui.alert("Pick a plan above (Free or Paid) to continue.");
+                                if (!canPublish) {
+                                    ui.alert(
+                                        verificationStatus === "pending"
+                                            ? "Your verification is still under review. You’ll be able to sell once it is approved."
+                                            : "To sell on ekariMarket, please verify your account first from the Verification page in your profile."
+                                    );
+                                    return;
+                                }
+                                createProduct();
                             }}
-                            className="h-11 px-5 rounded-xl font-black inline-flex items-center gap-2 text-white"
-                            style={{ backgroundColor: EKARI.gold }}
+                            disabled={saving || !canPublish}
+                            className="h-11 px-5 rounded-xl text-white font-black inline-flex items-center gap-2 disabled:opacity-60 hover:opacity-90"
+                            style={{
+                                backgroundColor: canPublish ? EKARI.gold : "#9CA3AF",
+                            }}
                         >
-                            Select a plan above
+                            {saving ? (
+                                <span>Saving…</span>
+                            ) : (
+                                <>
+                                    <IoCheckmarkDone />
+                                    {!requireVerifiedToPostProduct
+                                        ? "Finish"
+                                        : verificationStatus === "approved"
+                                            ? "Finish"
+                                            : verificationStatus === "pending"
+                                                ? "Awaiting approval"
+                                                : "Verify to publish"}
+                                </>
+                            )}
                         </button>
+
                     )}
                 </div>
-
             </div>
-            <ListingLimitDialogSimple
-                open={limitOpen}
-                message={limitMsg}
-                onClose={() => setLimitOpen(false)}
-                onUpgrade={() => setModalStep("plan")}
-            />
+
             {/* Nested Location Picker */}
             {locModalOpen && (
                 <LocationPickerModal

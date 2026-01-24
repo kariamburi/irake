@@ -68,6 +68,7 @@ import { usePathname } from "next/navigation";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { cacheEvent } from "@/lib/eventCache";
 import { cacheDiscussion } from "@/lib/discussionCache";
+import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
 
 /* ---------- Theme ---------- */
 const EKARI = {
@@ -78,6 +79,11 @@ const EKARI = {
   dim: "#6B7280",
   hair: "#E5E7EB",
 };
+
+function cn(...xs: (string | false | null | undefined)[]) {
+  return xs.filter(Boolean).join(" ");
+}
+
 function useIsActivePath(href: string, alsoMatch: string[] = []) {
   const pathname = usePathname() || "/";
   const matches = [href, ...alsoMatch];
@@ -137,12 +143,15 @@ function SideMenuSheet({
 
   return (
     <div
-      className={cn("fixed inset-0 z-[120] transition", open ? "pointer-events-auto" : "pointer-events-none")}
+      className={cn(
+        "fixed inset-0 z-[120] transition",
+        open ? "pointer-events-auto" : "pointer-events-none"
+      )}
       aria-hidden={!open}
     >
       <div
         className={cn(
-          "absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity",
+          "absolute inset-0 bg-black/50 backdrop-blur-[3px] transition-opacity",
           open ? "opacity-100" : "opacity-0"
         )}
         onClick={onClose}
@@ -150,8 +159,8 @@ function SideMenuSheet({
 
       <div
         className={cn(
-          "absolute left-0 top-0 h-full w-[86%] max-w-[340px]",
-          "bg-white shadow-2xl border-r",
+          "absolute left-0 top-0 h-full w-[86%] max-w-[360px]",
+          "bg-white shadow-[0_24px_80px_rgba(0,0,0,0.18)] border-r",
           "transition-transform duration-300 will-change-transform",
           open ? "translate-x-0" : "-translate-x-full"
         )}
@@ -159,13 +168,33 @@ function SideMenuSheet({
         role="dialog"
         aria-modal="true"
       >
-        <div className="h-[56px] px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
-          <div className="font-black" style={{ color: EKARI.text }}>
-            Menu
+        <div
+          className="h-[64px] px-4 flex items-center justify-between border-b"
+          style={{ borderColor: EKARI.hair }}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className="h-9 w-9 rounded-2xl grid place-items-center"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(35,63,57,0.14), rgba(199,146,87,0.14))",
+              }}
+            >
+              <IoCompassOutline style={{ color: EKARI.forest }} />
+            </div>
+            <div className="leading-tight">
+              <div className="font-black" style={{ color: EKARI.text }}>
+                ekarihub
+              </div>
+              <div className="text-[11px]" style={{ color: EKARI.dim }}>
+                Navigation
+              </div>
+            </div>
           </div>
+
           <button
             onClick={onClose}
-            className="h-10 w-10 rounded-xl grid place-items-center border hover:bg-black/5"
+            className="h-10 w-10 rounded-2xl grid place-items-center border hover:bg-black/5"
             style={{ borderColor: EKARI.hair }}
             aria-label="Close menu"
           >
@@ -173,11 +202,20 @@ function SideMenuSheet({
           </button>
         </div>
 
-        <nav className="p-2 overflow-y-auto h-[calc(100%-56px)]">
+        <nav className="p-2 overflow-y-auto h-[calc(100%-64px)]">
           {items.map((it) => (
             <MenuRow key={it.key} item={it} onNavigate={onNavigate} />
           ))}
         </nav>
+
+        <div
+          className="p-4 border-t"
+          style={{ borderColor: EKARI.hair, background: "#FAFAFA" }}
+        >
+          <div className="text-[11px]" style={{ color: EKARI.dim }}>
+            Tip: Use tags to discover relevant events & discussions faster.
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -197,18 +235,31 @@ function MenuRow({
   return (
     <button
       onClick={() => onNavigate(item.href, item.requiresAuth)}
-      className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition", "hover:bg-black/5")}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition",
+        "hover:bg-black/5"
+      )}
       style={{
         color: EKARI.text,
-        backgroundColor: active ? "rgba(199,146,87,0.10)" : undefined,
-        border: active ? "1px solid rgba(199,146,87,0.35)" : "1px solid transparent",
+        background: active
+          ? "linear-gradient(135deg, rgba(199,146,87,0.12), rgba(35,63,57,0.08))"
+          : undefined,
+        border: active
+          ? "1px solid rgba(199,146,87,0.35)"
+          : "1px solid transparent",
       }}
     >
       <span
-        className="relative h-10 w-10 rounded-xl grid place-items-center border bg-white"
-        style={{ borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair }}
+        className="relative h-10 w-10 rounded-2xl grid place-items-center border bg-white"
+        style={{
+          borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair,
+          boxShadow: active ? "0 10px 24px rgba(199,146,87,0.10)" : undefined,
+        }}
       >
-        <span style={{ color: active ? EKARI.gold : EKARI.forest }} className="text-[18px]">
+        <span
+          style={{ color: active ? EKARI.gold : EKARI.forest }}
+          className="text-[18px]"
+        >
           {item.icon}
         </span>
 
@@ -220,7 +271,9 @@ function MenuRow({
       </span>
 
       <div className="flex-1 min-w-0">
-        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>{item.label}</div>
+        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>
+          {item.label}
+        </div>
       </div>
 
       <IoChevronForward size={18} style={{ color: EKARI.dim }} />
@@ -245,9 +298,6 @@ function useIsDesktop() {
 }
 function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
-}
-function cn(...xs: (string | false | null | undefined)[]) {
-  return xs.filter(Boolean).join(" ");
 }
 
 /* ---------- Types ---------- */
@@ -425,10 +475,10 @@ function BottomSheet({
   if (!mounted || !open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center px-3">
       <button
         type="button"
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200"
+        className="absolute inset-0 bg-black/45 backdrop-blur-sm transition-opacity duration-200"
         onClick={onClose}
         aria-label="Close modal"
       />
@@ -436,12 +486,13 @@ function BottomSheet({
         role="dialog"
         aria-modal="true"
         className={[
-          "relative w-full max-w-2xl rounded-3xl border bg-white shadow-xl",
+          "relative w-full max-w-2xl rounded-[28px] border bg-white",
+          "shadow-[0_26px_90px_rgba(0,0,0,0.22)]",
           "flex flex-col max-h-[90vh] px-4 pt-3 pb-4",
           "transition-all duration-200 transform",
           sheetVisible
             ? "opacity-100 translate-y-0 scale-100"
-            : "opacity-0 translate-y-3 scale-95",
+            : "opacity-0 translate-y-3 scale-[0.98]",
         ].join(" ")}
         style={{ borderColor: EKARI.hair }}
         onClick={(e) => e.stopPropagation()}
@@ -457,7 +508,7 @@ function BottomSheet({
           <button
             aria-label="Close"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-full border bg-white hover:bg-gray-50"
+            className="grid h-10 w-10 place-items-center rounded-2xl border bg-white hover:bg-gray-50"
             style={{ borderColor: EKARI.hair }}
           >
             <IoClose />
@@ -469,7 +520,10 @@ function BottomSheet({
         </div>
 
         {footer && (
-          <div className="mt-3 border-t pt-3" style={{ borderColor: EKARI.hair }}>
+          <div
+            className="mt-3 border-t pt-3"
+            style={{ borderColor: EKARI.hair }}
+          >
             {footer}
           </div>
         )}
@@ -563,21 +617,23 @@ function BannerUploader({
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
-          className={`rounded-2xl border-2 border-dashed bg-[#F9FAFB] transition
-            ${dragOver
+          className={cn(
+            "rounded-3xl border-2 border-dashed transition",
+            "bg-gradient-to-b from-[#FBFBFB] to-[#F6F7F8]",
+            dragOver
               ? "border-[--ekari-forest] ring-2 ring-[--ekari-forest]/10"
               : "border-gray-200"
-            }`}
+          )}
           style={{ ["--ekari-forest" as any]: ekari.forest }}
         >
           <div className="px-5 py-8 text-center">
             <div
-              className="mx-auto mb-3 h-12 w-12 rounded-full grid place-items-center border bg-white"
+              className="mx-auto mb-3 h-12 w-12 rounded-2xl grid place-items-center border bg-white shadow-sm"
               style={{ borderColor: ekari.hair }}
             >
               <IoImageOutline className="opacity-70" />
             </div>
-            <div className="font-bold" style={{ color: ekari.text }}>
+            <div className="font-black" style={{ color: ekari.text }}>
               Add banner image
             </div>
             <p className="text-xs mt-1" style={{ color: ekari.dim }}>
@@ -587,8 +643,11 @@ function BannerUploader({
               <button
                 type="button"
                 onClick={choose}
-                className="rounded-xl px-4 h-10 font-bold text-white"
-                style={{ background: ekari.forest }}
+                className="rounded-2xl px-4 h-10 font-black text-white shadow-sm hover:opacity-95"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(35,63,57,1), rgba(35,63,57,0.86))",
+                }}
               >
                 Choose image
               </button>
@@ -604,7 +663,7 @@ function BannerUploader({
         </div>
       ) : (
         <div
-          className="relative rounded-2xl overflow-hidden border bg-black aspect-[16/9]"
+          className="relative rounded-3xl overflow-hidden border bg-black aspect-[16/9]"
           style={{ borderColor: ekari.hair }}
         >
           {/* @ts-ignore */}
@@ -616,24 +675,26 @@ function BannerUploader({
             unoptimized
           />
 
-          <div className="absolute top-0 left-0 right-0 p-2 flex items-center justify-between bg-gradient-to-b from-black/40 to-transparent">
-            <span className="text-[11px] font-bold text-white/90 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+
+          <div className="absolute top-0 left-0 right-0 p-2 flex items-center justify-between">
+            <span className="text-[11px] font-black text-white/90 px-2 py-0.5 rounded-full bg-black/30 backdrop-blur">
               16:9 recommended
             </span>
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-3 flex gap-2 justify-end bg-gradient-to-t from-black/45 to-transparent">
+          <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-3 flex gap-2 justify-end">
             <button
               type="button"
               onClick={choose}
-              className="h-9 px-3 rounded-lg font-bold text-sm text-white/95 hover:text-white bg-white/10 hover:bg-white/15 backdrop-blur"
+              className="h-9 px-3 rounded-xl font-black text-sm text-white/95 hover:text-white bg-white/10 hover:bg-white/15 backdrop-blur"
             >
               Change
             </button>
             <button
               type="button"
               onClick={onRemove}
-              className="h-9 px-3 rounded-lg font-bold text-sm text-white/95 hover:text-white bg-white/10 hover:bg-white/15 backdrop-blur"
+              className="h-9 px-3 rounded-xl font-black text-sm text-white/95 hover:text-white bg-white/10 hover:bg-white/15 backdrop-blur"
             >
               Remove
             </button>
@@ -655,7 +716,7 @@ function BannerUploader({
         <button
           type="button"
           onClick={() => alert("Coming soon: in-app cropping")}
-          className="text-[11px] font-bold underline underline-offset-2 hover:opacity-80"
+          className="text-[11px] font-black underline underline-offset-2 hover:opacity-80"
           style={{ color: ekari.text }}
         >
           Crop?
@@ -811,6 +872,7 @@ function EventForm({
           ? Number(price.replace(/[^\d.]/g, ""))
           : null;
       const badge = buildAuthorBadge(userProfile);
+
       await setDoc(refDoc, {
         title: title.trim(),
         dateISO: dateISO || null,
@@ -863,77 +925,123 @@ function EventForm({
   const goBack = () => setStep((s) => prevStep[s]);
 
   useEffect(() => {
+    const Primary = ({
+      children,
+      disabled,
+      onClick,
+    }: {
+      children: ReactNode;
+      disabled?: boolean;
+      onClick: () => void;
+    }) => (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="h-11 px-4 rounded-2xl font-black text-white disabled:opacity-60 flex-1 shadow-sm"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(199,146,87,1), rgba(199,146,87,0.88))",
+        }}
+      >
+        {children}
+      </button>
+    );
+
+    const Ghost = ({
+      children,
+      disabled,
+      onClick,
+    }: {
+      children: ReactNode;
+      disabled?: boolean;
+      onClick: () => void;
+    }) => (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="h-11 px-4 rounded-2xl border font-black bg-white flex-1 hover:bg-black/[0.02] disabled:opacity-60"
+        style={{ borderColor: EKARI.hair, color: EKARI.text }}
+      >
+        {children}
+      </button>
+    );
+
     if (step === 0) {
       provideFooter(
         <div className="flex gap-2">
-          <button
-            onClick={onDone}
-            className="h-11 px-4 rounded-xl border font-bold bg-white flex-1"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={goNext}
-            disabled={!canNextFromBasics}
-            className="h-11 px-4 rounded-xl font-bold text-white disabled:opacity-60 flex-1"
-            style={{ background: EKARI.gold }}
-          >
+          <Ghost onClick={onDone}>Cancel</Ghost>
+          <Primary onClick={goNext} disabled={!canNextFromBasics}>
             Next
-          </button>
+          </Primary>
         </div>
       );
     } else if (step === 1) {
       provideFooter(
         <div className="flex gap-2">
-          <button
-            onClick={goBack}
-            className="h-11 px-4 rounded-xl border font-bold bg-white flex-1"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-          >
-            Back
-          </button>
-          <button
-            onClick={goNext}
-            disabled={!canNextFromTags}
-            className="h-11 px-4 rounded-xl font-bold text-white disabled:opacity-60 flex-1"
-            style={{ background: EKARI.gold }}
-          >
+          <Ghost onClick={goBack}>Back</Ghost>
+          <Primary onClick={goNext} disabled={!canNextFromTags}>
             Next
-          </button>
+          </Primary>
         </div>
       );
     } else {
       provideFooter(
         <div className="flex gap-2">
-          <button
-            onClick={goBack}
-            className="h-11 px-4 rounded-xl border font-bold bg-white flex-1"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            disabled={saving}
-          >
+          <Ghost onClick={goBack} disabled={saving}>
             Back
-          </button>
-          <button
-            onClick={save}
-            className="h-11 px-4 rounded-xl font-bold text-white disabled:opacity-60 flex-1"
-            style={{ background: EKARI.gold }}
-            disabled={saving}
-          >
+          </Ghost>
+          <Primary onClick={save} disabled={saving}>
             {saving ? "Saving…" : "Publish Event"}
-          </button>
+          </Primary>
         </div>
       );
     }
-  }, [
-    step,
-    canNextFromBasics,
-    canNextFromTags,
-    save,
-    onDone,
-    saving,
-    provideFooter,
-  ]);
+  }, [step, canNextFromBasics, canNextFromTags, save, onDone, saving, provideFooter]);
+
+  const ringStyle = { ["--tw-ring-color" as any]: EKARI.forest } as React.CSSProperties;
+
+  const Field = ({
+    label,
+    children,
+    hint,
+  }: {
+    label: string;
+    children: ReactNode;
+    hint?: string;
+  }) => (
+    <div className="space-y-1.5">
+      <div className="text-[11px] font-black uppercase tracking-wide" style={{ color: EKARI.dim }}>
+        {label}
+      </div>
+      {children}
+      {hint ? <div className="text-[11px]" style={{ color: EKARI.dim }}>{hint}</div> : null}
+    </div>
+  );
+
+  const Pill = ({
+    active,
+    onClick,
+    children,
+  }: {
+    active?: boolean;
+    onClick: () => void;
+    children: ReactNode;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-8 rounded-full px-3 border text-[12px] font-black transition"
+      style={{
+        borderColor: active ? "rgba(35,63,57,0.45)" : EKARI.hair,
+        background: active
+          ? "linear-gradient(135deg, rgba(35,63,57,1), rgba(35,63,57,0.9))"
+          : "rgba(2,6,23,0.03)",
+        color: active ? "#fff" : EKARI.text,
+      }}
+    >
+      {children}
+    </button>
+  );
 
   return (
     <div className="space-y-4">
@@ -950,8 +1058,10 @@ function EventForm({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className={`h-2 w-2 rounded-full ${step >= i ? "bg-[--ekari-forest]" : "bg-gray-300"
-                }`}
+              className={cn(
+                "h-2 w-2 rounded-full",
+                step >= i ? "bg-[--ekari-forest]" : "bg-gray-300"
+              )}
               style={{ ["--ekari-forest" as any]: EKARI.forest }}
             />
           ))}
@@ -960,34 +1070,41 @@ function EventForm({
 
       {step === 0 && (
         <div className="space-y-3">
-          <input
-            placeholder="Event title"
-            className="h-11 w-full rounded-xl border px-3 text-sm bg-white"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <Field label="Event title">
+            <input
+              placeholder="e.g. Dairy Farmers Meetup – Nairobi"
+              className="h-11 w-full rounded-2xl border px-3 text-sm bg-white focus:ring-2"
+              style={{ borderColor: EKARI.hair, color: EKARI.text, ...ringStyle }}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <input
-              type="datetime-local"
-              className="h-11 rounded-xl border px-3 text-sm"
-              style={{ borderColor: EKARI.hair, color: EKARI.text }}
-              value={dateISO}
-              onChange={(e) => setDateISO(e.target.value)}
-            />
-            <input
-              placeholder="Location"
-              className="h-11 rounded-xl border px-3 text-sm"
-              style={{ borderColor: EKARI.hair, color: EKARI.text }}
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Date & time" hint="Future dates only">
+              <input
+                type="datetime-local"
+                className="h-11 rounded-2xl border px-3 text-sm focus:ring-2"
+                style={{ borderColor: EKARI.hair, color: EKARI.text, ...ringStyle }}
+                value={dateISO}
+                onChange={(e) => setDateISO(e.target.value)}
+              />
+            </Field>
+
+            <Field label="Location" hint="Town, venue, or online">
+              <input
+                placeholder="e.g. Karen, Nairobi"
+                className="h-11 rounded-2xl border px-3 text-sm focus:ring-2"
+                style={{ borderColor: EKARI.hair, color: EKARI.text, ...ringStyle }}
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </Field>
           </div>
 
           {!!dateISO && (
             <div
-              className="flex items-center gap-2 rounded-xl border px-3 py-2 bg-[#F9FAFB]"
+              className="flex items-center gap-2 rounded-2xl border px-3 py-2 bg-gradient-to-b from-[#FBFBFB] to-[#F6F7F8]"
               style={{ borderColor: EKARI.hair }}
             >
               <IoTimeOutline color={EKARI.dim} />
@@ -1002,40 +1119,24 @@ function EventForm({
             </div>
           )}
 
-          <div>
-            <div className="text-xs font-extrabold" style={{ color: EKARI.dim }}>
-              Category
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
+          <Field label="Category">
+            <div className="flex flex-wrap gap-2">
               {(["Workshop", "Training", "Fair", "Meetup", "Other"] as EventCategory[]).map(
-                (c) => {
-                  const active = c === category;
-                  return (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setCategory(c)}
-                      className="h-8 rounded-full px-3 border text-xs font-bold"
-                      style={{
-                        borderColor: active ? EKARI.forest : "#eee",
-                        background: active ? EKARI.forest : "#f5f5f5",
-                        color: active ? "#fff" : EKARI.text,
-                      }}
-                    >
-                      {c}
-                    </button>
-                  );
-                }
+                (c) => (
+                  <Pill key={c} active={c === category} onClick={() => setCategory(c)}>
+                    {c}
+                  </Pill>
+                )
               )}
             </div>
-          </div>
+          </Field>
         </div>
       )}
 
       {step === 1 && (
         <div className="space-y-3">
           <div
-            className="flex items-center gap-2 text-sm font-extrabold"
+            className="flex items-center gap-2 text-sm font-black"
             style={{ color: EKARI.text }}
           >
             <IoPricetagsOutline /> Select tags
@@ -1059,8 +1160,8 @@ function EventForm({
           </div>
 
           <p className="text-xs" style={{ color: EKARI.dim }}>
-            Tip: you can also type <span className="font-bold">#tags</span> in
-            your title/description—we’ll auto-pick them.
+            Tip: you can also type <span className="font-bold">#tags</span> in your
+            title/description—we’ll auto-pick them.
           </p>
         </div>
       )}
@@ -1069,9 +1170,12 @@ function EventForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
+              <div className="text-[11px] font-black uppercase tracking-wide" style={{ color: EKARI.dim }}>
+                Price (optional)
+              </div>
               <input
-                placeholder={currency === "KES" ? "Price (optional, KSh)" : "Price (optional, USD)"}
-                className="h-11 w-full rounded-xl border px-3 text-sm"
+                placeholder={currency === "KES" ? "KSh e.g. 500" : "USD e.g. 10"}
+                className="mt-1 h-11 w-full rounded-2xl border px-3 text-sm focus:ring-2"
                 style={{ borderColor: EKARI.hair, color: EKARI.text }}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
@@ -1080,8 +1184,11 @@ function EventForm({
             </div>
 
             <div className="shrink-0">
+              <div className="text-[11px] font-black uppercase tracking-wide" style={{ color: EKARI.dim }}>
+                Currency
+              </div>
               <div
-                className="inline-flex rounded-full bg-[#F3F4F6] p-1 border"
+                className="mt-1 inline-flex rounded-full bg-[#F3F4F6] p-1 border"
                 style={{ borderColor: EKARI.hair }}
               >
                 {(["KES", "USD"] as CurrencyCode[]).map((c) => {
@@ -1092,7 +1199,7 @@ function EventForm({
                       type="button"
                       onClick={() => setCurrency(c)}
                       className={cn(
-                        "px-3 h-7 rounded-full text-[11px] font-bold",
+                        "px-3 h-8 rounded-full text-[11px] font-black transition",
                         active ? "bg-white shadow-sm" : "bg-transparent"
                       )}
                       style={{ color: active ? EKARI.forest : EKARI.dim }}
@@ -1105,22 +1212,33 @@ function EventForm({
             </div>
           </div>
 
-          <input
-            placeholder="Registration link (optional)"
-            className="h-11 w-full rounded-xl border px-3 text-sm"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            value={registrationUrl}
-            onChange={(e) => setRegistrationUrl(e.target.value)}
-            autoCapitalize="none"
-          />
-          <textarea
-            placeholder="Description (optional)"
-            rows={5}
-            className="w-full rounded-xl border px-3 py-2 text-sm"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
+          <div className="space-y-1.5">
+            <div className="text-[11px] font-black uppercase tracking-wide" style={{ color: EKARI.dim }}>
+              Registration link (optional)
+            </div>
+            <input
+              placeholder="https://…"
+              className="h-11 w-full rounded-2xl border px-3 text-sm focus:ring-2"
+              style={{ borderColor: EKARI.hair, color: EKARI.text }}
+              value={registrationUrl}
+              onChange={(e) => setRegistrationUrl(e.target.value)}
+              autoCapitalize="none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="text-[11px] font-black uppercase tracking-wide" style={{ color: EKARI.dim }}>
+              Description (optional)
+            </div>
+            <textarea
+              placeholder="What is this event about?"
+              rows={5}
+              className="w-full rounded-2xl border px-3 py-2 text-sm focus:ring-2"
+              style={{ borderColor: EKARI.hair, color: EKARI.text }}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
 
           <BannerUploader
             previewUrl={coverPreview}
@@ -1170,9 +1288,10 @@ function buildAuthorBadge(userProfile: any) {
     ? (typeRaw as "individual" | "business" | "company" | "organization")
     : "individual";
 
-  const roleLabel = typeof v.roleLabel === "string" && v.roleLabel.trim()
-    ? v.roleLabel.trim()
-    : null;
+  const roleLabel =
+    typeof v.roleLabel === "string" && v.roleLabel.trim()
+      ? v.roleLabel.trim()
+      : null;
 
   const orgName =
     (type === "business" || type === "company" || type === "organization") &&
@@ -1226,15 +1345,14 @@ function DiscussionForm({
   );
 
   const canPublish = mergedTags.length > 0;
+
   const [userProfile, setUserProfile] = useState<any | null>(null);
   useEffect(() => {
-
     if (!user) return;
-
-    const db = getFirestore();
+    const dbx = getFirestore();
     (async () => {
       try {
-        const uRef = doc(db, "users", user.uid);
+        const uRef = doc(dbx, "users", user.uid);
         const uSnap = await getDoc(uRef);
         if (uSnap.exists()) {
           const data = uSnap.data() as any;
@@ -1244,7 +1362,8 @@ function DiscussionForm({
         console.warn("Failed to load user profile for trending tags", e);
       }
     })();
-  }, []);
+  }, [user]);
+
   const save = useCallback(async () => {
     if (!title.trim()) {
       alert("Title is required");
@@ -1284,64 +1403,101 @@ function DiscussionForm({
       setSaving(false);
       alert(`Failed to start discussion: ${e?.message || "Try again"}`);
     }
-  }, [title, body, uid, category, mergedTags, onDone]);
-
-  const goNext = () => setStep(1);
-  const goBack = () => setStep(0);
+  }, [title, body, uid, category, mergedTags, onDone, userProfile]);
 
   useEffect(() => {
+    const Primary = ({
+      children,
+      disabled,
+      onClick,
+    }: {
+      children: ReactNode;
+      disabled?: boolean;
+      onClick: () => void;
+    }) => (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="h-11 px-4 rounded-2xl font-black text-white disabled:opacity-60 flex-1 shadow-sm"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(199,146,87,1), rgba(199,146,87,0.88))",
+        }}
+      >
+        {children}
+      </button>
+    );
+
+    const Ghost = ({
+      children,
+      disabled,
+      onClick,
+    }: {
+      children: ReactNode;
+      disabled?: boolean;
+      onClick: () => void;
+    }) => (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="h-11 px-4 rounded-2xl border font-black bg-white flex-1 hover:bg-black/[0.02] disabled:opacity-60"
+        style={{ borderColor: EKARI.hair, color: EKARI.text }}
+      >
+        {children}
+      </button>
+    );
+
     if (step === 0) {
       provideFooter(
         <div className="flex gap-2">
-          <button
-            onClick={onDone}
-            className="h-11 px-4 rounded-xl border font-bold bg-white flex-1"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            disabled={saving}
-          >
+          <Ghost onClick={onDone} disabled={saving}>
             Cancel
-          </button>
-          <button
-            onClick={goNext}
-            disabled={!canNextFromBasics || saving}
-            className="h-11 px-4 rounded-xl font-bold text-white disabled:opacity-60 flex-1"
-            style={{ background: EKARI.gold }}
-          >
+          </Ghost>
+          <Primary onClick={() => setStep(1)} disabled={!canNextFromBasics || saving}>
             Next
-          </button>
+          </Primary>
         </div>
       );
     } else {
       provideFooter(
         <div className="flex gap-2">
-          <button
-            onClick={goBack}
-            className="h-11 px-4 rounded-xl border font-bold bg-white flex-1"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            disabled={saving}
-          >
+          <Ghost onClick={() => setStep(0)} disabled={saving}>
             Back
-          </button>
-          <button
-            onClick={save}
-            disabled={!canPublish || saving}
-            className="h-11 px-4 rounded-xl font-bold text-white disabled:opacity-60 flex-1"
-            style={{ background: EKARI.gold }}
-          >
+          </Ghost>
+          <Primary onClick={save} disabled={!canPublish || saving}>
             {saving ? "Posting…" : "Start Discussion"}
-          </button>
+          </Primary>
         </div>
       );
     }
-  }, [
-    step,
-    saving,
-    canNextFromBasics,
-    canPublish,
-    onDone,
-    provideFooter,
-    save,
-  ]);
+  }, [step, saving, canNextFromBasics, canPublish, onDone, provideFooter, save]);
+
+  const ringStyle = { ["--tw-ring-color" as any]: EKARI.forest } as React.CSSProperties;
+
+  const Pill = ({
+    active,
+    onClick,
+    children,
+  }: {
+    active?: boolean;
+    onClick: () => void;
+    children: ReactNode;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-8 rounded-full px-3 border text-[12px] font-black transition"
+      style={{
+        borderColor: active ? "rgba(35,63,57,0.45)" : EKARI.hair,
+        background: active
+          ? "linear-gradient(135deg, rgba(35,63,57,1), rgba(35,63,57,0.9))"
+          : "rgba(2,6,23,0.03)",
+        color: active ? "#fff" : EKARI.text,
+      }}
+    >
+      {children}
+    </button>
+  );
 
   return (
     <div className="space-y-4">
@@ -1358,8 +1514,10 @@ function DiscussionForm({
           {[0, 1].map((i) => (
             <div
               key={i}
-              className={`h-2 w-2 rounded-full ${step >= i ? "bg-[--ekari-forest]" : "bg-gray-300"
-                }`}
+              className={cn(
+                "h-2 w-2 rounded-full",
+                step >= i ? "bg-[--ekari-forest]" : "bg-gray-300"
+              )}
               style={{ ["--ekari-forest" as any]: EKARI.forest }}
             />
           ))}
@@ -1368,59 +1526,53 @@ function DiscussionForm({
 
       {step === 0 && (
         <div className="space-y-3">
-          <input
-            placeholder="Discussion title"
-            className="h-11 w-full rounded-xl border px-3 text-sm bg-white"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <div className="space-y-1.5">
+            <div className="text-[11px] font-black uppercase tracking-wide" style={{ color: EKARI.dim }}>
+              Discussion title
+            </div>
+            <input
+              placeholder="Ask something helpful…"
+              className="h-11 w-full rounded-2xl border px-3 text-sm bg-white focus:ring-2"
+              style={{ borderColor: EKARI.hair, color: EKARI.text, ...ringStyle }}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
 
           <div>
-            <div className="text-xs font-extrabold" style={{ color: EKARI.dim }}>
+            <div className="text-[11px] font-black uppercase tracking-wide" style={{ color: EKARI.dim }}>
               Category
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {(
                 ["General", "Seeds", "Soil", "Equipment", "Market", "Regulations", "Other"] as DiscCategory[]
-              ).map((c) => {
-                const active = c === category;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCategory(c)}
-                    className="h-8 rounded-full px-3 border text-xs font-bold"
-                    style={{
-                      borderColor: active ? EKARI.forest : "#eee",
-                      background: active ? EKARI.forest : "#f5f5f5",
-                      color: active ? "#fff" : EKARI.text,
-                    }}
-                  >
-                    {c}
-                  </button>
-                );
-              })}
+              ).map((c) => (
+                <Pill key={c} active={c === category} onClick={() => setCategory(c)}>
+                  {c}
+                </Pill>
+              ))}
             </div>
           </div>
 
-          <textarea
-            placeholder="Describe your topic (optional)"
-            rows={6}
-            className="w-full rounded-xl border px-3 py-2 text-sm"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-          />
+          <div className="space-y-1.5">
+            <div className="text-[11px] font-black uppercase tracking-wide" style={{ color: EKARI.dim }}>
+              Details (optional)
+            </div>
+            <textarea
+              placeholder="Add context so people can answer better…"
+              rows={6}
+              className="w-full rounded-2xl border px-3 py-2 text-sm focus:ring-2"
+              style={{ borderColor: EKARI.hair, color: EKARI.text }}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </div>
         </div>
       )}
 
       {step === 1 && (
         <div className="space-y-3">
-          <div
-            className="flex items-center gap-2 text-sm font-extrabold"
-            style={{ color: EKARI.text }}
-          >
+          <div className="flex items-center gap-2 text-sm font-black" style={{ color: EKARI.text }}>
             <IoPricetagsOutline /> Select tags
           </div>
 
@@ -1451,7 +1603,7 @@ function DiscussionForm({
 }
 
 /* ============================== */
-/* Mobile bottom tabs (LIGHT)     */
+/* Mobile bottom tabs (Premium)   */
 /* ============================== */
 function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
   const TabBtn = ({
@@ -1468,8 +1620,8 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
     <Link
       href={href}
       className={cn(
-        "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition",
-        active ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"
+        "flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition",
+        active ? "bg-black/[0.05]" : "hover:bg-black/[0.04]"
       )}
       aria-current={active ? "page" : undefined}
     >
@@ -1483,7 +1635,7 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
     </Link>
   );
 
-  const isNexusActive = true; // because this file is /nexus/page.tsx
+  const isNexusActive = true;
 
   return (
     <div
@@ -1491,10 +1643,11 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
       style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div
-        className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
+        className="mx-auto w-full max-w-[520px] h-[72px] px-4 flex items-center justify-between"
         style={{
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "rgba(255,255,255,0.92)",
           borderTop: `1px solid ${EKARI.hair}`,
+          backdropFilter: "blur(10px)",
         }}
       >
         <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} href="/" />
@@ -1502,8 +1655,11 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
 
         <button
           onClick={onCreate}
-          className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg"
-          style={{ backgroundColor: EKARI.gold }}
+          className="h-12 w-16 rounded-2xl grid place-items-center shadow-[0_18px_45px_rgba(199,146,87,0.35)]"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(199,146,87,1), rgba(199,146,87,0.88))",
+          }}
           aria-label="Create"
         >
           <IoAdd size={26} color="#111827" />
@@ -1535,8 +1691,8 @@ function useUserProfile(uid?: string) {
       setProfile(null);
       return;
     }
-    const ref = doc(db, "users", uid);
-    const unsub = onSnapshot(ref, (snap) => {
+    const refx = doc(db, "users", uid);
+    const unsub = onSnapshot(refx, (snap) => {
       const data = snap.data() as any | undefined;
       if (!data) {
         setProfile(null);
@@ -1554,6 +1710,7 @@ function useUserProfile(uid?: string) {
 
   return profile;
 }
+
 /* ============================== */
 /* Main Page                      */
 /* ============================== */
@@ -1585,6 +1742,7 @@ export default function DivePage() {
 
   const eventsAfter = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const discsAfter = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+
   const { user } = useAuth();
   const uid = user?.uid;
 
@@ -1592,16 +1750,28 @@ export default function DivePage() {
   const profile = useUserProfile(uid);
   const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
 
-  const handle = (profile as any)?.handle ?? null; // if you store handle elsewhere, use that instead
-  const profileHref = handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
+  const handle = (profile as any)?.handle ?? null;
+  const profileHref =
+    handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
 
   const fullMenu: MenuItem[] = useMemo(
     () => [
       { key: "deeds", label: "Deeds", href: "/", icon: <IoHomeOutline /> },
-      { key: "market", label: "ekariMarket", href: "/market", icon: <IoCartOutline />, alsoMatch: ["/market"] },
+      {
+        key: "market",
+        label: "ekariMarket",
+        href: "/market",
+        icon: <IoCartOutline />,
+        alsoMatch: ["/market"],
+      },
       { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
-      { key: "studio", label: "Deed studio", href: "/studio/upload", icon: <IoAdd />, requiresAuth: true },
-
+      {
+        key: "studio",
+        label: "Deed studio",
+        href: "/studio/upload",
+        icon: <IoAdd />,
+        requiresAuth: true,
+      },
       {
         key: "notifications",
         label: "Notifications",
@@ -1619,8 +1789,19 @@ export default function DivePage() {
         badgeCount: uid ? unreadDM ?? 0 : 0,
       },
       { key: "ai", label: "ekari AI", href: "/ai", icon: <IoSparklesOutline /> },
-      { key: "profile", label: "Profile", href: profileHref, icon: <IoPersonCircleOutline />, requiresAuth: true },
-      { key: "about", label: "About ekarihub", href: "/about", icon: <IoInformationCircleOutline /> },
+      {
+        key: "profile",
+        label: "Profile",
+        href: profileHref,
+        icon: <IoPersonCircleOutline />,
+        requiresAuth: true,
+      },
+      {
+        key: "about",
+        label: "About ekarihub",
+        href: "/about",
+        icon: <IoInformationCircleOutline />,
+      },
     ],
     [uid, notifTotal, unreadDM, profileHref]
   );
@@ -1751,116 +1932,171 @@ export default function DivePage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetFooter, setSheetFooter] = useState<ReactNode>(null);
   const provideFooter = useCallback((node: ReactNode) => setSheetFooter(node), []);
-
+  const { signOutUser } = useAuth();
   const ringStyle = { ["--tw-ring-color" as any]: EKARI.forest } as React.CSSProperties;
 
+  /* ============================== */
+  /* Premium Controls               */
+  /* ============================== */
   const Controls = (
     <div className="w-full">
-      <div className="px-3 py-3 flex items-center gap-2">
-
+      <div className="px-3 pt-3">
         <div
-          className="flex-1 h-10 rounded-full bg-white px-3 flex items-center gap-2 focus-within:ring-2"
-          style={{ border: `1px solid ${EKARI.hair}`, ...ringStyle }}
-        >
-
-          <IoSearch size={18} style={{ color: EKARI.dim }} />
-          <input
-            value={queryInput}
-            onChange={(e) => setQueryInput(e.target.value)}
-            placeholder={active === "events" ? "Search events…" : "Search discussions…"}
-            className="flex-1 outline-none bg-transparent"
-            style={{ color: EKARI.text }}
-          />
-          {!!queryInput && (
-            <button onClick={() => setQueryInput("")} aria-label="Clear search">
-              <IoCloseCircle size={18} style={{ color: EKARI.dim }} />
-            </button>
+          className={cn(
+            "rounded-[22px] border bg-white/80 backdrop-blur",
+            "shadow-[0_10px_30px_rgba(2,6,23,0.06)]"
           )}
-        </div>
-
-        <button
-          onClick={() => (active === "events" ? loadEvents() : loadDiscs())}
-          className="h-10 w-10 grid place-items-center rounded-full hover:bg-black/[0.03] focus:ring-2"
-          style={{ border: `1px solid ${EKARI.hair}`, ...ringStyle }}
-          aria-label="Refresh"
+          style={{ borderColor: EKARI.hair }}
         >
-          <IoReload size={18} style={{ color: EKARI.text }} />
-        </button>
-      </div>
+          <div className="p-3 flex items-center gap-2">
+            <div
+              className="flex-1 h-11 rounded-full bg-white px-4 flex items-center gap-2 focus-within:ring-2"
+              style={{ border: `1px solid ${EKARI.hair}`, ...ringStyle }}
+            >
+              <IoSearch size={18} style={{ color: EKARI.dim }} />
+              <input
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+                placeholder={active === "events" ? "Search events…" : "Search discussions…"}
+                className="flex-1 outline-none bg-transparent text-[14px]"
+                style={{ color: EKARI.text }}
+              />
+              {!!queryInput && (
+                <button onClick={() => setQueryInput("")} aria-label="Clear search">
+                  <IoCloseCircle size={18} style={{ color: EKARI.dim }} />
+                </button>
+              )}
+            </div>
 
-      <div className="px-3 pb-3">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActive("events")}
-            className={cn(
-              "flex-1 py-2 rounded-full font-bold border transition",
-              active === "events" ? "text-white" : "text-gray-800 hover:bg-gray-50"
-            )}
-            style={{
-              backgroundColor: active === "events" ? EKARI.forest : "transparent",
-              borderColor: active === "events" ? EKARI.forest : EKARI.hair,
-            }}
-          >
-            Events
-          </button>
-          <button
-            onClick={() => setActive("discussions")}
-            className={cn(
-              "flex-1 py-2 rounded-full font-bold border transition",
-              active === "discussions" ? "text-white" : "text-gray-800 hover:bg-gray-50"
-            )}
-            style={{
-              backgroundColor: active === "discussions" ? EKARI.forest : "transparent",
-              borderColor: active === "discussions" ? EKARI.forest : EKARI.hair,
-            }}
-          >
-            Discussions
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={() => (active === "events" ? loadEvents() : loadDiscs())}
+              className="h-11 w-11 grid place-items-center rounded-full hover:bg-black/[0.03] focus:ring-2"
+              style={{ border: `1px solid ${EKARI.hair}`, ...ringStyle }}
+              aria-label="Refresh"
+              title="Refresh"
+            >
+              <IoReload size={18} style={{ color: EKARI.text }} />
+            </button>
+          </div>
 
-      <div className="px-3 pb-3 overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-2">
-          {(active === "events" ? EVENT_FILTERS : DISC_FILTERS).map((c) => {
-            const isActive =
-              active === "events" ? eventFilter === c : discFilter === c;
-            return (
+          <div className="px-3 pb-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
-                key={c}
-                onClick={() =>
-                  active === "events"
-                    ? setEventFilter(c as EventCategory | "All")
-                    : setDiscFilter(c as DiscCategory | "All")
-                }
-                className={cn(
-                  "whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-bold border transition",
-                  isActive ? "text-white" : "text-gray-800 hover:bg-gray-50"
-                )}
+                onClick={() => setActive("events")}
+                className={cn("h-10 rounded-full font-black border transition")}
                 style={{
-                  backgroundColor: isActive ? EKARI.forest : "transparent",
-                  borderColor: isActive ? EKARI.forest : EKARI.hair,
+                  background:
+                    active === "events"
+                      ? "linear-gradient(135deg, rgba(35,63,57,1), rgba(35,63,57,0.9))"
+                      : "transparent",
+                  borderColor: active === "events" ? "rgba(35,63,57,0.5)" : EKARI.hair,
+                  color: active === "events" ? "#fff" : EKARI.text,
                 }}
               >
-                {c}
+                Events
               </button>
-            );
-          })}
+              <button
+                onClick={() => setActive("discussions")}
+                className={cn("h-10 rounded-full font-black border transition")}
+                style={{
+                  background:
+                    active === "discussions"
+                      ? "linear-gradient(135deg, rgba(35,63,57,1), rgba(35,63,57,0.9))"
+                      : "transparent",
+                  borderColor: active === "discussions" ? "rgba(35,63,57,0.5)" : EKARI.hair,
+                  color: active === "discussions" ? "#fff" : EKARI.text,
+                }}
+              >
+                Discussions
+              </button>
+            </div>
+          </div>
+
+          <div className="px-3 pb-3 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2">
+              {(active === "events" ? EVENT_FILTERS : DISC_FILTERS).map((c) => {
+                const isActive = active === "events" ? eventFilter === c : discFilter === c;
+                return (
+                  <button
+                    key={c}
+                    onClick={() =>
+                      active === "events"
+                        ? setEventFilter(c as EventCategory | "All")
+                        : setDiscFilter(c as DiscCategory | "All")
+                    }
+                    className="whitespace-nowrap px-3 py-2 rounded-full text-[12px] font-black border transition"
+                    style={{
+                      background: isActive
+                        ? "linear-gradient(135deg, rgba(199,146,87,1), rgba(199,146,87,0.86))"
+                        : "rgba(2,6,23,0.03)",
+                      borderColor: isActive ? "rgba(199,146,87,0.55)" : EKARI.hair,
+                      color: isActive ? "#111827" : EKARI.text,
+                    }}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 
+  /* ============================== */
+  /* Premium Cards                  */
+  /* ============================== */
+  const TagPills = ({ tags }: { tags?: string[] }) => {
+    const list = (tags || []).slice(0, 3);
+    if (!list.length) return null;
+    return (
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {list.map((t) => (
+          <span
+            key={t}
+            className="px-2 py-1 rounded-full text-[11px] font-bold border"
+            style={{
+              borderColor: "rgba(35,63,57,0.18)",
+              background: "rgba(35,63,57,0.06)",
+              color: EKARI.forest,
+            }}
+          >
+            #{t}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const PricePill = ({ price, currency }: { price?: number | null; currency?: CurrencyCode }) => {
+    if (!price) return null;
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black border"
+        style={{
+          borderColor: "rgba(199,146,87,0.35)",
+          background: "rgba(199,146,87,0.14)",
+          color: "#111827",
+        }}
+      >
+        <IoCashOutline size={14} style={{ color: EKARI.dim }} />
+        {formatMoney(price, currency)}
+      </span>
+    );
+  };
+
   const EventsGrid = (
     <>
       {loadingEvents ? (
-        <div className="py-12 flex justify-center">
+        <div className="py-14 flex justify-center">
           <BouncingBallLoader />
         </div>
       ) : filteredEvents.length > 0 ? (
         <>
           <div
             className={cn(
-              "grid gap-3",
+              "grid gap-4",
               isMobile
                 ? "grid-cols-2 px-3"
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
@@ -1869,64 +2105,111 @@ export default function DivePage() {
             {filteredEvents.map((e) => (
               <Link
                 href={`/nexus/event/${e.id}`}
-                onClick={() => cacheEvent(e)}   // ✅ store full event object
+                onClick={() => cacheEvent(e)}
                 key={e.id}
-                className="block border rounded-xl overflow-hidden bg-white hover:shadow-md transition"
+                className={cn(
+                  "group block rounded-[22px] overflow-hidden border bg-white",
+                  "shadow-[0_10px_30px_rgba(2,6,23,0.06)]",
+                  "hover:shadow-[0_18px_55px_rgba(2,6,23,0.12)] transition"
+                )}
                 style={{ borderColor: EKARI.hair }}
               >
                 <div className="relative w-full aspect-[16/9] bg-black">
                   {e.coverUrl ? (
-                    <Image
-                      src={e.coverUrl}
-                      alt={e.title}
-                      fill
-                      className="object-contain p-2"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1440px) 33vw, 25vw"
-                      priority={false}
-                    />
+                    <>
+                      <Image
+                        src={e.coverUrl}
+                        alt={e.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1440px) 33vw, 25vw"
+                        priority={false}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    </>
                   ) : (
-                    <div className="absolute inset-0 grid place-items-center text-xs text-gray-400">
+                    <div className="absolute inset-0 grid place-items-center text-xs text-white/70">
                       No image
                     </div>
                   )}
+
+                  <div className="absolute top-2 left-2 flex items-center gap-2">
+                    <span
+                      className="px-2.5 py-1 rounded-full text-[11px] font-black"
+                      style={{
+                        background: "rgba(255,255,255,0.86)",
+                        border: `1px solid ${EKARI.hair}`,
+                      }}
+                    >
+                      {e.category || "Event"}
+                    </span>
+                  </div>
+
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-white/90 text-[11px] font-bold">
+                      {e.dateISO ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-1 backdrop-blur">
+                          <IoCalendarOutline size={12} />
+                          {new Date(e.dateISO).toLocaleDateString()}
+                        </span>
+                      ) : null}
+                      {e.location ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2 py-1 backdrop-blur line-clamp-1">
+                          <IoLocationOutline size={12} />
+                          <span className="truncate max-w-[180px]">{e.location}</span>
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="hidden sm:block">
+                      <PricePill price={e.price} currency={e.currency} />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-3">
-                  <h3 className="font-extrabold text-gray-900 line-clamp-2">
+                  <h3
+                    className="font-black leading-snug line-clamp-2"
+                    style={{ color: EKARI.text }}
+                  >
                     {e.title}
                   </h3>
 
-                  {e.location && (
-                    <p className="flex items-center gap-1 text-sm text-gray-600 mt-1">
-                      <IoLocationOutline size={14} /> {e.location}
-                    </p>
-                  )}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-[11px]" style={{ color: EKARI.dim }}>
+                      {e.price ? <span className="sm:hidden"><PricePill price={e.price} currency={e.currency} /></span> : null}
+                      {!e.price ? (
+                        <span className="inline-flex items-center gap-1">
+                          <IoTimeOutline size={12} />
+                          {e.createdAt?.toDate ? e.createdAt.toDate().toLocaleDateString() : "Recently"}
+                        </span>
+                      ) : null}
+                    </div>
+                    <span
+                      className="text-[11px] font-black opacity-0 group-hover:opacity-100 transition"
+                      style={{ color: EKARI.forest }}
+                    >
+                      View →
+                    </span>
+                  </div>
 
-                  {e.dateISO && (
-                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                      <IoCalendarOutline size={12} />
-                      {new Date(e.dateISO).toLocaleDateString()}
-                    </p>
-                  )}
-
-                  {e.price ? (
-                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                      <IoCashOutline size={16} style={{ color: EKARI.dim }} />
-                      {formatMoney(e.price, e.currency)}
-                    </p>
-                  ) : null}
+                  <TagPills tags={e.tags} />
                 </div>
               </Link>
             ))}
           </div>
 
           {eventsAfter.current && (
-            <div className="text-center mt-6">
+            <div className="text-center mt-8">
               <button
                 onClick={loadMoreEvents}
                 disabled={pagingEvents}
-                className="px-4 py-2 rounded-lg text-white font-black hover:opacity-90 disabled:opacity-60 focus:ring-2"
-                style={{ backgroundColor: EKARI.forest, ...ringStyle }}
+                className="px-5 h-11 rounded-2xl text-white font-black hover:opacity-95 disabled:opacity-60 focus:ring-2 shadow-sm"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(35,63,57,1), rgba(35,63,57,0.86))",
+                  ...ringStyle,
+                }}
               >
                 {pagingEvents ? <BouncingBallLoader /> : "Load more"}
               </button>
@@ -1934,8 +2217,35 @@ export default function DivePage() {
           )}
         </>
       ) : (
-        <div className="text-center text-gray-500 py-12 px-3">
-          No events {q ? "matching your search." : "yet."}
+        <div className="text-center py-14 px-4">
+          <div
+            className="mx-auto h-12 w-12 rounded-2xl grid place-items-center border"
+            style={{
+              borderColor: EKARI.hair,
+              background:
+                "linear-gradient(135deg, rgba(35,63,57,0.10), rgba(199,146,87,0.12))",
+            }}
+          >
+            <IoCalendarOutline style={{ color: EKARI.forest }} />
+          </div>
+          <div className="mt-3 font-black" style={{ color: EKARI.text }}>
+            No events found
+          </div>
+          <div className="mt-1 text-sm" style={{ color: EKARI.dim }}>
+            {q ? "Try a different keyword or tag." : "Be the first to create one."}
+          </div>
+          <div className="mt-4">
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="h-11 px-5 rounded-2xl font-black text-white shadow-sm hover:opacity-95"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(199,146,87,1), rgba(199,146,87,0.88))",
+              }}
+            >
+              Create Event
+            </button>
+          </div>
         </div>
       )}
     </>
@@ -1944,7 +2254,7 @@ export default function DivePage() {
   const DiscussionsList = (
     <>
       {loadingDiscs ? (
-        <div className="py-12 flex justify-center">
+        <div className="py-14 flex justify-center">
           <BouncingBallLoader />
         </div>
       ) : filteredDiscs.length > 0 ? (
@@ -1953,27 +2263,77 @@ export default function DivePage() {
             {filteredDiscs.map((d) => (
               <Link
                 href={`/nexus/discussion/${d.id}`}
-                onClick={() => cacheDiscussion(d)}   // ✅ add this
+                onClick={() => cacheDiscussion(d)}
                 key={d.id}
-                className="block border rounded-xl bg-white p-3 hover:shadow-md transition"
+                className={cn(
+                  "block rounded-[22px] border bg-white p-4 transition",
+                  "shadow-[0_10px_30px_rgba(2,6,23,0.06)]",
+                  "hover:shadow-[0_18px_55px_rgba(2,6,23,0.10)]"
+                )}
                 style={{ borderColor: EKARI.hair }}
               >
-                <div className="flex items-start gap-2">
-                  <IoChatbubblesOutline
-                    style={{ color: EKARI.forest }}
-                    className="mt-1"
-                    size={16}
-                  />
-                  <div className="min-w-0">
-                    <h3 className="font-extrabold text-gray-900 line-clamp-2">
-                      {d.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                      <IoTimeOutline size={12} />
-                      {d.createdAt?.toDate ? d.createdAt.toDate().toLocaleDateString() : ""}
-                      <IoChatbubbleEllipsesOutline size={12} />
-                      {(d.repliesCount ?? 0).toString()} Answers
-                    </p>
+                <div className="flex items-start gap-3">
+                  <div
+                    className="h-10 w-10 rounded-2xl grid place-items-center border"
+                    style={{
+                      borderColor: "rgba(35,63,57,0.18)",
+                      background: "rgba(35,63,57,0.06)",
+                      color: EKARI.forest,
+                    }}
+                  >
+                    <IoChatbubblesOutline size={18} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-black leading-snug line-clamp-2" style={{ color: EKARI.text }}>
+                        {d.title}
+                      </h3>
+                      <span
+                        className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-black border"
+                        style={{
+                          borderColor: "rgba(199,146,87,0.40)",
+                          background: "rgba(199,146,87,0.12)",
+                          color: "#111827",
+                        }}
+                      >
+                        {d.category || "General"}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: EKARI.dim }}>
+                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1"
+                        style={{ borderColor: EKARI.hair, background: "rgba(2,6,23,0.02)" }}>
+                        <IoTimeOutline size={12} />
+                        {d.createdAt?.toDate ? d.createdAt.toDate().toLocaleDateString() : ""}
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1"
+                        style={{ borderColor: EKARI.hair, background: "rgba(2,6,23,0.02)" }}>
+                        <IoChatbubbleEllipsesOutline size={12} />
+                        {(d.repliesCount ?? 0).toString()} Answers
+                      </span>
+
+                      {(d.tags || []).slice(0, 2).map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-bold border"
+                          style={{
+                            borderColor: "rgba(35,63,57,0.18)",
+                            background: "rgba(35,63,57,0.06)",
+                            color: EKARI.forest,
+                          }}
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+
+                    {d.body ? (
+                      <div className="mt-2 text-sm line-clamp-2" style={{ color: EKARI.dim }}>
+                        {d.body}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </Link>
@@ -1981,12 +2341,16 @@ export default function DivePage() {
           </div>
 
           {discsAfter.current && (
-            <div className="text-center mt-6">
+            <div className="text-center mt-8">
               <button
                 onClick={loadMoreDiscs}
                 disabled={pagingDiscs}
-                className="px-4 py-2 rounded-lg text-white font-black hover:opacity-90 disabled:opacity-60 focus:ring-2"
-                style={{ backgroundColor: EKARI.forest, ...ringStyle }}
+                className="px-5 h-11 rounded-2xl text-white font-black hover:opacity-95 disabled:opacity-60 focus:ring-2 shadow-sm"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(35,63,57,1), rgba(35,63,57,0.86))",
+                  ...ringStyle,
+                }}
               >
                 {pagingDiscs ? <BouncingBallLoader /> : "Load more"}
               </button>
@@ -1994,52 +2358,99 @@ export default function DivePage() {
           )}
         </>
       ) : (
-        <div className="text-center text-gray-500 py-12 px-3">
-          No discussions {q ? "matching your search." : "yet."}
+        <div className="text-center py-14 px-4">
+          <div
+            className="mx-auto h-12 w-12 rounded-2xl grid place-items-center border"
+            style={{
+              borderColor: EKARI.hair,
+              background:
+                "linear-gradient(135deg, rgba(35,63,57,0.10), rgba(199,146,87,0.12))",
+            }}
+          >
+            <IoChatbubblesOutline style={{ color: EKARI.forest }} />
+          </div>
+          <div className="mt-3 font-black" style={{ color: EKARI.text }}>
+            No discussions found
+          </div>
+          <div className="mt-1 text-sm" style={{ color: EKARI.dim }}>
+            {q ? "Try a different keyword or tag." : "Start one and invite people to answer."}
+          </div>
+          <div className="mt-4">
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="h-11 px-5 rounded-2xl font-black text-white shadow-sm hover:opacity-95"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(199,146,87,1), rgba(199,146,87,0.88))",
+              }}
+            >
+              Start Discussion
+            </button>
+          </div>
         </div>
       )}
     </>
   );
 
-  /* ---------------- mobile shell (like MarketPage) ---------------- */
+  /* ---------------- mobile shell ---------------- */
   if (isMobile) {
     return (
       <>
-        <div className="fixed inset-0 bg-white">
+        <div
+          className="fixed inset-0"
+          style={{
+            background:
+              "radial-gradient(900px 400px at 10% 0%, rgba(199,146,87,0.18), transparent 60%), radial-gradient(900px 400px at 90% 0%, rgba(35,63,57,0.16), transparent 60%), #fff",
+          }}
+        >
           <div
             className="sticky top-0 z-50 border-b"
             style={{
-              backgroundColor: "rgba(255,255,255,0.95)",
+              backgroundColor: "rgba(255,255,255,0.86)",
               borderColor: EKARI.hair,
+              backdropFilter: "blur(10px)",
             }}
           >
-            <div className="h-[56px] w-full px-3 flex items-center justify-between">
+            <div className="h-[64px] w-full px-3 flex items-center justify-between">
               <button
                 onClick={() => setMenuOpen(true)}
-                className="h-9 w-9 rounded-full bg-black/[0.04] grid place-items-center backdrop-blur-md border"
+                className="h-10 w-10 rounded-2xl grid place-items-center border bg-white/70 hover:bg-white"
                 style={{ borderColor: EKARI.hair, color: EKARI.text }}
                 aria-label="Open menu"
               >
                 <IoMenu size={20} />
               </button>
+
               <div className="flex items-center gap-2">
-                <IoCompassOutline size={20} style={{ color: EKARI.text }} />
-                <div className="font-black text-base" style={{ color: EKARI.text }}>
-                  Nexus
+                <div
+                  className="h-9 w-9 rounded-2xl grid place-items-center"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(35,63,57,0.14), rgba(199,146,87,0.14))",
+                  }}
+                >
+                  <IoCompassOutline size={18} style={{ color: EKARI.forest }} />
+                </div>
+                <div className="leading-tight">
+                  <div className="font-black text-[15px]" style={{ color: EKARI.text }}>
+                    Nexus
+                  </div>
+                  <div className="text-[11px]" style={{ color: EKARI.dim }}>
+                    Connect • Learn • Grow
+                  </div>
                 </div>
               </div>
 
               <button
                 onClick={() => setSheetOpen(true)}
-                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black focus:ring-2"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black focus:ring-2 border bg-white/70 hover:bg-white"
                 style={{
-                  background: "white",
-                  border: `1px solid ${EKARI.gold}`,
-                  color: EKARI.gold,
+                  borderColor: "rgba(199,146,87,0.55)",
+                  color: EKARI.text,
                   ...ringStyle,
                 }}
               >
-                <IoAdd size={16} />
+                <IoAdd size={16} style={{ color: EKARI.gold }} />
                 {active === "events" ? "Create" : "Start"}
               </button>
             </div>
@@ -2047,18 +2458,23 @@ export default function DivePage() {
             {Controls}
           </div>
 
-          <div style={{ paddingBottom: "calc(84px + env(safe-area-inset-bottom))" }}>
+          <div style={{ paddingBottom: "calc(90px + env(safe-area-inset-bottom))" }}>
             {active === "events" ? EventsGrid : DiscussionsList}
           </div>
 
           <MobileBottomTabs onCreate={() => setSheetOpen(true)} />
-          <SideMenuSheet
+
+          <EkariSideMenuSheet
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
-            onNavigate={navigateFromMenu}
-            items={fullMenu}
+            uid={uid}
+            handle={(profile as any)?.handle ?? null}
+            photoURL={(profile as any)?.photoURL ?? null}
+            profileHref={profileHref}
+            unreadDM={uid ? unreadDM ?? 0 : 0}
+            notifTotal={uid ? notifTotal ?? 0 : 0}
+            onLogout={signOutUser}
           />
-
         </div>
 
         <BottomSheet
@@ -2095,32 +2511,52 @@ export default function DivePage() {
   /* ---------------- desktop shell ---------------- */
   return (
     <AppShell>
-      <div className="min-h-screen w-full">
+      <div
+        className="min-h-screen w-full"
+        style={{
+          background:
+            "radial-gradient(900px 500px at 10% 0%, rgba(199,146,87,0.16), transparent 60%), radial-gradient(900px 500px at 90% 0%, rgba(35,63,57,0.14), transparent 60%), #fff",
+        }}
+      >
         <div
-          className="sticky top-0 z-10 backdrop-blur border-b"
+          className="sticky top-0 z-10 border-b"
           style={{
-            backgroundColor: "rgba(255,255,255,0.92)",
+            backgroundColor: "rgba(255,255,255,0.84)",
             borderColor: EKARI.hair,
+            backdropFilter: "blur(10px)",
           }}
         >
-          <div className="h-14 px-4 max-w-[1180px] mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <IoCompassOutline size={22} style={{ color: EKARI.text }} />
-              <div className="font-black text-lg" style={{ color: EKARI.text }}>
-                Nexus
+          <div className="h-16 px-4 max-w-[1180px] mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className="h-10 w-10 rounded-2xl grid place-items-center"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(35,63,57,0.14), rgba(199,146,87,0.14))",
+                }}
+              >
+                <IoCompassOutline size={20} style={{ color: EKARI.forest }} />
+              </div>
+              <div className="leading-tight">
+                <div className="font-black text-[18px]" style={{ color: EKARI.text }}>
+                  Nexus
+                </div>
+                <div className="text-[12px]" style={{ color: EKARI.dim }}>
+                  Events & Discussions for the community
+                </div>
               </div>
             </div>
 
             <button
               onClick={() => setSheetOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-black transition focus:ring-2"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-black transition focus:ring-2 border bg-white/70 hover:bg-white"
               style={{
-                border: `1px solid ${EKARI.gold}`,
-                color: EKARI.gold,
+                borderColor: "rgba(199,146,87,0.60)",
+                color: EKARI.text,
                 ...ringStyle,
               }}
             >
-              <IoAdd size={18} />
+              <IoAdd size={18} style={{ color: EKARI.gold }} />
               <span>{active === "events" ? "Create Event" : "Start Discussion"}</span>
             </button>
           </div>
@@ -2128,7 +2564,7 @@ export default function DivePage() {
           <div className="max-w-[1180px] mx-auto">{Controls}</div>
         </div>
 
-        <div className="max-w-[1180px] mx-auto px-4 pt-3 pb-24">
+        <div className="max-w-[1180px] mx-auto px-4 pt-4 pb-24">
           {active === "events" ? EventsGrid : DiscussionsList}
         </div>
 
