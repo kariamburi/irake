@@ -1,4 +1,4 @@
-// app/discussion/[discussionid]/page.tsx
+// app/nexus/discussion/[discussionId]/page.tsx
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,6 +28,8 @@ import {
   IoEllipsisHorizontal,
   IoSend,
   IoTrashOutline,
+  IoSparklesOutline,
+  IoTimeOutline,
 } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
 import AppShell from "@/app/components/AppShell";
@@ -99,6 +101,44 @@ function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
 }
 
+/* ---------------- tiny helpers ---------------- */
+function cn(...xs: (string | false | null | undefined)[]) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
+}
+
+/* ---------------- premium surface ---------------- */
+function PremiumSurface({
+  children,
+  className,
+  style,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-3xl border bg-white/80 backdrop-blur-xl",
+        "shadow-[0_18px_60px_rgba(15,23,42,0.10)]",
+        className
+      )}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function DiscussionThreadPage() {
   const router = useRouter();
   const params = useParams() as Record<string, string | string[]>;
@@ -109,7 +149,9 @@ export default function DiscussionThreadPage() {
     (params?.discussionId as any) ??
     (params?.discussionID as any);
 
-  const discussionId = Array.isArray(discussionIdRaw) ? discussionIdRaw[0] : (discussionIdRaw as string | undefined);
+  const discussionId = Array.isArray(discussionIdRaw)
+    ? discussionIdRaw[0]
+    : (discussionIdRaw as string | undefined);
 
   const isDesktop = useIsDesktop();
   const isMobile = useIsMobile();
@@ -146,6 +188,7 @@ export default function DiscussionThreadPage() {
   const [userCache, setUserCache] = useState<
     Record<string, { name?: string | null; handle?: string | null; photoURL?: string | null }>
   >({});
+
   const webUrl =
     typeof window !== "undefined"
       ? window.location.href
@@ -160,6 +203,14 @@ export default function DiscussionThreadPage() {
   const ringStyle: React.CSSProperties = {
     ["--tw-ring-color" as any]: EKARI.forest,
   };
+
+  const premiumBg = useMemo<React.CSSProperties>(
+    () => ({
+      background:
+        "radial-gradient(900px circle at 10% 0%, rgba(199,146,87,0.22), rgba(255,255,255,0) 55%), radial-gradient(900px circle at 90% 20%, rgba(35,63,57,0.16), rgba(255,255,255,0) 60%), linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,1))",
+    }),
+    []
+  );
 
   const goBack = useCallback(() => {
     if (window.history.length > 1) router.back();
@@ -191,7 +242,7 @@ export default function DiscussionThreadPage() {
         setMeName(auth.currentUser?.displayName ?? null);
       }
     })();
-  }, [uid, auth.currentUser]);
+  }, [uid, auth]);
 
   // Initial load: discussion + first page of replies
   useEffect(() => {
@@ -200,7 +251,7 @@ export default function DiscussionThreadPage() {
       try {
         if (!discussionId) return;
 
-        // ✅ 1) hydrate from cache instantly (no fetch)
+        // 1) hydrate from cache instantly (no fetch)
         const cached = getCachedDiscussion(discussionId);
         if (cached) {
           setDisc({
@@ -210,7 +261,7 @@ export default function DiscussionThreadPage() {
           });
         }
 
-        // ✅ 2) fallback fetch (also refreshes cached view if changed)
+        // 2) fallback fetch
         const snap = await getDoc(doc(db, "discussions", discussionId));
         if (snap.exists()) {
           const data = snap.data() as any;
@@ -219,7 +270,7 @@ export default function DiscussionThreadPage() {
           setDisc(null);
         }
 
-        // replies page fetch (same as you have)
+        // replies page fetch
         const qRef = query(
           collection(db, "discussions", discussionId, "replies"),
           orderBy("createdAt", "asc"),
@@ -257,12 +308,11 @@ export default function DiscussionThreadPage() {
         await navigator.clipboard.writeText(`${message}\n${url}`);
         alert("Link copied to clipboard");
       }
-
-      // optional analytics
     } catch {
       // ignore
     }
-  }, [disc, discussionId, uid]);
+  }, [disc, discussionId]);
+
   // Load more replies
   const loadMore = useCallback(async () => {
     if (paging || !hasMore || !lastSnapRef.current || !discussionId) return;
@@ -276,7 +326,10 @@ export default function DiscussionThreadPage() {
       );
       const s = await getDocs(qRef);
       if (!s.empty) {
-        setReplies((prev) => [...prev, ...s.docs.map((d) => ({ id: d.id, ...(d.data() as any) } as Reply))]);
+        setReplies((prev) => [
+          ...prev,
+          ...s.docs.map((d) => ({ id: d.id, ...(d.data() as any) } as Reply)),
+        ]);
         lastSnapRef.current = s.docs[s.docs.length - 1];
         setHasMore(true);
       } else {
@@ -315,7 +368,8 @@ export default function DiscussionThreadPage() {
 
     (async () => {
       const results = await Promise.allSettled(missing.map((u) => getDoc(doc(db, "users", u))));
-      const patch: Record<string, { name?: string | null; handle?: string | null; photoURL?: string | null }> = {};
+      const patch: Record<string, { name?: string | null; handle?: string | null; photoURL?: string | null }> =
+        {};
       results.forEach((res, idx) => {
         const u = missing[idx];
         if (res.status === "fulfilled" && res.value.exists()) {
@@ -416,7 +470,7 @@ export default function DiscussionThreadPage() {
     } finally {
       setPosting(false);
     }
-  }, [text, replyTarget, meName, meHandle, mePhotoURL, discussionId, router, auth.currentUser]);
+  }, [text, replyTarget, meName, meHandle, mePhotoURL, discussionId, router, auth]);
 
   const startEdit = useCallback(
     (r: Reply) => {
@@ -424,7 +478,7 @@ export default function DiscussionThreadPage() {
       setEditingId(r.id);
       setEditingText(r.body);
     },
-    [auth.currentUser?.uid]
+    [auth]
   );
 
   const cancelEdit = useCallback(() => {
@@ -444,7 +498,9 @@ export default function DiscussionThreadPage() {
         updatedAt: serverTimestamp(),
       });
       setReplies((prev) =>
-        prev.map((r) => (r.id === editingId ? { ...r, body, updatedAt: { toDate: () => new Date() } } : r))
+        prev.map((r) =>
+          r.id === editingId ? { ...r, body, updatedAt: { toDate: () => new Date() } } : r
+        )
       );
       setEditingId(null);
       setEditingText("");
@@ -472,7 +528,7 @@ export default function DiscussionThreadPage() {
         }
       })();
     },
-    [auth.currentUser?.uid, discussionId]
+    [auth, discussionId]
   );
 
   // UI bits
@@ -494,224 +550,353 @@ export default function DiscussionThreadPage() {
 
     return (
       <div className={clsx(isDesktop ? "px-4 pt-3" : "px-3 pt-2")}>
-        <div className="flex items-start gap-3 pr-1 pb-2">
-          <Avatar src={photo} size={34} />
-          <div className="flex-1 min-w-0">
-            {(name || handle) && (
-              <div className="flex items-center gap-2 mb-1 min-w-0">
-                {name && (
-                  <span className="font-extrabold truncate" style={{ color: EKARI.text }}>
-                    {name}
-                  </span>
-                )}
-                {handle && (
-                  <span className="font-bold truncate" style={{ color: EKARI.dim }}>
-                    @{handle.replace(/^@/, "")}
-                  </span>
-                )}
-              </div>
-            )}
+        <PremiumSurface
+          className="p-4"
+          style={{
+            borderColor: "rgba(199,146,87,0.18)",
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78))",
+          }}
+        >
+          <div className="flex items-start gap-3 pr-1 pb-2">
+            <Avatar src={photo} size={34} />
 
-            {isEditing ? (
-              <div className="bg-gray-100 rounded-xl px-3 py-2">
-                <textarea
-                  value={editingText}
-                  onChange={(e) => setEditingText(e.target.value)}
-                  className="w-full bg-transparent outline-none text-[15px] leading-5"
-                  placeholder="Edit your answer…"
-                  maxLength={400}
-                />
-                <div className="mt-2 flex justify-end gap-2">
-                  <button
-                    onClick={cancelEdit}
-                    className="px-3 py-1.5 rounded-full border"
-                    style={{ borderColor: EKARI.hair, color: EKARI.dim, backgroundColor: "#fff" }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={saveEdit}
-                    className="px-4 py-1.5 rounded-full text-white"
-                    style={{ backgroundColor: EKARI.gold, opacity: savingId === parent.id ? 0.7 : 1 }}
-                    disabled={savingId === parent.id}
-                  >
-                    {savingId === parent.id ? "Saving…" : "Save"}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="text-[16px] leading-5" style={{ color: EKARI.text }}>
-                  {parent.body}
-                </div>
-                <div className="mt-1 flex items-center gap-4">
-                  <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
-                    {timeAgoShort(parent.createdAt)}
-                  </span>
-                  <button onClick={() => startReplyToTop(parent)} className="text-xs font-semibold" style={{ color: EKARI.dim }}>
-                    Comment
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="pl-1 flex items-center">
-            {isOwn ? (
-              <div className="flex items-center">
-                <button
-                  onClick={() => startEdit(parent)}
-                  className="p-1 mr-1"
-                  title="Edit"
-                  disabled={!!editingId && editingId !== parent.id}
-                >
-                  <IoCreateOutline size={18} color={EKARI.dim} />
-                </button>
-                <button onClick={() => requestDelete(parent)} className="p-1" title="Delete">
-                  {deletingId === parent.id ? (
-                    <span className="text-xs" style={{ color: EKARI.dim }}>
-                      …
+            <div className="flex-1 min-w-0">
+              {(name || handle) && (
+                <div className="flex items-center gap-2 mb-1 min-w-0">
+                  {name && (
+                    <span className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                      {name}
                     </span>
-                  ) : (
-                    <IoTrashOutline size={18} color={EKARI.dim} />
                   )}
-                </button>
-              </div>
-            ) : (
-              <button className="p-1" title="More">
-                <IoEllipsisHorizontal size={18} color={EKARI.dim} />
-              </button>
-            )}
-          </div>
-        </div>
+                  {handle && (
+                    <span className="font-bold truncate" style={{ color: EKARI.dim }}>
+                      @{handle.replace(/^@/, "")}
+                    </span>
+                  )}
+                  <span
+                    className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold border"
+                    style={{
+                      borderColor: "rgba(199,146,87,0.16)",
+                      color: EKARI.sub,
+                      background: "rgba(255,255,255,0.65)",
+                    }}
+                    title="Time"
+                  >
+                    <IoTimeOutline size={14} style={{ color: EKARI.forest }} />
+                    {timeAgoShort(parent.createdAt) || "—"}
+                  </span>
+                </div>
+              )}
 
-        {kids.length > 0 && (
-          <div className="ml-11 border-l" style={{ borderColor: EKARI.hair }}>
-            <div className="pl-3 pb-2 space-y-2">
-              {kids.map((child) => {
-                const isChildOwn = child.authorId === uid;
-                const isChildEditing = editingId === child.id;
-
-                const cprof = userCache[child.authorId] || {};
-                const cname = child.userName ?? cprof.name ?? null;
-                const chandle = child.userHandle ?? cprof.handle ?? null;
-                const cphoto = child.userPhotoURL ?? cprof.photoURL ?? null;
-
-                return (
-                  <div key={child.id} className="flex items-start gap-2">
-                    <Avatar src={cphoto} size={26} />
-                    <div className="flex-1 min-w-0">
-                      {(cname || chandle) && (
-                        <div className="flex items-center gap-2 mb-1 min-w-0">
-                          {cname && (
-                            <span className="font-extrabold truncate" style={{ color: EKARI.text }}>
-                              {cname}
-                            </span>
-                          )}
-                          {chandle && (
-                            <span className="font-bold truncate" style={{ color: EKARI.dim }}>
-                              @{chandle.replace(/^@/, "")}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {isChildEditing ? (
-                        <div className="bg-gray-100 rounded-xl px-3 py-2">
-                          <textarea
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            className="w-full bg-transparent outline-none text-[15px] leading-5"
-                            placeholder="Edit your answer…"
-                            maxLength={400}
-                          />
-                          <div className="mt-2 flex justify-end gap-2">
-                            <button
-                              onClick={cancelEdit}
-                              className="px-3 py-1.5 rounded-full border"
-                              style={{ borderColor: EKARI.hair, color: EKARI.dim, backgroundColor: "#fff" }}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={saveEdit}
-                              className="px-4 py-1.5 rounded-full text-white"
-                              style={{ backgroundColor: EKARI.gold, opacity: savingId === child.id ? 0.7 : 1 }}
-                              disabled={savingId === child.id}
-                            >
-                              {savingId === child.id ? "Saving…" : "Save"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="text-[16px] leading-5" style={{ color: EKARI.text }}>
-                            {child.replyToHandle ? (
-                              <span className="font-bold" style={{ color: EKARI.dim }}>
-                                @{child.replyToHandle.replace(/^@/, "")}{" "}
-                              </span>
-                            ) : null}
-                            {child.body}
-                          </div>
-                          <div className="mt-1 flex items-center gap-4">
-                            <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
-                              {timeAgoShort(child.createdAt)}
-                            </span>
-                            <button
-                              onClick={() => startReplyToChild(parent, child)}
-                              className="text-xs font-semibold"
-                              style={{ color: EKARI.dim }}
-                            >
-                              Comment
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {isChildOwn && (
-                      <div className="pl-1 flex items-center">
-                        <button
-                          onClick={() => startEdit(child)}
-                          className="p-1 mr-1"
-                          title="Edit"
-                          disabled={!!editingId && editingId !== child.id}
-                        >
-                          <IoCreateOutline size={18} color={EKARI.dim} />
-                        </button>
-                        <button onClick={() => requestDelete(child)} className="p-1" title="Delete">
-                          {deletingId === child.id ? (
-                            <span className="text-xs" style={{ color: EKARI.dim }}>
-                              …
-                            </span>
-                          ) : (
-                            <IoTrashOutline size={18} color={EKARI.dim} />
-                          )}
-                        </button>
-                      </div>
-                    )}
+              {isEditing ? (
+                <div
+                  className="rounded-2xl px-3 py-2 border"
+                  style={{
+                    borderColor: "rgba(199,146,87,0.18)",
+                    background:
+                      "linear-gradient(135deg, rgba(199,146,87,0.08), rgba(35,63,57,0.04))",
+                  }}
+                >
+                  <textarea
+                    value={editingText}
+                    onChange={(e) => setEditingText(e.target.value)}
+                    className="w-full bg-transparent outline-none text-[14px] font-semibold leading-6"
+                    placeholder="Edit your answer…"
+                    maxLength={400}
+                    style={{ color: EKARI.text }}
+                  />
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button
+                      onClick={cancelEdit}
+                      className="px-3 py-1.5 rounded-full border bg-white/80 hover:bg-white focus:outline-none focus:ring-2 active:scale-[0.98]"
+                      style={{ borderColor: "rgba(199,146,87,0.18)", color: EKARI.dim, ...ringStyle }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveEdit}
+                      className="px-4 py-1.5 rounded-full font-black focus:outline-none focus:ring-2 active:scale-[0.98]"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,0.55))",
+                        color: "#fff",
+                        opacity: savingId === parent.id ? 0.7 : 1,
+                        ...ringStyle,
+                      }}
+                      disabled={savingId === parent.id}
+                    >
+                      {savingId === parent.id ? "Saving…" : "Save"}
+                    </button>
                   </div>
-                );
-              })}
+                </div>
+              ) : (
+                <>
+                  <div className="text-[14px] font-semibold leading-6" style={{ color: EKARI.text }}>
+                    {parent.body}
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      onClick={() => startReplyToTop(parent)}
+                      className="text-xs font-extrabold px-3 py-1.5 rounded-full border bg-white/70 hover:bg-white transition focus:outline-none focus:ring-2 active:scale-[0.98]"
+                      style={{
+                        borderColor: "rgba(199,146,87,0.16)",
+                        color: EKARI.text,
+                        ...ringStyle,
+                      }}
+                    >
+                      Comment
+                    </button>
+
+                    {parent.updatedAt ? (
+                      <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+                        edited
+                      </span>
+                    ) : null}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="pl-1 flex items-center">
+              {isOwn ? (
+                <div className="flex items-center">
+                  <button
+                    onClick={() => startEdit(parent)}
+                    className="h-9 w-9 rounded-2xl border bg-white/70 hover:bg-white grid place-items-center mr-2 transition focus:outline-none focus:ring-2 active:scale-[0.98]"
+                    style={{ borderColor: "rgba(199,146,87,0.16)", ...ringStyle }}
+                    title="Edit"
+                    disabled={!!editingId && editingId !== parent.id}
+                  >
+                    <IoCreateOutline size={18} color={EKARI.dim} />
+                  </button>
+
+                  <button
+                    onClick={() => requestDelete(parent)}
+                    className="h-9 w-9 rounded-2xl border bg-white/70 hover:bg-white grid place-items-center transition focus:outline-none focus:ring-2 active:scale-[0.98]"
+                    style={{ borderColor: "rgba(199,146,87,0.16)", ...ringStyle }}
+                    title="Delete"
+                  >
+                    {deletingId === parent.id ? (
+                      <span className="text-xs font-black" style={{ color: EKARI.dim }}>
+                        …
+                      </span>
+                    ) : (
+                      <IoTrashOutline size={18} color={EKARI.dim} />
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="h-9 w-9 rounded-2xl border bg-white/70 hover:bg-white grid place-items-center transition focus:outline-none focus:ring-2 active:scale-[0.98]"
+                  style={{ borderColor: "rgba(199,146,87,0.16)", ...ringStyle }}
+                  title="More"
+                >
+                  <IoEllipsisHorizontal size={18} color={EKARI.dim} />
+                </button>
+              )}
             </div>
           </div>
-        )}
+
+          {kids.length > 0 && (
+            <div
+              className="mt-3 rounded-2xl border overflow-hidden"
+              style={{
+                borderColor: "rgba(199,146,87,0.16)",
+                background:
+                  "linear-gradient(135deg, rgba(199,146,87,0.06), rgba(35,63,57,0.03))",
+              }}
+            >
+              <div
+                className="h-[2px]"
+                style={{
+                  background:
+                    "linear-gradient(90deg, rgba(199,146,87,0.85), rgba(35,63,57,0.85))",
+                }}
+              />
+              <div className="p-3 space-y-3">
+                {kids.map((child) => {
+                  const isChildOwn = child.authorId === uid;
+                  const isChildEditing = editingId === child.id;
+
+                  const cprof = userCache[child.authorId] || {};
+                  const cname = child.userName ?? cprof.name ?? null;
+                  const chandle = child.userHandle ?? cprof.handle ?? null;
+                  const cphoto = child.userPhotoURL ?? cprof.photoURL ?? null;
+
+                  return (
+                    <div
+                      key={child.id}
+                      className="rounded-2xl border p-3 bg-white/70"
+                      style={{ borderColor: "rgba(199,146,87,0.16)" }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <Avatar src={cphoto} size={26} />
+
+                        <div className="flex-1 min-w-0">
+                          {(cname || chandle) && (
+                            <div className="flex items-center gap-2 mb-1 min-w-0">
+                              {cname && (
+                                <span className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                                  {cname}
+                                </span>
+                              )}
+                              {chandle && (
+                                <span className="font-bold truncate" style={{ color: EKARI.dim }}>
+                                  @{chandle.replace(/^@/, "")}
+                                </span>
+                              )}
+
+                              <span
+                                className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold border"
+                                style={{
+                                  borderColor: "rgba(199,146,87,0.16)",
+                                  color: EKARI.sub,
+                                  background: "rgba(255,255,255,0.65)",
+                                }}
+                              >
+                                <IoTimeOutline size={14} style={{ color: EKARI.forest }} />
+                                {timeAgoShort(child.createdAt) || "—"}
+                              </span>
+                            </div>
+                          )}
+
+                          {isChildEditing ? (
+                            <div
+                              className="rounded-2xl px-3 py-2 border"
+                              style={{
+                                borderColor: "rgba(199,146,87,0.18)",
+                                background:
+                                  "linear-gradient(135deg, rgba(199,146,87,0.08), rgba(35,63,57,0.04))",
+                              }}
+                            >
+                              <textarea
+                                value={editingText}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                className="w-full bg-transparent outline-none text-[14px] font-semibold leading-6"
+                                placeholder="Edit your answer…"
+                                maxLength={400}
+                                style={{ color: EKARI.text }}
+                              />
+                              <div className="mt-2 flex justify-end gap-2">
+                                <button
+                                  onClick={cancelEdit}
+                                  className="px-3 py-1.5 rounded-full border bg-white/80 hover:bg-white focus:outline-none focus:ring-2 active:scale-[0.98]"
+                                  style={{
+                                    borderColor: "rgba(199,146,87,0.18)",
+                                    color: EKARI.dim,
+                                    ...ringStyle,
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={saveEdit}
+                                  className="px-4 py-1.5 rounded-full font-black focus:outline-none focus:ring-2 active:scale-[0.98]"
+                                  style={{
+                                    background:
+                                      "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,0.55))",
+                                    color: "#fff",
+                                    opacity: savingId === child.id ? 0.7 : 1,
+                                    ...ringStyle,
+                                  }}
+                                  disabled={savingId === child.id}
+                                >
+                                  {savingId === child.id ? "Saving…" : "Save"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="text-[14px] font-semibold leading-6" style={{ color: EKARI.text }}>
+                                {child.replyToHandle ? (
+                                  <span className="font-extrabold" style={{ color: EKARI.dim }}>
+                                    @{child.replyToHandle.replace(/^@/, "")}{" "}
+                                  </span>
+                                ) : null}
+                                {child.body}
+                              </div>
+
+                              <div className="mt-2 flex items-center gap-3">
+                                <button
+                                  onClick={() => startReplyToChild(parent, child)}
+                                  className="text-xs font-extrabold px-3 py-1.5 rounded-full border bg-white/70 hover:bg-white transition focus:outline-none focus:ring-2 active:scale-[0.98]"
+                                  style={{
+                                    borderColor: "rgba(199,146,87,0.16)",
+                                    color: EKARI.text,
+                                    ...ringStyle,
+                                  }}
+                                >
+                                  Comment
+                                </button>
+
+                                {child.updatedAt ? (
+                                  <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+                                    edited
+                                  </span>
+                                ) : null}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {isChildOwn && (
+                          <div className="pl-1 flex items-center">
+                            <button
+                              onClick={() => startEdit(child)}
+                              className="h-9 w-9 rounded-2xl border bg-white/70 hover:bg-white grid place-items-center mr-2 transition focus:outline-none focus:ring-2 active:scale-[0.98]"
+                              style={{ borderColor: "rgba(199,146,87,0.16)", ...ringStyle }}
+                              title="Edit"
+                              disabled={!!editingId && editingId !== child.id}
+                            >
+                              <IoCreateOutline size={18} color={EKARI.dim} />
+                            </button>
+
+                            <button
+                              onClick={() => requestDelete(child)}
+                              className="h-9 w-9 rounded-2xl border bg-white/70 hover:bg-white grid place-items-center transition focus:outline-none focus:ring-2 active:scale-[0.98]"
+                              style={{ borderColor: "rgba(199,146,87,0.16)", ...ringStyle }}
+                              title="Delete"
+                            >
+                              {deletingId === child.id ? (
+                                <span className="text-xs font-black" style={{ color: EKARI.dim }}>
+                                  …
+                                </span>
+                              ) : (
+                                <IoTrashOutline size={18} color={EKARI.dim} />
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </PremiumSurface>
       </div>
     );
   };
 
-  // Header like /bonga
+  /* ---------- Premium Header ---------- */
   const Header = (
     <div
-      className={clsx("border-b sticky top-0 z-50 backdrop-blur")}
-      style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+      className="sticky w-full top-0 z-50"
+      style={{
+        background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.82))",
+        backdropFilter: "blur(14px)",
+        borderBottom: "1px solid rgba(199,146,87,0.18)",
+      }}
     >
-      <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")}>
-        <div className="h-full flex items-center justify-between gap-2">
+      <div className={cn(isDesktop ? "px-4 max-w-[1180px] mx-auto" : "px-3")}>
+        <div className="h-[72px] flex items-center justify-between gap-3">
           <button
             onClick={goBack}
-            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
-            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            className="h-11 w-11 rounded-2xl border bg-white/80 backdrop-blur-xl shadow-sm grid place-items-center transition hover:bg-white focus:outline-none focus:ring-2 active:scale-[0.98]"
+            style={{ borderColor: "rgba(199,146,87,0.22)", ...ringStyle }}
             aria-label="Go back"
           >
             <ArrowLeft size={18} style={{ color: EKARI.text }} />
@@ -721,92 +906,163 @@ export default function DiscussionThreadPage() {
             <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
               Discussion
             </div>
-            <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
+            <div className="text-[12px] mt-1 truncate font-semibold" style={{ color: EKARI.dim }}>
               {disc?.title ?? ""}
             </div>
           </div>
 
           <button
             onClick={shareDiscussion}
-            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
-            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            className="h-11 px-4 rounded-full border bg-white/80 backdrop-blur-xl shadow-sm flex items-center gap-2 transition hover:bg-white focus:outline-none focus:ring-2 active:scale-[0.98]"
+            style={{ borderColor: "rgba(199,146,87,0.22)", ...ringStyle }}
             aria-label="Share discussion"
             title="Share"
           >
             <IoArrowRedo size={18} color={EKARI.text} />
+            <span className={cn(isMobile ? "hidden" : "inline")} style={{ color: EKARI.text, fontWeight: 800 }}>
+              Share
+            </span>
           </button>
-
         </div>
       </div>
     </div>
   );
 
+  /* ---------- Premium Topic Card ---------- */
   const TopicCard = (
-    <div className={clsx(isDesktop ? "px-4 pt-3 max-w-[1180px] mx-auto" : "px-3 pt-3")}>
-      <div className="bg-white rounded-2xl border p-3" style={{ borderColor: EKARI.hair }}>
-        <div className="flex items-center gap-2">
-          <IoChatbubblesOutline size={18} color={EKARI.forest} />
-          <div className="font-extrabold text-[16px] leading-[22px]" style={{ color: EKARI.text }}>
-            {disc?.title}
+    <div className={cn(isDesktop ? "px-4 pt-4 max-w-[1180px] mx-auto" : "px-3 pt-3")}>
+      <PremiumSurface
+        className="p-4"
+        style={{
+          borderColor: "rgba(199,146,87,0.22)",
+          background:
+            "linear-gradient(135deg, rgba(199,146,87,0.10), rgba(35,63,57,0.05)), linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78))",
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <span
+            className="h-11 w-11 rounded-2xl grid place-items-center border shrink-0"
+            style={{
+              borderColor: "rgba(199,146,87,0.18)",
+              background: "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,0.45))",
+            }}
+          >
+            <IoChatbubblesOutline size={18} color="#fff" />
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="font-black text-[16px] leading-[22px] line-clamp-2" style={{ color: EKARI.text }}>
+              {disc?.title}
+            </div>
+
+            {!!disc?.body && (
+              <div className="mt-2 text-[14px] leading-6 font-semibold" style={{ color: EKARI.sub }}>
+                {disc.body}
+              </div>
+            )}
+
+            <div className="mt-3 flex items-center gap-2 text-[12px] font-semibold" style={{ color: EKARI.dim }}>
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: hexToRgba(EKARI.gold, 0.85) }} />
+              Answers appear instantly • Be kind • Stay helpful
+              <span
+                className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold border"
+                style={{
+                  borderColor: "rgba(199,146,87,0.16)",
+                  color: EKARI.text,
+                  background: "rgba(255,255,255,0.65)",
+                }}
+                title="Premium"
+              >
+                <IoSparklesOutline size={14} style={{ color: EKARI.forest }} />
+                ekari Nexus
+              </span>
+            </div>
           </div>
         </div>
-        {!!disc?.body && (
-          <div className="mt-2 text-[14px] leading-5" style={{ color: EKARI.text }}>
-            {disc.body}
-          </div>
-        )}
-      </div>
+      </PremiumSurface>
     </div>
   );
 
+  /* ---------- Premium Composer ---------- */
   const Composer = (
     <div
-      className="fixed bottom-0 z-30 border-t bg-white"
+      className="fixed bottom-0 z-30"
       style={{
-        borderColor: EKARI.hair,
         paddingBottom: "max(12px, env(safe-area-inset-bottom))",
         ...(isDesktop
           ? ({
             left: "50%",
             transform: "translateX(-50%)",
-            width: "min(1180px, calc(100vw - 32px))",
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
+            width: "min(900px, calc(100vw - 32px))",
           } as React.CSSProperties)
           : ({ left: 0, right: 0 } as React.CSSProperties)),
       }}
     >
-      <div className={clsx(isDesktop ? "px-4 pt-2" : "px-3 pt-2")}>
-        {replyTarget && (
-          <div className="mb-2 rounded-full px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: "#F3F4F6" }}>
-            <span className="text-xs font-bold" style={{ color: EKARI.dim }}>
-              Commenting to {replyTarget.replyToHandle ? replyTarget.replyToHandle : "comment"}
-            </span>
-            <button onClick={() => setReplyTarget(null)} className="ml-auto p-1" title="Clear">
-              <IoClose size={14} color={EKARI.dim} />
+      <div className={cn(isDesktop ? "px-4 pb-3" : "px-3 pb-3")}>
+        <PremiumSurface
+          className="p-3"
+          style={{
+            borderColor: "rgba(199,146,87,0.22)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.84))",
+          }}
+        >
+          {replyTarget && (
+            <div
+              className="mb-2 rounded-full px-3 py-1.5 flex items-center gap-2 border"
+              style={{
+                borderColor: "rgba(199,146,87,0.18)",
+                background: "linear-gradient(135deg, rgba(199,146,87,0.10), rgba(35,63,57,0.05))",
+              }}
+            >
+              <span className="text-xs font-extrabold truncate" style={{ color: EKARI.text }}>
+                Commenting to {replyTarget.replyToHandle ? replyTarget.replyToHandle : "comment"}
+              </span>
+              <button onClick={() => setReplyTarget(null)} className="ml-auto p-1" title="Clear">
+                <IoClose size={14} color={EKARI.dim} />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-end gap-2">
+            <div
+              className="flex-1 rounded-2xl border px-3 py-2 focus-within:ring-2"
+              style={{
+                borderColor: "rgba(199,146,87,0.18)",
+                background: "linear-gradient(135deg, rgba(199,146,87,0.08), rgba(35,63,57,0.04))",
+                ...ringStyle,
+              }}
+            >
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Write an answer…"
+                className="w-full bg-transparent outline-none text-[14px] font-semibold min-h-[44px] max-h-[160px]"
+                style={{ color: EKARI.text }}
+              />
+            </div>
+
+            <button
+              onClick={postReply}
+              disabled={!text.trim() || posting}
+              className="h-11 w-11 rounded-2xl grid place-items-center shadow-lg focus:outline-none focus:ring-2 active:scale-[0.98]"
+              style={{
+                background: "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,0.65))",
+                opacity: !text.trim() || posting ? 0.6 : 1,
+                ...ringStyle,
+              }}
+              title="Send"
+              aria-label="Send"
+            >
+              {posting ? (
+                <span className="text-xs font-black" style={{ color: "#111827" }}>
+                  …
+                </span>
+              ) : (
+                <IoSend size={18} color="#111827" />
+              )}
             </button>
           </div>
-        )}
-
-        <div className="flex items-end gap-2">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Write an answer…"
-            className="flex-1 min-h-[44px] max-h-[160px] rounded-xl border px-3 py-2 outline-none focus:ring-2"
-            style={{ borderColor: EKARI.hair, color: EKARI.text, ...ringStyle }}
-          />
-          <button
-            onClick={postReply}
-            disabled={!text.trim() || posting}
-            className="h-11 w-11 rounded-full flex items-center justify-center text-white"
-            style={{ backgroundColor: EKARI.gold, opacity: !text.trim() || posting ? 0.6 : 1 }}
-            title="Send"
-            aria-label="Send"
-          >
-            {posting ? <span className="text-xs">…</span> : <IoSend size={18} color="#fff" />}
-          </button>
-        </div>
+        </PremiumSurface>
       </div>
     </div>
   );
@@ -832,15 +1088,17 @@ export default function DiscussionThreadPage() {
                 <Thread key={parent.id} parent={parent} />
               ))}
 
-              <div className={clsx(isDesktop ? "px-4 py-4" : "px-3 py-3")}>
+              <div className={clsx(isDesktop ? "px-4 py-5" : "px-3 py-4")}>
                 {hasMore ? (
                   <button
                     onClick={loadMore}
-                    className="w-full h-10 rounded-lg border text-sm font-bold"
+                    className="rounded-2xl border px-4 py-3 text-sm font-extrabold bg-white/80 backdrop-blur-xl hover:bg-white transition focus:outline-none focus:ring-2 active:scale-[0.99]"
                     style={{
-                      borderColor: EKARI.hair,
+                      borderColor: "rgba(199,146,87,0.18)",
                       color: EKARI.text,
-                      backgroundColor: "#F8FAFC",
+                      ...ringStyle,
+                      background:
+                        "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78))",
                       opacity: paging ? 0.7 : 1,
                     }}
                     disabled={paging}
@@ -848,7 +1106,7 @@ export default function DiscussionThreadPage() {
                     {paging ? "Loading…" : "Load more"}
                   </button>
                 ) : (
-                  <div className="text-center text-xs" style={{ color: "#94A3B8" }}>
+                  <div className="text-center text-xs font-semibold" style={{ color: "#94A3B8" }}>
                     No more answers
                   </div>
                 )}
@@ -865,25 +1123,27 @@ export default function DiscussionThreadPage() {
   );
 
   if (initialLoading) {
-    return (<>{isMobile ? (
-
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
-        <BouncingBallLoader />
-      </div>
-
-    ) : (<AppShell>
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
-        <BouncingBallLoader />
-      </div>
-    </AppShell>)}
-
-    </>);
+    return (
+      <>
+        {isMobile ? (
+          <div className="min-h-screen w-full flex items-center justify-center" style={premiumBg}>
+            <BouncingBallLoader />
+          </div>
+        ) : (
+          <AppShell>
+            <div className="min-h-screen w-full flex items-center justify-center" style={premiumBg}>
+              <BouncingBallLoader />
+            </div>
+          </AppShell>
+        )}
+      </>
+    );
   }
 
   // MOBILE: fixed inset like /bonga, NO bottom tabs, just header + content + composer
   if (isMobile) {
     return (
-      <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+      <div className="fixed inset-0 flex flex-col" style={premiumBg}>
         <OpenInAppBanner
           webUrl={webUrl}
           appUrl={appUrl}
@@ -899,11 +1159,10 @@ export default function DiscussionThreadPage() {
     );
   }
 
-
   // DESKTOP: AppShell + max width container like /bonga desktop
   return (
     <AppShell>
-      <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+      <div className="min-h-screen w-full" style={premiumBg}>
         {Header}
         {Content}
       </div>

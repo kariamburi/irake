@@ -346,7 +346,7 @@ export default function AdminOverviewPage() {
                         creatorShareUsdLast30 += data.creatorShareNetUsdMinor || 0;
                     });
                 } catch (err) {
-                    console.error("Error computing last 30-day donation totals", err);
+                    console.error("Error computing last 30-day uplift totals", err);
                 }
 
                 if (cancelled) return;
@@ -469,8 +469,8 @@ export default function AdminOverviewPage() {
                         Overview
                     </h1>
                     <p className="text-sm md:text-base" style={{ color: EKARI.dim }}>
-                        High-level view of EkariHub activity across deeds, marketplace,
-                        events, discussions, donations, wallets and verification.
+                        High-level view of ekarihub activity across deeds, marketplace,
+                        events, discussions, uplifts, wallets and verification.
                     </p>
                 </div>
 
@@ -497,7 +497,7 @@ export default function AdminOverviewPage() {
                             emoji: "💬",
                         },
                         {
-                            label: "Donations",
+                            label: "Uplifts",
                             key: "donations",
                             href: "/admin/earnings",
                             emoji: "❤️",
@@ -595,7 +595,7 @@ export default function AdminOverviewPage() {
                                 className="mt-3 text-[11px]"
                                 style={{ color: EKARI.dim }}
                             >
-                                Donation volume (last 30 days, USD):
+                                Uplifts volume (last 30 days, USD):
                             </p>
                             <ul
                                 className="mt-1 space-y-0.5 text-[11px]"
@@ -741,17 +741,17 @@ export default function AdminOverviewPage() {
                                         className="text-sm font-extrabold"
                                         style={{ color: EKARI.text }}
                                     >
-                                        Recent donations
+                                        Recent uplifts
                                     </h2>
                                     <p
                                         className="text-xs"
                                         style={{ color: EKARI.dim }}
                                     >
-                                        Last 6 completed or pending donations.
+                                        Last 6 completed or pending uplifts.
                                     </p>
                                 </div>
                                 <Link
-                                    href="/admin/donations"
+                                    href="/admin/uplifts"
                                     className="text-xs font-bold underline-offset-2 hover:underline"
                                     style={{ color: EKARI.forest }}
                                 >
@@ -765,7 +765,7 @@ export default function AdminOverviewPage() {
                                 <thead>
                                     <tr className="bg-gray-50 text-gray-500">
                                         <th className="text-left px-4 py-2 font-semibold">
-                                            Donation
+                                            Uplift
                                         </th>
                                         <th className="text-left px-2 py-2 font-semibold">
                                             Amount
@@ -794,7 +794,7 @@ export default function AdminOverviewPage() {
                                                 colSpan={4}
                                                 className="px-4 py-6 text-center text-gray-400"
                                             >
-                                                No donations yet.
+                                                No uplifts yet.
                                             </td>
                                         </tr>
                                     ) : (

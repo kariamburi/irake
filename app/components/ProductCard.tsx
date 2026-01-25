@@ -306,7 +306,7 @@ export default function ProductCard({
                 </div>
 
 
-                {p.sellerPlan?.storefront && p.seller?.id && (
+                {p.sellerPlan?.storefront && p.seller?.id ? (
                     <Link
                         href={`/store/${p.seller.id}?src=market`}
                     >
@@ -316,7 +316,7 @@ export default function ProductCard({
                             Visit Store
                         </button>
                     </Link>
-                )}
+                ) : (<div className="h-[25px]"></div>)}
 
 
             </div>

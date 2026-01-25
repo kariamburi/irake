@@ -667,7 +667,7 @@ export default function MarketPage() {
                       "linear-gradient(135deg, rgba(199,146,87,0.55), rgba(35,63,57,0.45))",
                   }}
                 >
-                  <div className="rounded-3xl bg-white overflow-hidden">
+                  <div className="rounded-3xl h-full bg-white overflow-hidden">
                     <ProductCard p={p} />
                   </div>
                 </div>
@@ -1111,9 +1111,9 @@ export default function MarketPage() {
                   disabled={paging}
                   className="px-6"
                   style={{
-                    background: "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,1))",
-                    color: "white",
-                    ...ringStyle,
+                    borderColor: "rgba(229,231,235,0.9)",
+                    color: EKARI.text,
+                    background: `linear-gradient(135deg, ${hexToRgba(EKARI.gold, 0.18)}, rgba(255,255,255,1))`,
                   }}
                 >
                   {paging ? <BouncingBallLoader /> : "Load more"}
@@ -1244,9 +1244,9 @@ export default function MarketPage() {
                 disabled={paging}
                 className="px-7"
                 style={{
-                  background: "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,1))",
-                  color: "white",
-                  ...ringStyle,
+                  borderColor: "rgba(229,231,235,0.9)",
+                  color: EKARI.text,
+                  background: `linear-gradient(135deg, ${hexToRgba(EKARI.gold, 0.18)}, rgba(255,255,255,1))`,
                 }}
               >
                 {paging ? <BouncingBallLoader /> : "Load more"}

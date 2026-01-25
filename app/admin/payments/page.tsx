@@ -435,7 +435,7 @@ export default function AdminPaymentsPage() {
     }, [tab, uid, authUid, isAdmin, checkingAdmin, usdToKesRate]);
 
     const title = useMemo(() => {
-        if (tab === "donations") return "Donations";
+        if (tab === "donations") return "Uplifts";
         if (tab === "subscriptions") return "Subscriptions";
         return "Activation fees";
     }, [tab]);
@@ -524,7 +524,7 @@ export default function AdminPaymentsPage() {
                                 }}
                             >
                                 {t === "donations"
-                                    ? "Donations"
+                                    ? "Uplifts"
                                     : t === "subscriptions"
                                         ? "Subscriptions"
                                         : "Activation fee"}
@@ -562,7 +562,7 @@ export default function AdminPaymentsPage() {
                     </div>
                     <div className="mt-2 text-[11px] text-gray-500">
                         KES payments are converted using rate: <b>{usdToKesRate}</b> (KES per
-                        USD). Donations use canonical USD from webhook when available.
+                        USD). Uplifts use canonical USD from webhook when available.
                     </div>
                 </div>
             </div>

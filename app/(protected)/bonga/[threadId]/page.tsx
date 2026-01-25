@@ -45,6 +45,7 @@ import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import SmartAvatar from "@/app/components/SmartAvatar";
 
 /* ================================================================ */
 
@@ -1426,9 +1427,9 @@ export default function BongaThreadPage() {
                       {!mine && (
                         <div className="w-7 flex justify-center">
                           {showAvatar ? (
-                            <div className="relative w-7 h-7 rounded-full overflow-hidden bg-gray-200">
-                              <Image src={peer?.photoURL || peerQs.peerPhotoURL || "/avatar-placeholder.png"} alt="avatar" fill className="object-cover" sizes="28px" />
-                            </div>
+                            <div className="relative  rounded-full overflow-hidden bg-gray-200">
+
+                              <SmartAvatar src={peer?.photoURL || peerQs.peerPhotoURL || "/avatar-placeholder.png"} alt={peer?.firstName || "User"} size={46} /> </div>
                           ) : (
                             <div className="w-7 h-7" />
                           )}

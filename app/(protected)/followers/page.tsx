@@ -22,6 +22,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import { IoChevronBack, IoSearchOutline } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import SmartAvatar from "@/app/components/SmartAvatar";
 
 const EKARI = {
   forest: "#233F39",
@@ -326,14 +327,9 @@ export default function FollowersPage() {
                               className="shrink-0"
                               aria-label={`Open ${item.name || "user"}'s profile`}
                             >
-                              <div className="relative h-[54px] w-[54px] rounded-full overflow-hidden bg-gray-100">
-                                <Image
-                                  src={item.photoURL ? item.photoURL : "/avatar-placeholder.png"}
-                                  alt={item.name || "User"}
-                                  fill
-                                  sizes="54px"
-                                  className="object-cover"
-                                />
+                              <div className="relative rounded-full overflow-hidden bg-gray-100">
+
+                                <SmartAvatar src={item.photoURL} alt={item.name || "User"} size={46} />
                               </div>
                             </button>
 
@@ -485,14 +481,8 @@ export default function FollowersPage() {
                               className="shrink-0"
                               aria-label={`Open ${item.name || "user"}'s profile`}
                             >
-                              <div className="relative h-[54px] w-[54px] rounded-full overflow-hidden bg-gray-100">
-                                <Image
-                                  src={item.photoURL ? item.photoURL : "/avatar-placeholder.png"}
-                                  alt={item.name || "User"}
-                                  fill
-                                  sizes="54px"
-                                  className="object-cover"
-                                />
+                              <div className="relative rounded-full overflow-hidden bg-gray-100">
+                                <SmartAvatar src={item.photoURL} alt={item.name || "User"} size={46} />
                               </div>
                             </button>
 

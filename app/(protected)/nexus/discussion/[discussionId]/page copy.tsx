@@ -1,0 +1,912 @@
+// app/discussion/[discussionid]/page.tsx
+"use client";
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { useParams, useRouter } from "next/navigation";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  startAfter,
+  updateDoc,
+} from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { db } from "@/lib/firebase";
+import {
+  IoArrowRedo,
+  IoChatbubblesOutline,
+  IoClose,
+  IoCreateOutline,
+  IoEllipsisHorizontal,
+  IoSend,
+  IoTrashOutline,
+} from "react-icons/io5";
+import { ArrowLeft } from "lucide-react";
+import AppShell from "@/app/components/AppShell";
+import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import clsx from "clsx";
+import { getCachedDiscussion } from "@/lib/discussionCache";
+import OpenInAppBanner from "@/app/components/OpenInAppBanner";
+
+// Avoid static optimization since we read client-side
+export const dynamic = "force-dynamic";
+
+const EKARI = {
+  forest: "#233F39",
+  gold: "#C79257",
+  sand: "#FFFFFF",
+  text: "#0F172A",
+  dim: "#6B7280",
+  hair: "#E5E7EB",
+  sub: "#5C6B66",
+};
+
+type DiscussionItem = {
+  id: string;
+  title: string;
+  body?: string;
+};
+
+type Reply = {
+  id: string;
+  body: string;
+  authorId: string;
+  createdAt?: any;
+  updatedAt?: any;
+  parentId?: string | null;
+  replyToId?: string | null;
+  replyToHandle?: string | null;
+  userName?: string | null;
+  userHandle?: string | null;
+  userPhotoURL?: string | null;
+};
+
+type ReplyTarget =
+  | {
+    parentId: string | null;
+    replyToId?: string | null;
+    replyToHandle?: string | null;
+  }
+  | null;
+
+const AVATAR_FALLBACK = "/avatar-placeholder.png";
+const PAGE_SIZE = 50;
+
+/* ---------------- responsive helpers ---------------- */
+function useMediaQuery(queryStr: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(queryStr);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, [queryStr]);
+  return matches;
+}
+function useIsDesktop() {
+  return useMediaQuery("(min-width: 1024px)");
+}
+function useIsMobile() {
+  return useMediaQuery("(max-width: 1023px)");
+}
+
+export default function DiscussionThreadPage() {
+  const router = useRouter();
+  const params = useParams() as Record<string, string | string[]>;
+
+  // Support both [discussionid] and [discussionId]
+  const discussionIdRaw =
+    (params?.discussionid as any) ??
+    (params?.discussionId as any) ??
+    (params?.discussionID as any);
+
+  const discussionId = Array.isArray(discussionIdRaw) ? discussionIdRaw[0] : (discussionIdRaw as string | undefined);
+
+  const isDesktop = useIsDesktop();
+  const isMobile = useIsMobile();
+
+  const auth = getAuth();
+
+  // Auth & my denorm
+  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
+  const [meName, setMeName] = useState<string | null>(null);
+  const [meHandle, setMeHandle] = useState<string | null>(null);
+  const [mePhotoURL, setMePhotoURL] = useState<string | null>(null);
+
+  // Thread
+  const [disc, setDisc] = useState<DiscussionItem | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  // Replies + paging
+  const [replies, setReplies] = useState<Reply[]>([]);
+  const [paging, setPaging] = useState(false);
+  const lastSnapRef = useRef<any>(null);
+  const [hasMore, setHasMore] = useState(false);
+
+  // Composer / edit states
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Cache for authors (to backfill older replies that lack denorm)
+  const [userCache, setUserCache] = useState<
+    Record<string, { name?: string | null; handle?: string | null; photoURL?: string | null }>
+  >({});
+  const webUrl =
+    typeof window !== "undefined"
+      ? window.location.href
+      : discussionId
+        ? `https://ekarihub.com/nexus/discussion/${encodeURIComponent(discussionId)}`
+        : "https://ekarihub.com/nexus";
+
+  const appUrl = discussionId
+    ? `ekarihub:///nexus/discussion/${encodeURIComponent(discussionId)}`
+    : "ekarihub:///nexus";
+
+  const ringStyle: React.CSSProperties = {
+    ["--tw-ring-color" as any]: EKARI.forest,
+  };
+
+  const goBack = useCallback(() => {
+    if (window.history.length > 1) router.back();
+    else router.push("/nexus");
+  }, [router]);
+
+  // Auth listener
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+      setMePhotoURL(user?.photoURL ?? null);
+    });
+    return unsub;
+  }, [auth]);
+
+  // Load my public profile for denorm
+  useEffect(() => {
+    if (!uid) return;
+    (async () => {
+      try {
+        const s = await getDoc(doc(db, "users", uid));
+        const d = s.data() as any;
+        setMeName(d?.name ?? auth.currentUser?.displayName ?? null);
+        setMeHandle(d?.handle ?? null);
+
+        if (!d?.photoURL && auth.currentUser?.photoURL) setMePhotoURL(auth.currentUser.photoURL);
+        else if (d?.photoURL) setMePhotoURL(d.photoURL);
+      } catch {
+        setMeName(auth.currentUser?.displayName ?? null);
+      }
+    })();
+  }, [uid, auth.currentUser]);
+
+  // Initial load: discussion + first page of replies
+  useEffect(() => {
+    (async () => {
+      setInitialLoading(true);
+      try {
+        if (!discussionId) return;
+
+        // ✅ 1) hydrate from cache instantly (no fetch)
+        const cached = getCachedDiscussion(discussionId);
+        if (cached) {
+          setDisc({
+            id: cached.id,
+            title: cached.title ?? "",
+            body: (cached as any)?.body ?? "",
+          });
+        }
+
+        // ✅ 2) fallback fetch (also refreshes cached view if changed)
+        const snap = await getDoc(doc(db, "discussions", discussionId));
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          setDisc({ id: snap.id, title: data?.title ?? "", body: data?.body ?? "" });
+        } else {
+          setDisc(null);
+        }
+
+        // replies page fetch (same as you have)
+        const qRef = query(
+          collection(db, "discussions", discussionId, "replies"),
+          orderBy("createdAt", "asc"),
+          limit(PAGE_SIZE)
+        );
+        const s = await getDocs(qRef);
+        const items = s.docs.map((d) => ({ id: d.id, ...(d.data() as any) } as Reply));
+        setReplies(items);
+        lastSnapRef.current = s.docs.length ? s.docs[s.docs.length - 1] : null;
+        setHasMore(!!lastSnapRef.current);
+      } finally {
+        setInitialLoading(false);
+      }
+    })();
+  }, [discussionId]);
+
+  const shareDiscussion = useCallback(async () => {
+    if (!disc || !discussionId) return;
+
+    const url =
+      typeof window !== "undefined"
+        ? window.location.href
+        : `https://ekarihub.com/nexus/discussion/${encodeURIComponent(discussionId)}`;
+
+    const message = `${disc.title}${disc.body ? "\n\n" + disc.body.slice(0, 140) : ""}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: disc.title || "Discussion",
+          text: message,
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(`${message}\n${url}`);
+        alert("Link copied to clipboard");
+      }
+
+      // optional analytics
+    } catch {
+      // ignore
+    }
+  }, [disc, discussionId, uid]);
+  // Load more replies
+  const loadMore = useCallback(async () => {
+    if (paging || !hasMore || !lastSnapRef.current || !discussionId) return;
+    setPaging(true);
+    try {
+      const qRef = query(
+        collection(db, "discussions", discussionId, "replies"),
+        orderBy("createdAt", "asc"),
+        startAfter(lastSnapRef.current),
+        limit(PAGE_SIZE)
+      );
+      const s = await getDocs(qRef);
+      if (!s.empty) {
+        setReplies((prev) => [...prev, ...s.docs.map((d) => ({ id: d.id, ...(d.data() as any) } as Reply))]);
+        lastSnapRef.current = s.docs[s.docs.length - 1];
+        setHasMore(true);
+      } else {
+        lastSnapRef.current = null;
+        setHasMore(false);
+      }
+    } finally {
+      setPaging(false);
+    }
+  }, [paging, hasMore, discussionId]);
+
+  // Group by parentId (top-level + children)
+  const { topLevel, childrenByParent } = useMemo(() => {
+    const top = replies.filter((r) => !r.parentId);
+    const map: Record<string, Reply[]> = {};
+    replies.forEach((r) => {
+      if (r.parentId) {
+        if (!map[r.parentId]) map[r.parentId] = [];
+        map[r.parentId].push(r);
+      }
+    });
+    return { topLevel: top, childrenByParent: map };
+  }, [replies]);
+
+  // Backfill missing author denorm
+  useEffect(() => {
+    const missing = Array.from(
+      new Set(
+        replies
+          .filter((r) => !r.userName || !r.userHandle || !r.userPhotoURL)
+          .map((r) => r.authorId)
+          .filter((x) => x && !userCache[x])
+      )
+    );
+    if (!missing.length) return;
+
+    (async () => {
+      const results = await Promise.allSettled(missing.map((u) => getDoc(doc(db, "users", u))));
+      const patch: Record<string, { name?: string | null; handle?: string | null; photoURL?: string | null }> = {};
+      results.forEach((res, idx) => {
+        const u = missing[idx];
+        if (res.status === "fulfilled" && res.value.exists()) {
+          const d = res.value.data() as any;
+          patch[u] = { name: d?.name ?? null, handle: d?.handle ?? null, photoURL: d?.photoURL ?? null };
+        } else patch[u] = {};
+      });
+      setUserCache((prev) => ({ ...prev, ...patch }));
+    })();
+  }, [replies, userCache]);
+
+  // Helpers
+  const timeAgoShort = (ts: any) => {
+    const d = typeof ts?.toDate === "function" ? ts.toDate() : null;
+    if (!d) return "";
+    const s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 60) return "just now";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    const dy = Math.floor(h / 24);
+    if (dy < 7) return `${dy}d`;
+    const w = Math.floor(dy / 7);
+    if (w < 5) return `${w}w`;
+    const mo = Math.floor(dy / 30);
+    if (mo < 12) return `${mo}mo`;
+    const y = Math.floor(dy / 365);
+    return `${y}y`;
+  };
+
+  const startReplyToTop = useCallback(
+    (parent: Reply) => {
+      const handle = parent.userHandle ?? userCache[parent.authorId]?.handle ?? null;
+      setReplyTarget({ parentId: parent.id, replyToId: parent.id, replyToHandle: handle || null });
+      const mention = handle ? `@${handle.replace(/^@/, "")} ` : "";
+      setText((t) => (mention && !t.startsWith(mention) ? mention + t : t));
+    },
+    [userCache]
+  );
+
+  const startReplyToChild = useCallback(
+    (parent: Reply, child: Reply) => {
+      const handle = child.userHandle ?? userCache[child.authorId]?.handle ?? null;
+      setReplyTarget({ parentId: parent.id, replyToId: child.id, replyToHandle: handle || null });
+      const mention = handle ? `@${handle.replace(/^@/, "")} ` : "";
+      setText((t) => (mention && !t.startsWith(mention) ? mention + t : t));
+    },
+    [userCache]
+  );
+
+  const postReply = useCallback(async () => {
+    const body = text.trim();
+    if (!body || !discussionId) return;
+
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Sign in required");
+      router.push("/login");
+      return;
+    }
+
+    try {
+      setPosting(true);
+      const repliesCol = collection(db, "discussions", discussionId, "replies");
+      const newDoc = await addDoc(repliesCol, {
+        body,
+        authorId: user.uid,
+        createdAt: serverTimestamp(),
+        parentId: replyTarget?.parentId ?? null,
+        replyToId: replyTarget?.replyToId ?? null,
+        replyToHandle: replyTarget?.replyToHandle ?? null,
+        userName: meName ?? null,
+        userHandle: meHandle ?? null,
+        userPhotoURL: mePhotoURL ?? null,
+      });
+
+      setReplies((prev) => [
+        ...prev,
+        {
+          id: newDoc.id,
+          body,
+          authorId: user.uid,
+          parentId: replyTarget?.parentId ?? null,
+          replyToId: replyTarget?.replyToId ?? null,
+          replyToHandle: replyTarget?.replyToHandle ?? null,
+          userName: meName ?? null,
+          userHandle: meHandle ?? null,
+          userPhotoURL: mePhotoURL ?? null,
+          createdAt: { toDate: () => new Date() },
+        },
+      ]);
+
+      setText("");
+      setReplyTarget(null);
+    } catch (e: any) {
+      alert(e?.message || "Failed to post");
+    } finally {
+      setPosting(false);
+    }
+  }, [text, replyTarget, meName, meHandle, mePhotoURL, discussionId, router, auth.currentUser]);
+
+  const startEdit = useCallback(
+    (r: Reply) => {
+      if (auth.currentUser?.uid !== r.authorId) return;
+      setEditingId(r.id);
+      setEditingText(r.body);
+    },
+    [auth.currentUser?.uid]
+  );
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+    setEditingText("");
+  }, []);
+
+  const saveEdit = useCallback(async () => {
+    if (!editingId || !discussionId) return;
+    const body = editingText.trim();
+    if (!body) return alert("Answer cannot be empty.");
+
+    setSavingId(editingId);
+    try {
+      await updateDoc(doc(db, "discussions", discussionId, "replies", editingId), {
+        body,
+        updatedAt: serverTimestamp(),
+      });
+      setReplies((prev) =>
+        prev.map((r) => (r.id === editingId ? { ...r, body, updatedAt: { toDate: () => new Date() } } : r))
+      );
+      setEditingId(null);
+      setEditingText("");
+    } catch (e: any) {
+      alert(e?.message || "Save failed (rules?)");
+    } finally {
+      setSavingId(null);
+    }
+  }, [editingId, editingText, discussionId]);
+
+  const requestDelete = useCallback(
+    (r: Reply) => {
+      if (auth.currentUser?.uid !== r.authorId) return;
+      if (!confirm("Delete answer? This cannot be undone.")) return;
+
+      (async () => {
+        try {
+          setDeletingId(r.id);
+          await deleteDoc(doc(db, "discussions", discussionId!, "replies", r.id));
+          setReplies((prev) => prev.filter((x) => x.id !== r.id));
+        } catch (e: any) {
+          alert(e?.message || "Delete failed");
+        } finally {
+          setDeletingId(null);
+        }
+      })();
+    },
+    [auth.currentUser?.uid, discussionId]
+  );
+
+  // UI bits
+  const Avatar = ({ src, size = 34 }: { src?: string | null; size?: number }) => (
+    <div className="relative rounded-full overflow-hidden bg-gray-200" style={{ width: size, height: size }}>
+      <Image src={src || AVATAR_FALLBACK} alt="avatar" fill className="object-cover" sizes={`${size}px`} />
+    </div>
+  );
+
+  const Thread = ({ parent }: { parent: Reply }) => {
+    const kids = childrenByParent[parent.id] || [];
+    const isOwn = parent.authorId === uid;
+    const isEditing = editingId === parent.id;
+
+    const prof = userCache[parent.authorId] || {};
+    const name = parent.userName ?? prof.name ?? null;
+    const handle = parent.userHandle ?? prof.handle ?? null;
+    const photo = parent.userPhotoURL ?? prof.photoURL ?? null;
+
+    return (
+      <div className={clsx(isDesktop ? "px-4 pt-3" : "px-3 pt-2")}>
+        <div className="flex items-start gap-3 pr-1 pb-2">
+          <Avatar src={photo} size={34} />
+          <div className="flex-1 min-w-0">
+            {(name || handle) && (
+              <div className="flex items-center gap-2 mb-1 min-w-0">
+                {name && (
+                  <span className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                    {name}
+                  </span>
+                )}
+                {handle && (
+                  <span className="font-bold truncate" style={{ color: EKARI.dim }}>
+                    @{handle.replace(/^@/, "")}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {isEditing ? (
+              <div className="bg-gray-100 rounded-xl px-3 py-2">
+                <textarea
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  className="w-full bg-transparent outline-none text-[15px] leading-5"
+                  placeholder="Edit your answer…"
+                  maxLength={400}
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <button
+                    onClick={cancelEdit}
+                    className="px-3 py-1.5 rounded-full border"
+                    style={{ borderColor: EKARI.hair, color: EKARI.dim, backgroundColor: "#fff" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveEdit}
+                    className="px-4 py-1.5 rounded-full text-white"
+                    style={{ backgroundColor: EKARI.gold, opacity: savingId === parent.id ? 0.7 : 1 }}
+                    disabled={savingId === parent.id}
+                  >
+                    {savingId === parent.id ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="text-[16px] leading-5" style={{ color: EKARI.text }}>
+                  {parent.body}
+                </div>
+                <div className="mt-1 flex items-center gap-4">
+                  <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+                    {timeAgoShort(parent.createdAt)}
+                  </span>
+                  <button onClick={() => startReplyToTop(parent)} className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+                    Comment
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="pl-1 flex items-center">
+            {isOwn ? (
+              <div className="flex items-center">
+                <button
+                  onClick={() => startEdit(parent)}
+                  className="p-1 mr-1"
+                  title="Edit"
+                  disabled={!!editingId && editingId !== parent.id}
+                >
+                  <IoCreateOutline size={18} color={EKARI.dim} />
+                </button>
+                <button onClick={() => requestDelete(parent)} className="p-1" title="Delete">
+                  {deletingId === parent.id ? (
+                    <span className="text-xs" style={{ color: EKARI.dim }}>
+                      …
+                    </span>
+                  ) : (
+                    <IoTrashOutline size={18} color={EKARI.dim} />
+                  )}
+                </button>
+              </div>
+            ) : (
+              <button className="p-1" title="More">
+                <IoEllipsisHorizontal size={18} color={EKARI.dim} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {kids.length > 0 && (
+          <div className="ml-11 border-l" style={{ borderColor: EKARI.hair }}>
+            <div className="pl-3 pb-2 space-y-2">
+              {kids.map((child) => {
+                const isChildOwn = child.authorId === uid;
+                const isChildEditing = editingId === child.id;
+
+                const cprof = userCache[child.authorId] || {};
+                const cname = child.userName ?? cprof.name ?? null;
+                const chandle = child.userHandle ?? cprof.handle ?? null;
+                const cphoto = child.userPhotoURL ?? cprof.photoURL ?? null;
+
+                return (
+                  <div key={child.id} className="flex items-start gap-2">
+                    <Avatar src={cphoto} size={26} />
+                    <div className="flex-1 min-w-0">
+                      {(cname || chandle) && (
+                        <div className="flex items-center gap-2 mb-1 min-w-0">
+                          {cname && (
+                            <span className="font-extrabold truncate" style={{ color: EKARI.text }}>
+                              {cname}
+                            </span>
+                          )}
+                          {chandle && (
+                            <span className="font-bold truncate" style={{ color: EKARI.dim }}>
+                              @{chandle.replace(/^@/, "")}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {isChildEditing ? (
+                        <div className="bg-gray-100 rounded-xl px-3 py-2">
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="w-full bg-transparent outline-none text-[15px] leading-5"
+                            placeholder="Edit your answer…"
+                            maxLength={400}
+                          />
+                          <div className="mt-2 flex justify-end gap-2">
+                            <button
+                              onClick={cancelEdit}
+                              className="px-3 py-1.5 rounded-full border"
+                              style={{ borderColor: EKARI.hair, color: EKARI.dim, backgroundColor: "#fff" }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={saveEdit}
+                              className="px-4 py-1.5 rounded-full text-white"
+                              style={{ backgroundColor: EKARI.gold, opacity: savingId === child.id ? 0.7 : 1 }}
+                              disabled={savingId === child.id}
+                            >
+                              {savingId === child.id ? "Saving…" : "Save"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-[16px] leading-5" style={{ color: EKARI.text }}>
+                            {child.replyToHandle ? (
+                              <span className="font-bold" style={{ color: EKARI.dim }}>
+                                @{child.replyToHandle.replace(/^@/, "")}{" "}
+                              </span>
+                            ) : null}
+                            {child.body}
+                          </div>
+                          <div className="mt-1 flex items-center gap-4">
+                            <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+                              {timeAgoShort(child.createdAt)}
+                            </span>
+                            <button
+                              onClick={() => startReplyToChild(parent, child)}
+                              className="text-xs font-semibold"
+                              style={{ color: EKARI.dim }}
+                            >
+                              Comment
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {isChildOwn && (
+                      <div className="pl-1 flex items-center">
+                        <button
+                          onClick={() => startEdit(child)}
+                          className="p-1 mr-1"
+                          title="Edit"
+                          disabled={!!editingId && editingId !== child.id}
+                        >
+                          <IoCreateOutline size={18} color={EKARI.dim} />
+                        </button>
+                        <button onClick={() => requestDelete(child)} className="p-1" title="Delete">
+                          {deletingId === child.id ? (
+                            <span className="text-xs" style={{ color: EKARI.dim }}>
+                              …
+                            </span>
+                          ) : (
+                            <IoTrashOutline size={18} color={EKARI.dim} />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Header like /bonga
+  const Header = (
+    <div
+      className={clsx("border-b sticky top-0 z-50 backdrop-blur")}
+      style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+    >
+      <div className={clsx(isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3")}>
+        <div className="h-full flex items-center justify-between gap-2">
+          <button
+            onClick={goBack}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            aria-label="Go back"
+          >
+            <ArrowLeft size={18} style={{ color: EKARI.text }} />
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
+              Discussion
+            </div>
+            <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
+              {disc?.title ?? ""}
+            </div>
+          </div>
+
+          <button
+            onClick={shareDiscussion}
+            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, ...ringStyle }}
+            aria-label="Share discussion"
+            title="Share"
+          >
+            <IoArrowRedo size={18} color={EKARI.text} />
+          </button>
+
+        </div>
+      </div>
+    </div>
+  );
+
+  const TopicCard = (
+    <div className={clsx(isDesktop ? "px-4 pt-3 max-w-[1180px] mx-auto" : "px-3 pt-3")}>
+      <div className="bg-white rounded-2xl border p-3" style={{ borderColor: EKARI.hair }}>
+        <div className="flex items-center gap-2">
+          <IoChatbubblesOutline size={18} color={EKARI.forest} />
+          <div className="font-extrabold text-[16px] leading-[22px]" style={{ color: EKARI.text }}>
+            {disc?.title}
+          </div>
+        </div>
+        {!!disc?.body && (
+          <div className="mt-2 text-[14px] leading-5" style={{ color: EKARI.text }}>
+            {disc.body}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const Composer = (
+    <div
+      className="fixed bottom-0 z-30 border-t bg-white"
+      style={{
+        borderColor: EKARI.hair,
+        paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+        ...(isDesktop
+          ? ({
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "min(1180px, calc(100vw - 32px))",
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+          } as React.CSSProperties)
+          : ({ left: 0, right: 0 } as React.CSSProperties)),
+      }}
+    >
+      <div className={clsx(isDesktop ? "px-4 pt-2" : "px-3 pt-2")}>
+        {replyTarget && (
+          <div className="mb-2 rounded-full px-3 py-1.5 flex items-center gap-2" style={{ backgroundColor: "#F3F4F6" }}>
+            <span className="text-xs font-bold" style={{ color: EKARI.dim }}>
+              Commenting to {replyTarget.replyToHandle ? replyTarget.replyToHandle : "comment"}
+            </span>
+            <button onClick={() => setReplyTarget(null)} className="ml-auto p-1" title="Clear">
+              <IoClose size={14} color={EKARI.dim} />
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Write an answer…"
+            className="flex-1 min-h-[44px] max-h-[160px] rounded-xl border px-3 py-2 outline-none focus:ring-2"
+            style={{ borderColor: EKARI.hair, color: EKARI.text, ...ringStyle }}
+          />
+          <button
+            onClick={postReply}
+            disabled={!text.trim() || posting}
+            className="h-11 w-11 rounded-full flex items-center justify-center text-white"
+            style={{ backgroundColor: EKARI.gold, opacity: !text.trim() || posting ? 0.6 : 1 }}
+            title="Send"
+            aria-label="Send"
+          >
+            {posting ? <span className="text-xs">…</span> : <IoSend size={18} color="#fff" />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const Content = (
+    <>
+      {!disc ? (
+        <div className="py-16 flex items-center justify-center" style={{ color: EKARI.dim }}>
+          Discussion not found
+        </div>
+      ) : (
+        <>
+          {TopicCard}
+
+          {/* Thread list */}
+          <div className={clsx(isDesktop ? "max-w-[1180px] mx-auto" : "")}>
+            <div
+              style={{
+                paddingBottom: "calc(170px + env(safe-area-inset-bottom))",
+              }}
+            >
+              {topLevel.map((parent) => (
+                <Thread key={parent.id} parent={parent} />
+              ))}
+
+              <div className={clsx(isDesktop ? "px-4 py-4" : "px-3 py-3")}>
+                {hasMore ? (
+                  <button
+                    onClick={loadMore}
+                    className="w-full h-10 rounded-lg border text-sm font-bold"
+                    style={{
+                      borderColor: EKARI.hair,
+                      color: EKARI.text,
+                      backgroundColor: "#F8FAFC",
+                      opacity: paging ? 0.7 : 1,
+                    }}
+                    disabled={paging}
+                  >
+                    {paging ? "Loading…" : "Load more"}
+                  </button>
+                ) : (
+                  <div className="text-center text-xs" style={{ color: "#94A3B8" }}>
+                    No more answers
+                  </div>
+                )}
+              </div>
+
+              {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+            </div>
+          </div>
+
+          {Composer}
+        </>
+      )}
+    </>
+  );
+
+  if (initialLoading) {
+    return (<>{isMobile ? (
+
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+        <BouncingBallLoader />
+      </div>
+
+    ) : (<AppShell>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+        <BouncingBallLoader />
+      </div>
+    </AppShell>)}
+
+    </>);
+  }
+
+  // MOBILE: fixed inset like /bonga, NO bottom tabs, just header + content + composer
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+        <OpenInAppBanner
+          webUrl={webUrl}
+          appUrl={appUrl}
+          title="Open this discussion in ekarihub"
+          subtitle="Faster loading, messaging, and full features."
+          playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+          appStoreUrl="https://apps.apple.com"
+        />
+
+        {Header}
+        <div className="flex-1 overflow-y-auto overscroll-contain">{Content}</div>
+      </div>
+    );
+  }
+
+
+  // DESKTOP: AppShell + max width container like /bonga desktop
+  return (
+    <AppShell>
+      <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+        {Header}
+        {Content}
+      </div>
+    </AppShell>
+  );
+}

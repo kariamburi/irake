@@ -200,8 +200,8 @@ export default function AdminEarningsPage() {
             Creator earnings (USD)
           </h1>
           <p className="text-sm md:text-base" style={{ color: EKARI.dim }}>
-            Overview of tip-based donations. This view aggregates the last 200
-            successful donations into per-creator wallets, using canonical USD
+            Overview of tip-based uplifts. This view aggregates the last 200
+            successful uplifts into per-creator wallets, using canonical USD
             amounts from the Paystack webhook.
           </p>
         </div>
@@ -214,7 +214,7 @@ export default function AdminEarningsPage() {
           style={{ borderColor: EKARI.hair }}
         >
           <div className="text-xs font-semibold text-gray-500 mb-1">
-            Total succeeded donations (sample)
+            Total succeeded uplifts (sample)
           </div>
           {loading ? (
             <div className="h-6 w-24 bg-gray-100 rounded animate-pulse" />
@@ -227,7 +227,7 @@ export default function AdminEarningsPage() {
             </div>
           )}
           <div className="mt-2 text-[11px] text-gray-500">
-            Based on the last 200 successful donations.
+            Based on the last 200 successful uplifts.
           </div>
         </div>
 
@@ -253,7 +253,7 @@ export default function AdminEarningsPage() {
           )}
           <div className="mt-2 text-[11px] text-gray-500">
             Uses canonical creator/platform shares when present; falls back to a
-            90/10 split for older donations.
+            90/10 split for older uplifts.
           </div>
         </div>
 
@@ -275,7 +275,7 @@ export default function AdminEarningsPage() {
             </div>
           )}
           <div className="mt-2 text-[11px] text-gray-500">
-            Creators who have received at least one successful donation.
+            Creators who have received at least one successful uplift.
           </div>
         </div>
       </div>
@@ -295,7 +295,7 @@ export default function AdminEarningsPage() {
                 Top creators by earnings (USD)
               </h2>
               <p className="text-xs" style={{ color: EKARI.dim }}>
-                Aggregated from the most recent successful donations in USD
+                Aggregated from the most recent successful uplifts in USD
                 minor units.
               </p>
             </div>

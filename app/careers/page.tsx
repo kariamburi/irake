@@ -104,7 +104,7 @@ function JobCard({ job }: { job: Job }) {
             </Link>
           ) : (
             <a
-              href="mailto:talent@ekarihub.com?subject=Talent%20Network%20-%20EkariHub&body=Hi%20EkariHub%2C%20I%27d%20love%20to%20be%20considered%20for%20future%20roles..."
+              href="mailto:careers@ekarihub.com?subject=Talent%20Network%20-%20ekarihub&body=Hi%20ekarihub%2C%20I%27d%20love%20to%20be%20considered%20for%20future%20roles..."
               className="rounded-lg border px-3 py-2 text-sm font-bold hover:shadow-sm"
               style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#fff" }}
             >
@@ -134,7 +134,7 @@ const SECTIONS: Section[] = [
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
               <a
-                href="mailto:talent@ekarihub.com?subject=Talent%20Network%20-%20EkariHub&body=Attach%20your%20CV%20and%20share%20a%20few%20lines%20on%20how%20you%27d%20like%20to%20contribute."
+                href="mailto:careers@ekarihub.com?subject=Talent%20Network%20-%20ekarihub&body=Attach%20your%20CV%20and%20share%20a%20few%20lines%20on%20how%20you%27d%20like%20to%20contribute."
                 className="rounded-xl px-4 py-2 text-sm font-bold"
                 style={{ background: EKARI.forest, color: "#fff" }}
               >
@@ -145,7 +145,7 @@ const SECTIONS: Section[] = [
                 className="rounded-xl border px-4 py-2 text-sm font-bold"
                 style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#fff" }}
               >
-                Learn about EkariHub
+                Learn about ekarihub
               </Link>
             </div>
           </div>
@@ -157,7 +157,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: "culture",
-    title: "Life at EkariHub",
+    title: "Life at ekarihub",
     body: (
       <div className="space-y-3 text-[15px] leading-7 text-gray-700">
         <p><strong>Mission:</strong> Collaborate • Innovate • Cultivate — we’re building the digital rails for African agriculture.</p>
@@ -175,7 +175,7 @@ const SECTIONS: Section[] = [
     title: "How We Hire",
     body: (
       <ol className="list-decimal pl-5 space-y-2 text-[15px] leading-7 text-gray-700">
-        <li>Share your profile/CV and a short note on why EkariHub.</li>
+        <li>Share your profile/CV and a short note on why ekarihub.</li>
         <li>Screen chat (30–45 min) focused on fit and impact.</li>
         <li>Practical exercise or portfolio review (role-dependent).</li>
         <li>Panel conversation with future collaborators.</li>
@@ -209,11 +209,11 @@ const SECTIONS: Section[] = [
             </div>
           </div>
           <a
-            href="mailto:talent@ekarihub.com?subject=Talent%20Network%20-%20EkariHub&body=Attach%20your%20CV%20and%20share%20a%20few%20lines%20on%20how%20you%27d%20like%20to%20contribute."
+            href="mailto:careers@ekarihub.com?subject=Talent%20Network%20-%20ekarihub&body=Attach%20your%20CV%20and%20share%20a%20few%20lines%20on%20how%20you%27d%20like%20to%20contribute."
             className="rounded-xl px-4 py-2 text-sm font-bold"
             style={{ background: EKARI.forest, color: "#fff" }}
           >
-            Email talent@ekarihub.com
+            Email careers@ekarihub.com
           </a>
         </div>
       </div>

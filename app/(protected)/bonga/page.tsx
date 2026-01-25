@@ -901,12 +901,15 @@ export default function MessagesPage() {
                   >
                     <div className={clsx("flex items-center gap-3", isDesktop ? "px-4 py-3.5" : "px-3.5 py-3.5")}>
                       <div className="relative">
-                        <SmartAvatar
-                          src={item.peer?.photoURL || ""}
-                          alt={name}
-                          size={48}
-                          className={clsx(hasUnread && "ring-2")}
-                        />
+                        <div className="relative  rounded-full overflow-hidden bg-gray-200">
+                          <SmartAvatar
+                            src={item.peer?.photoURL || ""}
+                            alt={name}
+                            size={48}
+                            className={clsx(hasUnread && "ring-2")}
+
+                          />
+                        </div>
                         {hasUnread && (
                           <span
                             className="absolute -right-0.5 -bottom-0.5 w-[12px] h-[12px] rounded-full border-2"

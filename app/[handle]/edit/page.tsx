@@ -975,7 +975,7 @@ export default function EditProfilePage() {
       <BottomSheet open={sheet === "currency"} title="Preferred currency" onClose={() => setSheet(null)}>
         <div className="space-y-3">
           <p className="text-xs text-slate-600">
-            This will be the default currency for donations you make.
+            This will be the default currency for uplifts you make.
           </p>
           <p className="text-xs text-slate-500">
             M-Pesa is only available when donating in{" "}
@@ -988,7 +988,7 @@ export default function EditProfilePage() {
               const label = code === "KES" ? "KES – Kenyan Shilling" : "USD – US Dollar";
               const note =
                 code === "KES"
-                  ? "Best for Kenya-based donations (M-Pesa supported)."
+                  ? "Best for Kenya-based uplifts (M-Pesa supported)."
                   : "Good for global / international donors.";
 
               return (

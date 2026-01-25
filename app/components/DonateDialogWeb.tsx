@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 
 import { app, db } from "@/lib/firebase";
 import { ConfirmModal } from "@/app/components/ConfirmModal"; // 👈 make sure path is correct
@@ -63,7 +63,10 @@ export function DonateDialogWeb({
 }: Props) {
     const [finance, setFinance] = useState<FinanceSettings | null>(null);
     const [currency, setCurrency] = useState<PreferredCurrency>("KES");
-    const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+
+    // ✅ store selection in USD major (base), then derive display amount from currency
+    const [selectedUsdMajor, setSelectedUsdMajor] = useState<number | null>(null);
+
     const [loading, setLoading] = useState(false);
 
     // 🔹 Auth + wallet
@@ -93,32 +96,40 @@ export function DonateDialogWeb({
         return () => unsub();
     }, []);
 
-    // ---------- Load user preferred currency + uid ----------
+    // ---------- Track auth uid ----------
     useEffect(() => {
         const auth = getAuth(app);
-        const unsub = onAuthStateChanged(auth, async (u) => {
+        const unsub = onAuthStateChanged(auth, (u) => {
             if (!u) {
-                setCurrency("KES");
                 setAuthUid(null);
+                setCurrency("KES");
                 return;
             }
             setAuthUid(u.uid);
-            try {
-                const snap = await getDoc(doc(db, "users", u.uid));
-                if (snap.exists()) {
-                    const d: any = snap.data();
-                    const pref = d.preferredCurrency as PreferredCurrency | undefined;
-                    setCurrency(pref === "USD" ? "USD" : "KES");
-                } else {
-                    setCurrency("KES");
-                }
-            } catch (err) {
-                console.error("Error loading user preferred currency", err);
-                setCurrency("KES");
-            }
         });
         return () => unsub();
     }, []);
+
+    // ---------- Subscribe to user preferred currency (real-time) ----------
+    useEffect(() => {
+        if (!authUid) return;
+
+        const ref = doc(db, "users", authUid);
+        const unsub = onSnapshot(
+            ref,
+            (snap) => {
+                const d: any = snap.data() || {};
+                const pref = d.preferredCurrency as PreferredCurrency | undefined;
+                setCurrency(pref === "USD" ? "USD" : "KES");
+            },
+            (err) => {
+                console.error("Error subscribing to preferred currency", err);
+                setCurrency("KES");
+            }
+        );
+
+        return () => unsub();
+    }, [authUid]);
 
     // ---------- Subscribe to viewer wallet ----------
     useEffect(() => {
@@ -168,9 +179,7 @@ export function DonateDialogWeb({
             sym = "KSh";
         }
 
-        if (!presets.length) {
-            presets = FALLBACK_PRESETS_USD;
-        }
+        if (!presets.length) presets = FALLBACK_PRESETS_USD;
 
         const platform = finance?.platformSharePercent ?? FALLBACK_PLATFORM_SHARE;
         const creator = 100 - platform;
@@ -185,6 +194,19 @@ export function DonateDialogWeb({
             effectiveRate: usdToKes,
         };
     }, [finance, currency]);
+
+    // ---------- Derive selected display amount from selectedUsdMajor ----------
+    const selectedDisplayAmount = useMemo(() => {
+        if (selectedUsdMajor == null) return null;
+
+        if (currency === "USD") {
+            // keep 2dp for USD display
+            return Math.round(selectedUsdMajor * 100) / 100;
+        }
+
+        // KES displayed as whole numbers
+        return Math.round(selectedUsdMajor * effectiveRate);
+    }, [selectedUsdMajor, currency, effectiveRate]);
 
     // ---------- Wallet derived values ----------
     const walletUsdMajor = useMemo(
@@ -201,30 +223,29 @@ export function DonateDialogWeb({
 
     const canUseWalletForCurrentAmount = useMemo(() => {
         if (!hasWallet) return false;
-        if (selectedAmount == null || selectedAmount <= 0) return false;
+        if (selectedUsdMajor == null || selectedUsdMajor <= 0) return false;
+        return selectedUsdMajor <= walletUsdMajor;
+    }, [hasWallet, selectedUsdMajor, walletUsdMajor]);
 
-        // selectedAmount is in display currency
-        let neededUsdMajor: number;
-        if (currency === "USD") {
-            neededUsdMajor = selectedAmount;
-        } else {
-            neededUsdMajor = selectedAmount / effectiveRate;
-        }
-
-        return neededUsdMajor <= walletUsdMajor;
-    }, [hasWallet, selectedAmount, currency, effectiveRate, walletUsdMajor]);
-
-    // ---------- Initialise default selected amount ----------
+    // ---------- Initialise default selected amount (store as USD base) ----------
     useEffect(() => {
         if (!displayPresets.length) return;
-        const mid = displayPresets[Math.floor(displayPresets.length / 2)];
-        setSelectedAmount((prev) => (prev == null ? mid : prev));
-    }, [displayPresets]);
+
+        const midDisplay = displayPresets[Math.floor(displayPresets.length / 2)];
+
+        setSelectedUsdMajor((prev) => {
+            if (prev != null) return prev; // keep user's previous selection
+            const usd = currency === "USD" ? midDisplay : midDisplay / effectiveRate;
+            return Math.round(usd * 100) / 100; // keep 2dp
+        });
+    }, [displayPresets, currency, effectiveRate]);
 
     if (!open) return null;
 
     const handleDonate = async () => {
-        if (!selectedAmount) {
+        const displayAmount = selectedDisplayAmount;
+
+        if (!displayAmount || displayAmount <= 0) {
             setFeedbackModal({
                 title: "Select an amount",
                 message: "Please pick an amount before continuing.",
@@ -245,14 +266,14 @@ export function DonateDialogWeb({
             setLoading(true);
 
             const functions = getFunctions(app, "us-central1");
-            const amountInMinor = Math.round(selectedAmount * 100);
+            const amountInMinor = Math.round(displayAmount * 100);
 
             if (payMethod === "wallet") {
                 if (!canUseWalletForCurrentAmount) {
                     setFeedbackModal({
                         title: "Insufficient wallet balance",
                         message:
-                            "Your wallet balance is not enough for this donation. You can top up from your earnings page or choose Paystack instead.",
+                            "Your wallet balance is not enough for this uplift. You can top up from your earnings page or choose Paystack instead.",
                     });
                     setLoading(false);
                     return;
@@ -277,9 +298,9 @@ export function DonateDialogWeb({
 
                 if (!res.data.ok) {
                     setFeedbackModal({
-                        title: "Wallet donation failed",
+                        title: "Wallet uplift failed",
                         message:
-                            "We could not complete your wallet donation. Please try again in a few moments.",
+                            "We could not complete your wallet uplift. Please try again in a few moments.",
                     });
                     setLoading(false);
                     return;
@@ -288,7 +309,7 @@ export function DonateDialogWeb({
                 // Success – show thank you, then close dialog when user taps OK
                 setFeedbackModal({
                     title: "Thank you! 🌱",
-                    message: "Your donation from wallet was recorded successfully.",
+                    message: "Your uplift from wallet was recorded successfully.",
                     closeOnConfirm: true,
                 });
                 setLoading(false);
@@ -334,7 +355,7 @@ export function DonateDialogWeb({
                 title: "Donation error",
                 message:
                     err?.message ||
-                    "We were unable to start your donation. Please try again shortly.",
+                    "We were unable to start your uplift. Please try again shortly.",
             });
             setLoading(false);
         }
@@ -389,8 +410,7 @@ export function DonateDialogWeb({
                                 onClick={onClose}
                                 className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40"
                             >
-                                <span className="sr-only">Close</span>
-                                ✕
+                                <span className="sr-only">Close</span>✕
                             </button>
                         </div>
 
@@ -434,14 +454,16 @@ export function DonateDialogWeb({
                                                 )}
                                             </span>
                                         </p>
+
                                         {!hasWallet && (
                                             <p className="mt-0.5 text-[10px] text-red-500">
                                                 Your wallet is empty. Top up from your earnings page.
                                             </p>
                                         )}
+
                                         {hasWallet &&
                                             !canUseWalletForCurrentAmount &&
-                                            selectedAmount && (
+                                            selectedDisplayAmount != null && (
                                                 <p className="mt-0.5 text-[10px] text-red-500">
                                                     Your wallet balance is lower than the selected
                                                     amount.
@@ -459,12 +481,20 @@ export function DonateDialogWeb({
                         {/* amount chips */}
                         <div className="mb-4 flex flex-wrap gap-2">
                             {displayPresets.map((amt) => {
-                                const active = selectedAmount === amt;
+                                const active = selectedDisplayAmount === amt;
                                 return (
                                     <button
                                         key={amt}
                                         type="button"
-                                        onClick={() => setSelectedAmount(amt)}
+                                        onClick={() => {
+                                            const usd =
+                                                currency === "USD"
+                                                    ? amt
+                                                    : amt / effectiveRate;
+                                            setSelectedUsdMajor(
+                                                Math.round(usd * 100) / 100
+                                            );
+                                        }}
                                         className={[
                                             "rounded-full border px-3 py-1.5 text-sm font-semibold transition",
                                             active
@@ -483,16 +513,17 @@ export function DonateDialogWeb({
                             type="button"
                             onClick={handleDonate}
                             disabled={
-                                !selectedAmount ||
+                                !selectedDisplayAmount ||
                                 loading ||
                                 (payMethod === "wallet" && !canUseWalletForCurrentAmount)
                             }
                             className={[
                                 "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-sm transition",
                                 "bg-[color:#233F39] hover:bg-[#1b312d]",
-                                (!selectedAmount ||
+                                (!selectedDisplayAmount ||
                                     loading ||
-                                    (payMethod === "wallet" && !canUseWalletForCurrentAmount)) &&
+                                    (payMethod === "wallet" &&
+                                        !canUseWalletForCurrentAmount)) &&
                                 "opacity-60 cursor-not-allowed",
                             ].join(" ")}
                         >
@@ -500,7 +531,7 @@ export function DonateDialogWeb({
                                 <span className="inline-flex items-center gap-2">
                                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                                     {payMethod === "wallet"
-                                        ? "Processing wallet donation…"
+                                        ? "Processing wallet uplift…"
                                         : "Processing…"}
                                 </span>
                             ) : (
@@ -511,7 +542,7 @@ export function DonateDialogWeb({
                                     <span>
                                         {payMethod === "wallet"
                                             ? "Uplift from wallet"
-                                            : `Continue* ${symbol}.${selectedAmount ?? ""}`}
+                                            : `Continue* ${symbol} ${selectedDisplayAmount ?? ""}`}
                                     </span>
                                 </>
                             )}
@@ -533,9 +564,7 @@ export function DonateDialogWeb({
                 confirmText="OK"
                 cancelText="Close"
                 onConfirm={() => {
-                    if (feedbackModal?.closeOnConfirm) {
-                        onClose();
-                    }
+                    if (feedbackModal?.closeOnConfirm) onClose();
                     setFeedbackModal(null);
                 }}
                 onCancel={() => setFeedbackModal(null)}

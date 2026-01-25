@@ -166,7 +166,7 @@ export default function AdminFinancePage() {
 
     if (!presetsNums.length) {
       setFeedbackModal({
-        title: "Invalid donation presets",
+        title: "Invalid uplift presets",
         message:
           "Please enter at least one valid USD preset amount (e.g. 1,5,10).",
       });
@@ -265,8 +265,8 @@ export default function AdminFinancePage() {
               className="mt-2 text-xs md:text-sm"
               style={{ color: EKARI.dim }}
             >
-              Configure thresholds, FX rates, donation fees and revenue
-              sharing used across EkariHub donations, wallet top-ups and
+              Configure thresholds, FX rates, uplift fees and revenue
+              sharing used across EkariHub uplifts, wallet top-ups and
               payouts.
             </p>
           </div>
@@ -493,7 +493,7 @@ export default function AdminFinancePage() {
                   className="mt-1 text-xs md:text-sm"
                   style={{ color: EKARI.dim }}
                 >
-                  Used when estimating KSh impact of USD donations or
+                  Used when estimating KSh impact of USD uplifts or
                   reporting.
                 </p>
                 {loaded && (
@@ -537,7 +537,7 @@ export default function AdminFinancePage() {
                   className="mt-1 text-xs md:text-sm"
                   style={{ color: EKARI.dim }}
                 >
-                  Platform-wide fee on each donation before splitting with
+                  Platform-wide fee on each uplift before splitting with
                   creators (e.g. card/payment gateway + EkariHub overhead).
                 </p>
                 {loaded && (
@@ -556,7 +556,7 @@ export default function AdminFinancePage() {
                   className="mt-3 block text-xs font-semibold"
                   style={{ color: EKARI.dim }}
                 >
-                  Processing fee (% of donation)
+                  Processing fee (% of uplift)
                 </label>
                 <input
                   type="number"
@@ -716,7 +716,7 @@ export default function AdminFinancePage() {
                   className="mt-1 text-xs md:text-sm"
                   style={{ color: EKARI.dim }}
                 >
-                  These amounts appear on the donation bottom sheet for USD
+                  These amounts appear on the uplift bottom sheet for USD
                   donors (e.g. 1, 5, 10, 20).
                 </p>
                 {loaded && (
@@ -770,7 +770,7 @@ export default function AdminFinancePage() {
                   className="mt-1 text-xs md:text-sm"
                   style={{ color: EKARI.dim }}
                 >
-                  Control how net donations are split between EkariHub
+                  Control how net uplifts are split between EkariHub
                   support and the deed owner.
                 </p>
                 {loaded && (

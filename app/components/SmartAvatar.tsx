@@ -35,7 +35,7 @@ export default function SmartAvatar({
 
     return (
         <div
-            className={clsx("relative overflow-hidden bg-gray-100", ROUNDED[rounded], className)}
+            className={clsx("relative overflow-hidden bg-gray-100", className)}
             style={{ width: size, height: size }}
             aria-label={alt}
         >

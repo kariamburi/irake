@@ -52,6 +52,7 @@ import {
   IoGridOutline,
   IoStorefrontOutline,
   IoShareSocialOutline,
+  IoAnalyticsOutline,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -331,9 +332,13 @@ function ProfileHeroStorefront({
   const phone = cleanPhone(profile.phone || null);
   const website = toWebsiteLink(profile.website || null);
   const whatsapp = toWhatsAppLink(profile?.phone || profile.phone || null);
-
+  const handleSlug = React.useMemo(
+    () => (profile.handle || "").replace(/^@/, ""),
+    [profile.handle]
+  );
   const heroBg =
     "radial-gradient(900px circle at 10% 10%, rgba(199,146,87,0.90), transparent 45%), linear-gradient(135deg, rgba(35,63,57,0.80), rgba(35,63,57,1))";
+  const verificationOrgName = profile.verificationOrganizationName;
 
   const reviewsText =
     reviewsSummary && reviewsSummary.count > 0
@@ -403,14 +408,13 @@ function ProfileHeroStorefront({
                 className="relative h-20 w-20 md:h-24 md:w-24 rounded-3xl overflow-hidden border bg-white shadow-[0_12px_30px_rgba(15,23,42,0.10)]"
                 style={{ borderColor: EKARI.hair }}
               >
-
-                <Image
+                <SmartAvatar
                   src={profile.photoURL || "/avatar-placeholder.png"}
-                  alt={profile.handle || "Profile"}
-                  fill
-                  className="object-cover"
-                  sizes="96px"
+                  alt={profile.handle || "avatar"}
+                  size={96}
+                //rounded="full"
                 />
+
               </div>
 
               <div className="min-w-0 pt-1 flex-1 pb-1">
@@ -567,6 +571,7 @@ function ProfileHeroStorefront({
                   >
                     <IoChatbubbleEllipsesOutline size={18} />
                   </button>
+
                 </div>
               </div>
             </div>
@@ -576,18 +581,59 @@ function ProfileHeroStorefront({
               <span>
                 Powered by <span className="font-black" style={{ color: EKARI.text }}>ekarihub</span>
               </span>
-              <Link href="/seller/dashboard?tab=packages" className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]" style={{ color: EKARI.text }}>
-                <IoGridOutline size={16} /> Seller dashboard
-              </Link>
-              {showAdminBadge ? (
-                <Link href="/admin/overview" className="font-black" style={{ color: EKARI.text }}>
+              {isOwner && (<>
+                <Link
+                  href={`/${handleSlug}/earnings`}
+                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]"
+                  style={{ color: EKARI.text }}
+                >
+                  💰 Earnings
+                </Link>
+                <Link href="/seller/dashboard?tab=packages" className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]" style={{ color: EKARI.text }}>
+                  <IoGridOutline size={16} /> Seller dashboard
+                </Link>
+
+
+              </>)}
+              {showAdminBadge && isOwner && (
+                <Link href="/admin/overview" className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]" style={{ color: EKARI.text }}>
+                  <IoAnalyticsOutline size={16} />
                   Admin dashboard
                 </Link>
-              ) : (
-                <span className="font-semibold">
-                  {verificationType === "business" ? "Business" : verificationType === "company" ? "Company" : "Individual"}
-                </span>
               )}
+
+              {(verificationStatus === "none" || verificationStatus === "rejected") && isOwner && (
+                <Link
+                  href="/account/verification"
+                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-2 border hover:bg-black/[0.02]"
+                  style={{ borderColor: `${EKARI.primary}55`, color: EKARI.primary, background: "white" }}
+                >
+                  <IoShieldCheckmarkOutline size={16} />
+                  {verificationStatus === "rejected" ? "Re-request" : "Verify"}
+                </Link>
+              )}
+
+              {verificationStatus === "pending" && isOwner && (
+                <button
+                  type="button"
+                  disabled
+                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-2 border"
+                  style={{
+                    borderColor: EKARI.hair,
+                    color: "#92400E",
+                    background: "#FFFBEB",
+                  }}
+                >
+                  <IoTimeOutline size={16} />
+                  Pending
+                </button>
+              )}
+
+              {!isOwner && (<><div className="font-semibold flex gap-2 items-center">
+                {verificationType === "business" ? "Business" : verificationType === "company" ? "Company" : "Individual"}
+                {(verificationType === "business" || verificationType === "company") && verificationOrgName && (<span className="gap-2 font-bold">{verificationOrgName}</span>)}
+              </div></>)}
+
             </div>
           </div>
         </div>
