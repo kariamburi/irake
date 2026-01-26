@@ -73,6 +73,7 @@ import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { useUserProfile } from "./providers/UserProfileProvider";
 import { AuthorBadgePill } from "./components/AuthorBadgePill";
 import { EkariSideMenuSheet } from "./components/EkariSideMenuSheet";
+import SmartAvatar from "./components/SmartAvatar";
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -1401,6 +1402,14 @@ function VideoCard({
   const tagsHidden = tags.length > MAX_COLLAPSED_TAGS;
   const visibleTags = captionExpanded ? tags : tags.slice(0, MAX_COLLAPSED_TAGS);
   const showMoreToggle = captionTooLong || tagsHidden;
+
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgLoaded(false);
+    setImgError(false);
+  }, [item.id]);
   useEffect(() => {
     setThumbVisible(true);
     setThumbSrc(item.mediaType === "video" ? (item.posterUrl ?? null) : (item.mediaUrl ?? null));
@@ -1775,16 +1784,24 @@ function VideoCard({
               <div
                 onClick={onViewProfileClick}
                 className={cn(
-                  "relative h-10 w-10 rounded-full overflow-hidden bg-gray-200 shrink-0",
+                  "relative rounded-full overflow-hidden bg-gray-200 shrink-0",
                   (authorProfile?.handle || item.authorUsername) ? "cursor-pointer" : "cursor-default"
                 )}
               >
                 <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#C79257] via-transparent to-[#233F39] opacity-70" />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {/* eslint-disable-next-line @next/next/no-img-element 
                 <img
                   src={avatar}
                   alt={authorProfile?.handle || item.authorUsername || item.authorId || "author"}
                   className="relative h-full w-full object-cover border border-white/30 rounded-full"
+                />
+                */}
+                <SmartAvatar
+                  src={avatar || ""}
+                  alt={authorProfile?.handle || item.authorUsername || item.authorId || "author"}
+                  size={40}
+                  className={("ring-2")}
+
                 />
               </div>
 

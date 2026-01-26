@@ -405,7 +405,7 @@ function ProfileHeroStorefront({
           <div className="relative px-4 pb-4 md:px-6 md:pb-6">
             <div className="-mt-8 md:-mt-12 flex flex-col sm:flex-row sm:items-end gap-3 md:gap-4">
               <div
-                className="relative h-20 w-20 md:h-24 md:w-24 rounded-3xl overflow-hidden border bg-white shadow-[0_12px_30px_rgba(15,23,42,0.10)]"
+                className="relative h-24 w-24 rounded-3xl overflow-hidden border bg-white shadow-[0_12px_30px_rgba(15,23,42,0.10)]"
                 style={{ borderColor: EKARI.hair }}
               >
                 <SmartAvatar
@@ -422,16 +422,12 @@ function ProfileHeroStorefront({
                   {loading ? "Loading…" : profile.name || profile.handle || "Profile"}
                 </h1>
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <div className="flex flex-block items-center gap-x-3 gap-y-1">
                   <span className="text-xs font-bold" style={{ color: EKARI.subtext }}>
                     {profile.handle || "@user"}
                   </span>
 
-                  {profile.bio ? (
-                    <span className="text-xs truncate max-w-[420px]" style={{ color: EKARI.subtext }}>
-                      • {profile.bio}
-                    </span>
-                  ) : null}
+
                 </div>
               </div>
 
@@ -490,9 +486,31 @@ function ProfileHeroStorefront({
                 <IconBtn onClick={onShare} icon={<IoShareSocialOutline size={16} />} label="Share" />
               </div>
             </div>
+            <div className="mt-3">
+              {profile.bio ? (
+                <div
+                  className="relative flex flex-col rounded-xl border p-3 shadow"
+                  style={{ borderColor: EKARI.hair }}
+                >
+                  {/* light-hand vertical gradient border (3px) */}
+                  <div
+                    className="pointer-events-none absolute left-0 top-0 h-full w-[3px] rounded-l-xl"
+                    style={{
+                      background: `linear-gradient(180deg, ${EKARI.forest} 0%, ${EKARI.primary} 100%)`,
+                      opacity: 0.85,
+                    }}
+                  />
+
+                  <span className="text-xs pl-2" style={{ color: EKARI.subtext }}>
+                    • {profile.bio}
+                  </span>
+                </div>
+              ) : null}
+            </div>
 
             {/* stats row */}
             <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+
               <div className="flex flex-wrap gap-2">
                 <StatPill icon={<IoPeopleOutline size={13} />} label="Followers" value={nfmt(Number(profile.followersCount || 0))} />
                 <StatPill icon={<IoListOutline size={13} />} label="Following" value={nfmt(Number(profile.followingCount || 0))} />
