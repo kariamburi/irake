@@ -1227,6 +1227,38 @@ function usePartnerStats(ownerUid?: string, viewerUid?: string) {
 type TabKey = "deeds" | "events" | "discussions" | "reviews";
 
 /* ---------- grids ---------- */
+/* ---------- helpers for fast thumb loading ---------- */
+// 1x1 tiny blur placeholder (neutral gray)
+const BLUR_DATA_URL =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+
+function useInViewOnce<T extends HTMLElement>(rootMargin = "600px") {
+  const ref = React.useRef<T | null>(null);
+  const [inView, setInView] = React.useState(false);
+
+  React.useEffect(() => {
+    if (inView) return;
+    const el = ref.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          obs.disconnect();
+        }
+      },
+      { root: null, rootMargin, threshold: 0.01 }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [inView, rootMargin]);
+
+  return { ref, inView };
+}
+
+/* ---------- grids ---------- */
 function VideosGrid({
   items,
   handle,
@@ -1238,13 +1270,19 @@ function VideosGrid({
   handle: string;
   isOwner: boolean;
   loading: boolean;
-  showEmpty: boolean; // ✅ NEW
+  showEmpty: boolean;
 }) {
   return (
     <div className="px-3 md:px-6 pb-12">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
-        {items.map((d) => (
-          <VideoTile key={d.id} deed={d} handle={handle} isOwner={isOwner} />
+        {items.map((d, idx) => (
+          <VideoTile
+            key={d.id}
+            deed={d}
+            handle={handle}
+            isOwner={isOwner}
+            index={idx}
+          />
         ))}
       </div>
 
@@ -1257,29 +1295,53 @@ function VideosGrid({
   );
 }
 
-
 function VideoTile({
   deed,
   handle,
   isOwner,
+  index,
 }: {
   deed: DeedDoc;
   handle: string;
   isOwner: boolean;
+  index: number;
 }) {
-  const poster =
-    deed.media?.find((m) => m.thumbUrl)?.thumbUrl ||
+  // Prefer the smallest preview first if you have it in your schema.
+  // If you don’t, this still works (it just may use the same thumb for both).
+  const posterTiny =
+    (deed.media as any)?.find?.((m: any) => m.tinyThumbUrl)?.tinyThumbUrl ||
+    (deed.media as any)?.find?.((m: any) => m.smallThumbUrl)?.smallThumbUrl ||
+    deed.media?.find((m) => (m as any)?.thumbUrl)?.thumbUrl ||
     deed.mediaThumbUrl ||
     deed.media?.[0]?.thumbUrl ||
     "/video-placeholder.jpg";
 
+  // “Full” thumb (still a thumb, not the original video/image)
+  const poster =
+    deed.media?.find((m) => (m as any)?.thumbUrl)?.thumbUrl ||
+    deed.mediaThumbUrl ||
+    deed.media?.[0]?.thumbUrl ||
+    posterTiny ||
+    "/video-placeholder.jpg";
+
   const views = nfmt(deed.stats?.views ?? 0);
-  const [imgLoading, setImgLoading] = React.useState(true);
   const ready = (deed.status as DeedStatus) === "ready";
   const href = `/${encodeURIComponent(handle)}/deed/${deed.id}`;
 
+  // Load only when near viewport
+  const { ref, inView } = useInViewOnce<HTMLDivElement>("700px");
+
+  // Above-the-fold: prioritize the first few tiles
+  const eager = index < 4; // first row-ish
+  const fetchPriority = index < 2 ? "high" : "auto";
+
+  // two-stage loading state (tiny first, then full)
+  const [tinyLoaded, setTinyLoaded] = React.useState(false);
+  const [fullLoaded, setFullLoaded] = React.useState(false);
+
   const Card = (
     <div
+      ref={ref}
       className={cn(
         "group relative block overflow-hidden rounded-xl",
         ready ? "bg-black" : "bg-slate-200"
@@ -1287,29 +1349,61 @@ function VideoTile({
       style={{ aspectRatio: "9/12" }}
       aria-disabled={!ready}
     >
-      {imgLoading && (
+      {/* Skeleton while nothing has painted yet */}
+      {!tinyLoaded && (
         <div className="absolute inset-0 grid place-items-center bg-gray-100">
           <div
             className="h-8 w-8 rounded-full border-2 animate-spin"
-            style={{
-              borderColor: "#D1D5DB",
-              borderTopColor: EKARI.forest,
-            }}
+            style={{ borderColor: "#D1D5DB", borderTopColor: EKARI.forest }}
             aria-hidden
           />
         </div>
       )}
 
-      <Image
-        src={poster}
-        alt={deed.caption || "video"}
-        fill
-        className={`h-full w-full object-cover transition-transform ${imgLoading ? "opacity-0" : "group-hover:scale-[1.02] opacity-100"
-          }`}
-        sizes="100vw"
-        priority={false}
-        onLoadingComplete={() => setImgLoading(false)}
-      />
+      {/* Tiny preview: paints quickly */}
+      {inView && (
+        <Image
+          src={posterTiny}
+          alt={deed.caption || "deed"}
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className={cn(
+            "object-cover",
+            "transition-opacity duration-300",
+            tinyLoaded ? "opacity-100" : "opacity-0"
+          )}
+          quality={35}
+          placeholder="blur"
+          blurDataURL={BLUR_DATA_URL}
+          priority={eager}
+          // @ts-ignore - supported in modern Next, safe to include
+          fetchPriority={fetchPriority}
+          onLoadingComplete={() => setTinyLoaded(true)}
+        />
+      )}
+
+      {/* Full thumb: fades in on top */}
+      {inView && (
+        <Image
+          src={poster}
+          alt={deed.caption || "deed"}
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className={cn(
+            "object-cover",
+            "transition-opacity duration-300",
+            fullLoaded ? "opacity-100" : "opacity-0",
+            "group-hover:scale-[1.02] transition-transform"
+          )}
+          quality={60}
+          placeholder="blur"
+          blurDataURL={BLUR_DATA_URL}
+          priority={eager}
+          // @ts-ignore
+          fetchPriority={fetchPriority}
+          onLoadingComplete={() => setFullLoaded(true)}
+        />
+      )}
 
       {!ready && <div className="absolute inset-0 bg-black/40" />}
 
@@ -1330,10 +1424,7 @@ function VideoTile({
     </div>
   );
 
-  if (!ready) {
-    // Non-ready tiles are not clickable for anyone (owners can still see them).
-    return <div>{Card}</div>;
-  }
+  if (!ready) return <div>{Card}</div>;
 
   return (
     <Link href={href} className="block" prefetch aria-label="Open video">
@@ -1341,6 +1432,7 @@ function VideoTile({
     </Link>
   );
 }
+
 
 /* ---------- Listings: show to everyone, owner controls only ---------- */
 function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) {

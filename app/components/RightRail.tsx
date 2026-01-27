@@ -739,7 +739,11 @@ export default function RightRail({
         tab === "likes" ? likesQ : tab === "views" ? viewsQ : tab === "shares" ? sharesQ : null;
 
     return (
-        <aside className={outer} style={{ borderColor: EKARI.hair }} aria-live="polite">
+        <aside
+            className={`${outer} relative z-[9999] pointer-events-auto`}
+            style={{ borderColor: EKARI.hair }}
+            aria-live="polite"
+        >
             <div className="flex flex-col w-full h-full">
                 {/* Meta + Tabs header */}
                 <div className="border-b" style={{ borderColor: EKARI.hair }}>
@@ -748,9 +752,9 @@ export default function RightRail({
                             <div className="text-xs text-gray-500">Posted {posted ? posted.toLocaleString() : "—"}</div>
                             <button
                                 onClick={onClose}
-                                className="p-2 rounded-full hover:bg-gray-100"
-                                aria-label="Close"
                                 type="button"
+                                aria-label="Close"
+                                className="relative z-40 pointer-events-auto p-2 rounded-full hover:bg-gray-100"
                             >
                                 <IoClose size={22} />
                             </button>

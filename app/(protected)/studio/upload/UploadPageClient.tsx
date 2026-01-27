@@ -49,6 +49,7 @@ import { PickedSound } from "@/app/components/SoundSheetWeb";
 import { createPortal } from "react-dom";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
 import { useInitEkariTags } from "@/app/hooks/useInitEkariTags";
+import { buildImageVariants } from "@/utils/imageVariants";
 
 // Replace your static imports:
 const SoundSheetWeb = dynamic(() => import("@/app/components/SoundSheetWeb"), {
@@ -611,11 +612,22 @@ export default function UploadPage() {
   async function uploadResumable(
     blobOrFile: Blob | File,
     path: string,
-    onProgress?: (pct: number) => void
+    onProgress?: (pct: number) => void,
+    contentType?: string
   ): Promise<{ downloadURL: string; gsUrl: string; fullPath: string }> {
     const rf = ref(storage, path);
     return new Promise((resolve, reject) => {
-      const task = uploadBytesResumable(rf, blobOrFile as any);
+
+
+      const task = uploadBytesResumable(
+        rf,
+        blobOrFile as any,
+        pruneUndefined({
+          contentType: contentType || (blobOrFile as any)?.type,
+          cacheControl: "public,max-age=31536000,immutable",
+        }) as any
+      );
+
       task.on(
         "state_changed",
         (snap) => {
@@ -842,20 +854,63 @@ export default function UploadPage() {
       // IMAGE: direct photo or photo->video mix
       // =========================
       if (isImage && file) {
-        const imgUp = await uploadResumable(
-          file,
-          `deeds/${uid}/${deedRef!.id}/image.jpg`,
-          setProgress
+        const willPhotoServerMix =
+          needsServerMix && (musicTitle || resolvedMusicUrl);
+
+        // ✅ Build TikTok-style variants (NO original upload)
+        const variants = await buildImageVariants(file);
+
+        const basePath = `deeds/${uid}/${deedRef!.id}`;
+        const ext = variants.mime === "image/webp" ? "webp" : "jpg";
+
+        // ✅ Upload SMALL first (fast feed)
+        const smallUp = await uploadResumable(
+          variants.smallBlob,
+          `${basePath}/image_720.${ext}`,
+          setProgress,
+          variants.mime
         );
-        const willPhotoServerMix = needsServerMix && (musicTitle || resolvedMusicUrl);
+
+        // ✅ Upload FULL (zoom/open)
+        const fullUp = await uploadResumable(
+          variants.fullBlob,
+          `${basePath}/image_1440.${ext}`,
+          setProgress,
+          variants.mime
+        );
+
+        // If your server mix needs a gs:// reference, we point it to the FULL object
+        // (still optimized; not original)
+        const mixSource = willPhotoServerMix
+          ? pruneUndefined({
+            gsUrl: fullUp.gsUrl,
+            storagePath: fullUp.fullPath,
+          })
+          : undefined;
 
         const media = [
           pruneUndefined({
-            url: willPhotoServerMix ? imgUp.gsUrl : imgUp.downloadURL,
-            width: videoWH.width,
-            height: videoWH.height,
-            thumbUrl: imgUp.downloadURL,
             kind: "image" as const,
+            width: variants.width,
+            height: variants.height,
+
+            // feed-first url
+            thumbUrl: smallUp.downloadURL,
+
+            // full/zoom url
+            url: fullUp.downloadURL,
+
+            // explicit sources for clients
+            sources: pruneUndefined({
+              small: smallUp.downloadURL,
+              full: fullUp.downloadURL,
+            }),
+
+            // ultra tiny blur placeholder
+            blurDataUrl: variants.tinyDataUrl,
+
+            // for server mix (optional)
+            ...mixSource,
           }),
         ];
 
@@ -863,10 +918,13 @@ export default function UploadPage() {
           authorId: uid,
           authorUsername: userProfile?.handle,
           authorPhotoURL: userProfile?.photoURL,
-          authorBadge, // ✅ ADD
+          authorBadge,
+
           type: "photo" as const,
           media,
+
           caption: caption?.trim() || undefined,
+
           music:
             (musicTitle || resolvedMusicUrl) && willPhotoServerMix
               ? pruneUndefined({
@@ -877,13 +935,17 @@ export default function UploadPage() {
                 soundId: musicSoundId || undefined,
               })
               : undefined,
+
           tags: mergedTags.length ? mergedTags : undefined,
           visibility,
           allowComments,
           geo,
 
           mediaType: "photo" as const,
-          mediaThumbUrl: imgUp.downloadURL,
+
+          // ✅ feed uses SMALL
+          mediaThumbUrl: smallUp.downloadURL,
+
           text: caption?.trim() || undefined,
           createdAtMs: Date.now(),
 
@@ -901,18 +963,18 @@ export default function UploadPage() {
             })
             : pruneUndefined({ needsServerMix: false }),
 
-          status: willPhotoServerMix ? "mixing" : "ready", // ⭐ CHANGED
+          status: willPhotoServerMix ? "mixing" : "ready",
           updatedAt: serverTimestamp(),
         });
 
         await updateDoc(deedRef!, payload);
 
-        // Early exit for images
         if (typeof window !== "undefined") localStorage.removeItem(DRAFT_KEY);
         setProgress(100);
         router.push(`/${userProfile?.handle}`);
         return;
       }
+
 
       // =========================
       // VIDEO: NO MIX — direct Mux

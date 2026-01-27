@@ -283,6 +283,91 @@ function formatCount(n: number) {
   if (n >= 1_000) return (n / 1_000).toFixed(n % 1_000 ? 1 : 0) + "K";
   return String(n);
 }
+function ProgressiveImg({
+  src,
+  previewSrc,
+  alt,
+  className,
+  onReady,
+  onError,
+}: {
+  src: string;
+  previewSrc?: string | null;
+  alt: string;
+  className?: string;
+  onReady?: (w: number, h: number) => void;
+  onError?: () => void;
+}) {
+  const [fullLoaded, setFullLoaded] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFullLoaded(false);
+    setFailed(false);
+  }, [src]);
+
+  // ✅ safety timeout (prevents infinite loader on refresh)
+  React.useEffect(() => {
+    if (fullLoaded || failed) return;
+    const t = window.setTimeout(() => {
+      // if it never resolved, stop blocking the UI
+      setFailed(true);
+      onError?.();
+    }, 45000);
+    return () => window.clearTimeout(t);
+  }, [fullLoaded, failed, onError]);
+
+  return (
+    <div className="absolute inset-0">
+      {previewSrc && !failed && (
+        <img
+          src={previewSrc}
+          alt=""
+          aria-hidden
+          className={cn(
+            "absolute inset-0 h-full w-full object-cover",
+            "scale-[1.03] blur-[14px] opacity-90",
+            "transition-opacity duration-300",
+            fullLoaded ? "opacity-0" : "opacity-100"
+          )}
+          decoding="async"
+          loading="eager"
+        />
+      )}
+
+      {!failed ? (
+        <img
+          src={src}
+          alt={alt}
+          className={cn(
+            "absolute inset-0 h-full w-full",
+            className,
+            "transition-opacity duration-300",
+            fullLoaded ? "opacity-100" : "opacity-0"
+          )}
+          decoding="async"
+          loading="eager"
+          fetchPriority="high"
+          // ✅ more reliable than only onLoad
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            setFullLoaded(true);
+            onReady?.(img.naturalWidth || 0, img.naturalHeight || 0);
+          }}
+          onError={() => {
+            setFailed(true);
+            onError?.();
+          }}
+        />
+      ) : (
+        <div className="absolute inset-0 grid place-items-center text-white/90">
+          Failed to load image
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function useMediaQuery(queryStr: string) {
   const [matches, setMatches] = useState(false);
@@ -1365,7 +1450,7 @@ function VideoCard({
     item.mediaType === "video" ? (item.posterUrl ?? null) : (item.mediaUrl ?? null)
   );
 
-  const [mediaReady, setMediaReady] = useState(item.mediaType !== "video");
+  const [mediaReady, setMediaReady] = useState(false);
   const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
   const firstFrameFiredRef = useRef(false);
 
@@ -1410,9 +1495,22 @@ function VideoCard({
     setImgLoaded(false);
     setImgError(false);
   }, [item.id]);
+
   useEffect(() => {
+    setMediaReady(false);          // ✅ loader shows for photos too
+    firstFrameFiredRef.current = false;
+
     setThumbVisible(true);
-    setThumbSrc(item.mediaType === "video" ? (item.posterUrl ?? null) : (item.mediaUrl ?? null));
+
+    // ✅ prefer lightweight preview first (if you have one)
+    const preview =
+      (item as any).previewUrl ||
+      (item as any).thumbUrl ||
+      item.posterUrl || // sometimes you reuse this field
+      item.mediaUrl ||
+      null;
+
+    setThumbSrc(item.mediaType === "video" ? (item.posterUrl ?? null) : preview);
   }, [item.id, item.mediaType, item.mediaUrl, item.posterUrl]);
 
   const createdAtMs =
@@ -1717,6 +1815,8 @@ function VideoCard({
             <img
               src={thumbSrc}
               alt="thumbnail"
+              decoding="async"
+              loading="eager"
               className={cn(
                 "absolute inset-0 h-full w-full",
                 fitMode === "contain" ? "object-contain" : "object-cover",
@@ -1753,11 +1853,22 @@ function VideoCard({
             />
           ) : item.mediaType === "photo" && item.mediaUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <ProgressiveImg
               src={item.mediaUrl}
+              previewSrc={thumbSrc} // ✅ uses preview/thumb first, then full
               alt={item.text || "photo"}
-              className={cn("relative h-full w-full", fitMode === "contain" ? "object-contain" : "object-cover")}
-              onLoad={handleImageReady}
+              className={cn("h-full w-full", fitMode === "contain" ? "object-contain" : "object-cover")}
+              onReady={(w, h) => {
+                if (w && h) setFitMode(w > h ? "contain" : "cover");
+                setMediaReady(true);
+                setThumbVisible(false);
+                fireFirstFrameOnce();
+              }}
+              onError={() => {
+                setImgError(true);
+                setMediaReady(true); // avoid infinite loader
+                setThumbVisible(false);
+              }}
             />
           ) : (
             <div className="relative h-full w-full flex items-center justify-center text-white/90">No media</div>
@@ -1906,7 +2017,7 @@ function VideoCard({
         {/* action rail */}
         <div
           className={cn(
-            "absolute z-40 flex flex-col items-center gap-2",
+            "absolute z-10 flex flex-col items-center gap-2",
             "right-3 top-1/2 -translate-y-1/2",
             "transition-opacity duration-200",
             mediaReady ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
