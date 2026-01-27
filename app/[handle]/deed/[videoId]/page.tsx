@@ -613,7 +613,7 @@ function DeedSlide({
                 )}
 
                 {isActive && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2">
+                    <div className="absolute right-3 top-20 -translate-y-1/2 flex flex-col gap-2">
                         <button
                             onClick={onPrev}
                             disabled={!hasPrev}
