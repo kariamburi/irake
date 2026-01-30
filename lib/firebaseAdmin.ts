@@ -1,20 +1,29 @@
 // /lib/firebaseAdmin.ts
-import { getApps, getApp, initializeApp, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getApps, getApp, initializeApp, cert, App } from "firebase-admin/app";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
 
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+function getEnv() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
 
-if (!projectId || !clientEmail || !privateKey) {
-    // Don’t throw here; let the caller return a nice error
-    console.warn("⚠️ Missing Firebase Admin env vars");
+  return { projectId, clientEmail, privateKey };
 }
 
-const app = getApps().length
-    ? getApp()
-    : initializeApp({
-        credential: cert({ projectId, clientEmail, privateKey }),
-    });
+export function getAdminDb(): Firestore {
+  const { projectId, clientEmail, privateKey } = getEnv();
 
-export const adminDb = getFirestore(app);
+  if (!projectId || !clientEmail || !privateKey) {
+    // This stops build from crashing and lets API route return a friendly error.
+    throw new Error("Missing Firebase Admin env vars");
+  }
+
+  const app: App =
+    getApps().length
+      ? getApp()
+      : initializeApp({
+          credential: cert({ projectId, clientEmail, privateKey }),
+        });
+
+  return getFirestore(app);
+}
