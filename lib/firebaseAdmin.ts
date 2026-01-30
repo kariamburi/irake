@@ -8,6 +8,7 @@ export function getAdminDb(): Firestore {
   const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
 
   if (!projectId || !clientEmail || !privateKey) {
+    // IMPORTANT: don't initialize if missing; let the caller handle it
     throw new Error("Missing Firebase Admin env vars");
   }
 
