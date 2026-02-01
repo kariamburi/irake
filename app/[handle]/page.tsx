@@ -328,6 +328,7 @@ function ProfileHeroStorefront({
 
   const showVerified = verificationStatus === "approved";
   const isPremium = !!profile.storefrontEnabled;
+  const router = useRouter();
 
   const phone = cleanPhone(profile.phone || null);
   const website = toWebsiteLink(profile.website || null);
@@ -336,6 +337,10 @@ function ProfileHeroStorefront({
     () => (profile.handle || "").replace(/^@/, ""),
     [profile.handle]
   );
+  const openConnections = (tabKey: "following" | "followers" | "partners" | "mutual") => {
+    if (!handleSlug) return;
+    router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=${tabKey}`);
+  };
   const heroBg =
     "radial-gradient(900px circle at 10% 10%, rgba(199,146,87,0.90), transparent 45%), linear-gradient(135deg, rgba(35,63,57,0.80), rgba(35,63,57,1))";
   const verificationOrgName = profile.verificationOrganizationName;
@@ -510,15 +515,40 @@ function ProfileHeroStorefront({
 
             {/* stats row */}
             <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-
-              <div className="flex flex-wrap gap-2">
-                <StatPill icon={<IoPeopleOutline size={13} />} label="Followers" value={nfmt(Number(profile.followersCount || 0))} />
-                <StatPill icon={<IoListOutline size={13} />} label="Following" value={nfmt(Number(profile.followingCount || 0))} />
-                <StatPill icon={<IoChatbubbleEllipsesOutline size={13} />} label="Partners" value={nfmt(partners || 0)} />
-                <StatPill icon={<IoChatbubblesOutline size={13} />} label="Mutual" value={nfmt(mutualPartners || 0)} />
-                <StatPill icon={<IoHeartOutline size={13} />} label="Likes" value={nfmt(Number(likesValue || 0))} />
+              {/* stats pills (storefront style) */}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <StatPill
+                  icon={<IoPeopleOutline size={13} />}
+                  label="Followers"
+                  value={nfmt(Number(profile.followersCount || 0))}
+                  onClick={() => openConnections("followers")}
+                />
+                <StatPill
+                  icon={<IoListOutline size={13} />}
+                  label="Following"
+                  value={nfmt(Number(profile.followingCount || 0))}
+                  onClick={() => openConnections("following")}
+                />
+                <StatPill
+                  icon={<IoChatbubbleEllipsesOutline size={13} />}
+                  label="Partners"
+                  value={nfmt(partners || 0)}
+                  onClick={() => openConnections("partners")}
+                />
+                <StatPill
+                  icon={<IoChatbubblesOutline size={13} />}
+                  label="Mutual"
+                  value={nfmt(mutualPartners || 0)}
+                  onClick={() => openConnections("mutual")}
+                />
+                <StatPill
+                  icon={<IoHeartOutline size={13} />}
+                  label="Likes"
+                  value={nfmt(Number(likesValue || 0))}
+                />
                 <StatPill icon={<IoStarOutline size={13} />} label="Rating" value={reviewsText} />
               </div>
+
 
               {/* contacts */}
               <div className="flex items-center gap-2">
@@ -609,6 +639,15 @@ function ProfileHeroStorefront({
                 </Link>
                 <Link href="/seller/dashboard?tab=packages" className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]" style={{ color: EKARI.text }}>
                   <IoGridOutline size={16} /> Seller dashboard
+                </Link>
+
+                <Link
+                  href={`/store/${profile.id}?src=mystore`}
+                  className="h-9 px-4 rounded-xl font-black text-white inline-flex items-center gap-2"
+                  style={{ backgroundColor: EKARI.primary }}
+                >
+                  <IoStorefrontOutline size={16} />
+                  My market store
                 </Link>
 
 

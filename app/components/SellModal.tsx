@@ -165,6 +165,7 @@ type MarketItemDoc = {
     id: string;
     type: MarketType;
     category: string;
+    description?: string;
     subCategory?: string | null;
     name: string;
     variety?: string | null;
@@ -226,6 +227,40 @@ function isSubActive(sub: SellerSubscription | null) {
     return sub?.status === "active";
 }
 /* ===== Hook: fetch catalog from Firestore ===== */
+function sanitizeDescription(raw: unknown): string | null {
+    let text = (raw ?? "").toString().trim();
+    if (!text) return null;
+
+    // 1) Remove emails
+    text = text.replace(
+        /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+        ""
+    );
+
+    // 2) Remove WhatsApp labels + following number chunk (best-effort)
+    // e.g. "WhatsApp: +254712345678" / "wa 0712345678"
+    text = text.replace(
+        /\b(whatsapp|whats\s*app|wa)\b\s*[:\-]?\s*(\+?\d[\d\s\-().]{6,}\d)/gi,
+        ""
+    );
+
+    // 3) Remove phone-like numbers (handles +254..., 254..., 07..., 01..., etc.)
+    // This targets sequences that are likely contact numbers (7+ digits total).
+    text = text.replace(
+        /(?<!\w)(?:\+?\d{1,3}[\s\-().]?)?(?:\d[\s\-().]?){7,}\d(?!\w)/g,
+        ""
+    );
+
+    // 4) Clean up extra spaces / punctuation leftovers
+    text = text
+        .replace(/[ \t]{2,}/g, " ")
+        .replace(/\s+([,.;:!?])/g, "$1")
+        .replace(/([,.;:!?]){2,}/g, "$1")
+        .trim();
+
+    return text || null;
+}
+
 
 function useMarketCatalog(): UseMarketCatalogResult {
     const [types, setTypes] = useState<MarketTypeDoc[]>([]);
@@ -1917,6 +1952,7 @@ export default function SellModal({
         [categories, typeSel]
     );
     const [category, setCategory] = useState<string>("");
+    const [description, setDescription] = useState<string>("");
 
     // Keep category initialized (mainly for service path)
     useEffect(() => {
@@ -2061,6 +2097,7 @@ export default function SellModal({
         if (row?.category || fallbackCategory) {
             setCategory(row?.category || fallbackCategory);
         }
+
 
         if (typeSel === "tree") {
             setUseCaseTip(row?.useCase || "");
@@ -2280,12 +2317,13 @@ export default function SellModal({
                 : Number(String(price).replace(/[^\d.]/g, "")) || 0;
 
         const badge = buildAuthorBadge ? buildAuthorBadge(profile) : undefined;
-
+        const cleanDescription = sanitizeDescription(description);
         const base: any = {
             name: name.trim(),
             price: nPrice,
             currency,
             category,
+            description: cleanDescription,
             imageUrl: urls[0],
             imageUrls: urls,
             ownerId: user.uid,
@@ -3245,7 +3283,24 @@ export default function SellModal({
                                 </div>
                             )}
                         </div>
+                        {/* Description */}
+                        <div>
+                            <label className="text-xs font-extrabold text-gray-500">
+                                Description
+                            </label>
 
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Add details buyers should know: quality, condition, delivery, availability, etc."
+                                rows={4}
+                                className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 outline-none resize-none"
+                            />
+
+                            <div className="mt-1 text-[11px] text-gray-500 flex justify-between">
+                                <span>{(description ?? "").length}/800</span>
+                            </div>
+                        </div>
 
                         {/* Review */}
                         <div className="border border-gray-200 rounded-xl p-3 bg-gray-50">
@@ -3261,6 +3316,16 @@ export default function SellModal({
                                 <div>
                                     <span className="font-bold text-gray-500">Item:</span>{" "}
                                     {name || "-"}
+                                </div>
+                                <div>
+                                    <span className="font-bold text-gray-500">Description:</span>{" "}
+                                    {description ? (
+                                        <span className="text-gray-800">
+                                            {description.length > 80 ? description.slice(0, 80) + "…" : description}
+                                        </span>
+                                    ) : (
+                                        "-"
+                                    )}
                                 </div>
                                 {typeSel === "tree" && useCaseTip && (
                                     <div>

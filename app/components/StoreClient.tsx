@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import clsx from "clsx";
-import { Timestamp } from "firebase/firestore";
+import { serverTimestamp, Timestamp, updateDoc, writeBatch } from "firebase/firestore";
 import { bumpStoreView, bumpLead } from "@/lib/storeAnalytics";
 import {
     collection,
@@ -60,7 +60,7 @@ import {
 } from "chart.js";
 
 import { Line } from "react-chartjs-2";
-import { ref as sRef, getDownloadURL, uploadBytes } from "firebase/storage";
+import { ref as sRef, getDownloadURL, uploadBytes, deleteObject, listAll } from "firebase/storage";
 import OpenInAppBanner from "./OpenInAppBanner";
 
 // ✅ REQUIRED (register scales/elements)
@@ -135,7 +135,43 @@ type StoreInsightsData = {
 // ✅ Premium Storefront Hero (Desktop + Mobile)
 // Drop this component anywhere inside your StoreClient file (same file is fine).
 // Then replace your existing Header JSX with <StorefrontHero ...props />
+async function deleteFolderRecursively(folderRef: ReturnType<typeof sRef>) {
+    const { items, prefixes } = await listAll(folderRef);
 
+    await Promise.all(
+        items.map(async (it) => {
+            try {
+                await deleteObject(it);
+            } catch (e) {
+                console.warn("Could not delete file:", it.fullPath, e);
+            }
+        })
+    );
+
+    await Promise.all(prefixes.map((p) => deleteFolderRecursively(p)));
+}
+
+async function deleteSubcollection(db: any, parentPath: string, subcol: string) {
+    const snap = await getDocs(collection(db, `${parentPath}/${subcol}`));
+    if (snap.empty) return;
+
+    const docs = snap.docs;
+    const chunkSize = 450;
+
+    for (let i = 0; i < docs.length; i += chunkSize) {
+        const batch = writeBatch(db);
+        for (const d of docs.slice(i, i + chunkSize)) batch.delete(d.ref);
+        await batch.commit();
+    }
+}
+
+function statusColorClass(p: any) {
+    const s = String(p?.status || (p?.sold ? "sold" : "active")).toLowerCase();
+    if (s === "sold") return "bg-red-600";
+    if (s === "reserved") return "bg-yellow-500";
+    if (s === "hidden") return "bg-gray-600";
+    return "bg-emerald-600";
+}
 function StatChip({
     icon,
     label,
@@ -1758,10 +1794,11 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         const base1 = query(
             collection(db, "marketListings"),
             where("ownerId", "==", sellerId),
-            where("status", "==", "active"),
+            ...(isOwner ? [] : [where("status", "==", "active")]),
             orderBy("publishedAt", "desc"),
             limit(24)
         );
+
         const q1 = after ? query(base1, startAfter(after)) : base1;
         const snap1 = await getDocs(q1);
         if (!snap1.empty) return snap1;
@@ -1769,16 +1806,71 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         const base2 = query(
             collection(db, "marketListings"),
             where("seller.id", "==", sellerId),
-            where("status", "==", "active"),
+            ...(isOwner ? [] : [where("status", "==", "active")]),
             orderBy("publishedAt", "desc"),
             limit(24)
         );
+
         const q2 = after ? query(base2, startAfter(after)) : base2;
         return await getDocs(q2);
     }
-
     const isOwner = auth.currentUser?.uid === sellerId;
+    const updateListingStatus = async (p: any, status: "active" | "sold" | "reserved" | "hidden") => {
+        if (!isOwner) return;
 
+        try {
+            await updateDoc(doc(db, "marketListings", p.id), {
+                status,
+                sold: status === "sold",
+                updatedAt: serverTimestamp(),
+            });
+
+            // optimistic local update (keeps UI snappy)
+            setItems((prev) =>
+                prev.map((x: any) => (x.id === p.id ? { ...x, status, sold: status === "sold" } : x))
+            );
+        } catch (e: any) {
+            console.error(e);
+            window.alert(e?.message || "We couldn't update the listing status. Try again.");
+        }
+    };
+
+    const deleteListing = async (p: any) => {
+        if (!isOwner) return;
+
+        const ok = window.confirm(
+            "Delete this listing?\n\nThis will permanently remove the listing and its images. This cannot be undone."
+        );
+        if (!ok) return;
+
+        try {
+            // ✅ Storage cleanup (adjust path to match YOUR uploader)
+            // You earlier used: products/${sellerId}/${listingId}/images
+            const imagesFolder = sRef(storage, `products/${sellerId}/${p.id}/images`);
+            try {
+                await deleteFolderRecursively(imagesFolder);
+            } catch (e) {
+                console.warn("Images cleanup issue:", e);
+            }
+
+            // ✅ Optional: delete subcollections if you have them
+            // parentPath must match the doc path you are deleting
+            const parentPath = `users/${sellerId}/marketListings/${p.id}`; // ❗ only if that's your structure
+            // If your reviews are under marketListings/{id}/reviews, then use:
+            // const parentPath = `marketListings/${p.id}`;
+
+            // If you DO have reviews:
+            // await deleteSubcollection(db, `marketListings/${p.id}`, "reviews");
+
+            await deleteDoc(doc(db, "marketListings", p.id));
+
+            // local remove
+            setItems((prev) => prev.filter((x: any) => x.id !== p.id));
+        } catch (e: any) {
+            console.error(e);
+            window.alert(e?.message || "Delete failed. Please try again.");
+        }
+    };
     // ✅ Premium pill (separate from Verified)
     const isPremiumStore = useMemo(() => {
         return items.some((p) => p?.sellerPlan?.storefront === true || p?.storefrontEligible === true);
@@ -2013,7 +2105,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
     const srcParam = useMemo(() => {
         if (typeof window === "undefined") return "profile" as const;
         const s = new URLSearchParams(window.location.search).get("src");
-        return s === "market" || s === "search" || s === "share" || s === "profile" ? s : "profile";
+        return s === "market" || s === "search" || s === "share" || s === "profile" || s === "mystore" ? s : "profile";
     }, []);
 
     const webUrl = useMemo(() => {
@@ -2072,13 +2164,18 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
     useEffect(() => {
         if (!sellerId || !storefrontAllowed) return;
 
-        const src = new URLSearchParams(window.location.search).get("src");
-        const v =
-            src === "market" || src === "search" || src === "share" || src === "profile"
-                ? src
-                : "profile";
+        if (typeof window !== "undefined") {
+            const src = new URLSearchParams(window.location.search).get("src");
 
-        bumpStoreView(sellerId, v).catch(() => { });
+            if (src === "mystore") return;
+
+            const v =
+                src === "market" || src === "search" || src === "share" || src === "profile"
+                    ? src
+                    : "profile";
+
+            bumpStoreView(sellerId, v).catch(() => { });
+        }
     }, [sellerId, storefrontAllowed]);
 
     /**
@@ -2322,9 +2419,72 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
 
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {sortedFilteredItems.map((p: any) => (
-                                <ProductCard key={p.id} p={p} />
-                            ))}
+                            {sortedFilteredItems.map((p: any) => {
+                                const status = String(p?.status || (p?.sold ? "sold" : "active")).toLowerCase();
+
+                                return (
+                                    <div key={p.id} className="space-y-2">
+                                        <div className="relative">
+                                            <ProductCard p={p} />
+
+                                            {/* optional status badge (owner + visitors can see) */}
+                                            <div
+                                                className={`absolute left-2 top-2 ${statusColorClass(p)} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center`}
+                                            >
+                                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                                            </div>
+                                        </div>
+
+                                        {/* ✅ OWNER CONTROLS (only owner sees) */}
+                                        {isOwner && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {status !== "active" && (
+                                                    <button
+                                                        onClick={() => updateListingStatus(p, "active")}
+                                                        className="px-2 py-1 rounded-md bg-emerald-700 text-white text-xs font-black hover:opacity-90"
+                                                    >
+                                                        Activate
+                                                    </button>
+                                                )}
+
+                                                {status !== "sold" && (
+                                                    <button
+                                                        onClick={() => updateListingStatus(p, "sold")}
+                                                        className="px-2 py-1 rounded-md bg-amber-600 text-white text-xs font-black hover:opacity-90"
+                                                    >
+                                                        Sold
+                                                    </button>
+                                                )}
+
+                                                {status !== "reserved" && (
+                                                    <button
+                                                        onClick={() => updateListingStatus(p, "reserved")}
+                                                        className="px-2 py-1 rounded-md bg-yellow-500 text-white text-xs font-black hover:opacity-90"
+                                                    >
+                                                        Reserve
+                                                    </button>
+                                                )}
+
+                                                {status !== "hidden" && (
+                                                    <button
+                                                        onClick={() => updateListingStatus(p, "hidden")}
+                                                        className="px-2 py-1 rounded-md bg-gray-600 text-white text-xs font-black hover:opacity-90"
+                                                    >
+                                                        Hide
+                                                    </button>
+                                                )}
+
+                                                <button
+                                                    onClick={() => deleteListing(p)}
+                                                    className="px-2 py-1 rounded-md bg-red-600 text-white text-xs font-black hover:opacity-90"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
 
                         <div className="mt-6 flex justify-center">

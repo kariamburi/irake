@@ -30,6 +30,7 @@ export type Product = {
     price?: number;              // 👈 safer as optional
     currency?: CurrencyCode;     // 👈 NEW
     category?: string;
+    description?: string | null; // ✅ add this
     imageUrl?: string;
     imageUrls?: string[];
     sellerId?: string;

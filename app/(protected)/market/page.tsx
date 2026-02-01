@@ -217,21 +217,6 @@ function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
 }
 
 
-function useIsActivePath(href: string, alsoMatch: string[] = []) {
-  const pathname = usePathname() || "/";
-  const matches = [href, ...alsoMatch];
-  return matches.some(
-    (m) => pathname === m || (m !== "/" && pathname.startsWith(m + "/")) || (m === "/" && pathname === "/")
-  );
-}
-
-function badgeText(n?: number) {
-  if (!n || n <= 0) return "";
-  if (n > 999) return "999+";
-  if (n > 99) return "99+";
-  return String(n);
-}
-
 type MenuItem = {
   key: string;
   label: string;
@@ -242,135 +227,6 @@ type MenuItem = {
   badgeCount?: number;
 };
 
-function SideMenuSheet({
-  open,
-  onClose,
-  onNavigate,
-  items,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onNavigate: (href: string, requiresAuth?: boolean) => void;
-  items: MenuItem[];
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  return (
-    <div
-      className={cn("fixed inset-0 z-[120] transition", open ? "pointer-events-auto" : "pointer-events-none")}
-      aria-hidden={!open}
-    >
-      <div
-        className={cn(
-          "absolute inset-0 bg-black/55 backdrop-blur-[3px] transition-opacity",
-          open ? "opacity-100" : "opacity-0"
-        )}
-        onClick={onClose}
-      />
-
-      <div
-        className={cn(
-          "absolute left-0 top-0 h-full w-[86%] max-w-[360px]",
-          "bg-white shadow-2xl border-r",
-          "transition-transform duration-300 will-change-transform",
-          open ? "translate-x-0" : "-translate-x-full"
-        )}
-        style={{ borderColor: "rgba(199,146,87,0.25)" }}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div
-          className="h-[64px] px-4 flex items-center justify-between border-b"
-          style={{ borderColor: "rgba(199,146,87,0.20)" }}
-        >
-          <div className="font-black" style={{ color: EKARI.text }}>
-            Menu
-          </div>
-          <button
-            onClick={onClose}
-            className="h-10 w-10 rounded-2xl grid place-items-center border hover:bg-black/5"
-            style={{ borderColor: "rgba(199,146,87,0.25)" }}
-            aria-label="Close menu"
-          >
-            <IoCloseCircle size={18} />
-          </button>
-        </div>
-
-        <nav className="p-2 overflow-y-auto h-[calc(100%-64px)]">
-          {items.map((it) => (
-            <MenuRow key={it.key} item={it} onNavigate={onNavigate} />
-          ))}
-        </nav>
-      </div>
-    </div>
-  );
-}
-
-function MenuRow({
-  item,
-  onNavigate,
-}: {
-  item: MenuItem;
-  onNavigate: (href: string, requiresAuth?: boolean) => void;
-}) {
-  const active = useIsActivePath(item.href, item.alsoMatch);
-  const bt = badgeText(item.badgeCount);
-  const showBadge = !!bt;
-
-  return (
-    <button
-      onClick={() => onNavigate(item.href, item.requiresAuth)}
-      className={cn(
-        "w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition",
-        "hover:bg-black/5"
-      )}
-      style={{
-        color: EKARI.text,
-        background: active
-          ? "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))"
-          : undefined,
-        border: active ? "1px solid rgba(199,146,87,0.35)" : "1px solid transparent",
-      }}
-    >
-      <span
-        className="relative h-11 w-11 rounded-2xl grid place-items-center border bg-white"
-        style={{ borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair }}
-      >
-        <span style={{ color: active ? EKARI.gold : EKARI.forest }} className="text-[18px]">
-          {item.icon}
-        </span>
-
-        {showBadge && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[6px] rounded-full bg-red-600 text-white text-[11px] font-extrabold flex items-center justify-center shadow-sm">
-            {bt}
-          </span>
-        )}
-      </span>
-
-      <div className="flex-1 min-w-0">
-        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>{item.label}</div>
-      </div>
-
-      <IoChevronForward size={18} style={{ color: EKARI.dim }} />
-    </button>
-  );
-}
 
 /* ---------- Profiles ---------- */
 function useUserProfile(uid?: string) {
@@ -408,8 +264,7 @@ function useUserProfile(uid?: string) {
 
 /* ---------------- page ---------------- */
 export default function MarketPage() {
-  const router = useRouter();
-  const isDesktop = useIsDesktop();
+
   const isMobile = useIsMobile();
 
   const [search, setSearch] = useState("");

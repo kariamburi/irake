@@ -86,6 +86,7 @@ type ProductDoc = {
     currency?: CurrencyCode;
     price: number;
     category?: string;
+    description?: string | null; // ✅ add this
     imageUrl?: string;
     imageUrls?: string[];
     sellerId?: string;
@@ -390,7 +391,9 @@ export default function ProductDetailsClient({
             // ignore cancel / errors
         }
     }, [product]);
-
+    const descriptionText = (product as any)?.description
+        ? String((product as any).description).trim()
+        : "";
     // ===== Fullscreen helpers =====
     const openFullscreen = (index: number) => {
         setFsIndex(index);
@@ -765,7 +768,14 @@ export default function ProductDetailsClient({
                             {isSold ? "Sold" : isReserved ? "Reserved" : "Available"}
                         </span>
                     </div>
-
+                    {Boolean(descriptionText?.trim()) && (
+                        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                            <div className="mb-1 text-xs font-extrabold text-slate-500">Description</div>
+                            <div className="whitespace-pre-wrap text-slate-900 font-semibold leading-6">
+                                {descriptionText}
+                            </div>
+                        </div>
+                    )}
                     {created && (
                         <p className="text-sm mt-1" style={{ color: EKARI.dim }}>
                             Posted {created.toLocaleDateString()}

@@ -21,6 +21,7 @@ import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { resolveUidByHandle } from "@/lib/fire-queries";
 import { IoArrowBack, IoSearchOutline } from "react-icons/io5";
+import SmartAvatar from "@/app/components/SmartAvatar";
 
 const EKARI = {
   forest: "#233F39",
@@ -381,7 +382,7 @@ export default function HandleConnectionsPage() {
           </button>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold truncate" style={{ color: EKARI.subtext }}>
-              @{handleSlug}
+              {handleSlug}
             </div>
             <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
               Connections
@@ -560,12 +561,8 @@ function Row({
           className="relative h-11 w-11 rounded-full overflow-hidden"
           style={{ backgroundColor: EKARI.hair }}
         >
-          <Image
-            src={user.photoURL || "/avatar-placeholder.png"}
-            alt={fullName}
-            fill
-            className="object-cover"
-          />
+          <SmartAvatar src={user.photoURL} alt={fullName || "User"} size={46} />
+
         </div>
         <div className="min-w-0">
           <div className="text-sm font-semibold truncate" style={{ color: EKARI.text }}>
