@@ -626,9 +626,10 @@ function ProfileHeroStorefront({
 
             {/* tiny footer */}
             <div className="mt-4 flex items-center justify-between text-[11px]" style={{ color: EKARI.subtext }}>
-              <span>
+              {/** <span>
                 Powered by <span className="font-black" style={{ color: EKARI.text }}>ekarihub</span>
               </span>
+               */}
               {isOwner && (<>
                 <Link
                   href={`/${handleSlug}/earnings`}
