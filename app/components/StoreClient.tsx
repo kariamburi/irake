@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import clsx from "clsx";
@@ -47,6 +47,7 @@ import {
     IoFunnelOutline,
     IoTrashOutline,
     IoCameraOutline,
+    IoPricetagOutline,
 } from "react-icons/io5";
 import { useRouter } from "next/navigation";
 import {
@@ -62,6 +63,7 @@ import {
 import { Line } from "react-chartjs-2";
 import { ref as sRef, getDownloadURL, uploadBytes, deleteObject, listAll } from "firebase/storage";
 import OpenInAppBanner from "./OpenInAppBanner";
+import SellModal from "./SellModal";
 
 // ✅ REQUIRED (register scales/elements)
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
@@ -331,6 +333,7 @@ export function StoreCoverHero({
     onCall,
     onWhatsApp,
     onWebsite,
+    onSellPress,
     locationText,
 }: {
     sellerId: string;
@@ -345,7 +348,7 @@ export function StoreCoverHero({
     onToggleFollow: () => void;
     onMessage: () => void;
     onShare: () => void;
-
+    onSellPress: () => void;
     onCall?: () => void;
     onWhatsApp?: () => void;
     onWebsite?: () => void;
@@ -560,7 +563,17 @@ export function StoreCoverHero({
                                     <IoChatbubbleEllipsesOutline size={18} />
                                     Message
                                 </button>
+                                {isOwner && (
+                                    <button
+                                        onClick={onSellPress}
+                                        className="h-10 px-4 rounded-2xl font-black text-sm text-white inline-flex items-center gap-2"
+                                        style={{ backgroundColor: EKARI.gold }}
+                                    >
+                                        <IoPricetagOutline size={18} />
+                                        Sell / Lease
+                                    </button>
 
+                                )}
                                 <button
                                     onClick={onShare}
                                     className="h-10 px-4 rounded-2xl font-black text-sm border bg-white/90 hover:bg-white"
@@ -1707,6 +1720,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         traffic7d: { market: 0, search: 0, share: 0, profile: 0 },
         funnel7d: { views: 0, clicks: 0, leads: 0 },
     });
+    const [sellOpen, setSellOpen] = useState(false);
 
     const [sellerSnap, setSellerSnap] = useState<EmbeddedSeller | null>(null);
     const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
@@ -1732,6 +1746,21 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         analyticsBasic: false,
         analyticsAdvanced: false,
     });
+    const onCreated = useCallback(
+        (p: any) => {
+            // setItems((prev) => {
+            //  const next = applyClientFilters([p, ...prev]);
+            //  if (sort === "priceAsc") return next.sort((a, b) => (a.price || 0) - (b.price || 0));
+            //   if (sort === "priceDesc") return next.sort((a, b) => (b.price || 0) - (a.price || 0));
+            //  return next;
+            //});
+        },
+        []
+    );
+    const onSellPress = useCallback(async () => {
+        setSellOpen(true);
+    }, []);
+
     // 1) Add state:
     const [sort, setSort] = useState<SortKey>("newest");
 
@@ -2329,6 +2358,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                     onToggleFollow={toggleFollow}
                     onMessage={onContactSeller}
                     onShare={onShareStore}
+                    onSellPress={onSellPress}
                     onCall={
                         phone
                             ? async () => {
@@ -2555,6 +2585,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                     </div>
                 </div>
             )}
+            <SellModal open={sellOpen} onClose={() => setSellOpen(false)} onCreated={onCreated} />
         </main>
     );
 

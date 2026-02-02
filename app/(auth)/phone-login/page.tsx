@@ -36,7 +36,10 @@ export default function PhoneLoginPage() {
     const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
     const [captchaReady, setCaptchaReady] = useState(false);
 
-    // Optional: support ?next= like /login
+    // prevent redirect effect while we validate & potentially sign out
+    const [postAuthChecking, setPostAuthChecking] = useState(false);
+
+    // Optional: support ?next=
     const [safeNext, setSafeNext] = useState<string | null>(null);
 
     useEffect(() => {
@@ -82,17 +85,36 @@ export default function PhoneLoginPage() {
                 setCaptchaReady(false);
             }
         })();
-        // keep verifier for session
     }, [authBundle]);
 
     // Form state
-    const [phone, setPhone] = useState(""); // E.164 e.g. +2547...
-    const [code, setCode] = useState(""); // 6-digit OTP
+    const [phone, setPhone] = useState("");
+    const [code, setCode] = useState("");
     const [sending, setSending] = useState(false);
     const [verifying, setVerifying] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [confirmation, setConfirmation] =
         useState<import("firebase/auth").ConfirmationResult | null>(null);
+
+    const otpInputsRef = useRef<Array<HTMLInputElement | null>>([]);
+
+    const focusOtpIndex = (i = 0) => {
+        requestAnimationFrame(() => otpInputsRef.current[i]?.focus());
+    };
+
+    const setOtpAt = (idx: number, val: string) => {
+        const digit = (val || "").replace(/[^\d]/g, "").slice(0, 1);
+        const arr = code.split("");
+        while (arr.length < 6) arr.push("");
+        arr[idx] = digit;
+        setCode(arr.join("").slice(0, 6));
+    };
+
+    useEffect(() => {
+        if (!confirmation) return;
+        focusOtpIndex(0);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [confirmation]);
 
     // Resend timer
     const [countdown, setCountdown] = useState(0);
@@ -106,58 +128,81 @@ export default function PhoneLoginPage() {
     const validPhone = useMemo(() => /^\+\d{8,15}$/.test(e164), [e164]);
     const validCode = useMemo(() => /^\d{6}$/.test(code), [code]);
 
-    // OTP focus handling (fix: allow manual entry by focusing hidden input)
-    const otpRef = useRef<HTMLInputElement | null>(null);
-    const focusOtp = () => {
-        // requestAnimationFrame helps on mobile safari / some browsers
-        requestAnimationFrame(() => otpRef.current?.focus());
+    const disableAll =
+        authLoading || !authBundle || !captchaReady || postAuthChecking;
+
+    // ✅ Strict check: must exist in Firestore users/{uid}, else sign out
+    const ensureUserDocOrSignOut = async (uid: string) => {
+        if (!authBundle) return false;
+        const { auth } = authBundle;
+
+        try {
+            const snap = await getDoc(doc(db, "users", uid));
+
+            if (!snap.exists()) {
+                await auth.signOut();
+                setErrorMsg("User does not exist. Please sign up first.");
+                return false;
+            }
+
+            return true;
+        } catch {
+            await auth.signOut();
+            setErrorMsg("Could not verify account. Please try again.");
+            return false;
+        }
     };
 
-    // Post-login route (mirror login/signup → home or /getstarted)
+    // Post-login route (ONLY after Firestore check passes)
     useEffect(() => {
-        if (authLoading || !user) return;
+        if (authLoading || postAuthChecking || !user) return;
 
         let alive = true;
 
         (async () => {
             try {
-                const snap = await getDoc(doc(db, "users", user.uid));
+                // re-check existence here too (covers refresh / returning sessions)
+                setPostAuthChecking(true);
+                const ok = await ensureUserDocOrSignOut(user.uid);
                 if (!alive) return;
 
-                if (snap.exists()) {
-                    router.replace(safeNext ?? "/getstarted");
-                } else {
-                    router.replace("/onboarding");
-                }
-            } catch {
-                if (alive) router.replace(safeNext ?? "/getstarted");
+                if (!ok) return;
+
+                router.replace(safeNext ?? "/getstarted");
+            } finally {
+                if (alive) setPostAuthChecking(false);
             }
         })();
 
         return () => {
             alive = false;
         };
-    }, [user, authLoading, router, safeNext]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, authLoading, postAuthChecking, router, safeNext]);
 
     const sendCode = async () => {
-        if (!authBundle || !captchaReady || !validPhone || sending) return;
+        if (!authBundle || !captchaReady || !validPhone || sending || disableAll)
+            return;
+
         setErrorMsg("");
         setSending(true);
+
         try {
             const { signInWithPhoneNumber } = await import("firebase/auth");
             const verifier = window._ekariRecaptcha!;
             const conf = await signInWithPhoneNumber(authBundle.auth, e164, verifier);
+
             setConfirmation(conf);
             setCountdown(60);
 
-            // when moving to step 2, focus OTP input
-            setTimeout(() => focusOtp(), 0);
+            setTimeout(() => focusOtpIndex(0), 0);
         } catch (err: any) {
             setErrorMsg(
                 err?.code === "auth/network-request-failed"
                     ? "Network error. Check your connection."
                     : err?.message || "Invalid phone number."
             );
+
             try {
                 window._ekariRecaptcha?.clear();
             } catch { }
@@ -169,20 +214,38 @@ export default function PhoneLoginPage() {
     };
 
     const verifyCode = async () => {
-        if (!confirmation || !validCode || verifying) return;
+        if (!confirmation || !validCode || verifying || disableAll) return;
+
         setErrorMsg("");
         setVerifying(true);
+        setPostAuthChecking(true);
+
         try {
-            await confirmation.confirm(code); // signs the user in → redirect happens in effect
+            const result = await confirmation.confirm(code);
+            const uid = result?.user?.uid;
+
+            if (!uid) {
+                setErrorMsg("Something went wrong. Please try again.");
+                return;
+            }
+
+            // ✅ must exist in Firestore users collection
+            const ok = await ensureUserDocOrSignOut(uid);
+            if (!ok) return;
+
+            // ✅ allow redirect effect to run (or redirect directly)
+            router.replace(safeNext ?? "/getstarted");
         } catch (err: any) {
             setErrorMsg(
                 err?.code === "auth/invalid-verification-code"
                     ? "Invalid code. Try again."
                     : err?.message || "Something went wrong."
             );
-            // refocus to let user retype quickly
-            focusOtp();
+
+            const idx = Math.min(code.length, 5);
+            focusOtpIndex(idx);
         } finally {
+            setPostAuthChecking(false);
             setVerifying(false);
         }
     };
@@ -201,8 +264,6 @@ export default function PhoneLoginPage() {
         setCountdown(0);
     };
 
-    const disableAll = authLoading || !authBundle || !captchaReady;
-
     return (
         <main
             className="min-h-screen w-full flex items-center justify-center px-4 py-8"
@@ -210,9 +271,6 @@ export default function PhoneLoginPage() {
                 background:
                     "radial-gradient(circle at top left, rgba(35,63,57,0.14), transparent 50%), radial-gradient(circle at bottom right, rgba(199,146,87,0.18), #F3F4F6)",
             }}
-            // optional: if user clicks empty space, and we’re on OTP step, focus input
-            onMouseDown={() => confirmation && focusOtp()}
-            onTouchStart={() => confirmation && focusOtp()}
         >
             <motion.div
                 className="w-full max-w-md mx-auto"
@@ -249,15 +307,6 @@ export default function PhoneLoginPage() {
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.28, ease: "easeOut" }}
-                    onMouseDown={(e) => {
-                        if (!confirmation) return;         // only in OTP step
-                        e.preventDefault();                // prevents focus loss / text selection
-                        focusOtp();
-                    }}
-                    onTouchStart={() => {
-                        if (!confirmation) return;
-                        focusOtp();
-                    }}
                 >
                     {/* Heading */}
                     <div className="mb-4">
@@ -271,10 +320,7 @@ export default function PhoneLoginPage() {
                         >
                             {confirmation ? "Confirm your number" : "Verify your phone"}
                         </h1>
-                        <p
-                            className="mt-1 text-xs md:text-sm leading-5"
-                            style={{ color: EKARI.dim }}
-                        >
+                        <p className="mt-1 text-xs md:text-sm leading-5" style={{ color: EKARI.dim }}>
                             {confirmation
                                 ? "Enter the 6-digit code we’ve sent via SMS."
                                 : "Use your mobile number to access ekarihub."}
@@ -291,11 +337,7 @@ export default function PhoneLoginPage() {
                                 className="flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
                                 style={{ borderColor: EKARI.hair }}
                             >
-                                <IoCallOutline
-                                    className="mr-2 flex-shrink-0"
-                                    size={18}
-                                    color={EKARI.dim}
-                                />
+                                <IoCallOutline className="mr-2 flex-shrink-0" size={18} color={EKARI.dim} />
                                 <input
                                     type="tel"
                                     inputMode="tel"
@@ -330,9 +372,7 @@ export default function PhoneLoginPage() {
                             >
                                 <div
                                     className="py-3 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
-                                    style={{
-                                        opacity: !validPhone || sending || disableAll ? 0.7 : 1,
-                                    }}
+                                    style={{ opacity: !validPhone || sending || disableAll ? 0.7 : 1 }}
                                 >
                                     {sending ? (
                                         <span className="inline-flex items-center gap-2">
@@ -364,55 +404,122 @@ export default function PhoneLoginPage() {
                                 <span style={{ color: EKARI.text }}>Verification code</span>
                             </label>
 
-                            {/* OTP boxes (click/tap to focus hidden input) */}
                             <div
-                                className="mt-1 flex justify-between cursor-text"
+                                className="relative mt-1"
                                 onMouseDown={(e) => {
-                                    e.preventDefault(); // keep focus stable
-                                    focusOtp();
+                                    e.preventDefault();
+                                    const idx = Math.min(code.length, 5);
+                                    focusOtpIndex(idx);
                                 }}
-                                onTouchStart={() => focusOtp()}
+                                onTouchStart={() => {
+                                    const idx = Math.min(code.length, 5);
+                                    focusOtpIndex(idx);
+                                }}
                             >
-                                {Array.from({ length: 6 }).map((_, i) => {
-                                    const char = code[i] ?? "";
-                                    const active = i === code.length || (code.length === 6 && i === 5);
-                                    return (
-                                        <div
-                                            key={i}
-                                            className="w-10 h-12 rounded-xl border flex items-center justify-center select-none bg-[#F6F7FB]"
-                                            style={{
-                                                borderColor: char ? "#D1D5DB" : EKARI.hair,
-                                                backgroundColor: char ? "#FFFFFF" : "#F6F7FB",
-                                                boxShadow: active ? `0 0 0 1px ${EKARI.leaf} inset` : "none",
-                                            }}
-                                        >
-                                            <span
-                                                className="text-[20px] font-extrabold"
-                                                style={{ color: EKARI.text }}
-                                            >
-                                                {char}
-                                            </span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                <div className="flex justify-between gap-2">
+                                    {Array.from({ length: 6 }).map((_, i) => {
+                                        const char = code[i] ?? "";
+                                        const active = i === code.length || (code.length === 6 && i === 5);
 
-                            {/* Hidden input that actually captures the OTP (NOT pointer-events-none) */}
-                            <input
-                                ref={otpRef}
-                                autoFocus
-                                value={code}
-                                onChange={(e) =>
-                                    setCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))
-                                }
-                                onKeyDown={(e) => e.key === "Enter" && verifyCode()}
-                                inputMode="numeric"
-                                pattern="\d*"
-                                maxLength={6}
-                                aria-label="One-time code"
-                                // tiny but focusable (0x0 can be flaky)
-                                className="absolute opacity-0 left-0 top-0 w-px h-px"
-                            />
+                                        return (
+                                            <input
+                                                key={i}
+                                                ref={(el) => {
+                                                    otpInputsRef.current[i] = el;
+                                                }}
+                                                value={char}
+                                                inputMode="numeric"
+                                                pattern="\d*"
+                                                maxLength={1}
+                                                autoComplete={i === 0 ? "one-time-code" : "off"}
+                                                aria-label={`OTP digit ${i + 1}`}
+                                                className="w-10 h-12 rounded-xl border bg-[#F6F7FB] text-center text-[20px] font-extrabold outline-none"
+                                                style={{
+                                                    borderColor: char ? "#D1D5DB" : EKARI.hair,
+                                                    backgroundColor: char ? "#FFFFFF" : "#F6F7FB",
+                                                    boxShadow: active ? `0 0 0 1px ${EKARI.leaf} inset` : "none",
+                                                    color: EKARI.text,
+                                                }}
+                                                onChange={(e) => {
+                                                    const vRaw = e.target.value ?? "";
+                                                    const v = vRaw.replace(/[^\d]/g, "");
+
+                                                    if (!v) {
+                                                        setOtpAt(i, "");
+                                                        return;
+                                                    }
+
+                                                    const digits = v.slice(0, 6 - i).split("");
+                                                    const arr = code.split("");
+                                                    while (arr.length < 6) arr.push("");
+
+                                                    digits.forEach((d, k) => {
+                                                        arr[i + k] = d;
+                                                    });
+
+                                                    const nextCode = arr.join("").slice(0, 6);
+                                                    setCode(nextCode);
+
+                                                    const nextIndex = Math.min(i + digits.length, 5);
+                                                    requestAnimationFrame(() =>
+                                                        otpInputsRef.current[nextIndex]?.focus()
+                                                    );
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Backspace") {
+                                                        e.preventDefault();
+                                                        if (char) {
+                                                            setOtpAt(i, "");
+                                                            return;
+                                                        }
+                                                        const prev = Math.max(i - 1, 0);
+                                                        setOtpAt(prev, "");
+                                                        requestAnimationFrame(() =>
+                                                            otpInputsRef.current[prev]?.focus()
+                                                        );
+                                                    }
+
+                                                    if (e.key === "ArrowLeft") {
+                                                        e.preventDefault();
+                                                        const prev = Math.max(i - 1, 0);
+                                                        requestAnimationFrame(() =>
+                                                            otpInputsRef.current[prev]?.focus()
+                                                        );
+                                                    }
+                                                    if (e.key === "ArrowRight") {
+                                                        e.preventDefault();
+                                                        const next = Math.min(i + 1, 5);
+                                                        requestAnimationFrame(() =>
+                                                            otpInputsRef.current[next]?.focus()
+                                                        );
+                                                    }
+
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        verifyCode();
+                                                    }
+                                                }}
+                                                onPaste={(e) => {
+                                                    e.preventDefault();
+                                                    const text = e.clipboardData.getData("text");
+                                                    const digits = text.replace(/[^\d]/g, "").slice(0, 6);
+                                                    if (!digits) return;
+
+                                                    const arr = digits.split("");
+                                                    while (arr.length < 6) arr.push("");
+                                                    setCode(arr.join("").slice(0, 6));
+
+                                                    requestAnimationFrame(() =>
+                                                        otpInputsRef.current[
+                                                            Math.min(digits.length - 1, 5)
+                                                        ]?.focus()
+                                                    );
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
                             {!!errorMsg && (
                                 <div className="mt-3 flex justify-center">
@@ -429,9 +536,7 @@ export default function PhoneLoginPage() {
                             >
                                 <div
                                     className="py-3 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
-                                    style={{
-                                        opacity: !validCode || verifying || disableAll ? 0.7 : 1,
-                                    }}
+                                    style={{ opacity: !validCode || verifying || disableAll ? 0.7 : 1 }}
                                 >
                                     {verifying ? (
                                         <span className="inline-flex items-center gap-2">
@@ -447,7 +552,6 @@ export default function PhoneLoginPage() {
                                 </div>
                             </button>
 
-                            {/* Resend + change number */}
                             <div className="mt-3 flex items-center justify-between text-xs">
                                 <button
                                     disabled={countdown > 0 || disableAll}
@@ -472,22 +576,13 @@ export default function PhoneLoginPage() {
                         </>
                     )}
 
-                    {/* Legal */}
                     <p className="mt-5 text-[11px] leading-5" style={{ color: EKARI.dim }}>
                         By continuing, you agree to our{" "}
-                        <Link
-                            href="/terms"
-                            className="underline font-semibold"
-                            style={{ color: EKARI.forest }}
-                        >
+                        <Link href="/terms" className="underline font-semibold" style={{ color: EKARI.forest }}>
                             Terms
                         </Link>{" "}
                         and{" "}
-                        <Link
-                            href="/privacy"
-                            className="underline font-semibold"
-                            style={{ color: EKARI.forest }}
-                        >
+                        <Link href="/privacy" className="underline font-semibold" style={{ color: EKARI.forest }}>
                             Privacy Policy
                         </Link>
                         .

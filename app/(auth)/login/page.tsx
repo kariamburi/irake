@@ -68,12 +68,34 @@ export default function LoginPage() {
     const [loadingEmail, setLoadingEmail] = useState(false);
     const [loadingGoogle, setLoadingGoogle] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
-
+    const [postAuthChecking, setPostAuthChecking] = useState(false);
+    const disableAll =
+        authLoading || loadingEmail || loadingGoogle || postAuthChecking || !authBundle;
     const isValid = useMemo(
         () => /\S+@\S+\.\S+/.test(email.trim()) && password.length >= 6,
         [email, password]
     );
+    const ensureUserDocOrSignOut = async (uid: string) => {
+        if (!authBundle) return false;
+        const { auth } = authBundle;
 
+        try {
+            const snap = await getDoc(doc(db, "users", uid));
+
+            if (!snap.exists()) {
+                await auth.signOut();
+                setErrorMsg("User does not exist. Please sign up first.");
+                return false;
+            }
+
+            return true;
+        } catch {
+            // safer to sign out if we can't verify existence
+            await auth.signOut();
+            setErrorMsg("Could not verify account. Please try again.");
+            return false;
+        }
+    };
     const mapAuthError = (err: any) => {
         switch (err?.code) {
             case "auth/invalid-credential":
@@ -93,7 +115,7 @@ export default function LoginPage() {
 
     // Post-login routing based on Firestore user doc + ?next=
     useEffect(() => {
-        if (authLoading || !user) return;
+        if (authLoading || postAuthChecking || !user) return;
         let alive = true;
 
         (async () => {
@@ -128,19 +150,33 @@ export default function LoginPage() {
         return () => {
             alive = false;
         };
-    }, [user, authLoading, router, safeNext]);
+    }, [user, authLoading, postAuthChecking, router, safeNext]);
 
     const handleLoginEmail = async () => {
         if (!isValid || loadingEmail || authLoading || !authBundle) return;
         const { auth } = authBundle;
+
         setErrorMsg("");
         setLoadingEmail(true);
+        setPostAuthChecking(true);
+
         try {
-            await signInWithEmailAndPassword(auth, email.trim(), password);
-            // Redirect handled in useEffect above
+            const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+            const uid = cred.user?.uid;
+
+            if (!uid) {
+                setErrorMsg("Something went wrong. Please try again.");
+                return;
+            }
+
+            const ok = await ensureUserDocOrSignOut(uid);
+            if (!ok) return;
+
+            // ✅ user doc exists → allow redirect useEffect to run
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));
         } finally {
+            setPostAuthChecking(false);
             setLoadingEmail(false);
         }
     };
@@ -150,21 +186,33 @@ export default function LoginPage() {
     const continueWithGoogle = async () => {
         if (loadingGoogle || authLoading || !authBundle) return;
         const { auth, googleProvider } = authBundle;
+
         setErrorMsg("");
         setLoadingGoogle(true);
+        setPostAuthChecking(true);
+
         try {
-            await signInWithPopup(auth, googleProvider);
-            // Redirect handled in useEffect via { user }
+            const cred = await signInWithPopup(auth, googleProvider);
+            const uid = cred.user?.uid;
+
+            if (!uid) {
+                setErrorMsg("Something went wrong. Please try again.");
+                return;
+            }
+
+            const ok = await ensureUserDocOrSignOut(uid);
+            if (!ok) return;
+
+            // ✅ user doc exists → allow redirect useEffect to run
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));
         } finally {
+            setPostAuthChecking(false);
             setLoadingGoogle(false);
         }
     };
-
     const onForgotPassword = () => router.push("/forgot-password");
 
-    const disableAll = authLoading || loadingEmail || loadingGoogle || !authBundle;
 
     return (
         <main
