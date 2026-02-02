@@ -555,14 +555,14 @@ export function StoreCoverHero({
                                     </button>
                                 ) : null}
 
-                                <button
+                                {!isOwner && (<button
                                     onClick={onMessage}
                                     className="h-10 px-4 rounded-2xl font-black text-sm text-white inline-flex items-center gap-2"
                                     style={{ backgroundColor: EKARI.forest }}
                                 >
                                     <IoChatbubbleEllipsesOutline size={18} />
                                     Message
-                                </button>
+                                </button>)}
                                 {isOwner && (
                                     <button
                                         onClick={onSellPress}
@@ -667,15 +667,25 @@ export function StoreCoverHero({
                     </button>
                 ) : null}
 
-                <button
+                {!isOwner && (<button
                     onClick={onMessage}
                     className="flex-1 h-11 rounded-2xl font-black text-white inline-flex items-center justify-center gap-2"
                     style={{ backgroundColor: EKARI.forest }}
                 >
                     <IoChatbubbleEllipsesOutline size={18} />
                     Message
-                </button>
+                </button>)}
+                {isOwner && (
+                    <button
+                        onClick={onSellPress}
+                        className="h-10 px-4 rounded-2xl font-black text-sm text-white inline-flex items-center gap-2"
+                        style={{ backgroundColor: EKARI.gold }}
+                    >
+                        <IoPricetagOutline size={18} />
+                        Sell / Lease
+                    </button>
 
+                )}
                 <button
                     onClick={onShare}
                     className="h-11 px-4 rounded-2xl font-black border bg-white inline-flex items-center justify-center gap-2"
