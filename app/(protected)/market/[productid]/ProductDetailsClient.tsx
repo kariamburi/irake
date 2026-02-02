@@ -442,6 +442,10 @@ export default function ProductDetailsClient({
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
         drag.current = null;
     };
+    const openProfile = (handle?: string) => {
+        if (!handle) return
+        router.push(`/${encodeURIComponent(handle)}`);
+    };
 
     useEffect(() => {
         if (!fsOpen) return;
@@ -826,17 +830,18 @@ export default function ProductDetailsClient({
                 <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
                     <div className="flex items-center gap-3">
                         <Image
+                            onClick={() => openProfile(product?.seller?.handle ?? "")}
                             src={product.seller?.photoURL || "/avatar-placeholder.png"}
                             alt="Seller"
                             width={44}
                             height={44}
-                            className="rounded-full object-cover border bg-[#F3F4F6]"
+                            className="rounded-full cursor-pointer object-cover border bg-[#F3F4F6]"
                             style={{ borderColor: EKARI.hair }}
                         />
 
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
+                                <div onClick={() => openProfile(product?.seller?.handle ?? "")} className="flex cursor-pointer items-center gap-2 min-w-0">
                                     <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
                                         {product.seller?.name || "Seller"}
                                     </p>

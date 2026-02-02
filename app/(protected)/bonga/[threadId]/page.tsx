@@ -1086,7 +1086,10 @@ export default function BongaThreadPage() {
       setRecMs(0);
     }
   }, [uid, activePeerId, threadId, scrollToBottom]);
-
+  const openProfile = (handle?: string) => {
+    if (!handle) return
+    router.push(`/${encodeURIComponent(handle)}`);
+  };
   const toggleAudio = useCallback((msgId: string, url: string) => {
     if (activeAudioRef.current) {
       const a = activeAudioRef.current;
@@ -1314,7 +1317,7 @@ export default function BongaThreadPage() {
                   {onlineNow && (
                     <span className="absolute right-0.5 bottom-0.5 w-[14px] h-[14px] rounded-full border-2 z-10" style={{ backgroundColor: "#16A34A", borderColor: EKARI.sand }} />
                   )}
-                  <Image src={peer?.photoURL || peerQs.peerPhotoURL || "/avatar-placeholder.png"} alt={headerTitle} fill className="object-cover" sizes="36px" />
+                  <Image onClick={() => openProfile(peer?.handle ?? "")} src={peer?.photoURL || peerQs.peerPhotoURL || "/avatar-placeholder.png"} alt={headerTitle} fill className="object-cover cursor-pointer" sizes="36px" />
                 </div>
 
                 <div className="min-w-0">

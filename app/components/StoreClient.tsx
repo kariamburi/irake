@@ -361,14 +361,17 @@ export function StoreCoverHero({
     const [uploading, setUploading] = React.useState(false);
     const [err, setErr] = React.useState<string | null>(null);
 
-    const canEditCover = isOwner && isPremiumStore;
+    const canEditCover = isOwner;
 
     const phone = cleanPhone(userDoc?.phone || null);
     const wa = toWhatsAppLink(userDoc?.whatsapp || userDoc?.phone || null);
     const website = toWebsiteLink(userDoc?.website || null);
+    const heroBg =
+        "radial-gradient(900px circle at 10% 10%, rgba(199,146,87,0.90), transparent 45%), linear-gradient(135deg, rgba(35,63,57,0.80), rgba(35,63,57,1))";
+
     const coverUrl =
         (userDoc as any)?.storeCoverUrl ||
-        "/store-cover-default.jpg"; // ✅ add a simple default image in /public or keep null
+        null; // ✅ add a simple default image in /public or keep null
 
     async function handlePickCover(file: File) {
         setErr(null);
@@ -421,16 +424,18 @@ export function StoreCoverHero({
                 className="relative overflow-hidden rounded-0 lg:rounded-3xl border bg-gray-100"
                 style={{ borderColor: EKARI.hair }}
             >
-                <div className="relative h-[220px] md:h-[240px] w-full">
+                <div className="relative h-[220px] md:h-[240px] w-full" style={{ background: heroBg }}>
 
-                    <Image
-                        src={coverUrl}
-                        alt="Store cover"
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 1024px"
-                        priority
-                    />
+                    {coverUrl && (
+                        <Image
+                            src={coverUrl}
+                            alt="Store cover"
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 100vw, 1024px"
+                            priority
+                        />
+                    )}
                     {/* overlay gradient for premium vibe */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
 
@@ -2410,27 +2415,6 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                 {loading ? (
                     <div className="text-sm" style={{ color: EKARI.dim }}>
                         Loading listings…
-                    </div>
-                ) : !storefrontAllowed ? (
-                    <div className="rounded-2xl border p-5 bg-[#FAFAFA]" style={{ borderColor: EKARI.hair }}>
-                        <div className="flex items-start gap-3">
-                            <div className="mt-0.5">
-                                <IoLockClosedOutline size={18} style={{ color: EKARI.dim }} />
-                            </div>
-                            <div className="min-w-0">
-                                <h2 className="font-black" style={{ color: EKARI.text }}>
-                                    Storefront locked
-                                </h2>
-                                <p className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                                    This seller hasn’t enabled a Dedicated Storefront on their plan yet.
-                                </p>
-                                <div className="mt-3">
-                                    <Link href="/market" className="text-sm font-black underline" style={{ color: EKARI.forest }}>
-                                        Browse the market instead
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 ) : filteredItems.length === 0 ? (
                     <div className="text-sm" style={{ color: EKARI.dim }}>

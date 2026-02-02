@@ -485,7 +485,7 @@ function ProfileHeroStorefront({
                     style={{ backgroundColor: EKARI.primary }}
                   >
                     <IoStorefrontOutline size={16} />
-                    Store
+                    Visit Store
                   </Link>
                 )}
                 <IconBtn onClick={onShare} icon={<IoShareSocialOutline size={16} />} label="Share" />
