@@ -2458,7 +2458,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
 
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-1">
                             {sortedFilteredItems.map((p: any) => {
                                 const status = String(p?.status || (p?.sold ? "sold" : "active")).toLowerCase();
 
