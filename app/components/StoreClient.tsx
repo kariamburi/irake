@@ -1338,9 +1338,9 @@ type SellerEntitlements = {
  * ❗ Analytics tiers should be subscription-based (NOT listing snapshot-based),
  * otherwise you can never reliably flip to advanced.
  */
-function resolveStorefrontFromListings(listings: any[]): boolean {
-    return listings.some((p) => p?.sellerPlan?.storefront === true || p?.storefrontEligible === true);
-}
+//function resolveStorefrontFromListings(listings: any[]): boolean {
+//   return listings.some((p) => p?.sellerPlan?.storefront === true || p?.storefrontEligible === true);
+//}
 
 function computeInsightsTier(e: SellerEntitlements): InsightsTier {
     if (!e.storefront) return "locked";
@@ -1916,9 +1916,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         }
     };
     // ✅ Premium pill (separate from Verified)
-    const isPremiumStore = useMemo(() => {
-        return items.some((p) => p?.sellerPlan?.storefront === true || p?.storefrontEligible === true);
-    }, [items]);
+
 
     // ✅ Follow listener
     useEffect(() => {
@@ -1948,9 +1946,6 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         }
     };
 
-    /**
-     * ✅ Initial load listings + storefrontAllowed from listings
-     */
     useEffect(() => {
         let alive = true;
 
@@ -1965,12 +1960,31 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
             setTab("all");
 
             try {
-                // Always fetch user doc
+                // ✅ Always fetch user doc
                 const uRef = doc(db, "users", sellerId);
                 const uSnap = await getDoc(uRef);
-                if (alive && uSnap.exists()) setUserDoc(uSnap.data() as any);
 
-                // Load first page
+                if (!alive) return;
+
+                let storefrontEnabled = false;
+
+                if (uSnap.exists()) {
+                    const u = uSnap.data() as any;
+                    setUserDoc(u);
+
+                    storefrontEnabled = !!u.storefrontEnabled; // ✅ HERE
+                    setStorefrontAllowed(storefrontEnabled);
+
+                    setEntitlements((prev) => ({
+                        ...prev,
+                        storefront: storefrontEnabled,
+                    }));
+                } else {
+                    setStorefrontAllowed(false);
+                    setEntitlements((prev) => ({ ...prev, storefront: false }));
+                }
+
+                // ✅ Load first page
                 const snap = await fetchListingsPage(null);
                 if (!alive) return;
 
@@ -1982,15 +1996,6 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                 // embedded seller (nice-to-have)
                 const firstSeller: EmbeddedSeller | null = (list?.[0]?.seller as any) || null;
                 if (firstSeller?.id) setSellerSnap(firstSeller);
-
-                const storefront = resolveStorefrontFromListings(list);
-                setStorefrontAllowed(storefront);
-
-                // ✅ ONLY storefront comes from listings now
-                setEntitlements((prev) => ({
-                    ...prev,
-                    storefront,
-                }));
             } finally {
                 if (alive) setLoading(false);
             }
@@ -2050,9 +2055,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
             setHasMore(snap.docs.length >= 24);
 
             // Update storefront allowed based on new items too
-            const nextStorefront = resolveStorefrontFromListings(list);
-            setStorefrontAllowed((prevAllowed) => prevAllowed || nextStorefront);
-            setEntitlements((prev) => ({ ...prev, storefront: prev.storefront || nextStorefront }));
+
         } finally {
             setLoadingMore(false);
         }
@@ -2331,20 +2334,6 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         })().catch((e) => console.error("Top listing query failed:", e));
     }, [sellerId, storefrontAllowed]);
 
-    const TabBtn = ({ k, label, icon }: { k: TabKey; label: string; icon: React.ReactNode }) => (
-        <button
-            onClick={() => setTab(k)}
-            className={clsx(
-                "h-9 px-3 rounded-full border text-xs font-black inline-flex items-center gap-1.5 transition",
-                tab === k ? "bg-black/[0.04]" : "bg-white hover:bg-black/[0.02]"
-            )}
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-        >
-            {icon}
-            {label}
-        </button>
-    );
-
 
     const Page = (
         <main className="min-h-screen w-full bg-white">
@@ -2368,7 +2357,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                     photoURL={photoURL}
                     showVerified={showVerified}
                     isOwner={isOwner}
-                    isPremiumStore={isPremiumStore}
+                    isPremiumStore={storefrontAllowed}
                     isFollowing={isFollowing}
                     onToggleFollow={toggleFollow}
                     onMessage={onContactSeller}
@@ -2561,7 +2550,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                 </div>
             </>)}
             {/* Guest-only premium badge */}
-            {!isOwner && isPremiumStore && (
+            {!isOwner && storefrontAllowed && (
                 <div
                     className="max-w-5xl mx-auto px-4 mb-4 rounded-2xl border bg-[#FFFBF3] p-4 flex items-start gap-3"
                     style={{ borderColor: EKARI.hair }}
