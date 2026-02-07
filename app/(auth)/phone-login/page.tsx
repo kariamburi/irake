@@ -32,15 +32,26 @@ export default function PhoneLoginPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
 
-    // Load Firebase auth safely (client-only)
-    // const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
     const [captchaReady, setCaptchaReady] = useState(false);
-
-    // prevent redirect effect while we validate & potentially sign out
     const [postAuthChecking, setPostAuthChecking] = useState(false);
 
     // Optional: support ?next=
     const [safeNext, setSafeNext] = useState<string | null>(null);
+
+    // OTP & phone
+    const [phone, setPhone] = useState("");
+    const [code, setCode] = useState("");
+    const [sending, setSending] = useState(false);
+    const [verifying, setVerifying] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
+    const [confirmation, setConfirmation] =
+        useState<import("firebase/auth").ConfirmationResult | null>(null);
+
+    const [countdown, setCountdown] = useState(0);
+
+    const otpInputsRef = useRef<Array<HTMLInputElement | null>>([]);
+    const redirectingRef = useRef(false); // ✅ prevents double redirects
+    const autoSubmitLockRef = useRef(false); // ✅ prevents multiple auto submits
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -50,11 +61,8 @@ export default function PhoneLoginPage() {
         else setSafeNext(null);
     }, []);
 
-
-
-    // Prepare invisible reCAPTCHA once auth is ready
+    // Prepare invisible reCAPTCHA once
     useEffect(() => {
-        if (!auth) return;
         if (typeof window === "undefined") return;
 
         if (window._ekariRecaptcha) {
@@ -65,32 +73,17 @@ export default function PhoneLoginPage() {
         (async () => {
             try {
                 const { RecaptchaVerifier } = await import("firebase/auth");
-                window._ekariRecaptcha = new RecaptchaVerifier(
-                    auth,
-                    "recaptcha-container",
-                    {
-                        size: "invisible",
-                        callback: () => { },
-                        "expired-callback": () => { },
-                    }
-                );
+                window._ekariRecaptcha = new RecaptchaVerifier(auth, "recaptcha-container", {
+                    size: "invisible",
+                    callback: () => { },
+                    "expired-callback": () => { },
+                });
                 setCaptchaReady(true);
             } catch {
                 setCaptchaReady(false);
             }
         })();
     }, []);
-
-    // Form state
-    const [phone, setPhone] = useState("");
-    const [code, setCode] = useState("");
-    const [sending, setSending] = useState(false);
-    const [verifying, setVerifying] = useState(false);
-    const [errorMsg, setErrorMsg] = useState("");
-    const [confirmation, setConfirmation] =
-        useState<import("firebase/auth").ConfirmationResult | null>(null);
-
-    const otpInputsRef = useRef<Array<HTMLInputElement | null>>([]);
 
     const focusOtpIndex = (i = 0) => {
         requestAnimationFrame(() => otpInputsRef.current[i]?.focus());
@@ -101,17 +94,24 @@ export default function PhoneLoginPage() {
         const arr = code.split("");
         while (arr.length < 6) arr.push("");
         arr[idx] = digit;
-        setCode(arr.join("").slice(0, 6));
+        const next = arr.join("").slice(0, 6);
+        setCode(next);
+        return next;
     };
 
     useEffect(() => {
         if (!confirmation) return;
+        autoSubmitLockRef.current = false; // reset auto submit lock when entering OTP step
         focusOtpIndex(0);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [confirmation]);
 
-    // Resend timer
-    const [countdown, setCountdown] = useState(0);
+    // Countdown for resend
+    useEffect(() => {
+        if (countdown <= 0) return;
+        const id = setInterval(() => setCountdown((c) => c - 1), 1000);
+        return () => clearInterval(id);
+    }, [countdown]);
 
     const e164 = useMemo(() => {
         const p = phone.trim();
@@ -122,21 +122,17 @@ export default function PhoneLoginPage() {
     const validPhone = useMemo(() => /^\+\d{8,15}$/.test(e164), [e164]);
     const validCode = useMemo(() => /^\d{6}$/.test(code), [code]);
 
-    const disableAll =
-        authLoading || !captchaReady || postAuthChecking;
+    const disableAll = authLoading || !captchaReady || postAuthChecking;
 
     // ✅ Strict check: must exist in Firestore users/{uid}, else sign out
     const ensureUserDocOrSignOut = async (uid: string) => {
-
         try {
             const snap = await getDoc(doc(db, "users", uid));
-
             if (!snap.exists()) {
                 await auth.signOut();
                 setErrorMsg("User does not exist. Please sign up first.");
                 return false;
             }
-
             return true;
         } catch {
             await auth.signOut();
@@ -145,21 +141,22 @@ export default function PhoneLoginPage() {
         }
     };
 
-    // Post-login route (ONLY after Firestore check passes)
+    // ✅ Post-login route (ONLY when not on OTP step, and not already redirecting)
     useEffect(() => {
+        if (confirmation) return; // don't redirect while entering OTP
+        if (redirectingRef.current) return;
         if (authLoading || postAuthChecking || !user) return;
 
         let alive = true;
 
         (async () => {
             try {
-                // re-check existence here too (covers refresh / returning sessions)
                 setPostAuthChecking(true);
                 const ok = await ensureUserDocOrSignOut(user.uid);
                 if (!alive) return;
-
                 if (!ok) return;
 
+                redirectingRef.current = true;
                 router.replace(safeNext ?? "/getstarted");
             } finally {
                 if (alive) setPostAuthChecking(false);
@@ -170,11 +167,10 @@ export default function PhoneLoginPage() {
             alive = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, authLoading, postAuthChecking, router, safeNext]);
+    }, [user, authLoading, postAuthChecking, router, safeNext, confirmation]);
 
     const sendCode = async () => {
-        if (!auth || !captchaReady || !validPhone || sending || disableAll)
-            return;
+        if (!captchaReady || !validPhone || sending || disableAll) return;
 
         setErrorMsg("");
         setSending(true);
@@ -186,6 +182,8 @@ export default function PhoneLoginPage() {
 
             setConfirmation(conf);
             setCountdown(60);
+            setCode("");
+            autoSubmitLockRef.current = false;
 
             setTimeout(() => focusOtpIndex(0), 0);
         } catch (err: any) {
@@ -221,41 +219,58 @@ export default function PhoneLoginPage() {
                 return;
             }
 
-            // ✅ must exist in Firestore users collection
             const ok = await ensureUserDocOrSignOut(uid);
             if (!ok) return;
+
             // ✅ clean up recaptcha
-            window._ekariRecaptcha?.clear();
+            try {
+                window._ekariRecaptcha?.clear();
+            } catch { }
             window._ekariRecaptcha = undefined;
-            // ✅ allow redirect effect to run (or redirect directly)
+
+            // ✅ prevent double redirect + flicker
+            redirectingRef.current = true;
+
             router.replace(safeNext ?? "/getstarted");
+            return; // ✅ IMPORTANT: stop further state flips
         } catch (err: any) {
             setErrorMsg(
                 err?.code === "auth/invalid-verification-code"
                     ? "Invalid code. Try again."
                     : err?.message || "Something went wrong."
             );
-
             const idx = Math.min(code.length, 5);
             focusOtpIndex(idx);
         } finally {
-            setPostAuthChecking(false);
-            setVerifying(false);
+            // ✅ don't flicker states if redirect already started
+            if (!redirectingRef.current) {
+                setPostAuthChecking(false);
+                setVerifying(false);
+            }
         }
     };
 
-    // Countdown for resend
+    // ✅ Auto-submit when last digit is entered (only on OTP step)
     useEffect(() => {
-        if (countdown <= 0) return;
-        const id = setInterval(() => setCountdown((c) => c - 1), 1000);
-        return () => clearInterval(id);
-    }, [countdown]);
+        if (!confirmation) return;
+        if (!validCode) return;
+        if (verifying || disableAll) return;
+        if (autoSubmitLockRef.current) return;
+
+        autoSubmitLockRef.current = true;
+        verifyCode();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [code, validCode, confirmation]);
 
     const backToNumber = () => {
         setConfirmation(null);
         setCode("");
         setErrorMsg("");
         setCountdown(0);
+        autoSubmitLockRef.current = false;
+
+        // You may want to recreate recaptcha when going back
+        // but only if you cleared it earlier and captchaReady became false
     };
 
     return (
@@ -278,13 +293,7 @@ export default function PhoneLoginPage() {
                 {/* Top: logo + switch to email login */}
                 <div className="mb-6 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Image
-                            src="/ekarihub-logo.png"
-                            alt="ekarihub"
-                            width={180}
-                            height={54}
-                            priority
-                        />
+                        <Image src="/ekarihub-logo.png" alt="ekarihub" width={180} height={54} priority />
                     </div>
                     <Link
                         href="/login"
@@ -347,8 +356,7 @@ export default function PhoneLoginPage() {
                             </div>
 
                             <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
-                                Include your country code, e.g.{" "}
-                                <span className="font-semibold">+2547…</span>
+                                Include your country code, e.g. <span className="font-semibold">+2547…</span>
                             </p>
 
                             {!!errorMsg && (
@@ -439,6 +447,7 @@ export default function PhoneLoginPage() {
                                                     const v = vRaw.replace(/[^\d]/g, "");
 
                                                     if (!v) {
+                                                        autoSubmitLockRef.current = false; // allow re-submit after edits
                                                         setOtpAt(i, "");
                                                         return;
                                                     }
@@ -454,38 +463,35 @@ export default function PhoneLoginPage() {
                                                     const nextCode = arr.join("").slice(0, 6);
                                                     setCode(nextCode);
 
+                                                    // If user edits again, allow auto-submit again
+                                                    if (nextCode.length < 6) autoSubmitLockRef.current = false;
+
                                                     const nextIndex = Math.min(i + digits.length, 5);
-                                                    requestAnimationFrame(() =>
-                                                        otpInputsRef.current[nextIndex]?.focus()
-                                                    );
+                                                    requestAnimationFrame(() => otpInputsRef.current[nextIndex]?.focus());
                                                 }}
                                                 onKeyDown={(e) => {
                                                     if (e.key === "Backspace") {
                                                         e.preventDefault();
                                                         if (char) {
+                                                            autoSubmitLockRef.current = false;
                                                             setOtpAt(i, "");
                                                             return;
                                                         }
                                                         const prev = Math.max(i - 1, 0);
+                                                        autoSubmitLockRef.current = false;
                                                         setOtpAt(prev, "");
-                                                        requestAnimationFrame(() =>
-                                                            otpInputsRef.current[prev]?.focus()
-                                                        );
+                                                        requestAnimationFrame(() => otpInputsRef.current[prev]?.focus());
                                                     }
 
                                                     if (e.key === "ArrowLeft") {
                                                         e.preventDefault();
                                                         const prev = Math.max(i - 1, 0);
-                                                        requestAnimationFrame(() =>
-                                                            otpInputsRef.current[prev]?.focus()
-                                                        );
+                                                        requestAnimationFrame(() => otpInputsRef.current[prev]?.focus());
                                                     }
                                                     if (e.key === "ArrowRight") {
                                                         e.preventDefault();
                                                         const next = Math.min(i + 1, 5);
-                                                        requestAnimationFrame(() =>
-                                                            otpInputsRef.current[next]?.focus()
-                                                        );
+                                                        requestAnimationFrame(() => otpInputsRef.current[next]?.focus());
                                                     }
 
                                                     if (e.key === "Enter") {
@@ -499,14 +505,14 @@ export default function PhoneLoginPage() {
                                                     const digits = text.replace(/[^\d]/g, "").slice(0, 6);
                                                     if (!digits) return;
 
+                                                    autoSubmitLockRef.current = false;
+
                                                     const arr = digits.split("");
                                                     while (arr.length < 6) arr.push("");
                                                     setCode(arr.join("").slice(0, 6));
 
                                                     requestAnimationFrame(() =>
-                                                        otpInputsRef.current[
-                                                            Math.min(digits.length - 1, 5)
-                                                        ]?.focus()
+                                                        otpInputsRef.current[Math.min(digits.length - 1, 5)]?.focus()
                                                     );
                                                 }}
                                             />
