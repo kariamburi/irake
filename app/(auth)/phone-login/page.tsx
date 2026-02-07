@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { IoCallOutline, IoChevronBack } from "react-icons/io5";
 import { doc, getDoc } from "firebase/firestore";
-import { db, getAuthSafe } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 
 const EKARI = {
@@ -33,7 +33,7 @@ export default function PhoneLoginPage() {
     const { user, loading: authLoading } = useAuth();
 
     // Load Firebase auth safely (client-only)
-    const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
+    // const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
     const [captchaReady, setCaptchaReady] = useState(false);
 
     // prevent redirect effect while we validate & potentially sign out
@@ -50,17 +50,11 @@ export default function PhoneLoginPage() {
         else setSafeNext(null);
     }, []);
 
-    useEffect(() => {
-        (async () => {
-            const bundle = await getAuthSafe();
-            if (!bundle) return; // SSR no-op
-            setAuthBundle({ auth: bundle.auth });
-        })();
-    }, []);
+
 
     // Prepare invisible reCAPTCHA once auth is ready
     useEffect(() => {
-        if (!authBundle) return;
+        if (!auth) return;
         if (typeof window === "undefined") return;
 
         if (window._ekariRecaptcha) {
@@ -72,7 +66,7 @@ export default function PhoneLoginPage() {
             try {
                 const { RecaptchaVerifier } = await import("firebase/auth");
                 window._ekariRecaptcha = new RecaptchaVerifier(
-                    authBundle.auth,
+                    auth,
                     "recaptcha-container",
                     {
                         size: "invisible",
@@ -85,7 +79,7 @@ export default function PhoneLoginPage() {
                 setCaptchaReady(false);
             }
         })();
-    }, [authBundle]);
+    }, []);
 
     // Form state
     const [phone, setPhone] = useState("");
@@ -129,12 +123,10 @@ export default function PhoneLoginPage() {
     const validCode = useMemo(() => /^\d{6}$/.test(code), [code]);
 
     const disableAll =
-        authLoading || !authBundle || !captchaReady || postAuthChecking;
+        authLoading || !captchaReady || postAuthChecking;
 
     // ✅ Strict check: must exist in Firestore users/{uid}, else sign out
     const ensureUserDocOrSignOut = async (uid: string) => {
-        if (!authBundle) return false;
-        const { auth } = authBundle;
 
         try {
             const snap = await getDoc(doc(db, "users", uid));
@@ -181,7 +173,7 @@ export default function PhoneLoginPage() {
     }, [user, authLoading, postAuthChecking, router, safeNext]);
 
     const sendCode = async () => {
-        if (!authBundle || !captchaReady || !validPhone || sending || disableAll)
+        if (!auth || !captchaReady || !validPhone || sending || disableAll)
             return;
 
         setErrorMsg("");
@@ -190,7 +182,7 @@ export default function PhoneLoginPage() {
         try {
             const { signInWithPhoneNumber } = await import("firebase/auth");
             const verifier = window._ekariRecaptcha!;
-            const conf = await signInWithPhoneNumber(authBundle.auth, e164, verifier);
+            const conf = await signInWithPhoneNumber(auth, e164, verifier);
 
             setConfirmation(conf);
             setCountdown(60);
@@ -232,7 +224,9 @@ export default function PhoneLoginPage() {
             // ✅ must exist in Firestore users collection
             const ok = await ensureUserDocOrSignOut(uid);
             if (!ok) return;
-
+            // ✅ clean up recaptcha
+            window._ekariRecaptcha?.clear();
+            window._ekariRecaptcha = undefined;
             // ✅ allow redirect effect to run (or redirect directly)
             router.replace(safeNext ?? "/getstarted");
         } catch (err: any) {

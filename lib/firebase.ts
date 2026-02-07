@@ -1,6 +1,8 @@
+// lib/firebase.ts
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getAuth } from "firebase/auth";   // ✅ add this
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -18,11 +20,12 @@ const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// ⚠️ Browser-only services (must be imported lazily)
+// ✅ auth (ok to export; page.tsx is "use client")
+const auth = getAuth(app);
+
 export const getAuthSafe = async () => {
-  if (typeof window === "undefined") return null; // don’t run on server
-  const { getAuth, GoogleAuthProvider } = await import("firebase/auth");
-  const auth = getAuth(app);
+  if (typeof window === "undefined") return null;
+  const { GoogleAuthProvider } = await import("firebase/auth");
   const googleProvider = new GoogleAuthProvider();
   return { auth, googleProvider };
 };
@@ -34,4 +37,4 @@ export const getMessagingSafe = async () => {
   return { messaging, getToken };
 };
 
-export { app, db, storage };
+export { app, db, storage, auth }; // ✅ export auth
