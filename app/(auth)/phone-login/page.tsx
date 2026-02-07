@@ -11,6 +11,82 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 
+/** ✅ Country list (flags + dial codes) */
+const COUNTRIES = [
+    // 🌍 Africa
+    { code: "KE", dial: "+254", flag: "🇰🇪", name: "Kenya" },
+    { code: "UG", dial: "+256", flag: "🇺🇬", name: "Uganda" },
+    { code: "TZ", dial: "+255", flag: "🇹🇿", name: "Tanzania" },
+    { code: "RW", dial: "+250", flag: "🇷🇼", name: "Rwanda" },
+    { code: "BI", dial: "+257", flag: "🇧🇮", name: "Burundi" },
+    { code: "ET", dial: "+251", flag: "🇪🇹", name: "Ethiopia" },
+    { code: "SO", dial: "+252", flag: "🇸🇴", name: "Somalia" },
+    { code: "SS", dial: "+211", flag: "🇸🇸", name: "South Sudan" },
+    { code: "SD", dial: "+249", flag: "🇸🇩", name: "Sudan" },
+    { code: "NG", dial: "+234", flag: "🇳🇬", name: "Nigeria" },
+    { code: "GH", dial: "+233", flag: "🇬🇭", name: "Ghana" },
+    { code: "ZA", dial: "+27", flag: "🇿🇦", name: "South Africa" },
+    { code: "EG", dial: "+20", flag: "🇪🇬", name: "Egypt" },
+    { code: "DZ", dial: "+213", flag: "🇩🇿", name: "Algeria" },
+    { code: "MA", dial: "+212", flag: "🇲🇦", name: "Morocco" },
+    { code: "TN", dial: "+216", flag: "🇹🇳", name: "Tunisia" },
+    { code: "LY", dial: "+218", flag: "🇱🇾", name: "Libya" },
+    { code: "SN", dial: "+221", flag: "🇸🇳", name: "Senegal" },
+    { code: "CI", dial: "+225", flag: "🇨🇮", name: "Côte d’Ivoire" },
+    { code: "CM", dial: "+237", flag: "🇨🇲", name: "Cameroon" },
+    { code: "ZW", dial: "+263", flag: "🇿🇼", name: "Zimbabwe" },
+    { code: "ZM", dial: "+260", flag: "🇿🇲", name: "Zambia" },
+    { code: "MW", dial: "+265", flag: "🇲🇼", name: "Malawi" },
+    { code: "MZ", dial: "+258", flag: "🇲🇿", name: "Mozambique" },
+
+    // 🌎 Americas
+    { code: "US", dial: "+1", flag: "🇺🇸", name: "United States" },
+    { code: "CA", dial: "+1", flag: "🇨🇦", name: "Canada" },
+    { code: "MX", dial: "+52", flag: "🇲🇽", name: "Mexico" },
+    { code: "BR", dial: "+55", flag: "🇧🇷", name: "Brazil" },
+    { code: "AR", dial: "+54", flag: "🇦🇷", name: "Argentina" },
+    { code: "CL", dial: "+56", flag: "🇨🇱", name: "Chile" },
+    { code: "CO", dial: "+57", flag: "🇨🇴", name: "Colombia" },
+
+    // 🌍 Europe
+    { code: "GB", dial: "+44", flag: "🇬🇧", name: "United Kingdom" },
+    { code: "DE", dial: "+49", flag: "🇩🇪", name: "Germany" },
+    { code: "FR", dial: "+33", flag: "🇫🇷", name: "France" },
+    { code: "IT", dial: "+39", flag: "🇮🇹", name: "Italy" },
+    { code: "ES", dial: "+34", flag: "🇪🇸", name: "Spain" },
+    { code: "NL", dial: "+31", flag: "🇳🇱", name: "Netherlands" },
+    { code: "SE", dial: "+46", flag: "🇸🇪", name: "Sweden" },
+    { code: "NO", dial: "+47", flag: "🇳🇴", name: "Norway" },
+
+    // 🌏 Asia
+    { code: "IN", dial: "+91", flag: "🇮🇳", name: "India" },
+    { code: "PK", dial: "+92", flag: "🇵🇰", name: "Pakistan" },
+    { code: "BD", dial: "+880", flag: "🇧🇩", name: "Bangladesh" },
+    { code: "CN", dial: "+86", flag: "🇨🇳", name: "China" },
+    { code: "JP", dial: "+81", flag: "🇯🇵", name: "Japan" },
+    { code: "KR", dial: "+82", flag: "🇰🇷", name: "South Korea" },
+    { code: "SG", dial: "+65", flag: "🇸🇬", name: "Singapore" },
+    { code: "AE", dial: "+971", flag: "🇦🇪", name: "United Arab Emirates" },
+    { code: "SA", dial: "+966", flag: "🇸🇦", name: "Saudi Arabia" },
+
+    // 🌏 Oceania
+    { code: "AU", dial: "+61", flag: "🇦🇺", name: "Australia" },
+    { code: "NZ", dial: "+64", flag: "🇳🇿", name: "New Zealand" },
+] as const;
+type Country = typeof COUNTRIES[number];
+
+const flagUrl = (code: string) =>
+    `https://flagcdn.com/24x18/${code.toLowerCase()}.png`;
+
+const POPULAR = ["KE", "UG", "TZ", "RW", "US", "GB"] as const;
+
+const SORTED_COUNTRIES = [
+    ...COUNTRIES.filter((c) => (POPULAR as readonly string[]).includes(c.code)),
+    ...COUNTRIES.filter((c) => !(POPULAR as readonly string[]).includes(c.code)).sort((a, b) =>
+        a.name.localeCompare(b.name)
+    ),
+];
+
 const EKARI = {
     forest: "#233F39",
     leaf: "#1F3A34",
@@ -28,18 +104,134 @@ declare global {
     }
 }
 
+function CountryPicker({
+    value,
+    onChange,
+    disabled,
+}: {
+    value: Country;
+    onChange: (c: Country) => void;
+    disabled?: boolean;
+}) {
+    const [open, setOpen] = React.useState(false);
+    const [q, setQ] = React.useState("");
+
+    const filtered = React.useMemo(() => {
+        const s = q.trim().toLowerCase();
+        if (!s) return COUNTRIES;
+        return COUNTRIES.filter(
+            (c) =>
+                c.name.toLowerCase().includes(s) ||
+                c.code.toLowerCase().includes(s) ||
+                c.dial.includes(s)
+        );
+    }, [q]);
+
+    // close on outside click
+    React.useEffect(() => {
+        if (!open) return;
+        const onDown = (e: MouseEvent) => {
+            const t = e.target as HTMLElement;
+            if (!t.closest?.("[data-country-picker-root]")) setOpen(false);
+        };
+        document.addEventListener("mousedown", onDown);
+        return () => document.removeEventListener("mousedown", onDown);
+    }, [open]);
+
+    return (
+        <div className="relative" data-country-picker-root>
+            <button
+                type="button"
+                disabled={disabled}
+                onClick={() => setOpen((s) => !s)}
+                className="h-9 px-2 rounded-lg hover:bg-black/5 disabled:opacity-60
+                   inline-flex items-center gap-2 text-sm font-semibold"
+                aria-haspopup="listbox"
+                aria-expanded={open}
+            >
+                <img
+                    src={flagUrl(value.code)}
+                    alt={`${value.name} flag`}
+                    width={18}
+                    height={14}
+                    className="rounded-[2px] border border-black/10"
+                />
+                <span className="text-slate-900">{value.dial}</span>
+                <span className="text-slate-500 hidden sm:inline">• {value.code}</span>
+                <svg width="14" height="14" viewBox="0 0 20 20" className="ml-1 opacity-70">
+                    <path d="M5 7l5 6 5-6" fill="none" stroke="currentColor" strokeWidth="2" />
+                </svg>
+            </button>
+
+            {open && (
+                <div
+                    className="absolute z-50 mt-2 w-[260px] rounded-xl border border-black/10 bg-white shadow-xl overflow-hidden"
+                    role="listbox"
+                >
+                    <div className="p-2 border-b border-black/5">
+                        <input
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                            placeholder="Search country…"
+                            className="h-9 w-full rounded-lg border border-black/10 bg-[#F6F7FB] px-3 text-sm outline-none"
+                            autoFocus
+                        />
+                    </div>
+
+                    <div className="max-h-64 overflow-auto">
+                        {filtered.map((c) => {
+                            const active = c.code === value.code;
+                            return (
+                                <button
+                                    key={c.code}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(c);
+                                        setOpen(false);
+                                        setQ("");
+                                    }}
+                                    className={`w-full px-3 py-2 flex items-center gap-2 text-left text-sm
+                    hover:bg-black/5 ${active ? "bg-black/5" : ""}`}
+                                    role="option"
+                                    aria-selected={active}
+                                >
+                                    <img
+                                        src={flagUrl(c.code)}
+                                        alt=""
+                                        width={18}
+                                        height={14}
+                                        className="rounded-[2px] border border-black/10"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-semibold text-slate-900 truncate">{c.name}</div>
+                                        <div className="text-xs text-slate-500">{c.dial} • {c.code}</div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function PhoneLoginPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
 
     const [captchaReady, setCaptchaReady] = useState(false);
     const [postAuthChecking, setPostAuthChecking] = useState(false);
-
-    // Optional: support ?next=
     const [safeNext, setSafeNext] = useState<string | null>(null);
 
-    // OTP & phone
-    const [phone, setPhone] = useState("");
+    // ✅ Professional phone input state
+    const [country, setCountry] = useState(() => {
+        const def = SORTED_COUNTRIES.find((c) => c.code === "KE") ?? SORTED_COUNTRIES[0];
+        return def;
+    });
+    const [localPhone, setLocalPhone] = useState("");
+
+    // OTP state
     const [code, setCode] = useState("");
     const [sending, setSending] = useState(false);
     const [verifying, setVerifying] = useState(false);
@@ -47,11 +239,21 @@ export default function PhoneLoginPage() {
     const [confirmation, setConfirmation] =
         useState<import("firebase/auth").ConfirmationResult | null>(null);
 
-    const [countdown, setCountdown] = useState(0);
-
     const otpInputsRef = useRef<Array<HTMLInputElement | null>>([]);
-    const redirectingRef = useRef(false); // ✅ prevents double redirects
-    const autoSubmitLockRef = useRef(false); // ✅ prevents multiple auto submits
+    const verifyingOnceRef = useRef(false);
+
+    const focusOtpIndex = (i = 0) => {
+        requestAnimationFrame(() => otpInputsRef.current[i]?.focus());
+    };
+
+    const setOtpAt = (idx: number, val: string) => {
+        const digit = (val || "").replace(/[^\d]/g, "").slice(0, 1);
+        const arr = code.split("");
+        while (arr.length < 6) arr.push("");
+        arr[idx] = digit;
+        const next = arr.join("").slice(0, 6);
+        setCode(next);
+    };
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -61,7 +263,7 @@ export default function PhoneLoginPage() {
         else setSafeNext(null);
     }, []);
 
-    // Prepare invisible reCAPTCHA once
+    // Prepare invisible reCAPTCHA (once)
     useEffect(() => {
         if (typeof window === "undefined") return;
 
@@ -85,54 +287,72 @@ export default function PhoneLoginPage() {
         })();
     }, []);
 
-    const focusOtpIndex = (i = 0) => {
-        requestAnimationFrame(() => otpInputsRef.current[i]?.focus());
-    };
-
-    const setOtpAt = (idx: number, val: string) => {
-        const digit = (val || "").replace(/[^\d]/g, "").slice(0, 1);
-        const arr = code.split("");
-        while (arr.length < 6) arr.push("");
-        arr[idx] = digit;
-        const next = arr.join("").slice(0, 6);
-        setCode(next);
-        return next;
-    };
-
     useEffect(() => {
         if (!confirmation) return;
-        autoSubmitLockRef.current = false; // reset auto submit lock when entering OTP step
+        verifyingOnceRef.current = false;
         focusOtpIndex(0);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [confirmation]);
 
-    // Countdown for resend
+    // Resend timer
+    const [countdown, setCountdown] = useState(0);
     useEffect(() => {
         if (countdown <= 0) return;
         const id = setInterval(() => setCountdown((c) => c - 1), 1000);
         return () => clearInterval(id);
     }, [countdown]);
 
+    // ✅ Build E.164 from country + local phone
     const e164 = useMemo(() => {
-        const p = phone.trim();
-        if (!p) return "";
-        return p.startsWith("+") ? p : `+${p}`;
-    }, [phone]);
+        if (!localPhone) return "";
+        return `${country.dial}${localPhone.replace(/\D/g, "")}`;
+    }, [country, localPhone]);
 
     const validPhone = useMemo(() => /^\+\d{8,15}$/.test(e164), [e164]);
     const validCode = useMemo(() => /^\d{6}$/.test(code), [code]);
 
     const disableAll = authLoading || !captchaReady || postAuthChecking;
+    const firebaseAuthErrorMessage = (err: any) => {
+        const code = String(err?.code || "");
+
+        const map: Record<string, string> = {
+            "auth/network-request-failed": "Network error. Check your connection and try again.",
+            "auth/too-many-requests": "Too many attempts. Please wait a few minutes and try again.",
+            "auth/invalid-phone-number": "That phone number looks invalid. Check the country code and number.",
+            "auth/missing-phone-number": "Please enter your phone number.",
+            "auth/quota-exceeded": "SMS quota exceeded. Please try again later.",
+            "auth/captcha-check-failed": "reCAPTCHA failed. Refresh the page and try again.",
+            "auth/app-not-authorized": "This app/domain is not authorized for phone sign-in.",
+            "auth/operation-not-allowed": "Phone sign-in is disabled. Enable it in Firebase Auth settings.",
+            "auth/user-disabled": "This account has been disabled. Contact support.",
+            "auth/invalid-verification-code": "Invalid code. Try again.",
+            "auth/code-expired": "That code expired. Please request a new one.",
+            "auth/session-expired": "Session expired. Please request a new code.",
+            "auth/missing-verification-code": "Enter the 6-digit code.",
+            "auth/credential-already-in-use":
+                "That phone number is already linked to another account. Try email sign-in or use a different number.",
+        };
+
+        if (map[code]) return map[code];
+
+        // Optional: clean fallback (avoid showing raw "Firebase: Error (...)")
+        const raw = String(err?.message || "");
+        if (raw.includes("Firebase: Error")) return "Something went wrong. Please try again.";
+
+        return raw || "Something went wrong. Please try again.";
+    };
 
     // ✅ Strict check: must exist in Firestore users/{uid}, else sign out
     const ensureUserDocOrSignOut = async (uid: string) => {
         try {
             const snap = await getDoc(doc(db, "users", uid));
+
             if (!snap.exists()) {
                 await auth.signOut();
                 setErrorMsg("User does not exist. Please sign up first.");
                 return false;
             }
+
             return true;
         } catch {
             await auth.signOut();
@@ -141,11 +361,10 @@ export default function PhoneLoginPage() {
         }
     };
 
-    // ✅ Post-login route (ONLY when not on OTP step, and not already redirecting)
+    // ✅ Post-login route (ONLY after Firestore check passes)
+    // IMPORTANT: avoid loop by not depending on postAuthChecking
     useEffect(() => {
-        if (confirmation) return; // don't redirect while entering OTP
-        if (redirectingRef.current) return;
-        if (authLoading || postAuthChecking || !user) return;
+        if (authLoading || !user) return;
 
         let alive = true;
 
@@ -155,8 +374,6 @@ export default function PhoneLoginPage() {
                 const ok = await ensureUserDocOrSignOut(user.uid);
                 if (!alive) return;
                 if (!ok) return;
-
-                redirectingRef.current = true;
                 router.replace(safeNext ?? "/getstarted");
             } finally {
                 if (alive) setPostAuthChecking(false);
@@ -167,7 +384,7 @@ export default function PhoneLoginPage() {
             alive = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, authLoading, postAuthChecking, router, safeNext, confirmation]);
+    }, [user, authLoading, router, safeNext]);
 
     const sendCode = async () => {
         if (!captchaReady || !validPhone || sending || disableAll) return;
@@ -182,16 +399,10 @@ export default function PhoneLoginPage() {
 
             setConfirmation(conf);
             setCountdown(60);
-            setCode("");
-            autoSubmitLockRef.current = false;
 
             setTimeout(() => focusOtpIndex(0), 0);
         } catch (err: any) {
-            setErrorMsg(
-                err?.code === "auth/network-request-failed"
-                    ? "Network error. Check your connection."
-                    : err?.message || "Invalid phone number."
-            );
+            setErrorMsg(firebaseAuthErrorMessage(err));
 
             try {
                 window._ekariRecaptcha?.clear();
@@ -205,6 +416,8 @@ export default function PhoneLoginPage() {
 
     const verifyCode = async () => {
         if (!confirmation || !validCode || verifying || disableAll) return;
+        if (verifyingOnceRef.current) return; // ✅ prevent double-trigger
+        verifyingOnceRef.current = true;
 
         setErrorMsg("");
         setVerifying(true);
@@ -216,62 +429,64 @@ export default function PhoneLoginPage() {
 
             if (!uid) {
                 setErrorMsg("Something went wrong. Please try again.");
+                verifyingOnceRef.current = false;
                 return;
             }
 
+            // ✅ must exist in Firestore users collection
             const ok = await ensureUserDocOrSignOut(uid);
-            if (!ok) return;
+            if (!ok) {
+                verifyingOnceRef.current = false;
+                return;
+            }
 
-            // ✅ clean up recaptcha
+            // ✅ clean up recaptcha (optional)
             try {
                 window._ekariRecaptcha?.clear();
             } catch { }
             window._ekariRecaptcha = undefined;
 
-            // ✅ prevent double redirect + flicker
-            redirectingRef.current = true;
-
+            // ✅ navigate
             router.replace(safeNext ?? "/getstarted");
-            return; // ✅ IMPORTANT: stop further state flips
         } catch (err: any) {
+            verifyingOnceRef.current = false;
             setErrorMsg(
                 err?.code === "auth/invalid-verification-code"
                     ? "Invalid code. Try again."
                     : err?.message || "Something went wrong."
             );
+
             const idx = Math.min(code.length, 5);
             focusOtpIndex(idx);
         } finally {
-            // ✅ don't flicker states if redirect already started
-            if (!redirectingRef.current) {
-                setPostAuthChecking(false);
-                setVerifying(false);
-            }
+            setPostAuthChecking(false);
+            setVerifying(false);
         }
     };
 
-    // ✅ Auto-submit when last digit is entered (only on OTP step)
+    // ✅ Auto-submit when OTP reaches 6 digits
     useEffect(() => {
         if (!confirmation) return;
         if (!validCode) return;
-        if (verifying || disableAll) return;
-        if (autoSubmitLockRef.current) return;
-
-        autoSubmitLockRef.current = true;
+        if (disableAll) return;
+        if (verifying) return;
+        // auto verify
         verifyCode();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [code, validCode, confirmation]);
+    }, [code, confirmation, validCode]);
 
     const backToNumber = () => {
         setConfirmation(null);
         setCode("");
         setErrorMsg("");
         setCountdown(0);
-        autoSubmitLockRef.current = false;
-
-        // You may want to recreate recaptcha when going back
-        // but only if you cleared it earlier and captchaReady became false
+        verifyingOnceRef.current = false;
     };
+
+    const showSignupLink = useMemo(
+        () => errorMsg.toLowerCase().includes("sign up"),
+        [errorMsg]
+    );
 
     return (
         <main
@@ -336,34 +551,60 @@ export default function PhoneLoginPage() {
                             <label className="block text-xs font-semibold mb-1.5">
                                 <span style={{ color: EKARI.text }}>Phone number</span>
                             </label>
+
+                            {/* ✅ Professional phone input */}
                             <div
-                                className="flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
+                                className="flex items-center h-11 rounded-xl border bg-[#F6F7FB] px-2 gap-2
+                           focus-within:border-[rgba(35,63,57,0.7)]
+                           focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)]"
                                 style={{ borderColor: EKARI.hair }}
                             >
-                                <IoCallOutline className="mr-2 flex-shrink-0" size={18} color={EKARI.dim} />
+                                <IoCallOutline className="ml-1 flex-shrink-0" size={18} color={EKARI.dim} />
+
+                                <CountryPicker
+                                    value={country}
+                                    onChange={setCountry}
+                                    disabled={disableAll || sending}
+                                />
+
+
+                                <div className="h-6 w-px bg-gray-300" />
+
                                 <input
                                     type="tel"
-                                    inputMode="tel"
-                                    autoComplete="tel"
-                                    placeholder="+2547XXXXXXXX"
-                                    className="w-full bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
+                                    inputMode="numeric"
+                                    autoComplete="tel-national"
+                                    placeholder="712345678"
+                                    maxLength={12}
+                                    className="flex-1 bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
+                                    value={localPhone}
+                                    onChange={(e) => setLocalPhone(e.target.value.replace(/[^\d]/g, ""))}
                                     onKeyDown={(e) => e.key === "Enter" && sendCode()}
                                     aria-label="Phone number"
                                     disabled={disableAll || sending}
                                 />
                             </div>
 
-                            <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
-                                Include your country code, e.g. <span className="font-semibold">+2547…</span>
-                            </p>
+                            <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                                Sending to: <span className="font-semibold">{e164 || `${country.dial}…`}</span>
+                            </div>
 
                             {!!errorMsg && (
-                                <div className="mt-3 flex justify-center">
+                                <div className="mt-3 flex flex-col items-center gap-2">
                                     <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
                                         {errorMsg}
                                     </p>
+
+                                    {/* ✅ Signup link when user doesn't exist */}
+                                    {showSignupLink && (
+                                        <a
+                                            href="https://www.ekarihub.com/signup"
+                                            className="text-[12px] font-semibold underline underline-offset-4"
+                                            style={{ color: EKARI.forest }}
+                                        >
+                                            Create an account (Sign up)
+                                        </a>
+                                    )}
                                 </div>
                             )}
 
@@ -447,7 +688,6 @@ export default function PhoneLoginPage() {
                                                     const v = vRaw.replace(/[^\d]/g, "");
 
                                                     if (!v) {
-                                                        autoSubmitLockRef.current = false; // allow re-submit after edits
                                                         setOtpAt(i, "");
                                                         return;
                                                     }
@@ -463,9 +703,6 @@ export default function PhoneLoginPage() {
                                                     const nextCode = arr.join("").slice(0, 6);
                                                     setCode(nextCode);
 
-                                                    // If user edits again, allow auto-submit again
-                                                    if (nextCode.length < 6) autoSubmitLockRef.current = false;
-
                                                     const nextIndex = Math.min(i + digits.length, 5);
                                                     requestAnimationFrame(() => otpInputsRef.current[nextIndex]?.focus());
                                                 }}
@@ -473,12 +710,10 @@ export default function PhoneLoginPage() {
                                                     if (e.key === "Backspace") {
                                                         e.preventDefault();
                                                         if (char) {
-                                                            autoSubmitLockRef.current = false;
                                                             setOtpAt(i, "");
                                                             return;
                                                         }
                                                         const prev = Math.max(i - 1, 0);
-                                                        autoSubmitLockRef.current = false;
                                                         setOtpAt(prev, "");
                                                         requestAnimationFrame(() => otpInputsRef.current[prev]?.focus());
                                                     }
@@ -505,8 +740,6 @@ export default function PhoneLoginPage() {
                                                     const digits = text.replace(/[^\d]/g, "").slice(0, 6);
                                                     if (!digits) return;
 
-                                                    autoSubmitLockRef.current = false;
-
                                                     const arr = digits.split("");
                                                     while (arr.length < 6) arr.push("");
                                                     setCode(arr.join("").slice(0, 6));
@@ -522,10 +755,20 @@ export default function PhoneLoginPage() {
                             </div>
 
                             {!!errorMsg && (
-                                <div className="mt-3 flex justify-center">
+                                <div className="mt-3 flex flex-col items-center gap-2">
                                     <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
                                         {errorMsg}
                                     </p>
+
+                                    {showSignupLink && (
+                                        <a
+                                            href="https://www.ekarihub.com/signup"
+                                            className="text-[12px] font-semibold underline underline-offset-4"
+                                            style={{ color: EKARI.forest }}
+                                        >
+                                            Craft an account
+                                        </a>
+                                    )}
                                 </div>
                             )}
 
@@ -582,7 +825,11 @@ export default function PhoneLoginPage() {
                             Terms
                         </Link>{" "}
                         and{" "}
-                        <Link href="/privacy" className="underline font-semibold" style={{ color: EKARI.forest }}>
+                        <Link
+                            href="/privacy"
+                            className="underline font-semibold"
+                            style={{ color: EKARI.forest }}
+                        >
                             Privacy Policy
                         </Link>
                         .
