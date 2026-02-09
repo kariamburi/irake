@@ -61,6 +61,187 @@ type GroupConfig = {
   title: string;
   items: string[];
 };
+/** ✅ Country list (same style as phone-login) */
+const COUNTRIES = [
+  // 🌍 Africa
+  { code: "KE", dial: "+254", flag: "🇰🇪", name: "Kenya" },
+  { code: "UG", dial: "+256", flag: "🇺🇬", name: "Uganda" },
+  { code: "TZ", dial: "+255", flag: "🇹🇿", name: "Tanzania" },
+  { code: "RW", dial: "+250", flag: "🇷🇼", name: "Rwanda" },
+  { code: "BI", dial: "+257", flag: "🇧🇮", name: "Burundi" },
+  { code: "ET", dial: "+251", flag: "🇪🇹", name: "Ethiopia" },
+  { code: "SO", dial: "+252", flag: "🇸🇴", name: "Somalia" },
+  { code: "SS", dial: "+211", flag: "🇸🇸", name: "South Sudan" },
+  { code: "SD", dial: "+249", flag: "🇸🇩", name: "Sudan" },
+  { code: "NG", dial: "+234", flag: "🇳🇬", name: "Nigeria" },
+  { code: "GH", dial: "+233", flag: "🇬🇭", name: "Ghana" },
+  { code: "ZA", dial: "+27", flag: "🇿🇦", name: "South Africa" },
+  { code: "EG", dial: "+20", flag: "🇪🇬", name: "Egypt" },
+  { code: "DZ", dial: "+213", flag: "🇩🇿", name: "Algeria" },
+  { code: "MA", dial: "+212", flag: "🇲🇦", name: "Morocco" },
+  { code: "TN", dial: "+216", flag: "🇹🇳", name: "Tunisia" },
+  { code: "LY", dial: "+218", flag: "🇱🇾", name: "Libya" },
+  { code: "SN", dial: "+221", flag: "🇸🇳", name: "Senegal" },
+  { code: "CI", dial: "+225", flag: "🇨🇮", name: "Côte d’Ivoire" },
+  { code: "CM", dial: "+237", flag: "🇨🇲", name: "Cameroon" },
+  { code: "ZW", dial: "+263", flag: "🇿🇼", name: "Zimbabwe" },
+  { code: "ZM", dial: "+260", flag: "🇿🇲", name: "Zambia" },
+  { code: "MW", dial: "+265", flag: "🇲🇼", name: "Malawi" },
+  { code: "MZ", dial: "+258", flag: "🇲🇿", name: "Mozambique" },
+
+  // 🌎 Americas
+  { code: "US", dial: "+1", flag: "🇺🇸", name: "United States" },
+  { code: "CA", dial: "+1", flag: "🇨🇦", name: "Canada" },
+  { code: "MX", dial: "+52", flag: "🇲🇽", name: "Mexico" },
+  { code: "BR", dial: "+55", flag: "🇧🇷", name: "Brazil" },
+  { code: "AR", dial: "+54", flag: "🇦🇷", name: "Argentina" },
+  { code: "CL", dial: "+56", flag: "🇨🇱", name: "Chile" },
+  { code: "CO", dial: "+57", flag: "🇨🇴", name: "Colombia" },
+
+  // 🌍 Europe
+  { code: "GB", dial: "+44", flag: "🇬🇧", name: "United Kingdom" },
+  { code: "DE", dial: "+49", flag: "🇩🇪", name: "Germany" },
+  { code: "FR", dial: "+33", flag: "🇫🇷", name: "France" },
+  { code: "IT", dial: "+39", flag: "🇮🇹", name: "Italy" },
+  { code: "ES", dial: "+34", flag: "🇪🇸", name: "Spain" },
+  { code: "NL", dial: "+31", flag: "🇳🇱", name: "Netherlands" },
+  { code: "SE", dial: "+46", flag: "🇸🇪", name: "Sweden" },
+  { code: "NO", dial: "+47", flag: "🇳🇴", name: "Norway" },
+
+  // 🌏 Asia
+  { code: "IN", dial: "+91", flag: "🇮🇳", name: "India" },
+  { code: "PK", dial: "+92", flag: "🇵🇰", name: "Pakistan" },
+  { code: "BD", dial: "+880", flag: "🇧🇩", name: "Bangladesh" },
+  { code: "CN", dial: "+86", flag: "🇨🇳", name: "China" },
+  { code: "JP", dial: "+81", flag: "🇯🇵", name: "Japan" },
+  { code: "KR", dial: "+82", flag: "🇰🇷", name: "South Korea" },
+  { code: "SG", dial: "+65", flag: "🇸🇬", name: "Singapore" },
+  { code: "AE", dial: "+971", flag: "🇦🇪", name: "United Arab Emirates" },
+  { code: "SA", dial: "+966", flag: "🇸🇦", name: "Saudi Arabia" },
+
+  // 🌏 Oceania
+  { code: "AU", dial: "+61", flag: "🇦🇺", name: "Australia" },
+  { code: "NZ", dial: "+64", flag: "🇳🇿", name: "New Zealand" },
+] as const;
+
+type Country = typeof COUNTRIES[number];
+
+const POPULAR = ["KE", "UG", "TZ", "RW", "US", "GB"] as const;
+
+const SORTED_COUNTRIES: Country[] = [
+  ...COUNTRIES.filter((c) => (POPULAR as readonly string[]).includes(c.code)),
+  ...COUNTRIES.filter((c) => !(POPULAR as readonly string[]).includes(c.code)).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  ),
+];
+
+const flagUrl = (code: string) => `https://flagcdn.com/24x18/${code.toLowerCase()}.png`;
+
+function CountryPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Country;
+  onChange: (c: Country) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState("");
+
+  const filtered = React.useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return SORTED_COUNTRIES;
+    return SORTED_COUNTRIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(s) ||
+        c.code.toLowerCase().includes(s) ||
+        c.dial.includes(s)
+    );
+  }, [q]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest?.("[data-country-picker-root]")) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  return (
+    <div className="relative" data-country-picker-root>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((s) => !s)}
+        className="h-9 px-2 rounded-lg hover:bg-black/5 disabled:opacity-60
+          inline-flex items-center gap-2 text-sm font-semibold"
+      >
+        <img
+          src={flagUrl(value.code)}
+          alt={`${value.name} flag`}
+          width={18}
+          height={14}
+          className="rounded-[2px] border border-black/10"
+        />
+        <span className="text-slate-900">{value.dial}</span>
+        <span className="text-slate-500 hidden sm:inline">• {value.code}</span>
+        <svg width="14" height="14" viewBox="0 0 20 20" className="ml-1 opacity-70">
+          <path d="M5 7l5 6 5-6" fill="none" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-2 w-[280px] rounded-xl border border-black/10 bg-white shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-black/5">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search country…"
+              className="h-9 w-full rounded-lg border border-black/10 bg-[#F6F7FB] px-3 text-sm outline-none"
+              autoFocus
+            />
+          </div>
+
+          <div className="max-h-72 overflow-auto">
+            {filtered.map((c) => {
+              const active = c.code === value.code;
+              return (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => {
+                    onChange(c);
+                    setOpen(false);
+                    setQ("");
+                  }}
+                  className={`w-full px-3 py-2 flex items-center gap-2 text-left text-sm
+                    hover:bg-black/5 ${active ? "bg-black/5" : ""}`}
+                >
+                  <img
+                    src={flagUrl(c.code)}
+                    alt=""
+                    width={18}
+                    height={14}
+                    className="rounded-[2px] border border-black/10"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-slate-900 truncate">{c.name}</div>
+                    <div className="text-xs text-slate-500">
+                      {c.dial} • {c.code}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ============== Helpers ============== */
 const validateUrl = (v: string) =>
@@ -168,6 +349,20 @@ export default function EditProfilePage() {
   const db = getFirestore();
   const storage = getStorage();
   const auth = getAuth();
+  // ✅ Phone UI (country + local) like phone-login
+  const [phoneCountry, setPhoneCountry] = useState<Country>(() => {
+    const def = SORTED_COUNTRIES.find((c) => c.code === "KE") ?? SORTED_COUNTRIES[0];
+    return def;
+  });
+  const [localPhone, setLocalPhone] = useState("");
+
+  const phoneE164 = useMemo(() => {
+    const digits = (localPhone || "").replace(/[^\d]/g, "");
+    if (!digits) return "";
+    return `${phoneCountry.dial}${digits}`;
+  }, [phoneCountry, localPhone]);
+
+  const validPhoneE164 = useMemo(() => /^\+\d{8,15}$/.test(phoneE164), [phoneE164]);
 
   // ---------- Top-level state ----------
   const [loading, setLoading] = useState(true);
@@ -215,7 +410,7 @@ export default function EditProfilePage() {
     null
   );
   const [countryCode, setCountryCode] = useState<string | null>(null);
-
+  // ✅ Initialize picker from stored phone if possible
   // phone link state
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
@@ -344,6 +539,23 @@ export default function EditProfilePage() {
           setRoles(Array.isArray(d.roles) ? d.roles : []);
           setWebsite(d.website ?? null);
           setPhone(d.phone ?? u.phoneNumber ?? null);
+          // ✅ Initialize picker from stored phone if possible
+          const existing = String(d.phone ?? u.phoneNumber ?? "").trim();
+          if (existing.startsWith("+")) {
+            // match longest dial code first
+            const sortedByDialLen = [...SORTED_COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+            const hit = sortedByDialLen.find((c) => existing.startsWith(c.dial));
+            if (hit) {
+              setPhoneCountry(hit);
+              setLocalPhone(existing.slice(hit.dial.length).replace(/[^\d]/g, ""));
+            } else {
+              // fallback: keep KE, just strip +
+              setLocalPhone(existing.replace(/[^\d]/g, "").replace(/^254/, "")); // safe-ish fallback
+            }
+          } else {
+            setLocalPhone(existing.replace(/[^\d]/g, ""));
+          }
+
           setPhoneVerified(!!d.phoneVerified || !!u.phoneNumber);
           setCountryCode(d.countryCode ?? null);
 
@@ -558,38 +770,61 @@ export default function EditProfilePage() {
     }
   };
 
-  const sendSms = async (raw: string) => {
+  const sendSms = async (e164: string) => {
     if (!uid) return;
-    const e164 = raw.startsWith("+") ? raw : `+${raw}`;
+
     if (!/^\+\d{8,15}$/.test(e164)) {
-      setErrorMsg("Invalid phone number");
+      setErrorMsg("That phone number looks invalid. Check the country code and number.");
       return;
     }
+
     setPhoneBusy(true);
     setErrorMsg("");
     setSuccessMsg("");
+
     try {
       ensureRecaptcha();
-      // @ts-ignore
-      const conf = await linkWithPhoneNumber(getAuth().currentUser!, e164, recaptchaRef.current);
+      const conf = await linkWithPhoneNumber(
+        getAuth().currentUser!,
+        e164,
+        recaptchaRef.current
+      );
+
       confirmationResultRef.current = conf;
+
+      // keep phone state in sync
+      setPhone(e164);
       setSmsSent(true);
     } catch (err: any) {
+      // use the same clean mapping you have in phone-login if you want
       setErrorMsg(err?.message || "Could not send code");
     } finally {
       setPhoneBusy(false);
     }
   };
 
+
   const confirmSms = async () => {
     if (!confirmationResultRef.current) return;
+
     setPhoneBusy(true);
     setErrorMsg("");
     setSuccessMsg("");
+
     try {
       await confirmationResultRef.current.confirm(smsCode);
-      await saveField({ phone, phoneVerified: true });
+
+      // ✅ save verified phone + country
+      await saveField({
+        phone: phoneE164,
+        phoneVerified: true,
+        countryCode: phoneCountry.code,
+      });
+
+      setPhone(phoneE164);
       setPhoneVerified(true);
+      setCountryCode(phoneCountry.code);
+
       setSheet(null);
     } catch (err: any) {
       setErrorMsg(err?.message || "Invalid code");
@@ -597,6 +832,7 @@ export default function EditProfilePage() {
       setPhoneBusy(false);
     }
   };
+
 
   // ---------- Delete account (calls backend cloud function) ----------
   const handleConfirmDelete = async () => {
@@ -734,7 +970,13 @@ export default function EditProfilePage() {
               <ItemRow
                 label="Phone"
                 value={phone ? `${phoneVerified ? "✅ " : "⚠️ "}${phone}` : "Add phone"}
-                onEdit={() => setSheet("phone")}
+                onEdit={() => {
+                  setSmsSent(false);
+                  setSmsCode("");
+                  confirmationResultRef.current = null;
+                  setErrorMsg("");
+                  setSheet("phone");
+                }}
               />
               <ItemRow
                 label="Website"
@@ -1093,26 +1335,47 @@ export default function EditProfilePage() {
         {!smsSent ? (
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-semibold">Your phone number</label>
-              <input
-                value={phone || ""}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+2547XXXXXXXX"
-                className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
-              />
+              <label className="text-sm font-semibold">Phone number</label>
+
+              <div
+                className="mt-1 flex items-center h-11 rounded-xl border bg-[#F6F7FB] px-2 gap-2
+            focus-within:border-[rgba(35,63,57,0.7)]
+            focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)]"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <CountryPicker value={phoneCountry} onChange={setPhoneCountry} disabled={phoneBusy} />
+                <div className="h-6 w-px bg-gray-300" />
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  placeholder="712345678"
+                  maxLength={12}
+                  className="flex-1 bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
+                  value={localPhone}
+                  onChange={(e) => setLocalPhone(e.target.value.replace(/[^\d]/g, ""))}
+                  disabled={phoneBusy}
+                />
+              </div>
+
+              <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                Sending to: <span className="font-semibold">{phoneE164 || `${phoneCountry.dial}…`}</span>
+              </div>
             </div>
+
             <div className="flex justify-end gap-2">
               <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
                 Cancel
               </button>
               <button
-                disabled={phoneBusy}
+                disabled={phoneBusy || !validPhoneE164}
                 className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
-                onClick={() => sendSms(phone || "")}
+                onClick={() => sendSms(phoneE164)}
               >
                 {phoneBusy ? "Sending…" : "Send code"}
               </button>
             </div>
+
             {!!errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
           </div>
         ) : (
@@ -1126,6 +1389,7 @@ export default function EditProfilePage() {
                 className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
               />
             </div>
+
             <div className="flex justify-between items-center">
               <button
                 className="text-sm underline"
@@ -1137,14 +1401,16 @@ export default function EditProfilePage() {
               >
                 Back
               </button>
+
               <div className="flex gap-2">
                 <button
-                  disabled={phoneBusy}
+                  disabled={phoneBusy || !validPhoneE164}
                   className="h-10 px-4 rounded-xl border"
-                  onClick={() => sendSms(phone || "")}
+                  onClick={() => sendSms(phoneE164)}
                 >
                   Resend
                 </button>
+
                 <button
                   disabled={phoneBusy || smsCode.length !== 6}
                   className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
@@ -1154,10 +1420,12 @@ export default function EditProfilePage() {
                 </button>
               </div>
             </div>
+
             {!!errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
           </div>
         )}
       </BottomSheet>
+
 
       {/* invisible recaptcha node */}
       <div id="recaptcha-container" />
