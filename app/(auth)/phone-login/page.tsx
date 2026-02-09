@@ -222,7 +222,7 @@ export default function PhoneLoginPage() {
 
     const [captchaReady, setCaptchaReady] = useState(false);
     const [postAuthChecking, setPostAuthChecking] = useState(false);
-    const [safeNext, setSafeNext] = useState<string | null>(null);
+    const [safeNext, setSafeNext] = useState<string>("/");
 
     // ✅ Professional phone input state
     const [country, setCountry] = useState(() => {
@@ -259,9 +259,12 @@ export default function PhoneLoginPage() {
         if (typeof window === "undefined") return;
         const sp = new URLSearchParams(window.location.search);
         const nextParam = sp.get("next");
+
+        // allow only internal routes
         if (nextParam && nextParam.startsWith("/")) setSafeNext(nextParam);
-        else setSafeNext(null);
+        else setSafeNext("/");
     }, []);
+
 
     // Prepare invisible reCAPTCHA (once)
     useEffect(() => {
@@ -374,7 +377,7 @@ export default function PhoneLoginPage() {
                 const ok = await ensureUserDocOrSignOut(user.uid);
                 if (!alive) return;
                 if (!ok) return;
-                router.replace(safeNext ?? "/getstarted");
+                router.replace(safeNext);
             } finally {
                 if (alive) setPostAuthChecking(false);
             }
@@ -447,7 +450,7 @@ export default function PhoneLoginPage() {
             window._ekariRecaptcha = undefined;
 
             // ✅ navigate
-            router.replace(safeNext ?? "/getstarted");
+            router.replace(safeNext);
         } catch (err: any) {
             verifyingOnceRef.current = false;
             setErrorMsg(
