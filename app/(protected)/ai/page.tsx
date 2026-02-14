@@ -47,6 +47,46 @@ type Conv = {
   updatedAt?: any;
   messageCount?: number;
 };
+// Add near top (helpers)
+const MAX_IMAGE_MB = 6;
+const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+
+function fileToMb(n: number) {
+  return Math.round((n / (1024 * 1024)) * 10) / 10;
+}
+
+async function uploadImageAndGetUrl(file: File, uid: string | null) {
+  // Basic client validation (fast fail)
+  if (!ALLOWED.includes(file.type)) {
+    throw new Error(`Unsupported image type: ${file.type || "unknown"}`);
+  }
+  if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+    throw new Error(`Image too large: ${fileToMb(file.size)}MB (max ${MAX_IMAGE_MB}MB)`);
+  }
+
+  const safeName = (file.name || "image.jpg").replace(/[^\w.\-]/g, "_");
+  const key = `ekariAi/${uid || "anon"}/${Date.now()}_${safeName}`;
+  const ref = sRef(storage, key);
+
+  // ✅ upload
+  const snap = await uploadBytes(ref, file, {
+    contentType: file.type || "image/jpeg",
+    cacheControl: "public,max-age=31536000",
+  });
+
+  // ✅ verify it really exists (optional but useful)
+  if (!snap?.metadata?.fullPath) {
+    throw new Error("Upload failed (no metadata returned).");
+  }
+
+  // ✅ get URL
+  const url = await getDownloadURL(ref);
+  if (!url || !/^https?:\/\//.test(url)) {
+    throw new Error("Upload succeeded but could not get download URL.");
+  }
+
+  return { url, path: snap.metadata.fullPath };
+}
 
 const WELCOME: Msg = {
   id: "sys-welcome",
@@ -210,14 +250,18 @@ export default function Page() {
   // ---------------------------- SEND TO AI ----------------------------
   const sendToAI = useCallback(
     async (prompt: string, file?: File | null): Promise<string> => {
-      try {
-        let imageUrl: string | null = null;
+      let imageUrl: string | null = null;
 
+      try {
         if (file) {
-          const key = `ekariAi/${user?.uid || "anon"}/${Date.now()}_${file.name || "image.jpg"}`;
-          const ref = sRef(storage, key);
-          await uploadBytes(ref, file);
-          imageUrl = await getDownloadURL(ref);
+          // ✅ show user we are uploading (optional)
+          // setSending(true) is already done by onSend, so fine.
+
+          const up = await uploadImageAndGetUrl(file, user?.uid || null);
+          imageUrl = up.url;
+
+          // Optional debug (remove later)
+          console.log("✅ Image uploaded:", { path: up.path, imageUrl });
         }
 
         const res = await fetch(aiEndpoint, {
@@ -234,22 +278,39 @@ export default function Page() {
         if (!res.ok) {
           const body = await res.text().catch(() => "");
           console.error("Ekari AI HTTP error:", res.status, body);
-          return "Sorry — I couldn't process that request. Please try again.";
+
+          // ✅ expose a better message in UI
+          return `Sorry — the AI server returned an error (${res.status}). Please try again.`;
         }
 
         const data = await res.json();
-        if (data.conversationId) setConversationId(data.conversationId);
 
+        if (data.conversationId) setConversationId(data.conversationId);
         fetchConversations();
 
         return data.reply || "Sorry — I couldn't generate a response. Please try again.";
-      } catch (err) {
-        console.error("Ekari AI error:", err);
-        return "Sorry — something went wrong. Please check your connection and try again.";
+      } catch (err: any) {
+        // ✅ show real cause
+        console.error("sendToAI failed:", {
+          message: err?.message,
+          code: err?.code,
+          name: err?.name,
+          stack: err?.stack,
+        });
+
+        // If upload failed, tell user clearly
+        if (String(err?.message || "").toLowerCase().includes("upload")) {
+          return `Image upload failed: ${err?.message || "Unknown error"}`;
+        }
+
+        return err?.message
+          ? `Sorry — ${err.message}`
+          : "Sorry — something went wrong. Please check your connection and try again.";
       }
     },
     [aiEndpoint, user?.uid, conversationId, fetchConversations]
   );
+
 
   /* ------------------- ChatGPT-like typing (word streaming) ------------------- */
   const animateAssistantReply = useCallback(

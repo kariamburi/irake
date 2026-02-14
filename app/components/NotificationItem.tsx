@@ -7,6 +7,9 @@ import {
     IoEye,
     IoNotificationsOutline,
     IoCardOutline,
+    IoChatboxOutline,
+    IoCalendarOutline,
+    IoDocumentTextOutline,
 } from "react-icons/io5";
 import { EKARI } from "../constants/constants";
 import { useRouter } from "next/navigation";
@@ -20,6 +23,35 @@ const EKARI_UI = {
 };
 
 /** Map notif type to icon + tint */
+type Notif = {
+    id: string;
+    type?:
+    | "like"
+    | "comment"
+    | "follow"
+    | "profile_view"
+    | "payment_success"
+    | "new_deed"
+    | "new_event"
+    | "new_discussion"
+    | string;
+    byName?: string;
+    title?: string;
+    preview?: string;
+    createdAt?: any;
+    seen?: boolean;
+    meta?: Record<string, any>;
+};
+
+
+function tsToDate(ts: any): Date | null {
+    if (!ts) return null;
+    if (typeof ts?.toDate === "function") return ts.toDate();
+    if (typeof ts?.seconds === "number") return new Date(ts.seconds * 1000);
+    if (ts instanceof Date) return ts;
+    if (typeof ts === "number") return new Date(ts);
+    return null;
+}
 function notifMeta(n: Notif) {
     switch (n.type) {
         case "like":
@@ -30,6 +62,7 @@ function notifMeta(n: Notif) {
                 chip: "bg-rose-50 text-rose-700",
                 label: "Like",
             };
+
         case "comment":
             return {
                 icon: <IoChatbubbleEllipses size={16} />,
@@ -38,6 +71,7 @@ function notifMeta(n: Notif) {
                 chip: "bg-sky-50 text-sky-700",
                 label: "Comment",
             };
+
         case "follow":
             return {
                 icon: <IoPersonAdd size={16} />,
@@ -46,6 +80,7 @@ function notifMeta(n: Notif) {
                 chip: "bg-emerald-50 text-emerald-700",
                 label: "Follow",
             };
+
         case "profile_view":
             return {
                 icon: <IoEye size={16} />,
@@ -54,6 +89,7 @@ function notifMeta(n: Notif) {
                 chip: "bg-violet-50 text-violet-700",
                 label: "View",
             };
+
         case "payment_success":
             return {
                 icon: <IoCardOutline size={16} />,
@@ -61,6 +97,34 @@ function notifMeta(n: Notif) {
                 ring: "ring-amber-100",
                 chip: "bg-amber-50 text-amber-700",
                 label: "Payment",
+            };
+
+        // ✅ NEW: author created content (followers feed)
+        case "new_deed":
+            return {
+                icon: <IoDocumentTextOutline size={16} />,
+                iconBg: "bg-indigo-600",
+                ring: "ring-indigo-100",
+                chip: "bg-indigo-50 text-indigo-700",
+                label: "Deed",
+            };
+
+        case "new_event":
+            return {
+                icon: <IoCalendarOutline size={16} />,
+                iconBg: "bg-fuchsia-600",
+                ring: "ring-fuchsia-100",
+                chip: "bg-fuchsia-50 text-fuchsia-700",
+                label: "Event",
+            };
+
+        case "new_discussion":
+            return {
+                icon: <IoChatboxOutline size={16} />,
+                iconBg: "bg-teal-600",
+                ring: "ring-teal-100",
+                chip: "bg-teal-50 text-teal-700",
+                label: "Discussion",
             };
 
         default:
@@ -72,25 +136,6 @@ function notifMeta(n: Notif) {
                 label: "Activity",
             };
     }
-}
-type Notif = {
-    id: string;
-    type?: "like" | "comment" | "follow" | "profile_view" | "payment_success" | string;
-    byName?: string;
-    title?: string;
-    preview?: string;
-    createdAt?: any;
-    seen?: boolean;
-    meta?: Record<string, any>;
-};
-
-function tsToDate(ts: any): Date | null {
-    if (!ts) return null;
-    if (typeof ts?.toDate === "function") return ts.toDate();
-    if (typeof ts?.seconds === "number") return new Date(ts.seconds * 1000);
-    if (ts instanceof Date) return ts;
-    if (typeof ts === "number") return new Date(ts);
-    return null;
 }
 
 function shortTime(ts: any) {
@@ -122,7 +167,10 @@ function buildPreview(n: Notif) {
     else if (n.type === "profile_view")
         return `${n.byName || "Someone"} checked out your profile 👀`;
     if (n.type === "payment_success") return n.preview || n.title || "Payment successful.";
-
+    // ✅ NEW
+    if (n.type === "new_deed") return `${n.byName || "Someone"} posted a new deed.`;
+    if (n.type === "new_event") return `${n.byName || "Someone"} created a new event.`;
+    if (n.type === "new_discussion") return `${n.byName || "Someone"} started a new discussion.`;
     return n.title || "New activity.";
 }
 /** Safer router.push wrapper */
@@ -149,6 +197,23 @@ function routeForNotification(n: Notif, handle?: string): string | undefined {
         if (anyN.deedId) return `${anyN.handle}/deed/${anyN.deedId}`;
         if (anyN.listingId) return `/market/${anyN.listingId}`;
         return "/activity";
+    }
+    // ✅ NEW: content created by someone you follow
+    if (n.type === "new_deed") {
+        if (anyN.deedId) return `${anyN.handle}/deed/${anyN.deedId}`;
+        return "/activity";
+    }
+
+    if (n.type === "new_event") {
+        // change route if yours is different
+        if (anyN.eventId) return `/nexus/events/${anyN.eventId}`;
+        return "/nexus/events";
+    }
+
+    if (n.type === "new_discussion") {
+        // change route if yours is different
+        if (anyN.discussionId) return `/nexus/discussions/${anyN.discussionId}`;
+        return "/nexus/discussions";
     }
     if (n.type === "payment_success") {
         const kind = (anyN?.meta?.kind || "").toString();

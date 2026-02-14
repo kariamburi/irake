@@ -980,6 +980,7 @@ export default function UploadPage() {
       // VIDEO: NO MIX — direct Mux
       // =========================
       if (isVideo && file && durationSec && !willServerMix) {
+
         const { createMuxDirectUpload, uploadVideoToMux } = await import(
           "@/utils/muxUpload"
         );
