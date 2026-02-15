@@ -2370,9 +2370,12 @@ function FeedShell() {
 
   // step scroll
   const { goPrev, goNext, index } = useStepScroll(scrollerRef as any, () => items.length, true);
-  const atTop = index <= 0;
-  const atEnd = index >= Math.max(0, items.length - 1);
-
+  useEffect(() => {
+    if (!commentsId) return;
+    const current = items[index];
+    if (!current) return;
+    if (current.id !== commentsId) setCommentsId(current.id);
+  }, [index, items, commentsId]);
   // data saver toggle
   const [updatingDataSaver, setUpdatingDataSaver] = useState(false);
   const toggleUserDataSaver = useCallback(async () => {
