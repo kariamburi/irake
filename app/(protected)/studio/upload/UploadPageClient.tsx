@@ -92,8 +92,8 @@ const EKARI = {
   danger: "#B42318",
 };
 
-const MAX_VIDEO_SEC = 90;
-const MAX_MEDIA_MB = 60;
+const MAX_VIDEO_SEC = 240;
+const MAX_MEDIA_MB = 500;
 const DRAFT_KEY = "ekari.createDeed.draft";
 const CAPTION_MAX = 150;
 
@@ -277,6 +277,9 @@ export default function UploadPage() {
   /* ---------- media (VIDEO ONLY on web) ---------- */
   const [file, setFile] = useState<File | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  // ✅ NEW for multi-photo
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]); // blob urls for preview
   const [durationSec, setDurationSec] = useState<number | null>(null);
   const [videoWH, setVideoWH] = useState<{ width?: number; height?: number }>(
     {}
@@ -398,12 +401,16 @@ export default function UploadPage() {
   const [soundOpen, setSoundOpen] = useState(false);
 
   // Poster for previews
+
+  const firstImageUrl = imageUrls[0] || null;
+
   const posterUrl =
-    thumbDataUrl ??
-    existing?.media?.[0]?.thumbUrl ??
-    existing?.mediaThumbUrl ??
-    mediaUrl ??
-    "/video-placeholder.jpg";
+    (mediaKind === "image" && firstImageUrl) ? firstImageUrl :
+      thumbDataUrl ??
+      existing?.media?.[0]?.thumbUrl ??
+      existing?.mediaThumbUrl ??
+      mediaUrl ??
+      "/video-placeholder.jpg";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -561,28 +568,39 @@ export default function UploadPage() {
     } catch { }
   };
 
+  const hasImageSelection = imageFiles.length > 0;
+  const hasVideoSelection = !!file;
+
   const canPost =
-    (!!file || isEditing) &&
+    ((hasVideoSelection || hasImageSelection) || isEditing) &&
     !!uid &&
     (mediaKind === "image" || (durationSec ?? 0) <= MAX_VIDEO_SEC);
+
 
   const replaceMedia = () =>
     (document.getElementById("file-input-main") as HTMLInputElement)?.click();
 
+
   const clearMedia = () => {
     if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+    clearImagePreviews();
+
     setFile(null);
     setMediaUrl(null);
+
     setDurationSec(existing?.media?.[0]?.durationSec ?? null);
     setVideoWH({
       width: existing?.media?.[0]?.width,
       height: existing?.media?.[0]?.height,
     });
+
     setThumbDataUrl(null);
     setStripThumbs([]);
     setCoverMs(800);
+
     if (!isEditing) setStep(0);
   };
+
 
   /* ---------- geo ---------- */
   const requestGeo = async () => {
@@ -666,14 +684,15 @@ export default function UploadPage() {
       return;
     }
     const authorBadge = buildAuthorBadge(userProfile);
-    if (!isEditing && !file) {
-      setErrorMsg("Pick a media file and let it load first.");
-      setStep?.(0);
+    if (!isEditing && !file && imageFiles.length === 0) {
+      setErrorMsg("Pick a video or photos and let it load first.");
+      setStep(0);
       return;
     }
 
+
     // Enforce 90s cap for videos
-    const MAX_VIDEO_SEC = 90;
+
     const isVideo = mediaKind === "video";
     const isImage = mediaKind === "image";
     if (isVideo && durationSec && durationSec > MAX_VIDEO_SEC) {
@@ -853,66 +872,66 @@ export default function UploadPage() {
       // =========================
       // IMAGE: direct photo or photo->video mix
       // =========================
-      if (isImage && file) {
+      if (isImage && imageFiles.length) {
         const willPhotoServerMix =
           needsServerMix && (musicTitle || resolvedMusicUrl);
 
-        // ✅ Build TikTok-style variants (NO original upload)
-        const variants = await buildImageVariants(file);
-
         const basePath = `deeds/${uid}/${deedRef!.id}`;
-        const ext = variants.mime === "image/webp" ? "webp" : "jpg";
 
-        // ✅ Upload SMALL first (fast feed)
-        const smallUp = await uploadResumable(
-          variants.smallBlob,
-          `${basePath}/image_720.${ext}`,
-          setProgress,
-          variants.mime
-        );
+        const media: any[] = [];
+        const photoSourcesForMix: Array<{ gsUrl: string; storagePath: string; width?: number; height?: number }> = [];
 
-        // ✅ Upload FULL (zoom/open)
-        const fullUp = await uploadResumable(
-          variants.fullBlob,
-          `${basePath}/image_1440.${ext}`,
-          setProgress,
-          variants.mime
-        );
+        for (let i = 0; i < imageFiles.length; i++) {
+          const imgFile = imageFiles[i];
 
-        // If your server mix needs a gs:// reference, we point it to the FULL object
-        // (still optimized; not original)
-        const mixSource = willPhotoServerMix
-          ? pruneUndefined({
+          // ✅ build variants per photo
+          const variants = await buildImageVariants(imgFile);
+          const ext = variants.mime === "image/webp" ? "webp" : "jpg";
+
+          // store files like: image_0_720.jpg, image_0_1440.jpg, image_1_720.jpg ...
+          const smallUp = await uploadResumable(
+            variants.smallBlob,
+            `${basePath}/image_${i}_720.${ext}`,
+            setProgress,
+            variants.mime
+          );
+
+          const fullUp = await uploadResumable(
+            variants.fullBlob,
+            `${basePath}/image_${i}_1440.${ext}`,
+            setProgress,
+            variants.mime
+          );
+
+          // collect mix sources (point to FULL object)
+          photoSourcesForMix.push({
             gsUrl: fullUp.gsUrl,
             storagePath: fullUp.fullPath,
-          })
-          : undefined;
-
-        const media = [
-          pruneUndefined({
-            kind: "image" as const,
             width: variants.width,
             height: variants.height,
+          });
 
-            // feed-first url
-            thumbUrl: smallUp.downloadURL,
+          media.push(
+            pruneUndefined({
+              kind: "image" as const,
+              width: variants.width,
+              height: variants.height,
+              thumbUrl: smallUp.downloadURL,
+              url: fullUp.downloadURL,
+              sources: pruneUndefined({
+                small: smallUp.downloadURL,
+                full: fullUp.downloadURL,
+              }),
+              blurDataUrl: variants.tinyDataUrl,
+              // for server mix, you can also store per-item:
+              gsUrl: willPhotoServerMix ? fullUp.gsUrl : undefined,
+              storagePath: willPhotoServerMix ? fullUp.fullPath : undefined,
+            })
+          );
+        }
 
-            // full/zoom url
-            url: fullUp.downloadURL,
-
-            // explicit sources for clients
-            sources: pruneUndefined({
-              small: smallUp.downloadURL,
-              full: fullUp.downloadURL,
-            }),
-
-            // ultra tiny blur placeholder
-            blurDataUrl: variants.tinyDataUrl,
-
-            // for server mix (optional)
-            ...mixSource,
-          }),
-        ];
+        // first image becomes the thumbnail
+        const firstThumb = media[0]?.thumbUrl;
 
         const payload = pruneUndefined({
           authorId: uid,
@@ -942,13 +961,12 @@ export default function UploadPage() {
           geo,
 
           mediaType: "photo" as const,
-
-          // ✅ feed uses SMALL
-          mediaThumbUrl: smallUp.downloadURL,
+          mediaThumbUrl: firstThumb,
 
           text: caption?.trim() || undefined,
           createdAtMs: Date.now(),
 
+          // ✅ IMPORTANT: pass multiple sources to server mix
           mix: willPhotoServerMix
             ? pruneUndefined({
               mode: "photo_to_video",
@@ -960,6 +978,9 @@ export default function UploadPage() {
               ducking,
               duckAmountDb,
               loop: loopMusic,
+
+              // ✅ NEW (backend uses this)
+              photoSources: photoSourcesForMix,
             })
             : pruneUndefined({ needsServerMix: false }),
 
@@ -974,7 +995,6 @@ export default function UploadPage() {
         router.push(`/${userProfile?.handle}`);
         return;
       }
-
 
       // =========================
       // VIDEO: NO MIX — direct Mux
@@ -1120,7 +1140,144 @@ export default function UploadPage() {
   }, [localSoundFile]);
 
   const previewMusicUri = localSoundUrl || (musicUrl || null);
-  const previewPhotoUri = !mediaUrl && posterUrl ? posterUrl : null;
+  const previewPhotoUri =
+    mediaKind === "image"
+      ? (firstImageUrl || (!mediaUrl && posterUrl ? posterUrl : null))
+      : null;
+
+  const MAX_PHOTOS = 12; // pick your limit
+
+  const clearImagePreviews = () => {
+    // revoke old urls
+    imageUrls.forEach((u) => {
+      try { URL.revokeObjectURL(u); } catch { }
+    });
+    setImageFiles([]);
+    setImageUrls([]);
+  };
+
+  const onDropFiles = async (files: File[]) => {
+    if (!files?.length) return;
+
+    // decide if user selected video or images
+    const hasVideo = files.some((f) => f.type.startsWith("video/"));
+    const hasImage = files.some((f) => f.type.startsWith("image/"));
+
+    // Don’t allow mixing video+image in same pick
+    if (hasVideo && hasImage) {
+      showInfoModal("Pick one type", "Please select either a video OR photos (not both).");
+      return;
+    }
+
+    // ==========================
+    // VIDEO (single)
+    // ==========================
+    if (hasVideo) {
+      const v = files.find((f) => f.type.startsWith("video/"))!;
+      const mb = v.size / (1024 * 1024);
+      if (mb > MAX_MEDIA_MB) {
+        showInfoModal("File too large", `Max ${MAX_MEDIA_MB} MB. Your file is ~${mb.toFixed(1)} MB.`);
+        return;
+      }
+
+      // clear image state
+      clearImagePreviews();
+
+      // your existing video logic
+      if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+      setFile(v);
+      const url = URL.createObjectURL(v);
+      setMediaUrl(url);
+      setProgress(0);
+      setErrorMsg("");
+      setMediaKind("video");
+      setThumbDataUrl(null);
+      setCoverMs(800);
+      setStripThumbs([]);
+
+      try {
+        const meta = await probeVideoMeta(url);
+        setDurationSec(Math.round(meta.duration || 0));
+        setVideoWH({ width: meta.width, height: meta.height });
+        const initialCover = await captureVideoFrame(url, 0.8);
+        setThumbDataUrl(initialCover);
+        buildStrip(url, Math.max(1, Math.round(meta.duration || 0)));
+      } finally {
+        setStep(1);
+      }
+
+      return;
+    }
+
+    // ==========================
+    // IMAGES (multiple)
+    // ==========================
+    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    if (!imgs.length) {
+      showInfoModal("Unsupported file", "Please select a video or image.");
+      return;
+    }
+
+    if (imgs.length > MAX_PHOTOS) {
+      showInfoModal("Too many photos", `Please select up to ${MAX_PHOTOS} photos.`);
+      return;
+    }
+
+    // total size guard
+    const totalMb = imgs.reduce((s, f) => s + f.size, 0) / (1024 * 1024);
+    if (totalMb > MAX_MEDIA_MB) {
+      showInfoModal("Files too large", `Total must be ≤ ${MAX_MEDIA_MB} MB. Yours is ~${totalMb.toFixed(1)} MB.`);
+      return;
+    }
+
+    // clear video state
+    if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+    setFile(null);
+    setMediaUrl(null);
+    setDurationSec(null);
+    setStripThumbs([]);
+    setThumbDataUrl(null);
+    setCoverMs(800);
+
+    // clear old image previews
+    clearImagePreviews();
+
+    // build new previews
+    const urls = imgs.map((f) => URL.createObjectURL(f));
+    setImageFiles(imgs);
+    setImageUrls(urls);
+
+    // set image mode and poster
+    setMediaKind("image");
+    setVideoWH({});
+    setProgress(0);
+    setErrorMsg("");
+    setStep(1);
+  };
+  function DropZone({ onDropFiles }: { onDropFiles: (files: File[]) => void }) {
+    const [hover, setHover] = useState(false);
+    return (
+      <div
+        className="m-2 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-12 text-center transition sm:px-6 sm:py-16"
+        style={{ borderColor: hover ? EKARI.gold : EKARI.hair }}
+        onDragOver={(e) => { e.preventDefault(); setHover(true); }}
+        onDragLeave={() => setHover(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setHover(false);
+          const files = Array.from(e.dataTransfer.files || []);
+          if (files.length) onDropFiles(files);
+        }}
+      >
+        <div className="text-lg font-extrabold sm:text-2xl" style={{ color: EKARI.text }}>
+          Select media (video or photos) to upload
+        </div>
+        <div className="mt-2 text-xs sm:text-sm" style={{ color: EKARI.dim }}>
+          Or drag and drop it here
+        </div>
+      </div>
+    );
+  }
 
   // ✅ Put your existing inner page JSX into a "Body" variable so we can reuse it
   const Body = (
@@ -1189,18 +1346,20 @@ export default function UploadPage() {
           className="rounded-2xl border bg-white"
           style={{ borderColor: EKARI.hair }}
         >
-          <DropZone onDropFile={onDrop} />
+          <DropZone onDropFiles={onDropFiles} />
           <div className="px-4 pb-8 pt-6 text-center sm:py-10">
             <input
               id="file-input-drop"
               type="file"
               accept="video/*,image/*"
               hidden
+              multiple
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onDrop(f);
+                const files = Array.from(e.target.files || []);
+                if (files.length) onDropFiles(files);
               }}
             />
+
             <button
               className="mx-auto mt-3 rounded-lg px-5 py-3 text-sm font-bold text-white sm:text-base"
               style={{ backgroundColor: EKARI.gold }}
@@ -1215,7 +1374,7 @@ export default function UploadPage() {
       )}
 
       {/* STEP 1: Details */}
-      {step === 1 && (isEditing || mediaUrl) && (
+      {step === 1 && (isEditing || mediaUrl || imageUrls.length > 0) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[600px,1fr]">
           {/* PREVIEW COLUMN */}
           <div className="order-1 lg:order-2">
@@ -1526,49 +1685,177 @@ export default function UploadPage() {
             </div>
 
             {/* Cover selector + Preview Mixer (cover only for video) */}
-            <div className="mb-4 rounded-xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
-              <div className="font-extrabold" style={{ color: EKARI.text }}>Cover</div>
+            {/* Cover selector + Preview Mixer */}
+            <div
+              className="mb-4 rounded-2xl border bg-white p-4 shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)]"
+              style={{ borderColor: EKARI.hair }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="font-extrabold" style={{ color: EKARI.text }}>
+                  {mediaKind === "video" ? "Cover" : "Preview"}
+                </div>
 
-              <div className="mt-3 flex items-start gap-3">
-                {(mediaUrl || previewPhotoUri || previewMusicUri) && (
-                  <div className="relative overflow-hidden shrink-0" style={{ borderColor: EKARI.hair }}>
-                    <PreviewMixerCard
-                      title="Preview"
-                      videoUri={mediaKind === "video" ? (mediaUrl || undefined) : undefined}
-                      photoUri={mediaKind === "image" ? (mediaUrl || undefined) : undefined}
-                      posterUri={posterUrl || undefined}
-                      musicUri={previewMusicUri || undefined}
-                      musicOffsetMs={Math.round(startOffsetSec * 1000)}
-                      musicGain={musicGain01UI}
-                      videoGain={videoGain01UI}
-                      onOffsetChange={(ms: number) => setStartOffsetSec(Math.max(0, ms / 1000))}
-                      onGainChange={(g01: number) => { setMusicGainDb(Math.round(gain01ToDb(g01))); setMusicGain01UI(g01); }}
-                      onVideoGainChange={(g01: number) => { setVideoGainDb(Math.round(gain01ToDb(g01))); setVideoGain01UI(g01); }}
-                    />
+                {mediaKind === "video" ? (
+                  <span className="text-xs" style={{ color: EKARI.dim }}>
+                    Pick a thumbnail from your video
+                  </span>
+                ) : (
+                  <span className="text-xs" style={{ color: EKARI.dim }}>
+                    Timeline is for videos only
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[260px,1fr]">
+                {/* LEFT: Preview Card */}
+                {(mediaUrl || previewPhotoUri || previewMusicUri) ? (
+                  <div
+                    className="overflow-hidden rounded-2xl border bg-white"
+                    style={{ borderColor: EKARI.hair }}
+                  >
+                    <div className="border-b px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
+                          Preview
+                        </div>
+                        <div className="text-[11px]" style={{ color: EKARI.dim }}>
+                          {mediaKind === "video" ? formatDuration(durationSec || 0) : `${imageUrls.length || 1} photo(s)`}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3">
+                      <div className="mx-auto w-full max-w-[230px]">
+                        <PreviewMixerCard
+                          title=""
+                          videoUri={mediaKind === "video" ? (mediaUrl || undefined) : undefined}
+                          photoUri={mediaKind === "image" ? (firstImageUrl || undefined) : undefined}
+                          posterUri={posterUrl || undefined}
+                          musicUri={previewMusicUri || undefined}
+                          musicOffsetMs={Math.round(startOffsetSec * 1000)}
+                          musicGain={musicGain01UI}
+                          videoGain={videoGain01UI}
+                          onOffsetChange={(ms: number) => setStartOffsetSec(Math.max(0, ms / 1000))}
+                          onGainChange={(g01: number) => {
+                            setMusicGainDb(Math.round(gain01ToDb(g01)));
+                            setMusicGain01UI(g01);
+                          }}
+                          onVideoGainChange={(g01: number) => {
+                            setVideoGainDb(Math.round(gain01ToDb(g01)));
+                            setVideoGain01UI(g01);
+                          }}
+                        />
+                      </div>
+
+                      {/* Selected Photos (nice grid) */}
+                      {mediaKind === "image" && imageUrls.length > 0 && (
+                        <div className="mt-4 rounded-xl border p-3" style={{ borderColor: EKARI.hair, background: "#FCFCFD" }}>
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
+                              Selected photos ({imageUrls.length})
+                            </div>
+
+                            <button
+                              className="rounded-lg border px-3 py-1.5 text-xs font-bold"
+                              style={{ borderColor: EKARI.hair, color: EKARI.danger }}
+                              onClick={() =>
+                                showConfirmModal({
+                                  title: "Remove photos?",
+                                  message: "This will remove all selected photos.",
+                                  confirmText: "Remove",
+                                  cancelText: "Cancel",
+                                  onConfirm: () => clearMedia(),
+                                })
+                              }
+                            >
+                              <IoTrashOutline className="inline -mt-0.5 mr-1" />
+                              Clear
+                            </button>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-6 lg:grid-cols-4">
+                            {imageUrls.map((u, idx) => (
+                              <button
+                                key={u}
+                                className="group relative aspect-[3/4] overflow-hidden rounded-lg border"
+                                style={{
+                                  borderColor: idx === 0 ? EKARI.gold : EKARI.hair,
+                                  borderWidth: idx === 0 ? 2 : 1,
+                                }}
+                                title={idx === 0 ? "Primary preview" : `Photo ${idx + 1}`}
+                                onClick={() => {
+                                  // make clicked photo primary
+                                  setImageUrls((prev) => {
+                                    const next = [...prev];
+                                    const [picked] = next.splice(idx, 1);
+                                    next.unshift(picked);
+                                    return next;
+                                  });
+                                  setImageFiles((prev) => {
+                                    const next = [...prev];
+                                    const [picked] = next.splice(idx, 1);
+                                    next.unshift(picked);
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <img src={u} alt={`picked-${idx}`} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
+                                {idx === 0 && (
+                                  <div
+                                    className="absolute left-1 top-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold"
+                                    style={{ backgroundColor: EKARI.gold, color: "white" }}
+                                  >
+                                    Primary
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="mt-2 text-[11px]" style={{ color: EKARI.dim }}>
+                            Tap a photo to make it the primary preview/thumbnail.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border p-4 text-sm" style={{ borderColor: EKARI.hair, color: EKARI.dim }}>
+                    Select media to preview.
                   </div>
                 )}
 
-                <div className={`min-w-0 flex-1 ${mediaKind === "image" ? "opacity-60 pointer-events-none" : ""}`}>
+                {/* RIGHT: Timeline / strip (video only) */}
+                <div className={`min-w-0 ${mediaKind === "image" ? "opacity-50 pointer-events-none" : ""}`}>
                   <div className="mb-2 text-xs" style={{ color: EKARI.dim }}>
                     {mediaKind === "video"
-                      ? (file ? "Pick a thumbnail from your video" : "Cover selection is available after you choose a video.")
+                      ? (file ? "Choose a frame as thumbnail" : "Select a video to enable timeline.")
                       : "Cover timeline is for videos only."}
                   </div>
 
-                  <div className={`flex w-full gap-2 overflow-x-auto ${file && mediaKind === "video" ? "" : "opacity-60 pointer-events-none"}`}>
-                    {stripBusy && <div className="text-xs" style={{ color: EKARI.dim }}>Generating previews…</div>}
+                  <div className={`flex w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:thin] ${file && mediaKind === "video" ? "" : "opacity-60 pointer-events-none"}`}>
+                    {stripBusy && (
+                      <div className="text-xs" style={{ color: EKARI.dim }}>
+                        Generating previews…
+                      </div>
+                    )}
+
                     {stripThumbs.map((u, idx) => {
                       const tMs =
                         durationSec && stripThumbs.length
                           ? Math.floor(((idx + 1) / (stripThumbs.length + 1)) * durationSec * 1000)
                           : 0;
                       const isActive = Math.abs((coverMs ?? 0) - tMs) < 450;
+
                       return (
                         <button
                           key={`${u}-${idx}`}
                           onClick={() => generateThumbAt(tMs)}
-                          className="relative h-20 w-14 sm:h-24 sm:w-16 rounded-md overflow-hidden border"
-                          style={{ borderColor: isActive ? EKARI.gold : EKARI.hair, borderWidth: isActive ? 2 : 1 }}
+                          className="relative h-20 w-14 sm:h-24 sm:w-16 shrink-0 overflow-hidden rounded-lg border"
+                          style={{
+                            borderColor: isActive ? EKARI.gold : EKARI.hair,
+                            borderWidth: isActive ? 2 : 1,
+                          }}
                           title={`${(tMs / 1000).toFixed(1)}s`}
                         >
                           <img src={u} alt="frame" className="h-full w-full object-cover" />
@@ -1594,6 +1881,7 @@ export default function UploadPage() {
                 </div>
               </div>
             </div>
+
 
             {/* Description + Hashtags + Sound + Settings */}
             <div className="rounded-xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
@@ -2017,7 +2305,7 @@ function SettingsPanel({
       <SettingRow
         icon={<IoTimeOutline />}
         title="Duration"
-        hint="Limit 90s"
+        hint={`Limit ${Math.round(MAX_VIDEO_SEC / 60)} min`}
         right={<BadgeMono>{mediaKind === "video" ? formatDuration(durationSec) : "-"}</BadgeMono>}
       />
 
@@ -2208,33 +2496,6 @@ function CreateTab() {
       <div className="relative grid h-9 w-9 place-items-center rounded-lg">
         <div className="absolute inset-0 rounded-lg bg-white" />
         <IoAdd size={20} className="relative text-black" />
-      </div>
-    </div>
-  );
-}
-function DropZone({ onDropFile }: { onDropFile: (f: File) => void }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <div
-      className="m-2 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-12 text-center transition sm:px-6 sm:py-16"
-      style={{ borderColor: hover ? EKARI.gold : EKARI.hair }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setHover(true);
-      }}
-      onDragLeave={() => setHover(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setHover(false);
-        const f = e.dataTransfer.files?.[0];
-        if (f) onDropFile(f);
-      }}
-    >
-      <div className="text-lg font-extrabold sm:text-2xl" style={{ color: EKARI.text }}>
-        Select media (video or photo) to upload
-      </div>
-      <div className="mt-2 text-xs sm:text-sm" style={{ color: EKARI.dim }}>
-        Or drag and drop it here
       </div>
     </div>
   );
