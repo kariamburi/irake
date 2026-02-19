@@ -66,41 +66,20 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 export async function buildImageVariants(file: File) {
     const bmp = await fileToImageBitmap(file);
 
+    const width = bmp.width;
+    const height = bmp.height;
+
     const useWebp = canEncodeWebp();
     const mime = useWebp ? ("image/webp" as const) : ("image/jpeg" as const);
 
-    const full = await resizeBitmapToBlob({
-        bmp,
-        maxW: 1440,
-        mime,
-        quality: useWebp ? 0.82 : 0.85,
-    });
+    const full = await resizeBitmapToBlob({ bmp, maxW: 1440, mime, quality: useWebp ? 0.82 : 0.85 });
+    const small = await resizeBitmapToBlob({ bmp, maxW: 720, mime, quality: useWebp ? 0.78 : 0.82 });
 
-    const small = await resizeBitmapToBlob({
-        bmp,
-        maxW: 720,
-        mime,
-        quality: useWebp ? 0.78 : 0.82,
-    });
-
-    // tiny blur (store in Firestore as base64)
-    const tiny = await resizeBitmapToBlob({
-        bmp,
-        maxW: 24,
-        mime: "image/jpeg",
-        quality: 0.6,
-    });
-
+    const tiny = await resizeBitmapToBlob({ bmp, maxW: 24, mime: "image/jpeg", quality: 0.6 });
     const tinyDataUrl = await blobToDataUrl(tiny.blob);
 
     bmp.close?.();
 
-    return {
-        width: bmp.width,
-        height: bmp.height,
-        mime,
-        tinyDataUrl,
-        smallBlob: small.blob,
-        fullBlob: full.blob,
-    };
+    return { width, height, mime, tinyDataUrl, smallBlob: small.blob, fullBlob: full.blob };
 }
+

@@ -155,6 +155,7 @@ export type PlayerItem = {
   mediaUrl: string | null;
   posterUrl?: string;
   mediaType: "video" | "photo" | "none";
+  media: any;
   text: string;
   createdAt: number;
   visibility: "public" | "followers" | "private";
@@ -179,6 +180,7 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
         : Date.now();
 
   const m0 = Array.isArray(d.media) ? d.media[0] : undefined;
+
   const kind = (d.type ?? m0?.kind ?? d.mediaType)?.toString().toLowerCase();
   const mediaType: PlayerItem["mediaType"] =
     kind === "video" ? "video" : kind === "image" || kind === "photo" ? "photo" : "none";
@@ -242,6 +244,7 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
     tags,
     // 🔥 include it here
     music,
+    media: d.media,
   };
 }
 

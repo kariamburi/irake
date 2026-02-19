@@ -744,7 +744,11 @@ export default function UploadPage() {
       console.error("Audio upload failed", e);
     }
 
-    const willServerMix = needsServerMix && (musicTitle || resolvedMusicUrl);
+    const willServerMix =
+      mediaKind === "video" &&
+      needsServerMix &&
+      (musicTitle || resolvedMusicUrl);
+
 
     let deedRef: ReturnType<typeof doc> | null = null;
 
@@ -967,24 +971,14 @@ export default function UploadPage() {
           createdAtMs: Date.now(),
 
           // ✅ IMPORTANT: pass multiple sources to server mix
-          mix: willPhotoServerMix
-            ? pruneUndefined({
-              mode: "photo_to_video",
-              needsServerMix: true,
-              keepMic,
-              offsetMs: Math.round(startOffsetSec * 1000),
-              musicGainDb,
-              micGainDb,
-              ducking,
-              duckAmountDb,
-              loop: loopMusic,
-
-              // ✅ NEW (backend uses this)
-              photoSources: photoSourcesForMix,
-            })
-            : pruneUndefined({ needsServerMix: false }),
-
-          status: willPhotoServerMix ? "mixing" : "ready",
+          mix: pruneUndefined({
+            mode: "photo_slideshow", // client-side only
+            needsServerMix: false,
+            musicGainDb,
+            ducking,
+            loop: loopMusic,
+          }),
+          status: "ready",
           updatedAt: serverTimestamp(),
         });
 
@@ -2123,7 +2117,7 @@ export default function UploadPage() {
             setMusicUrl(picked.url || "");
             setMusicTitle(picked.title || "Library sound");
             setLocalSoundFile(null);
-            setNeedsServerMix(true);
+            setNeedsServerMix(mediaKind === "video");
             setMusicCoverUrl(picked.coverUrl || picked.thumbnailUrl || undefined);
             setMusicSoundId(picked.soundId);
           } else if (picked.source === "external") {
@@ -2131,7 +2125,7 @@ export default function UploadPage() {
             setMusicUrl(picked.url || "");
             setMusicTitle(picked.title || "Linked sound");
             setLocalSoundFile(null);
-            setNeedsServerMix(true);
+            setNeedsServerMix(mediaKind === "video");
             setMusicCoverUrl(undefined);
             setMusicSoundId(undefined);
           } else if (picked.source === "uploaded") {
@@ -2140,7 +2134,7 @@ export default function UploadPage() {
             setMusicTitle(picked.title || "Upload");
             // @ts-ignore - our web sheet passes a File as "file"
             setLocalSoundFile((picked as any).file || null);
-            setNeedsServerMix(true);
+            setNeedsServerMix(mediaKind === "video");
             setMusicCoverUrl(undefined);
             setMusicSoundId(undefined);
           }

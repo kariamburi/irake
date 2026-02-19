@@ -74,6 +74,8 @@ import { useUserProfile } from "./providers/UserProfileProvider";
 import { AuthorBadgePill } from "./components/AuthorBadgePill";
 import { EkariSideMenuSheet } from "./components/EkariSideMenuSheet";
 import SmartAvatar from "./components/SmartAvatar";
+import { PhotoSliderPlayer } from "./components/PhotoSliderPlayer";
+
 
 /* ---------- Theme ---------- */
 const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
@@ -1420,6 +1422,7 @@ function SkeletonCard({
 
 
 /* ---------- VideoCard ---------- */
+/* ---------- VideoCard ---------- */
 function VideoCard({
   item,
   uid,
@@ -1441,6 +1444,9 @@ function VideoCard({
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const fsVideoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  // ✅ FIX: define cardRef (this is what your TS error complained about)
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
 
   const { muted, toggleMute, registerVideo, unregisterVideo } = useGlobalMute();
   const router = useRouter();
@@ -1488,25 +1494,40 @@ function VideoCard({
   const visibleTags = captionExpanded ? tags : tags.slice(0, MAX_COLLAPSED_TAGS);
   const showMoreToggle = captionTooLong || tagsHidden;
 
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  useEffect(() => {
+    if (item.mediaType === "photo") {
+      // allow PhotoSliderPlayer to render + start loading immediately
+      setMediaReady(true);
+
+      // thumb can remain until slider loads, but don't block UI with loader
+      // setThumbVisible(false); // optional
+    }
+  }, [item.id, item.mediaType]);
+  const [audioAllowed, setAudioAllowed] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+
+  // one-time gesture unlock
+  useEffect(() => {
+    const unlock = () => setAudioAllowed(true);
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock as any);
+      window.removeEventListener("keydown", unlock as any);
+    };
+  }, []);
+
 
   useEffect(() => {
-    setImgLoaded(false);
-    setImgError(false);
-  }, [item.id]);
-
-  useEffect(() => {
-    setMediaReady(false);          // ✅ loader shows for photos too
+    setMediaReady(false);
     firstFrameFiredRef.current = false;
 
     setThumbVisible(true);
 
-    // ✅ prefer lightweight preview first (if you have one)
     const preview =
       (item as any).previewUrl ||
       (item as any).thumbUrl ||
-      item.posterUrl || // sometimes you reuse this field
+      item.posterUrl ||
       item.mediaUrl ||
       null;
 
@@ -1522,7 +1543,6 @@ function VideoCard({
   const timeAgo = createdAtMs ? formatTimeAgoShort(createdAtMs) : "";
   const timeTitle = createdAtMs ? formatAbsDateTime(createdAtMs) : "";
 
-  // fire first frame
   const fireFirstFrameOnce = useCallback(() => {
     if (firstFrameFiredRef.current) return;
     firstFrameFiredRef.current = true;
@@ -1536,7 +1556,7 @@ function VideoCard({
     }
 
     setMediaReady(true);
-    setThumbVisible(false); // ✅ hide thumb once video is ready
+    setThumbVisible(false);
     fireFirstFrameOnce();
   };
 
@@ -1548,10 +1568,9 @@ function VideoCard({
     }
 
     setMediaReady(true);
-    setThumbVisible(false); // ✅ hide thumb once image is ready
+    setThumbVisible(false);
     fireFirstFrameOnce();
   };
-
 
   // autoplay
   useAutoPlay(videoRef, {
@@ -1699,6 +1718,34 @@ function VideoCard({
     } catch { }
   };
 
+  // ✅ FIX: pause photo slider when card is off-screen
+  const [photoPaused, setPhotoPaused] = useState(false);
+  const shouldPlayPhotoAudio =
+    item.mediaType === "photo" &&
+    !!(item as any).music?.url &&          // must have audio url
+    !photoPaused &&                        // on screen
+    audioAllowed &&                        // user has interacted
+    !fullscreenOpen &&                     // optional: don’t play in fullscreen if you want
+    !muted;                               // if you pass paused prop elsewhere
+
+  useEffect(() => {
+    if (item.mediaType !== "photo") return;
+
+    const el = cardRef.current;
+    const root = scrollRootRef.current;
+    if (!el) return;
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        setPhotoPaused(!entry.isIntersecting);
+      },
+      { root: root ?? null, threshold: 0.4 }
+    );
+
+    io.observe(el);
+    return () => io.disconnect();
+  }, [item.mediaType, scrollRootRef]);
+
   const onLikeClick = () => {
     if (!uid) return router.push("/getstarted?next=/");
     toggleLike();
@@ -1726,23 +1773,27 @@ function VideoCard({
     router.push(`/${encodeURIComponent(handle.startsWith("@") ? handle : `@${handle}`)}`);
   };
 
-  // ✅ MOBILE-ONLY TikTok UI mode tuning
   const railBtn = isMobile ? "h-14 w-14" : "h-10 w-10";
   const railIcon = isMobile ? 26 : 22;
   const railCount = isMobile ? "text-[10px]" : "text-[10px]";
-  //const railTextColor = isMobile ? "text-white" : "md:text-gray-900 text-white";
   const railTextColor = isMobile ? "text-white" : "text-white";
-  const railBg = isMobile ? "bg-white/10 border-white/15" : "bg-black/40 md:bg-white/95 border-white/30 md:border-gray-200";
+  const railBg =
+    isMobile
+      ? "bg-white/10 border-white/15"
+      : "bg-black/40 md:bg-white/95 border-white/30 md:border-gray-200";
 
   return (
     <div className={cn("relative w-full", isMobile ? "" : "py-1")}>
+      {/* ✅ cardRef is attached here */}
       <article
+        ref={cardRef as any}
         className={cn(
           "group relative overflow-hidden bg-black",
           isMobile
             ? "w-full rounded-none shadow-none"
             : "w-full lg:w-[375px] rounded-[28px] shadow-[0_22px_60px_rgba(0,0,0,.65)] bg-gradient-to-b from-[#0B1513] via-black to-black",
-          !isMobile && "transition-transform duration-300 ease-out md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]"
+          !isMobile &&
+          "transition-transform duration-300 ease-out md:hover:-translate-y-1 md:hover:shadow-[0_28px_80px_rgba(0,0,0,.85)]"
         )}
         style={{ height: cardH }}
       >
@@ -1765,7 +1816,6 @@ function VideoCard({
               </button>
             </div>
 
-            {/* ✅ hide desktop hover play button on mobile */}
             {!isMobile && (
               <button
                 onClick={togglePlay}
@@ -1807,9 +1857,7 @@ function VideoCard({
         )}
 
         {/* media */}
-
         <div className="relative w-full h-full flex items-center justify-center bg-black">
-          {/* ✅ thumbnail layer (stays visible while we determine orientation / until ready) */}
           {thumbSrc && thumbVisible && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -1820,11 +1868,10 @@ function VideoCard({
               className={cn(
                 "absolute inset-0 h-full w-full",
                 fitMode === "contain" ? "object-contain" : "object-cover",
-                "transition-opacity duration-300",
+                "transition-opacity duration-300"
               )}
               style={{ opacity: thumbVisible ? 1 : 0 }}
               onLoad={(e) => {
-                // optional: helps for image thumbs too
                 const img = e.currentTarget;
                 if (img.naturalWidth && img.naturalHeight) {
                   setFitMode(img.naturalWidth > img.naturalHeight ? "contain" : "cover");
@@ -1833,7 +1880,6 @@ function VideoCard({
             />
           )}
 
-          {/* actual media */}
           {item.mediaType === "video" && item.mediaUrl ? (
             <video
               ref={videoRef}
@@ -1851,27 +1897,32 @@ function VideoCard({
               onLoadedData={handleVideoReady}
               onCanPlay={handleVideoReady}
             />
-          ) : item.mediaType === "photo" && item.mediaUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <ProgressiveImg
-              src={item.mediaUrl}
-              previewSrc={thumbSrc} // ✅ uses preview/thumb first, then full
-              alt={item.text || "photo"}
-              className={cn("h-full w-full", fitMode === "contain" ? "object-contain" : "object-cover")}
-              onReady={(w, h) => {
-                if (w && h) setFitMode(w > h ? "contain" : "cover");
+          ) : item.mediaType === "photo" && Array.isArray(item.media) ? (
+            <PhotoSliderPlayer
+              photos={(item.media || []).map((m: any) => ({
+                url: m?.url || m,
+                previewUrl: m?.previewUrl || m?.thumbUrl || null,
+              }))}
+              audioUrl={(item as any)?.music?.url || (item as any)?.musicUrl || undefined}
+              intervalMs={3000}
+              paused={photoPaused || fullscreenOpen}   // ✅ uses your observer
+              muted={muted}                             // ✅ uses global mute
+              audioAllowed={audioAllowed}               // ✅ gesture unlock
+              fit={fitMode}
+              onFirstLoad={() => {
                 setMediaReady(true);
                 setThumbVisible(false);
                 fireFirstFrameOnce();
               }}
-              onError={() => {
-                setImgError(true);
-                setMediaReady(true); // avoid infinite loader
+              onLoadError={() => {
+                setMediaReady(true); // fail-safe: don’t block UI
                 setThumbVisible(false);
               }}
             />
           ) : (
-            <div className="relative h-full w-full flex items-center justify-center text-white/90">No media</div>
+            <div className="relative h-full w-full flex items-center justify-center text-white/90">
+              No media
+            </div>
           )}
         </div>
 
@@ -2096,7 +2147,7 @@ function VideoCard({
           </button>
           <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalShares)}</div>
           {/* ✅ MOBILE: mute/unmute lives on rail so it never gets hidden */}
-          {isMobile && item.mediaType === "video" && (
+          {item.mediaType === "video" || item.mediaType === "photo" && (
             <button
               onClick={toggleMute}
               aria-label={muted ? "Unmute" : "Mute"}
