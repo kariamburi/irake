@@ -249,13 +249,16 @@ export function toPlayerItem(d: any, id: string): PlayerItem {
 }
 
 /* ---------------- Convenience fetch ---------------- */
-export async function fetchUserSiblings(authorId: string, max = 100): Promise<PlayerItem[]> {
+export async function fetchUserSiblings(authorId: string, take = 100): Promise<PlayerItem[]> {
   const q = query(
     collection(db, "deeds"),
     where("authorId", "==", authorId),
+    where("visibility", "==", "public"),
+    where("status", "==", "ready"),
     orderBy("createdAt", "desc"),
-    limit(max)
+    limit(take)
   );
+
   const s = await getDocs(q);
   return s.docs.map((d) => toPlayerItem(d.data(), d.id));
 }

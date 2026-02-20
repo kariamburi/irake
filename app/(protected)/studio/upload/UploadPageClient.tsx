@@ -1700,11 +1700,11 @@ export default function UploadPage() {
                 )}
               </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[260px,1fr]">
+              <div className="mt-3 grid grid-cols-1 gap-4 w-full">
                 {/* LEFT: Preview Card */}
                 {(mediaUrl || previewPhotoUri || previewMusicUri) ? (
                   <div
-                    className="overflow-hidden rounded-2xl border bg-white"
+                    className="w-full overflow-hidden rounded-2xl border"
                     style={{ borderColor: EKARI.hair }}
                   >
                     <div className="border-b px-3 py-2" style={{ borderColor: EKARI.hair }}>
@@ -1718,7 +1718,7 @@ export default function UploadPage() {
                       </div>
                     </div>
 
-                    <div className="p-3">
+                    <div className="flex gap-2 p-3 w-full">
                       <div className="mx-auto w-full max-w-[230px]">
                         <PreviewMixerCard
                           title=""

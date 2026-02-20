@@ -43,6 +43,7 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { cn } from "@/lib/utils";
 import OpenInAppBanner from "@/app/components/OpenInAppBanner";
 import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
+import { PhotoSliderPlayer } from "@/app/components/PhotoSliderPlayer";
 
 type Item = any;
 
@@ -430,6 +431,10 @@ type DeedSlideProps = {
     onPrev: () => void;
     onNext: () => void;
     EKARI: { primary: string };
+    // ✅ NEW for PhotoSliderPlayer
+    photoPaused: boolean;
+    audioAllowed: boolean;
+    fitMode: "contain" | "cover";
 };
 
 function DeedSlide({
@@ -444,6 +449,9 @@ function DeedSlide({
     onPrev,
     onNext,
     EKARI,
+    photoPaused,
+    audioAllowed,
+    fitMode,
 }: DeedSlideProps) {
     const router = useRouter();
     const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -546,16 +554,27 @@ function DeedSlide({
                         onCanPlay={() => setReady(true)}
                         onLoadedData={() => setReady(true)}
                     />
-                ) : item.mediaType === "photo" && item.mediaUrl ? (
-                    <div className="block h-full w-full bg-black">
-                        <ProgressiveImg
-                            src={item.mediaUrl}
-                            previewSrc={preview}
-                            alt={item.text || "photo"}
-                            className="h-full w-full"
-                            onReady={() => setReady(true)}
-                        />
-                    </div>
+                ) : item.mediaType === "photo" && Array.isArray(item.media) ? (
+                    <PhotoSliderPlayer
+                        photos={(item.media || []).map((m: any) => ({
+                            url: m?.url || m,
+                            previewUrl: m?.previewUrl || m?.thumbUrl || null,
+                        }))}
+                        audioUrl={(item as any)?.music?.url || (item as any)?.musicUrl || undefined}
+                        intervalMs={3000}
+                        paused={photoPaused}   // ✅ uses your observer
+                        muted={muted}                             // ✅ uses global mute
+                        audioAllowed={audioAllowed}               // ✅ gesture unlock
+                        fit={fitMode}
+                        onFirstLoad={() => {
+                            setReady(true);
+
+                        }}
+                        onLoadError={() => {
+                            setReady(true); // fail-safe: don’t block UI
+
+                        }}
+                    />
                 ) : (
                     <div className="grid h-full w-full place-items-center text-white/70">
                         No media
@@ -774,7 +793,9 @@ export default function PlayerByHandlePage() {
 
     const EKARI = { primary: "#C79257" };
     const [neighborPreloadRange, setNeighborPreloadRange] = useState(1);
-
+    // ✅ PhotoSlider controls
+    const [audioAllowed, setAudioAllowed] = useState(false);
+    const [fitMode] = useState<"contain" | "cover">("contain");
     useEffect(() => {
         let base = 1;
         try {
@@ -817,7 +838,19 @@ export default function PlayerByHandlePage() {
                 }
 
                 const current = toPlayerItem(snap.data(), snap.id);
+                const d = snap.data() as any;
 
+                // allow owner to view even if not ready (optional)
+                const isOwner = uid && d?.authorId === uid;
+
+                const isPublic = d?.visibility === "public";
+                const isReady = d?.status === "ready";
+
+                if (!isOwner && (!isPublic || !isReady)) {
+                    setSiblings([]);
+                    setLoading(false);
+                    return;
+                }
                 // if URL handle doesn't match author, redirect to correct author handle
                 const routeRes = await resolveUidByHandle(handleWithAt);
                 const routeUid = routeRes?.uid;
@@ -958,7 +991,10 @@ export default function PlayerByHandlePage() {
     const appUrl = `ekarihub:///${encodeURIComponent(normalized)}/deed/${encodeURIComponent(deedId)}`;
 
     return (
-        <div className="fixed inset-0 bg-black text-white">
+        <div className="fixed inset-0 bg-black text-white"
+            onPointerDown={() => setAudioAllowed(true)}
+            onTouchStart={() => setAudioAllowed(true)}
+            onClick={() => setAudioAllowed(true)}>
             <OpenInAppBanner
                 webUrl={webUrl}
                 appUrl={appUrl}
@@ -1014,6 +1050,10 @@ export default function PlayerByHandlePage() {
                             onPrev={goPrev}
                             onNext={goNext}
                             EKARI={EKARI}
+                            // ✅ NEW
+                            photoPaused={index !== activeIndex}  // pause when not active or when rail open
+                            audioAllowed={audioAllowed}
+                            fitMode={fitMode}
                         />
                     ))}
                 </div>

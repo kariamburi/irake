@@ -195,14 +195,6 @@ export function PhotoSliderPlayer({
                 />
             </AnimatePresence>
 
-            {/* 🎵 small audio badge */}
-            {audioUrl && showAudioIndicator && (
-                <div className="absolute top-3 left-3 z-20 rounded-full bg-black/55 px-2 py-1 text-[11px] text-white flex items-center gap-1">
-                    <span>{muted ? "🔇" : "🔊"}</span>
-                    <span className="opacity-80">{muted ? "Muted" : "Sound"}</span>
-                </div>
-            )}
-
             {/* TikTok segmented progress */}
             {count > 1 && (
                 <div className="absolute left-3 right-3 bottom-3 z-20">

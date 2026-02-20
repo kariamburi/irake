@@ -70,13 +70,7 @@ export default function PreviewMixerCard({
                         </div>
                     )}
                 </div>
-                <div className="p-2">
-                    <div className="truncate text-sm font-extrabold" style={{ color: EKARI.text }}>{title}</div>
-                    {musicUri && (
-                        <span className="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-white"
-                            style={{ background: EKARI.forest }}>♪ Music</span>
-                    )}
-                </div>
+
             </button>
 
             {open && (

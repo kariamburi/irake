@@ -1833,6 +1833,21 @@ function VideoCard({
           </>
         )}
 
+        {item.mediaType === "photo" && music?.url && (
+          <>
+            <div className="absolute left-3 top-[50px] z-20 flex items-center gap-2">
+              <button
+                onClick={toggleMute}
+                aria-label={muted ? "Unmute video (global)" : "Mute video (global)"}
+                className="rounded-full bg-black/40 text-white p-2 hover:bg-black/70 backdrop-blur-sm border border-white/20"
+              >
+                {muted ? <IoVolumeMute size={18} /> : <IoVolumeHigh size={18} />}
+              </button>
+            </div>
+
+          </>
+        )}
+
         {/* fullscreen toggle */}
         {item.mediaUrl && (
           <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
@@ -1951,13 +1966,7 @@ function VideoCard({
                 )}
               >
                 <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#C79257] via-transparent to-[#233F39] opacity-70" />
-                {/* eslint-disable-next-line @next/next/no-img-element 
-                <img
-                  src={avatar}
-                  alt={authorProfile?.handle || item.authorUsername || item.authorId || "author"}
-                  className="relative h-full w-full object-cover border border-white/30 rounded-full"
-                />
-                */}
+
                 <SmartAvatar
                   src={avatar || ""}
                   alt={authorProfile?.handle || item.authorUsername || item.authorId || "author"}
@@ -2050,7 +2059,7 @@ function VideoCard({
             )}
 
             {/* sound row */}
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-1 mb-1 flex items-center">
               {isLibrarySound && (
                 <div className="h-6 w-6 rounded-full overflow-hidden bg-black/40 flex-shrink-0 border border-white/25">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2147,7 +2156,7 @@ function VideoCard({
           </button>
           <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalShares)}</div>
           {/* ✅ MOBILE: mute/unmute lives on rail so it never gets hidden */}
-          {item.mediaType === "video" || item.mediaType === "photo" && (
+          {item.mediaType === "video" && (
             <button
               onClick={toggleMute}
               aria-label={muted ? "Unmute" : "Mute"}
@@ -2159,6 +2168,20 @@ function VideoCard({
               {muted ? <IoVolumeMute size={18} /> : <IoVolumeHigh size={18} />}
             </button>
           )}
+
+          {item.mediaType === "photo" && music?.url && (
+            <button
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute" : "Mute"}
+              className={cn(
+                railBtn,
+                "grid place-items-center text-white  hover:scale-105 active:scale-95 transition"
+              )}
+            >
+              {muted ? <IoVolumeMute size={18} /> : <IoVolumeHigh size={18} />}
+            </button>
+          )}
+
         </div>
       </article>
 
