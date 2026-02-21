@@ -653,7 +653,7 @@ function ProfileHeroStorefront({
                 </Link>
 
                 <Link
-                  href="/nexus/events/saved"
+                  href="/nexus/event/saved"
                   className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]"
                   style={{ color: EKARI.text, borderColor: EKARI.hair }}
                 >
