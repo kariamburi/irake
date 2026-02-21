@@ -32,20 +32,39 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 /** Avoid static optimization since we read client-side */
 export const dynamic = "force-dynamic";
 
-/* ---------------- theme ---------------- */
+/* ---------------- Premium theme ---------------- */
 const EKARI = {
     forest: "#233F39",
+    leaf: "#1F3A34",
     gold: "#C79257",
+    sand: "#FFFFFF",
     hair: "#E5E7EB",
     text: "#0F172A",
     dim: "#6B7280",
-    sand: "#FFFFFF",
+    danger: "#B42318",
 };
 
-/* ---------------- responsive helpers (like your discussion page) ---------------- */
+const UI = {
+    radius: "24px",
+    radiusSm: "16px",
+    border: "rgba(15,23,42,0.08)",
+    borderStrong: "rgba(15,23,42,0.12)",
+    card: "rgba(255,255,255,0.86)",
+    cardSolid: "#FFFFFF",
+    soft: "rgba(15,23,42,0.03)",
+    soft2: "rgba(15,23,42,0.05)",
+    shadow: "0 18px 50px -28px rgba(16,24,40,0.35)",
+    shadow2: "0 10px 30px -18px rgba(16,24,40,0.25)",
+    glow: "0 0 0 6px rgba(199,146,87,0.15)",
+    gradient:
+        "radial-gradient(900px 500px at 15% -10%, rgba(199,146,87,0.18), transparent 55%), radial-gradient(900px 500px at 85% 0%, rgba(35,63,57,0.14), transparent 55%), linear-gradient(180deg, #ffffff 0%, #fbfbfd 70%, #f7f8fb 100%)",
+};
+
+/* ---------------- responsive helpers ---------------- */
 function useMediaQuery(queryStr: string) {
     const [matches, setMatches] = useState(false);
     useEffect(() => {
+        if (typeof window === "undefined") return;
         const mq = window.matchMedia(queryStr);
         const onChange = () => setMatches(mq.matches);
         onChange();
@@ -99,56 +118,210 @@ function tsToMs(v: any): number | null {
     return null;
 }
 
+function nfmt(n: number) {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+    if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+    return n.toLocaleString();
+}
+
+/* ---------------- premium primitives ---------------- */
+function Card({
+    children,
+    className = "",
+    solid,
+}: {
+    children: React.ReactNode;
+    className?: string;
+    solid?: boolean;
+}) {
+    return (
+        <div
+            className={`overflow-hidden ${className}`}
+            style={{
+                borderRadius: UI.radius,
+                border: `1px solid ${UI.border}`,
+                background: solid ? UI.cardSolid : UI.card,
+                boxShadow: UI.shadow2,
+                backdropFilter: "blur(14px)",
+            }}
+        >
+            {children}
+        </div>
+    );
+}
+
+function Chip({
+    children,
+    active,
+}: {
+    children: React.ReactNode;
+    active?: boolean;
+}) {
+    return (
+        <span
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold"
+            style={{
+                borderRadius: "999px",
+                border: `1px solid ${active ? "rgba(199,146,87,0.45)" : UI.border}`,
+                background: active ? "rgba(199,146,87,0.10)" : UI.soft,
+                color: active ? EKARI.text : EKARI.dim,
+            }}
+        >
+            {children}
+        </span>
+    );
+}
+
+function PremiumButton({
+    href,
+    onClick,
+    children,
+    variant = "primary",
+    className = "",
+}: {
+    href?: string;
+    onClick?: () => void;
+    children: React.ReactNode;
+    variant?: "primary" | "ghost";
+    className?: string;
+}) {
+    const base =
+        "inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-extrabold transition active:scale-[0.99] focus:outline-none";
+    const style: React.CSSProperties =
+        variant === "primary"
+            ? {
+                color: "white",
+                borderRadius: UI.radiusSm,
+                background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
+                boxShadow: "0 16px 40px -24px rgba(199,146,87,0.55)",
+            }
+            : {
+                color: EKARI.text,
+                borderRadius: UI.radiusSm,
+                border: `1px solid ${UI.border}`,
+                background: "rgba(255,255,255,0.72)",
+                boxShadow: UI.shadow2,
+            };
+
+    if (href) {
+        return (
+            <Link href={href} className={`${base} ${className}`} style={style}>
+                <span
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                        borderRadius: UI.radiusSm,
+                        background:
+                            variant === "primary"
+                                ? "linear-gradient(180deg, rgba(255,255,255,0.22), transparent 55%)"
+                                : "none",
+                        mixBlendMode: "overlay",
+                    }}
+                />
+                {children}
+            </Link>
+        );
+    }
+
+    return (
+        <button onClick={onClick} className={`${base} ${className}`} style={style}>
+            {children}
+        </button>
+    );
+}
+
 /* ---------------- tiny skeletons ---------------- */
 function MetricSkeleton() {
     return (
         <div
-            className="rounded-lg border p-3 animate-pulse"
-            style={{ borderColor: EKARI.hair }}
+            className="rounded-2xl p-4 animate-pulse"
+            style={{ border: `1px solid ${UI.border}`, background: "rgba(255,255,255,0.75)" }}
         >
             <div className="h-3 w-20 rounded bg-gray-200" />
-            <div className="mt-2 h-7 w-24 rounded bg-gray-200" />
+            <div className="mt-3 h-7 w-24 rounded bg-gray-200" />
         </div>
     );
 }
 
 function ChartSkeleton({ height = 120 }: { height?: number }) {
     return (
-        <div className="mt-4 rounded-lg border p-3" style={{ borderColor: EKARI.hair }}>
-            <div className="mb-2 h-3 w-40 rounded bg-gray-200 animate-pulse" />
-            <div className="w-full rounded bg-gray-100 animate-pulse" style={{ height }} />
+        <div
+            className="mt-4 rounded-2xl p-4"
+            style={{ border: `1px solid ${UI.border}`, background: "rgba(255,255,255,0.75)" }}
+        >
+            <div className="mb-3 h-3 w-40 rounded bg-gray-200 animate-pulse" />
+            <div className="w-full rounded-xl bg-gray-100 animate-pulse" style={{ height }} />
         </div>
     );
 }
 
 function RowSkeleton() {
     return (
-        <div className="flex items-center gap-3 rounded-lg border p-2" style={{ borderColor: EKARI.hair }}>
-            <div className="relative h-16 w-28 overflow-hidden rounded-md bg-gray-200 animate-pulse" />
+        <div
+            className="flex items-center gap-3 rounded-2xl p-3"
+            style={{ border: `1px solid ${UI.border}`, background: "rgba(255,255,255,0.75)" }}
+        >
+            <div className="relative h-16 w-28 overflow-hidden rounded-xl bg-gray-200 animate-pulse" />
             <div className="min-w-0 flex-1">
                 <div className="h-4 w-40 bg-gray-200 rounded animate-pulse" />
-                <div className="mt-2 flex items-center gap-4">
+                <div className="mt-3 flex items-center gap-4">
                     <div className="h-3 w-16 bg-gray-200 rounded animate-pulse" />
                     <div className="h-3 w-12 bg-gray-200 rounded animate-pulse" />
                     <div className="h-3 w-12 bg-gray-200 rounded animate-pulse" />
                     <div className="h-3 w-12 bg-gray-200 rounded animate-pulse" />
                 </div>
-                <div className="mt-1 h-3 w-24 bg-gray-200 rounded animate-pulse" />
+                <div className="mt-2 h-3 w-24 bg-gray-200 rounded animate-pulse" />
             </div>
         </div>
     );
 }
 
 /* ---------------- components ---------------- */
-
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({
+    label,
+    value,
+    icon,
+    hint,
+}: {
+    label: string;
+    value: number;
+    icon?: React.ReactNode;
+    hint?: string;
+}) {
     return (
-        <div className="rounded-lg border p-3" style={{ borderColor: EKARI.hair }}>
-            <div className="text-xs" style={{ color: EKARI.dim }}>
-                {label}
-            </div>
-            <div className="mt-1 text-2xl font-extrabold" style={{ color: EKARI.text }}>
-                {value.toLocaleString()}
+        <div
+            className="p-4"
+            style={{
+                borderRadius: UI.radius,
+                border: `1px solid ${UI.border}`,
+                background: "rgba(255,255,255,0.82)",
+                boxShadow: "0 10px 30px -22px rgba(16,24,40,0.22)",
+            }}
+        >
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <div className="text-[11px] font-extrabold tracking-wide uppercase" style={{ color: EKARI.dim }}>
+                        {label}
+                    </div>
+                    <div className="mt-2 text-3xl font-black tracking-tight" style={{ color: EKARI.text }}>
+                        {nfmt(value)}
+                    </div>
+                    {hint ? (
+                        <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                            {hint}
+                        </div>
+                    ) : null}
+                </div>
+
+                <div
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl"
+                    style={{
+                        border: `1px solid ${UI.border}`,
+                        background: "rgba(35,63,57,0.06)",
+                        color: EKARI.forest,
+                    }}
+                >
+                    {icon}
+                </div>
             </div>
         </div>
     );
@@ -156,18 +329,26 @@ function Metric({ label, value }: { label: string; value: number }) {
 
 function Tip({ title, body }: { title: string; body: string }) {
     return (
-        <div className="flex gap-3 rounded-lg border p-3" style={{ borderColor: EKARI.hair }}>
+        <div
+            className="flex gap-3 p-4"
+            style={{
+                borderRadius: UI.radius,
+                border: `1px solid ${UI.border}`,
+                background: "rgba(255,255,255,0.82)",
+                boxShadow: "0 10px 30px -22px rgba(16,24,40,0.18)",
+            }}
+        >
             <div
-                className="grid h-10 w-10 place-items-center rounded-lg"
-                style={{ background: "#F6F7FB", color: EKARI.forest }}
+                className="grid h-10 w-10 place-items-center rounded-2xl"
+                style={{ background: "rgba(199,146,87,0.12)", color: EKARI.gold, border: `1px solid rgba(199,146,87,0.25)` }}
             >
                 ✨
             </div>
-            <div>
-                <div className="text-sm font-bold" style={{ color: EKARI.text }}>
+            <div className="min-w-0">
+                <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
                     {title}
                 </div>
-                <div className="text-xs mt-1" style={{ color: EKARI.dim }}>
+                <div className="text-xs mt-1 leading-5" style={{ color: EKARI.dim }}>
                     {body}
                 </div>
             </div>
@@ -191,14 +372,36 @@ function MiniAreaChart({ data, height = 120 }: { data: number[]; height?: number
         <div className="w-full overflow-hidden">
             <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
                 <line x1="8" y1={h - 8} x2={w - 8} y2={h - 8} stroke="#e5e7eb" />
-                <polygon
-                    points={`8,${h - 8} ${pts} ${w - 8},${h - 8}`}
-                    fill="#C7925733"
-                    stroke="none"
-                />
+                <polygon points={`8,${h - 8} ${pts} ${w - 8},${h - 8}`} fill="#C7925733" stroke="none" />
                 <polyline points={pts} fill="none" stroke={EKARI.gold} strokeWidth={2} />
             </svg>
         </div>
+    );
+}
+
+function StatPill({
+    icon,
+    value,
+    title,
+}: {
+    icon: React.ReactNode;
+    value: number;
+    title: string;
+}) {
+    return (
+        <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-extrabold"
+            style={{
+                borderRadius: "999px",
+                border: `1px solid ${UI.border}`,
+                background: "rgba(255,255,255,0.75)",
+                color: EKARI.text,
+            }}
+            title={title}
+        >
+            <span style={{ color: EKARI.dim }}>{icon}</span>
+            {nfmt(value)}
+        </span>
     );
 }
 
@@ -211,12 +414,8 @@ export default function StudioHomePage() {
     const isDesktop = useIsDesktop();
     const isMobile = useIsMobile();
 
-    const ringStyle: React.CSSProperties = {
-        ["--tw-ring-color" as any]: EKARI.forest,
-    };
-
     const goBack = React.useCallback(() => {
-        if (window.history.length > 1) router.back();
+        if (typeof window !== "undefined" && window.history.length > 1) router.back();
         else router.push("/studio");
     }, [router]);
 
@@ -377,26 +576,33 @@ export default function StudioHomePage() {
         })();
     }, [uid]);
 
-    const handleText =
-        profile?.handle || (user?.displayName ? `@${user.displayName}` : "@you");
-
+    const handleText = profile?.handle || (user?.displayName ? `@${user.displayName}` : "@you");
     const followersText = (profile?.followersCount ?? 0).toLocaleString();
     const followingText = (profile?.followingCount ?? 0).toLocaleString();
     const likesHeader = (profile?.likesTotal ?? totals.likes).toLocaleString();
 
-    /* ---------------- Header (like discussion page) ---------------- */
+    /* ---------------- Premium Header ---------------- */
     const Header = (
         <div
-            className="border-b sticky top-0 z-50 backdrop-blur"
-            style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+            className="sticky top-0 z-50 backdrop-blur-xl"
+            style={{
+                background: "rgba(255,255,255,0.75)",
+                borderBottom: `1px solid ${UI.border}`,
+                boxShadow: "0 8px 30px -22px rgba(16,24,40,0.35)",
+            }}
         >
             <div className={isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3"}>
                 <div className="h-full flex items-center justify-between gap-2">
                     <button
                         onClick={goBack}
-                        className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
-                        style={{ borderColor: EKARI.hair, ...ringStyle }}
+                        className="h-10 w-10 rounded-full grid place-items-center transition active:scale-[0.98]"
+                        style={{
+                            background: "rgba(255,255,255,0.75)",
+                            border: `1px solid ${UI.border}`,
+                            boxShadow: "0 10px 24px -18px rgba(16,24,40,0.35)",
+                        }}
                         aria-label="Go back"
+                        title="Back"
                     >
                         <ArrowLeft size={18} style={{ color: EKARI.text }} />
                     </button>
@@ -410,211 +616,243 @@ export default function StudioHomePage() {
                         </div>
                     </div>
 
-                    <Link
-                        href="/studio/upload"
-                        className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-extrabold text-white"
-                        style={{ backgroundColor: EKARI.gold }}
-                    >
-                        <IoAdd /> Upload
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <PremiumButton href="/studio/upload" variant="primary">
+                            <IoAdd /> Upload
+                        </PremiumButton>
+                    </div>
                 </div>
             </div>
         </div>
     );
 
-    /* ---------------- Main content (same UI, just fits mobile/desktop containers) ---------------- */
+    /* ---------------- Main content ---------------- */
     const Main = (
-        <div className={isDesktop ? "max-w-[1180px] mx-auto px-4 pb-8" : "px-3 pb-8"}>
-            {/* Channel header card */}
-            <div className="mt-4 w-full rounded-2xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-12 w-12 overflow-hidden rounded-full bg-gray-100 shrink-0">
-                            <Image
-                                src={profile?.photoURL || user?.photoURL || "/avatar-placeholder.png"}
-                                alt="avatar"
-                                width={96}
-                                height={96}
-                                className="h-full w-full object-cover"
-                            />
-                        </div>
-                        <div className="min-w-0">
-                            <div className="text-sm font-extrabold truncate" style={{ color: EKARI.text }}>
-                                {handleText}
+        <div className={isDesktop ? "max-w-[1180px] mx-auto px-4 pb-10" : "px-3 pb-10"}>
+            {/* Profile hero */}
+            <Card className="mt-4" solid>
+                <div className="p-4 sm:p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div
+                                className="h-12 w-12 overflow-hidden rounded-full shrink-0"
+                                style={{
+                                    border: `1px solid ${UI.border}`,
+                                    boxShadow: "0 12px 28px -20px rgba(16,24,40,0.35)",
+                                    background: "rgba(15,23,42,0.03)",
+                                }}
+                            >
+                                <Image
+                                    src={profile?.photoURL || user?.photoURL || "/avatar-placeholder.png"}
+                                    alt="avatar"
+                                    width={96}
+                                    height={96}
+                                    className="h-full w-full object-cover"
+                                />
                             </div>
-                            <div className="text-xs truncate" style={{ color: EKARI.dim }}>
-                                Likes {likesHeader} · Followers {followersText} · Following {followingText}
+
+                            <div className="min-w-0">
+                                <div className="text-sm font-black truncate" style={{ color: EKARI.text }}>
+                                    {handleText}
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-2">
+                                    <Chip active>Likes {likesHeader}</Chip>
+                                    <Chip>Followers {followersText}</Chip>
+                                    <Chip>Following {followingText}</Chip>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <Link
-                            href="/studio/upload"
-                            className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-bold text-white"
-                            style={{ backgroundColor: EKARI.gold }}
-                        >
-                            <IoAdd /> Upload
-                        </Link>
+
+                        <div className="flex items-center gap-2">
+                            <PremiumButton href="/studio/upload" variant="primary">
+                                <IoAdd /> Upload
+                            </PremiumButton>
+                            <PremiumButton href="/studio/deeds" variant="ghost">
+                                View all
+                            </PremiumButton>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </Card>
 
             {/* Key metrics */}
-            <div className="mt-5 rounded-2xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
-                <div className="mb-3 flex items-center justify-between">
-                    <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
-                        Key metrics
-                    </div>
-                    <div className="text-xs" style={{ color: EKARI.dim }}>
-                        Last 7 days
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                    {loading ? (
-                        <>
-                            <MetricSkeleton />
-                            <MetricSkeleton />
-                            <MetricSkeleton />
-                            <MetricSkeleton />
-                            <MetricSkeleton />
-                        </>
-                    ) : (
-                        <>
-                            <Metric label="Video views" value={totals.views} />
-                            <Metric label="Profile views" value={profileViewsTotal} />
-                            <Metric label="Likes" value={totals.likes} />
-                            <Metric label="Comments" value={totals.comments} />
-                            <Metric label="Shares" value={totals.shares} />
-                        </>
-                    )}
-                </div>
-
-                {/* charts */}
-                {loading ? (
-                    <>
-                        <ChartSkeleton height={140} />
-                        <ChartSkeleton height={100} />
-                    </>
-                ) : (
-                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div className="rounded-xl border p-3" style={{ borderColor: EKARI.hair }}>
-                            <div className="mb-2 text-xs font-bold" style={{ color: EKARI.dim }}>
-                                Video views (7 days)
-                            </div>
-                            <MiniAreaChart data={series.map((d) => d.y)} height={140} />
-                        </div>
-
-                        <div className="rounded-xl border p-3" style={{ borderColor: EKARI.hair }}>
-                            <div className="mb-2 text-xs font-bold" style={{ color: EKARI.dim }}>
-                                Profile views (7 days)
-                            </div>
-                            <MiniAreaChart data={pvSeries} height={100} />
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Recent posts + Knowledge */}
-            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-                <div className="rounded-2xl border bg-white p-4 sm:p-5 lg:col-span-2" style={{ borderColor: EKARI.hair }}>
+            <Card className="mt-5" solid>
+                <div className="p-4 sm:p-5">
                     <div className="mb-3 flex items-center justify-between">
-                        <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
-                            Recent posts
+                        <div className="text-base font-black" style={{ color: EKARI.text }}>
+                            Key metrics
                         </div>
-                        <Link href="/studio/deeds" className="text-xs font-bold" style={{ color: EKARI.forest }}>
-                            View all
-                        </Link>
+                        <Chip>Last 7 days</Chip>
                     </div>
 
-                    <div className="space-y-3">
-                        {loading && (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                        {loading ? (
                             <>
-                                <div className="flex items-center justify-center py-4">
-                                    <BouncingBallLoader />
-                                </div>
-                                <RowSkeleton />
-                                <RowSkeleton />
-                                <RowSkeleton />
+                                <MetricSkeleton />
+                                <MetricSkeleton />
+                                <MetricSkeleton />
+                                <MetricSkeleton />
+                                <MetricSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <Metric label="Video views" value={totals.views} icon={<IoPlayOutline />} hint="Total views" />
+                                <Metric label="Profile views" value={profileViewsTotal} icon={<span>👀</span>} hint="Profile reach" />
+                                <Metric label="Likes" value={totals.likes} icon={<IoHeartOutline />} hint="Engagement" />
+                                <Metric label="Comments" value={totals.comments} icon={<IoChatbubbleOutline />} hint="Replies" />
+                                <Metric label="Shares" value={totals.shares} icon={<IoShareSocialOutline />} hint="Virality" />
                             </>
                         )}
-
-                        {!loading &&
-                            posts.slice(0, 5).map((p) => (
-                                <Link
-                                    key={p.id}
-                                    href={`/studio/analytics/${p.id}`}
-                                    className="flex items-center gap-3 rounded-xl border p-2 hover:bg-gray-50"
-                                    style={{ borderColor: EKARI.hair }}
-                                >
-                                    <div className="relative h-14 w-24 sm:h-16 sm:w-28 overflow-hidden rounded-lg bg-gray-200 shrink-0">
-                                        <Image
-                                            src={p.mediaThumbUrl || p.media?.[0]?.thumbUrl || "/video-placeholder.jpg"}
-                                            alt="thumb"
-                                            fill
-                                            className="object-cover"
-                                            sizes="112px"
-                                        />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="truncate text-sm font-semibold" style={{ color: EKARI.text }}>
-                                            {p.caption || "Untitled"}
-                                        </div>
-                                        <div className="mt-1 flex items-center gap-4 text-xs" style={{ color: EKARI.dim }}>
-                                            <span className="inline-flex items-center gap-1">
-                                                <IoPlayOutline />
-                                                {(p.stats?.views ?? 0).toLocaleString()}
-                                            </span>
-                                            <span className="inline-flex items-center gap-1">
-                                                <IoHeartOutline />
-                                                {p.stats?.likes ?? 0}
-                                            </span>
-                                            <span className="inline-flex items-center gap-1">
-                                                <IoChatbubbleOutline />
-                                                {p.stats?.comments ?? 0}
-                                            </span>
-                                            <span className="inline-flex items-center gap-1">
-                                                <IoShareSocialOutline />
-                                                {p.stats?.shares ?? 0}
-                                            </span>
-                                        </div>
-                                        <div className="text-[11px]" style={{ color: EKARI.dim }}>
-                                            {p.createdAtMs ? new Date(p.createdAtMs).toLocaleString() : ""}
-                                        </div>
-                                    </div>
-                                </Link>
-                            ))}
-
-                        {!loading && posts.length === 0 && (
-                            <div className="text-sm" style={{ color: EKARI.dim }}>
-                                No posts yet.{" "}
-                                <Link href="/studio/upload" className="font-semibold" style={{ color: EKARI.forest }}>
-                                    Upload your first video
-                                </Link>
-                                .
-                            </div>
-                        )}
                     </div>
-                </div>
 
-                <div className="rounded-2xl border bg-white p-4 sm:p-5" style={{ borderColor: EKARI.hair }}>
-                    <div className="mb-3 flex items-center justify-between">
-                        <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
-                            Knowledge for you
+                    {loading ? (
+                        <>
+                            <ChartSkeleton height={140} />
+                            <ChartSkeleton height={100} />
+                        </>
+                    ) : (
+                        <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div
+                                className="p-4"
+                                style={{
+                                    borderRadius: UI.radius,
+                                    border: `1px solid ${UI.border}`,
+                                    background: "rgba(255,255,255,0.82)",
+                                }}
+                            >
+                                <div className="mb-2 text-xs font-extrabold uppercase tracking-wide" style={{ color: EKARI.dim }}>
+                                    Video views (7 days)
+                                </div>
+                                <MiniAreaChart data={series.map((d) => d.y)} height={140} />
+                            </div>
+
+                            <div
+                                className="p-4"
+                                style={{
+                                    borderRadius: UI.radius,
+                                    border: `1px solid ${UI.border}`,
+                                    background: "rgba(255,255,255,0.82)",
+                                }}
+                            >
+                                <div className="mb-2 text-xs font-extrabold uppercase tracking-wide" style={{ color: EKARI.dim }}>
+                                    Profile views (7 days)
+                                </div>
+                                <MiniAreaChart data={pvSeries} height={100} />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </Card>
+
+            {/* Recent + Knowledge */}
+            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+                <Card className="lg:col-span-2" solid>
+                    <div className="p-4 sm:p-5">
+                        <div className="mb-3 flex items-center justify-between">
+                            <div className="text-base font-black" style={{ color: EKARI.text }}>
+                                Recent posts
+                            </div>
+                            <Link href="/studio/deeds" className="text-xs font-extrabold" style={{ color: EKARI.forest }}>
+                                View all
+                            </Link>
+                        </div>
+
+                        <div className="space-y-3">
+                            {loading && (
+                                <>
+                                    <div className="flex items-center justify-center py-5">
+                                        <BouncingBallLoader />
+                                    </div>
+                                    <RowSkeleton />
+                                    <RowSkeleton />
+                                    <RowSkeleton />
+                                </>
+                            )}
+
+                            {!loading &&
+                                posts.slice(0, 5).map((p) => (
+                                    <Link
+                                        key={p.id}
+                                        href={`/studio/analytics/${p.id}`}
+                                        className="group flex items-center gap-3 p-3 transition active:scale-[0.995]"
+                                        style={{
+                                            borderRadius: UI.radius,
+                                            border: `1px solid ${UI.border}`,
+                                            background: "rgba(255,255,255,0.82)",
+                                            boxShadow: "0 10px 30px -22px rgba(16,24,40,0.12)",
+                                        }}
+                                    >
+                                        <div
+                                            className="relative h-16 w-28 sm:h-16 sm:w-28 overflow-hidden shrink-0"
+                                            style={{
+                                                borderRadius: UI.radiusSm,
+                                                border: `1px solid ${UI.border}`,
+                                                background: "rgba(15,23,42,0.04)",
+                                            }}
+                                        >
+                                            <Image
+                                                src={p.mediaThumbUrl || p.media?.[0]?.thumbUrl || "/video-placeholder.jpg"}
+                                                alt="thumb"
+                                                fill
+                                                className="object-cover transition group-hover:scale-[1.03]"
+                                                sizes="112px"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="truncate text-sm font-extrabold" style={{ color: EKARI.text }}>
+                                                {p.caption || "Untitled"}
+                                            </div>
+
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                <StatPill icon={<IoPlayOutline />} value={p.stats?.views ?? 0} title="Views" />
+                                                <StatPill icon={<IoHeartOutline />} value={p.stats?.likes ?? 0} title="Likes" />
+                                                <StatPill icon={<IoChatbubbleOutline />} value={p.stats?.comments ?? 0} title="Comments" />
+                                                <StatPill icon={<IoShareSocialOutline />} value={p.stats?.shares ?? 0} title="Shares" />
+                                            </div>
+
+                                            <div className="mt-2 text-[11px]" style={{ color: EKARI.dim }}>
+                                                {p.createdAtMs ? new Date(p.createdAtMs).toLocaleString() : ""}
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+
+                            {!loading && posts.length === 0 && (
+                                <div className="text-sm" style={{ color: EKARI.dim }}>
+                                    No posts yet.{" "}
+                                    <Link href="/studio/upload" className="font-extrabold" style={{ color: EKARI.forest }}>
+                                        Upload your first video
+                                    </Link>
+                                    .
+                                </div>
+                            )}
                         </div>
                     </div>
+                </Card>
 
-                    <div className="space-y-3">
-                        <Tip
-                            title="Leverage high-quality video covers to attract viewers"
-                            body="Your profile can be a major traffic source, so having clear, engaging thumbnails matters. Pick bright frames with human faces and readable context."
-                        />
-                        <Tip
-                            title="Post consistently"
-                            body="A simple cadence (e.g., 2–3 times per week) helps the algorithm learn your audience. Batch record and schedule to stay consistent."
-                        />
+                <Card solid>
+                    <div className="p-4 sm:p-5">
+                        <div className="mb-3 flex items-center justify-between">
+                            <div className="text-base font-black" style={{ color: EKARI.text }}>
+                                Knowledge for you
+                            </div>
+                            <Chip>Tips</Chip>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Tip
+                                title="Use high-quality covers"
+                                body="Pick bright frames with clear subject + context. Strong thumbnails lift your CTR."
+                            />
+                            <Tip
+                                title="Post consistently"
+                                body="A simple cadence (2–3 posts/week) helps the algorithm learn your audience faster."
+                            />
+                        </div>
                     </div>
-                </div>
+                </Card>
             </div>
 
             {/* safe area spacer on mobile */}
@@ -622,19 +860,18 @@ export default function StudioHomePage() {
         </div>
     );
 
-    /* ---------------- Loading screen (like discussion page) ---------------- */
+    /* ---------------- Loading screen ---------------- */
     if (loading && posts.length === 0 && !profile) {
-        // Mobile: full-screen fixed; Desktop: inside AppShell
         if (isMobile) {
             return (
-                <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+                <div className="fixed inset-0 flex items-center justify-center" style={{ background: UI.gradient }}>
                     <BouncingBallLoader />
                 </div>
             );
         }
         return (
             <AppShell>
-                <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: EKARI.sand }}>
+                <div className="min-h-screen flex items-center justify-center" style={{ background: UI.gradient }}>
                     <BouncingBallLoader />
                 </div>
             </AppShell>
@@ -644,20 +881,22 @@ export default function StudioHomePage() {
     /* ---------------- MOBILE: fixed inset, NO StudioShell wrapper ---------------- */
     if (isMobile) {
         return (
-            <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+            <div className="fixed inset-0 flex flex-col" style={{ background: UI.gradient }}>
                 {Header}
                 <div className="flex-1 overflow-y-auto overscroll-contain">{Main}</div>
             </div>
         );
     }
 
-    /* ---------------- DESKTOP: AppShell + StudioShell like normal ---------------- */
+    /* ---------------- DESKTOP: AppShell + StudioShell ---------------- */
     return (
         <AppShell>
-            <StudioShell title="Home" ctaHref="/studio/upload" ctaLabel="+ Upload">
-                {Header}
-                {Main}
-            </StudioShell>
+            <div style={{ background: UI.gradient, minHeight: "100dvh" }}>
+                <StudioShell title="Home" ctaHref="/studio/upload" ctaLabel="+ Upload">
+                    {Header}
+                    {Main}
+                </StudioShell>
+            </div>
         </AppShell>
     );
 }

@@ -75,6 +75,7 @@ import { AuthorBadgePill } from "./components/AuthorBadgePill";
 import { EkariSideMenuSheet } from "./components/EkariSideMenuSheet";
 import SmartAvatar from "./components/SmartAvatar";
 import { PhotoSliderPlayer } from "./components/PhotoSliderPlayer";
+import { FirebaseError } from "firebase/app";
 
 
 /* ---------- Theme ---------- */
@@ -687,23 +688,47 @@ function useLikes(itemId: string, uid?: string) {
   }, [itemId, likeId]);
 
   const toggle = async () => {
-    if (!uid || !likeId) return;
-    const ref = doc(db, "likes", likeId);
-    const s = await getDoc(ref);
-    if (s.exists()) {
-      await deleteDoc(ref);
-    } else {
+    if (!uid || !likeId) {
+      return;
+    }
+
+    try {
+      const ref = doc(db, "likes", likeId);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        await deleteDoc(ref);
+        return;
+      }
+
       const userSnap = await getUserSnap(uid);
+
       await setDoc(ref, {
         deedId: itemId,
         userId: uid,
         user: {
-          name: userSnap.name ?? null,
-          handle: userSnap.handle ?? null,
-          photoURL: userSnap.photoURL ?? null,
+          name: userSnap?.name ?? null,
+          handle: userSnap?.handle ?? null,
+          photoURL: userSnap?.photoURL ?? null,
         },
-        createdAt: Date.now(),
+        createdAt: serverTimestamp(),
       });
+
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        console.error("🔥 FIRESTORE ERROR");
+        console.error("code:", err.code);
+        console.error("message:", err.message);
+
+        if (err.code === "permission-denied") {
+          console.error("🚫 Firestore rules blocked this write");
+        }
+        if (err.code === "unauthenticated") {
+          console.error("🚫 User not authenticated");
+        }
+      } else {
+        console.error("Unknown error", err);
+      }
     }
   };
 

@@ -1,9 +1,10 @@
-// app/studio/posts/page.tsx (or your current location)
+// app/studio/posts/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import clsx from "clsx";
 import {
     collection,
     query,
@@ -22,6 +23,10 @@ import { getStorage, ref as storageRef, deleteObject } from "firebase/storage";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import StudioShell from "../components/StudioShell";
+import AppShell from "@/app/components/AppShell";
+import { ConfirmModal } from "@/app/components/ConfirmModal";
+import TikBallsLoader from "@/components/ui/TikBallsLoader";
+
 import {
     IoSearchOutline,
     IoTimeOutline,
@@ -31,11 +36,12 @@ import {
     IoChevronDown,
     IoCheckmark,
     IoTrendingUpOutline,
+    IoSparklesOutline,
+    IoEyeOutline,
+    IoHeartOutline,
 } from "react-icons/io5";
-import TikBallsLoader from "@/components/ui/TikBallsLoader";
-import AppShell from "@/app/components/AppShell";
-import { ConfirmModal } from "@/app/components/ConfirmModal";
 import { ArrowLeft } from "lucide-react";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 /* ---------- Types ---------- */
 export type Deed = {
@@ -63,16 +69,18 @@ export type Deed = {
 
 const PAGE_SIZE = 20;
 
-/* ---------- theme + responsive helpers (same approach as discussion) ---------- */
+/* ---------- brand ---------- */
 const EKARI = {
     forest: "#233F39",
     gold: "#C79257",
-    hair: "#E5E7EB",
+    sand: "#FFFFFF",
     text: "#0F172A",
     dim: "#6B7280",
-    sand: "#FFFFFF",
+    hair: "#E5E7EB",
+    sub: "#5C6B66",
 };
 
+/* ---------- responsive helpers ---------- */
 function useMediaQuery(queryStr: string) {
     const [matches, setMatches] = useState(false);
     useEffect(() => {
@@ -94,7 +102,9 @@ function useIsMobile() {
 /* ---------- API helpers ---------- */
 async function deleteMuxAsset(assetId: string) {
     const res = await fetch(
-        `https://us-central1-ekarihub-aed5a.cloudfunctions.net/muxDeleteAsset?assetId=${encodeURIComponent(assetId)}`,
+        `https://us-central1-ekarihub-aed5a.cloudfunctions.net/muxDeleteAsset?assetId=${encodeURIComponent(
+            assetId
+        )}`,
         { method: "DELETE" }
     );
     if (!res.ok) throw new Error(`Mux delete failed: ${await res.text()}`);
@@ -110,21 +120,89 @@ function Toast({ text }: { text: string }) {
 
 function StatusBadge({ s }: { s: Deed["status"] }) {
     const map: Record<string, string> = {
-        ready: "bg-emerald-100 text-emerald-700",
-        processing: "bg-sky-100 text-sky-700",
-        uploading: "bg-amber-100 text-amber-700",
-        failed: "bg-rose-100 text-rose-700",
-        deleted: "bg-slate-100 text-slate-600",
+        ready: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        processing: "bg-sky-100 text-sky-700 border-sky-200",
+        uploading: "bg-amber-100 text-amber-700 border-amber-200",
+        failed: "bg-rose-100 text-rose-700 border-rose-200",
+        deleted: "bg-slate-100 text-slate-600 border-slate-200",
     };
+    const k = s || "ready";
     return (
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${map[s || "ready"] || map.ready}`}>
-            {s || "ready"}
+        <span
+            className={clsx(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold border",
+                map[k] || map.ready
+            )}
+        >
+            {k}
         </span>
     );
 }
+
 function cap(s?: string) {
     if (!s) return "";
     return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function hexToRgba(hex: string, alpha: number) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+    if (!m) return hex;
+    const r = parseInt(m[1], 16);
+    const g = parseInt(m[2], 16);
+    const b = parseInt(m[3], 16);
+    return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
+}
+
+/* ---------- premium UI helpers ---------- */
+function PremiumSurface({
+    children,
+    className,
+    style,
+}: {
+    children: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+}) {
+    return (
+        <div
+            className={clsx(
+                "rounded-3xl border bg-white/80 backdrop-blur-xl",
+                "shadow-[0_18px_60px_rgba(15,23,42,0.10)]",
+                className
+            )}
+            style={style}
+        >
+            {children}
+        </div>
+    );
+}
+
+function Pill({
+    children,
+    className,
+    style,
+}: {
+    children: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+}) {
+    return (
+        <span
+            className={clsx(
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-extrabold border",
+                className
+            )}
+            style={style}
+        >
+            {children}
+        </span>
+    );
+}
+
+function nfmt(n: number) {
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+    return String(n);
 }
 
 /* ---------- Page ---------- */
@@ -140,6 +218,14 @@ export default function PostsPage() {
         ["--tw-ring-color" as any]: EKARI.forest,
     };
 
+    const premiumBg = useMemo<React.CSSProperties>(
+        () => ({
+            background:
+                "radial-gradient(900px circle at 10% 0%, rgba(199,146,87,0.22), rgba(255,255,255,0) 55%), radial-gradient(900px circle at 90% 20%, rgba(35,63,57,0.16), rgba(255,255,255,0) 60%), linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,1))",
+        }),
+        []
+    );
+
     const goBack = useCallback(() => {
         if (window.history.length > 1) router.back();
         else router.push("/studio/overview");
@@ -153,7 +239,7 @@ export default function PostsPage() {
     const [privacyFilter, setPrivacyFilter] =
         useState<"all" | "public" | "followers" | "private">("all");
 
-    // selection state (multi-select + bulk delete)
+    // selection state
     const [selected, setSelected] = useState<Record<string, boolean>>({});
     const selectedIds = useMemo(
         () => Object.keys(selected).filter((id) => selected[id]),
@@ -238,38 +324,23 @@ export default function PostsPage() {
     function requestDelete(id: string) {
         setConfirmId(id);
     }
-
+    async function deleteDeedViaCloudFunction(deedId: string) {
+        const fn = httpsCallable(getFunctions(), "deleteDeedCascade");
+        const res = await fn({ deedId });
+        return res.data as { ok: boolean; deedId: string; muxAssetId?: string | null; muxDeleted?: boolean };
+    }
     async function hardDeleteSingle(id: string) {
-        const target = rows.find((r) => r.id === id);
-        const st = getStorage();
-        const deletions: Promise<any>[] = [];
+        // ✅ call the same cascade used by mobile
+        await deleteDeedViaCloudFunction(id);
 
-        if (target?.media?.length) {
-            for (const m of target.media) {
-                if (m.kind === "image" && m.storagePath) {
-                    deletions.push(deleteObject(storageRef(st, m.storagePath)));
-                }
-                // if you store thumbs as gs://... you likely want bucket/path parsing;
-                // keeping your original behavior:
-                if (m.thumbUrl && m.thumbUrl.startsWith("gs://")) {
-                    deletions.push(deleteObject(storageRef(st, m.thumbUrl.replace(/^gs:\/\//, ""))));
-                }
-                if (m.kind === "video" && m.muxAssetId) {
-                    deletions.push(deleteMuxAsset(m.muxAssetId));
-                }
-            }
-        }
-
-        await Promise.allSettled(deletions);
-        await deleteDoc(doc(db, "deeds", id));
+        // ✅ update UI
         setRows((prev) => prev.filter((p) => p.id !== id));
     }
-
     async function hardDelete(id: string) {
         try {
             setBusyDelete(true);
             await hardDeleteSingle(id);
-            setToast("Post deleted");
+            setToast("Deed deleted");
         } catch (err: any) {
             console.error(err);
             setToast(err?.message || "Failed to delete");
@@ -299,17 +370,22 @@ export default function PostsPage() {
         }
     }
 
+    /* ---------- Header (premium) ---------- */
     const Header = (
         <div
-            className="border-b sticky top-0 z-50 backdrop-blur"
-            style={{ backgroundColor: "rgba(255,255,255,0.92)", borderColor: EKARI.hair }}
+            className={clsx("sticky top-0 z-50")}
+            style={{
+                background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.82))",
+                backdropFilter: "blur(14px)",
+                borderBottom: "1px solid rgba(199,146,87,0.18)",
+            }}
         >
-            <div className={isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3"}>
-                <div className="h-full flex items-center justify-between gap-2">
+            <div className={clsx(isDesktop ? "px-4 max-w-[1180px] mx-auto" : "px-3")}>
+                <div className="h-[72px] flex items-center justify-between gap-3">
                     <button
                         onClick={goBack}
-                        className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
-                        style={{ borderColor: EKARI.hair, ...ringStyle }}
+                        className="h-11 w-11 rounded-2xl border bg-white/80 backdrop-blur-xl shadow-sm grid place-items-center transition hover:bg-white focus:outline-none focus:ring-2 active:scale-[0.98]"
+                        style={{ borderColor: "rgba(199,146,87,0.22)", ...ringStyle }}
                         aria-label="Go back"
                     >
                         <ArrowLeft size={18} style={{ color: EKARI.text }} />
@@ -319,134 +395,225 @@ export default function PostsPage() {
                         <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
                             Studio
                         </div>
-                        <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
-                            Posts
+                        <div className="text-[12px] mt-1 font-semibold truncate" style={{ color: EKARI.dim }}>
+                            Deeds • {filtered.length} visible
                         </div>
                     </div>
 
                     <Link
                         href="/studio/upload"
-                        className="inline-flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-extrabold text-white"
-                        style={{ backgroundColor: EKARI.gold }}
+                        className="h-11 px-4 rounded-full border bg-white/80 backdrop-blur-xl shadow-sm flex items-center gap-2 font-extrabold text-[13px] transition hover:bg-white active:scale-[0.98]"
+                        style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
                     >
-                        + Upload
+                        <span
+                            className="h-8 w-8 rounded-2xl grid place-items-center border"
+                            style={{
+                                borderColor: "rgba(199,146,87,0.18)",
+                                background: "linear-gradient(135deg, rgba(199,146,87,0.22), rgba(35,63,57,0.06))",
+                            }}
+                        >
+                            <IoSparklesOutline size={16} style={{ color: EKARI.forest }} />
+                        </span>
+                        Upload
                     </Link>
                 </div>
             </div>
         </div>
     );
 
+    /* ---------- Body ---------- */
     const Body = (
-        <div className={isDesktop ? "max-w-[1180px] mx-auto px-4 pb-10" : "px-3 pb-10"}>
+        <div className={clsx(isDesktop ? "max-w-[1180px] mx-auto px-4 pb-10" : "px-3 pb-10")}>
             {/* Toolbar */}
-            <div className="w-full mt-4 mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-xl font-extrabold" style={{ color: EKARI.text }}>
-                    Deeds
-                </div>
+            <div className={clsx(isDesktop ? "pt-4" : "pt-3")}>
+                <PremiumSurface
+                    className="px-4 py-4"
+                    style={{
+                        borderColor: "rgba(199,146,87,0.20)",
+                        background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.72))",
+                    }}
+                >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                            <div className="text-[18px] font-black" style={{ color: EKARI.text }}>
+                                Deeds
+                            </div>
+                            <div className="text-[12px] font-semibold mt-0.5" style={{ color: EKARI.sub }}>
+                                Manage visibility, analytics and cleanup
+                            </div>
+                        </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    {/* Privacy filter */}
-                    <div className="flex flex-wrap items-center gap-1">
-                        {(["all", "public", "followers", "private"] as const).map((p) => (
-                            <button
-                                key={p}
-                                onClick={() => setPrivacyFilter(p)}
-                                className={[
-                                    "rounded-full border px-3 py-1 text-sm font-semibold",
-                                    privacyFilter === p ? "bg-black/5" : "hover:bg-black/5",
-                                ].join(" ")}
-                                style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            {/* Privacy filter pills */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                {(["all", "public", "followers", "private"] as const).map((p) => {
+                                    const active = privacyFilter === p;
+                                    return (
+                                        <button
+                                            key={p}
+                                            onClick={() => setPrivacyFilter(p)}
+                                            className={clsx(
+                                                "rounded-full px-3 py-1 text-[12px] font-extrabold border transition active:scale-[0.99]",
+                                                active ? "bg-white" : "bg-white/50 hover:bg-white"
+                                            )}
+                                            style={{
+                                                borderColor: active ? "rgba(199,146,87,0.35)" : "rgba(199,146,87,0.18)",
+                                                color: EKARI.text,
+                                                boxShadow: active ? "0 10px 30px rgba(15,23,42,0.08)" : undefined,
+                                            }}
+                                        >
+                                            {p === "all" ? "All" : p === "followers" ? "Followers" : cap(p)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Search */}
+                            <div
+                                className="flex items-center gap-2 rounded-2xl border px-3 py-2 bg-white/70 backdrop-blur-xl shadow-sm"
+                                style={{ borderColor: "rgba(199,146,87,0.18)" }}
                             >
-                                {p === "all" ? "All" : p === "followers" ? "Followers" : cap(p)}
-                            </button>
-                        ))}
+                                <IoSearchOutline className="opacity-70" />
+                                <input
+                                    value={q}
+                                    onChange={(e) => setQ(e.target.value)}
+                                    placeholder="Search post description…"
+                                    className="w-full sm:w-64 bg-transparent text-sm outline-none"
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Search */}
-                    <div className="flex items-center gap-2 rounded-xl border px-2.5 py-2">
-                        <IoSearchOutline className="opacity-70" />
-                        <input
-                            value={q}
-                            onChange={(e) => setQ(e.target.value)}
-                            placeholder="Search for post description"
-                            className="w-full sm:w-64 bg-transparent text-sm outline-none"
-                        />
-                    </div>
-                </div>
+                    {/* Bulk bar */}
+                    {selectedIds.length > 0 && (
+                        <div className="mt-3 rounded-2xl border px-3 py-2 flex items-center justify-between gap-2 bg-white/70">
+                            <div className="text-[12px] font-extrabold" style={{ color: EKARI.text }}>
+                                {selectedIds.length} selected
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    className="rounded-full px-3 py-1.5 text-[12px] font-extrabold border bg-white hover:bg-white/90 transition"
+                                    onClick={() => setConfirmBulk(true)}
+                                    style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
+                                >
+                                    Delete selected
+                                </button>
+                                <button
+                                    className="rounded-full px-3 py-1.5 text-[12px] font-extrabold border bg-white/50 hover:bg-white transition"
+                                    onClick={() => setSelected({})}
+                                    style={{ borderColor: "rgba(199,146,87,0.18)", color: EKARI.dim }}
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </PremiumSurface>
             </div>
 
-            {/* Bulk actions bar */}
-            {selectedIds.length > 0 && (
-                <div className="mb-2 flex items-center justify-between rounded-xl border bg-amber-50 px-3 py-2 text-sm">
-                    <div className="text-amber-900">
-                        <strong>{selectedIds.length}</strong> selected
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            className="rounded-xl border px-3 py-1.5 font-semibold hover:bg-black/5"
-                            onClick={() => setConfirmBulk(true)}
-                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                        >
-                            Delete Selected
-                        </button>
-                    </div>
-                </div>
-            )}
-
             {/* List container */}
-            <div className="rounded-2xl border bg-white" style={{ borderColor: EKARI.hair }}>
-                {/* Desktop header */}
-                <div className="hidden md:grid grid-cols-[24px,160px,110px,90px,90px,90px,120px,220px] items-center gap-3 border-b px-3 py-2 text-xs font-semibold text-slate-600">
-                    <div className="flex items-center justify-center">
-                        <input
-                            type="checkbox"
-                            aria-label="Select all"
-                            checked={allOnPageSelected}
-                            onChange={toggleSelectAll}
-                        />
-                    </div>
-                    <div>Deeds (Created on)</div>
-                    <div className="text-center">Privacy</div>
-                    <div className="text-center">Views</div>
-                    <div className="text-center">Likes</div>
-                    <div className="text-center">Comments</div>
-                    <div className="text-center">Status</div>
-                    <div className="text-center">Actions</div>
-                </div>
-
-                {/* Rows */}
-                {loading ? (
-                    <div className="flex items-center justify-center p-8">
-                        <TikBallsLoader />
-                    </div>
-                ) : filtered.length === 0 ? (
-                    <div className="p-6 text-center text-sm text-slate-500">No deeds yet.</div>
-                ) : (
-                    filtered.map((r) => (
-                        <PostRow
-                            key={r.id}
-                            row={r}
-                            selected={!!selected[r.id]}
-                            onToggleSelect={() => setSelected((prev) => ({ ...prev, [r.id]: !prev[r.id] }))}
-                            onChangePrivacy={updateVisibility}
-                            onDelete={() => requestDelete(r.id)}
-                        />
-                    ))
-                )}
-
-                {/* Load more */}
-                {cursor && (
-                    <div className="border-t p-3 text-center">
-                        <button
-                            className="rounded-xl border px-4 py-2 text-sm font-bold hover:bg-black/5"
-                            onClick={loadMore}
-                            disabled={moreLoading}
-                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
+            <div className={clsx(isDesktop ? "mt-4" : "mt-3")}>
+                <PremiumSurface
+                    className="p-2 overflow-x-hidden"
+                    style={{
+                        borderColor: "rgba(199,146,87,0.20)",
+                        background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.72))",
+                    }}
+                >
+                    {/* Desktop header (✅ responsive grid, no horizontal scroll) */}
+                    <div
+                        className="hidden md:block px-2 py-1"
+                        style={{ color: EKARI.dim }}
+                    >
+                        <div
+                            className={clsx(
+                                "grid w-full items-center gap-3 px-3 py-2 text-[11px] font-extrabold"
+                            )}
+                            style={{ borderBottom: "1px solid rgba(199,146,87,0.14)" }}
                         >
-                            {moreLoading ? "Loading…" : "Load more"}
-                        </button>
+                            {/* md: hide Likes/Comments to save width; lg: show them */}
+                            <div className="grid w-full grid-cols-[24px_minmax(240px,1fr)_120px_80px_100px_140px] lg:grid-cols-[24px_minmax(260px,1fr)_120px_80px_80px_90px_100px_140px] items-center gap-1">
+                                <div className="flex items-center justify-center">
+                                    <input
+                                        type="checkbox"
+                                        aria-label="Select all"
+                                        checked={allOnPageSelected}
+                                        onChange={toggleSelectAll}
+                                    />
+                                </div>
+                                <div>Deed (created)</div>
+                                <div className="text-center">Privacy</div>
+                                <div className="text-center">Views</div>
+                                <div className="hidden lg:block text-center">Likes</div>
+                                <div className="hidden lg:block text-center">Comments</div>
+                                <div className="text-center">Status</div>
+                                <div className="text-center">Actions</div>
+                            </div>
+                        </div>
                     </div>
-                )}
+
+                    {/* Rows */}
+                    {loading ? (
+                        <div className="flex items-center justify-center p-10">
+                            <TikBallsLoader />
+                        </div>
+                    ) : filtered.length === 0 ? (
+                        <div className="px-6 py-12 text-center">
+                            <div
+                                className="mx-auto h-14 w-14 rounded-3xl grid place-items-center mb-3 border"
+                                style={{
+                                    borderColor: "rgba(199,146,87,0.20)",
+                                    background: "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
+                                }}
+                            >
+                                <IoSparklesOutline size={24} style={{ color: EKARI.forest }} />
+                            </div>
+                            <div className="text-[16px] font-black" style={{ color: EKARI.text }}>
+                                No deeds yet
+                            </div>
+                            <div className="mt-1 text-sm font-semibold" style={{ color: EKARI.dim }}>
+                                Upload your first deed to start building your profile.
+                            </div>
+                            <div className="mt-5">
+                                <Link
+                                    href="/studio/upload"
+                                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-extrabold border bg-white hover:bg-white/90 transition"
+                                    style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
+                                >
+                                    <IoSparklesOutline />
+                                    Upload a deed
+                                </Link>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-2 p-2">
+                            {filtered.map((r) => (
+                                <PostRowPremium
+                                    key={r.id}
+                                    row={r}
+                                    selected={!!selected[r.id]}
+                                    onToggleSelect={() => setSelected((prev) => ({ ...prev, [r.id]: !prev[r.id] }))}
+                                    onChangePrivacy={updateVisibility}
+                                    onDelete={() => requestDelete(r.id)}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Load more */}
+                    {cursor && (
+                        <div className="pt-2 pb-1 text-center">
+                            <button
+                                className="rounded-full border px-5 py-2 text-[13px] font-extrabold bg-white/70 hover:bg-white transition disabled:opacity-60"
+                                onClick={loadMore}
+                                disabled={moreLoading}
+                                style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
+                            >
+                                {moreLoading ? "Loading…" : "Load more"}
+                            </button>
+                        </div>
+                    )}
+                </PremiumSurface>
             </div>
 
             {/* Delete confirm modal (single) */}
@@ -469,7 +636,7 @@ export default function PostsPage() {
             {/* Bulk delete modal */}
             <ConfirmModal
                 open={confirmBulk}
-                title="Delete selected posts?"
+                title="Delete selected deeds?"
                 message={`You are about to delete ${selectedIds.length} deed(s), including their media and any linked assets. This action cannot be undone.`}
                 confirmText={busyDelete ? "Deleting…" : "Delete all"}
                 cancelText="Cancel"
@@ -483,15 +650,14 @@ export default function PostsPage() {
                 }}
             />
 
-            {/* Toast */}
             {toast && <Toast text={toast} />}
         </div>
     );
 
-    // MOBILE: fixed inset like your discussion page (no AppShell/StudioShell chrome)
+    // MOBILE: fixed inset, NO bottom tabs
     if (isMobile) {
         return (
-            <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+            <div className="fixed inset-0 flex flex-col" style={premiumBg}>
                 {Header}
                 <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
             </div>
@@ -501,8 +667,8 @@ export default function PostsPage() {
     // DESKTOP: AppShell + StudioShell
     return (
         <AppShell>
-            <StudioShell title="Posts" ctaHref="/studio/upload" ctaLabel="+ Upload">
-                <div className="min-h-screen w-full" style={{ backgroundColor: EKARI.sand }}>
+            <StudioShell title="Deeds" ctaHref="/studio/upload" ctaLabel="Upload">
+                <div className="min-h-screen w-full" style={premiumBg}>
                     {Header}
                     {Body}
                 </div>
@@ -511,8 +677,8 @@ export default function PostsPage() {
     );
 }
 
-/* ---------- Row ---------- */
-function PostRow({
+/* ---------- Premium Row ---------- */
+function PostRowPremium({
     row,
     selected,
     onToggleSelect,
@@ -547,34 +713,166 @@ function PostRow({
         "/video-placeholder.jpg";
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-[24px,160px,120px,90px,90px,90px,120px,220px] items-start md:items-center gap-3 border-t px-3 py-3 text-sm">
-            {/* Select */}
-            <div className="flex items-center justify-center">
-                <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label="Select row" />
-            </div>
+        <div
+            className={clsx(
+                "w-full min-w-0 rounded-3xl border bg-white/70 backdrop-blur-xl shadow-sm",
+                "transition hover:shadow-[0_18px_60px_rgba(15,23,42,0.10)]",
+                selected ? "ring-2" : ""
+            )}
+            style={{
+                borderColor: "rgba(199,146,87,0.20)",
+                ["--tw-ring-color" as any]: hexToRgba(EKARI.gold, 0.55),
+            }}
+        >
+            {/* DESKTOP layout (✅ responsive grid, no horizontal scroll) */}
+            <div className="hidden md:block px-1">
+                <div className="grid w-full grid-cols-[24px_minmax(240px,1fr)_120px_80px_100px_140px] lg:grid-cols-[24px_minmax(260px,1fr)_120px_80px_80px_90px_100px_140px] items-center gap-1 px-3 py-3">
+                    <div className="flex items-center justify-center">
+                        <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label="Select row" />
+                    </div>
 
-            {/* Post cell */}
-            <div
-                onClick={() => router.push(`/${row.authorUsername}/deed/${row.id}`)}
-                className="flex min-w-0 items-center cursor-pointer gap-3"
-            >
-                <UniformThumb src={poster} dateStr={dateStr} />
-                <div className="min-w-0">
-                    <div className="text-xs text-slate-500">{dateStr}</div>
+                    <button
+                        onClick={() => router.push(`/${row.authorUsername}/deed/${row.id}`)}
+                        className="flex min-w-0 items-center gap-3 text-left"
+                    >
+                        <UniformThumbPremium src={poster} dateStr={dateStr} />
+                        <div className="min-w-0">
+                            <div className="text-[12px] font-extrabold text-slate-700 truncate">
+                                {row.caption?.trim() ? row.caption : "—"}
+                            </div>
+                            <div className="text-[11px] font-semibold text-slate-500 truncate">{dateStr}</div>
+                        </div>
+                    </button>
+
+                    <div className="relative flex items-center justify-center">
+                        <button
+                            onClick={() => setOpenMenu((v) => !v)}
+                            className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[12px] font-extrabold bg-white/70 hover:bg-white transition"
+                            style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
+                        >
+                            {cap(row.visibility || "public")}
+                            <IoChevronDown />
+                        </button>
+
+                        {openMenu && (
+                            <div
+                                className="absolute z-20 mt-14 w-40 overflow-hidden rounded-2xl border bg-white/90 backdrop-blur-xl shadow-lg"
+                                style={{ borderColor: "rgba(199,146,87,0.22)" }}
+                            >
+                                {(["public", "followers", "private"] as const).map((v) => (
+                                    <button
+                                        key={v}
+                                        onClick={() => {
+                                            onChangePrivacy(row.id, v as any);
+                                            setOpenMenu(false);
+                                        }}
+                                        className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] font-extrabold hover:bg-black/5"
+                                        style={{ color: EKARI.text }}
+                                    >
+                                        <span className="capitalize">{v}</span>
+                                        {row.visibility === v && <IoCheckmark />}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="text-center text-[12px] font-extrabold text-slate-700">{views}</div>
+
+                    {/* Likes + Comments only on lg */}
+                    <div className="hidden lg:block text-center text-[12px] font-extrabold text-slate-700">{likes}</div>
+                    <div className="hidden lg:block text-center text-[12px] font-extrabold text-slate-700">{comments}</div>
+
+                    <div className="text-center">
+                        <StatusBadge s={row.status} />
+                    </div>
+
+                    <div className="flex items-center justify-center gap-1">
+                        {/*<IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} /> */}
+                        <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
+                        <IconBtn title="Comments" href={`/${row.authorUsername}/deed/${row.id}`} variant="ghost" />
+                        <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
+                            <IoTrashOutline />
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Privacy dropdown (desktop only) */}
-            <div className="relative hidden md:flex items-center justify-center">
-                <button
-                    onClick={() => setOpenMenu((v) => !v)}
-                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold hover:bg-black/5"
-                >
-                    {cap(row.visibility || "public")}
-                    <IoChevronDown />
-                </button>
+            {/* MOBILE layout (card) */}
+            <div className="md:hidden px-3 py-3">
+                <div className="flex items-start gap-3">
+                    <div className="pt-1">
+                        <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label="Select row" />
+                    </div>
+
+                    <button
+                        onClick={() => router.push(`/${row.authorUsername}/deed/${row.id}`)}
+                        className="flex-1 min-w-0 flex items-center gap-3 text-left"
+                    >
+                        <UniformThumbPremium src={poster} dateStr={dateStr} />
+                        <div className="min-w-0">
+                            <div className="text-[13px] font-black text-slate-800 truncate">
+                                {row.caption?.trim() ? row.caption : "Untitled deed"}
+                            </div>
+                            <div className="text-[11px] font-semibold text-slate-500 truncate mt-0.5">{dateStr}</div>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <Pill
+                                    className="bg-white/70"
+                                    style={{ borderColor: "rgba(199,146,87,0.18)", color: EKARI.text }}
+                                >
+                                    {cap(row.visibility || "public")}
+                                </Pill>
+
+                                <Pill className="bg-slate-50" style={{ borderColor: "rgba(15,23,42,0.06)" }}>
+                                    <IoEyeOutline className="opacity-70" /> {views}
+                                </Pill>
+                                <Pill className="bg-slate-50" style={{ borderColor: "rgba(15,23,42,0.06)" }}>
+                                    <IoHeartOutline className="opacity-70" /> {likes}
+                                </Pill>
+                                <Pill className="bg-slate-50" style={{ borderColor: "rgba(15,23,42,0.06)" }}>
+                                    💬 {comments}
+                                </Pill>
+
+                                <StatusBadge s={row.status} />
+                            </div>
+                        </div>
+                    </button>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-2">
+                    <button
+                        onClick={() => setOpenMenu((v) => !v)}
+                        className="flex items-center gap-2 rounded-full border px-3 py-2 text-[12px] font-extrabold bg-white/70 hover:bg-white transition"
+                        style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
+                    >
+                        <span
+                            className="h-8 w-8 rounded-2xl grid place-items-center border"
+                            style={{
+                                borderColor: "rgba(199,146,87,0.18)",
+                                background: "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
+                            }}
+                        >
+                            <IoChevronDown style={{ color: EKARI.forest }} />
+                        </span>
+                        Privacy
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                        <IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} />
+                        <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
+                        <IconBtn title="Comments" href={`/${row.authorUsername}/deed/${row.id}`} variant="ghost" />
+                        <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
+                            <IoTrashOutline />
+                        </button>
+                    </div>
+                </div>
+
                 {openMenu && (
-                    <div className="absolute z-20 mt-8 w-36 overflow-hidden rounded-md border bg-white shadow-md">
+                    <div
+                        className="mt-2 overflow-hidden rounded-2xl border bg-white/90 backdrop-blur-xl shadow-lg"
+                        style={{ borderColor: "rgba(199,146,87,0.22)" }}
+                    >
                         {(["public", "followers", "private"] as const).map((v) => (
                             <button
                                 key={v}
@@ -582,7 +880,8 @@ function PostRow({
                                     onChangePrivacy(row.id, v as any);
                                     setOpenMenu(false);
                                 }}
-                                className="flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-black/5"
+                                className="flex w-full items-center justify-between px-3 py-3 text-left text-[12px] font-extrabold hover:bg-black/5"
+                                style={{ color: EKARI.text }}
                             >
                                 <span className="capitalize">{v}</span>
                                 {row.visibility === v && <IoCheckmark />}
@@ -591,55 +890,17 @@ function PostRow({
                     </div>
                 )}
             </div>
-
-            {/* Stats (desktop only) */}
-            <div className="hidden md:block text-center">{views}</div>
-            <div className="hidden md:block text-center">{likes}</div>
-            <div className="hidden md:block text-center">{comments}</div>
-
-            {/* Status (desktop only) */}
-            <div className="hidden md:block text-center">
-                <StatusBadge s={row.status} />
-            </div>
-
-            {/* Actions (desktop only) */}
-            <div className="hidden md:flex items-center justify-center gap-2">
-                <IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} />
-                <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
-                <IconBtn title="Comments" href={`/${row.authorUsername}/deed/${row.id}`} variant="ghost" />
-                <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
-                    <IoTrashOutline />
-                </button>
-            </div>
-
-            {/* Mobile chips + actions */}
-            <div className="md:hidden -mt-1 flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full border px-2 py-0.5">{cap(row.visibility || "public")}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5">👁 {views}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5">❤️ {likes}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5">💬 {comments}</span>
-                <StatusBadge s={row.status} />
-                <span className="flex-1" />
-                <div className="flex items-center gap-1">
-                    <IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} />
-                    <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
-                    <IconBtn title="Comments" href={`/${row.authorUsername}/deed/${row.id}`} variant="ghost" />
-                    <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
-                        <IoTrashOutline />
-                    </button>
-                </div>
-            </div>
         </div>
     );
 }
 
-/* Uniform, fixed-size thumbnail */
-function UniformThumb({ src, dateStr }: { src: string; dateStr: string }) {
+/* ---------- Premium thumbnail ---------- */
+function UniformThumbPremium({ src, dateStr }: { src: string; dateStr: string }) {
     return (
-        <div className="relative flex-none basis-[100px] w-[100px] h-32 overflow-hidden rounded-lg bg-slate-900 ring-1 ring-black/5 shadow-sm">
+        <div className="relative flex-none w-[96px] h-[112px] overflow-hidden rounded-2xl bg-slate-900 ring-1 ring-black/5 shadow-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            <span className="absolute left-0 top-0 rounded-br bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+            <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[10px] font-extrabold text-white backdrop-blur">
                 <IoTimeOutline className="-mt-0.5 inline" /> {dateStr.split(",")[0] ?? ""}
             </span>
         </div>
@@ -664,10 +925,4 @@ function IconBtn({
             {title === "Edit" ? <IoPencilOutline /> : title === "Analytics" ? <IoTrendingUpOutline /> : <IoChatbubbleEllipsesOutline />}
         </Link>
     );
-}
-
-function nfmt(n: number) {
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
-    return String(n);
 }

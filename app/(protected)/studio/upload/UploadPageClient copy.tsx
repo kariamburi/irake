@@ -21,7 +21,7 @@ import {
   IoBookmark,
   IoArrowRedo,
   IoBag,
-  IoArrowBack,
+  IoArrowBack, // ✅ NEW (mobile/desktop sticky header back button)
 } from "react-icons/io5";
 
 import {
@@ -31,6 +31,8 @@ import {
   getDoc,
   updateDoc,
   setDoc,
+  writeBatch,
+  increment,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
@@ -90,23 +92,6 @@ const EKARI = {
   danger: "#B42318",
 };
 
-/* ---------- Premium UI tokens ---------- */
-const UI = {
-  radius: "24px",
-  radiusSm: "16px",
-  border: "rgba(15,23,42,0.08)",
-  borderStrong: "rgba(15,23,42,0.12)",
-  card: "rgba(255,255,255,0.86)",
-  cardSolid: "#FFFFFF",
-  soft: "rgba(15,23,42,0.03)",
-  soft2: "rgba(15,23,42,0.05)",
-  shadow: "0 18px 50px -28px rgba(16,24,40,0.35)",
-  shadow2: "0 10px 30px -18px rgba(16,24,40,0.25)",
-  glow: "0 0 0 6px rgba(199,146,87,0.15)",
-  gradient:
-    "radial-gradient(900px 500px at 15% -10%, rgba(199,146,87,0.18), transparent 55%), radial-gradient(900px 500px at 85% 0%, rgba(35,63,57,0.14), transparent 55%), linear-gradient(180deg, #ffffff 0%, #fbfbfd 70%, #f7f8fb 100%)",
-};
-
 const MAX_VIDEO_SEC = 240;
 const MAX_MEDIA_MB = 500;
 const DRAFT_KEY = "ekari.createDeed.draft";
@@ -129,13 +114,7 @@ type DeedDoc = {
     url?: string;
   };
   geo?: { lat: number; lng: number };
-  status?:
-  | "ready"
-  | "processing"
-  | "uploading"
-  | "failed"
-  | "deleted"
-  | "mixing";
+  status?: "ready" | "processing" | "uploading" | "failed" | "deleted" | "mixing";
   createdAtMs?: number;
   mediaThumbUrl?: string;
   muxUploadId?: string | null;
@@ -150,10 +129,6 @@ type DeedDoc = {
     storagePath?: string;
     muxAssetId?: string | null;
     muxPlaybackId?: string | null;
-    url?: string;
-    sources?: { small?: string; full?: string };
-    blurDataUrl?: string;
-    gsUrl?: string;
   }>;
   mix?: {
     needsServerMix?: boolean;
@@ -172,8 +147,8 @@ type DeedDoc = {
     verificationRoleLabel?: string | null;
     verificationOrganizationName?: string | null;
   };
-};
 
+};
 function buildAuthorBadge(userProfile: any) {
   const v = userProfile?.verification ?? {};
 
@@ -186,16 +161,15 @@ function buildAuthorBadge(userProfile: any) {
     ? (statusRaw as "approved" | "pending" | "rejected" | "none")
     : "none";
 
-  const type = (
-    ["individual", "business", "company", "organization"] as const
-  ).includes(typeRaw as any)
+  const type = (["individual", "business", "company", "organization"] as const).includes(
+    typeRaw as any
+  )
     ? (typeRaw as "individual" | "business" | "company" | "organization")
     : "individual";
 
-  const roleLabel =
-    typeof v.roleLabel === "string" && v.roleLabel.trim()
-      ? v.roleLabel.trim()
-      : null;
+  const roleLabel = typeof v.roleLabel === "string" && v.roleLabel.trim()
+    ? v.roleLabel.trim()
+    : null;
 
   const orgName =
     (type === "business" || type === "company" || type === "organization") &&
@@ -230,32 +204,6 @@ const asArray = (v: unknown): string[] => {
     return v.split(",").map((s) => s.trim()).filter(Boolean);
   return [];
 };
-
-/* ---------- Premium Card helper ---------- */
-function Card({
-  children,
-  className = "",
-  solid,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  solid?: boolean;
-}) {
-  return (
-    <div
-      className={`overflow-hidden ${className}`}
-      style={{
-        borderRadius: UI.radius,
-        border: `1px solid ${UI.border}`,
-        background: solid ? UI.cardSolid : UI.card,
-        boxShadow: UI.shadow2,
-        backdropFilter: "blur(14px)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 /* ---------- page ---------- */
 export default function UploadPage() {
@@ -326,14 +274,16 @@ export default function UploadPage() {
     "feed"
   );
 
-  /* ---------- media (VIDEO or PHOTOS on web) ---------- */
+  /* ---------- media (VIDEO ONLY on web) ---------- */
   const [file, setFile] = useState<File | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  // ✅ multi-photo
+  // ✅ NEW for multi-photo
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imageUrls, setImageUrls] = useState<string[]>([]); // blob urls for preview
   const [durationSec, setDurationSec] = useState<number | null>(null);
-  const [videoWH, setVideoWH] = useState<{ width?: number; height?: number }>({});
+  const [videoWH, setVideoWH] = useState<{ width?: number; height?: number }>(
+    {}
+  );
 
   // Existing (edit)
   const [existing, setExisting] = useState<DeedDoc | null>(null);
@@ -346,9 +296,9 @@ export default function UploadPage() {
 
   /* ---------- form ---------- */
   const [caption, setCaption] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "followers" | "private">(
-    "public"
-  );
+  const [visibility, setVisibility] = useState<
+    "public" | "followers" | "private"
+  >("public");
   const [allowComments, setAllowComments] = useState(true);
   const [useGeo, setUseGeo] = useState(false);
 
@@ -367,7 +317,7 @@ export default function UploadPage() {
     undefined
   );
 
-  // MIXING state
+  // MIXING state (aligning with mobile)
   const [musicGainDb, setMusicGainDb] = useState<number>(-8);
   const [videoGainDb, setVideoGainDb] = useState<number>(0);
   const [ducking, setDucking] = useState<boolean>(true);
@@ -394,13 +344,7 @@ export default function UploadPage() {
     [caption]
   );
   const mergedTags = useMemo(
-    () =>
-      Array.from(
-        new Set([
-          ...selectedTags.map((t) => t.toLowerCase()),
-          ...tagsFromCaption,
-        ])
-      ),
+    () => Array.from(new Set([...selectedTags.map((t) => t.toLowerCase()), ...tagsFromCaption])),
     [selectedTags, tagsFromCaption]
   );
 
@@ -457,12 +401,12 @@ export default function UploadPage() {
   const [soundOpen, setSoundOpen] = useState(false);
 
   // Poster for previews
+
   const firstImageUrl = imageUrls[0] || null;
 
   const posterUrl =
-    mediaKind === "image" && firstImageUrl
-      ? firstImageUrl
-      : thumbDataUrl ??
+    (mediaKind === "image" && firstImageUrl) ? firstImageUrl :
+      thumbDataUrl ??
       existing?.media?.[0]?.thumbUrl ??
       existing?.mediaThumbUrl ??
       mediaUrl ??
@@ -471,7 +415,9 @@ export default function UploadPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isEditing)
-      setBannerDraft(!!localStorage.getItem(DRAFT_KEY) && step === 0 && !file);
+      setBannerDraft(
+        !!localStorage.getItem(DRAFT_KEY) && step === 0 && !file
+      );
   }, [step, file, isEditing]);
 
   /* ---------- LOAD for EDIT ---------- */
@@ -630,20 +576,10 @@ export default function UploadPage() {
     !!uid &&
     (mediaKind === "image" || (durationSec ?? 0) <= MAX_VIDEO_SEC);
 
+
   const replaceMedia = () =>
     (document.getElementById("file-input-main") as HTMLInputElement)?.click();
 
-  const MAX_PHOTOS = 12;
-
-  const clearImagePreviews = () => {
-    imageUrls.forEach((u) => {
-      try {
-        URL.revokeObjectURL(u);
-      } catch { }
-    });
-    setImageFiles([]);
-    setImageUrls([]);
-  };
 
   const clearMedia = () => {
     if (mediaUrl) URL.revokeObjectURL(mediaUrl);
@@ -665,157 +601,6 @@ export default function UploadPage() {
     if (!isEditing) setStep(0);
   };
 
-  const onDropFiles = async (files: File[]) => {
-    if (!files?.length) return;
-
-    const hasVideo = files.some((f) => f.type.startsWith("video/"));
-    const hasImage = files.some((f) => f.type.startsWith("image/"));
-
-    if (hasVideo && hasImage) {
-      showInfoModal(
-        "Pick one type",
-        "Please select either a video OR photos (not both)."
-      );
-      return;
-    }
-
-    // VIDEO (single)
-    if (hasVideo) {
-      const v = files.find((f) => f.type.startsWith("video/"))!;
-      const mb = v.size / (1024 * 1024);
-      if (mb > MAX_MEDIA_MB) {
-        showInfoModal(
-          "File too large",
-          `Max ${MAX_MEDIA_MB} MB. Your file is ~${mb.toFixed(1)} MB.`
-        );
-        return;
-      }
-
-      // clear image state
-      clearImagePreviews();
-
-      if (mediaUrl) URL.revokeObjectURL(mediaUrl);
-      setFile(v);
-      const url = URL.createObjectURL(v);
-      setMediaUrl(url);
-      setProgress(0);
-      setErrorMsg("");
-      setMediaKind("video");
-      setThumbDataUrl(null);
-      setCoverMs(800);
-      setStripThumbs([]);
-
-      try {
-        const meta = await probeVideoMeta(url);
-        setDurationSec(Math.round(meta.duration || 0));
-        setVideoWH({ width: meta.width, height: meta.height });
-        const initialCover = await captureVideoFrame(url, 0.8);
-        setThumbDataUrl(initialCover);
-        buildStrip(url, Math.max(1, Math.round(meta.duration || 0)));
-      } finally {
-        setStep(1);
-      }
-      return;
-    }
-
-    // IMAGES (multiple)
-    const imgs = files.filter((f) => f.type.startsWith("image/"));
-    if (!imgs.length) {
-      showInfoModal("Unsupported file", "Please select a video or image.");
-      return;
-    }
-
-    if (imgs.length > MAX_PHOTOS) {
-      showInfoModal("Too many photos", `Please select up to ${MAX_PHOTOS} photos.`);
-      return;
-    }
-
-    const totalMb = imgs.reduce((s, f) => s + f.size, 0) / (1024 * 1024);
-    if (totalMb > MAX_MEDIA_MB) {
-      showInfoModal(
-        "Files too large",
-        `Total must be ≤ ${MAX_MEDIA_MB} MB. Yours is ~${totalMb.toFixed(1)} MB.`
-      );
-      return;
-    }
-
-    // clear video state
-    if (mediaUrl) URL.revokeObjectURL(mediaUrl);
-    setFile(null);
-    setMediaUrl(null);
-    setDurationSec(null);
-    setStripThumbs([]);
-    setThumbDataUrl(null);
-    setCoverMs(800);
-
-    clearImagePreviews();
-
-    const urls = imgs.map((f) => URL.createObjectURL(f));
-    setImageFiles(imgs);
-    setImageUrls(urls);
-
-    setMediaKind("image");
-    setVideoWH({});
-    setProgress(0);
-    setErrorMsg("");
-    setStep(1);
-  };
-
-  function DropZone({ onDropFiles }: { onDropFiles: (files: File[]) => void }) {
-    const [hover, setHover] = useState(false);
-    return (
-      <div
-        className="m-2 flex flex-col items-center justify-center px-4 py-12 text-center transition sm:px-6 sm:py-16"
-        style={{
-          borderRadius: UI.radius,
-          border: `1.5px dashed ${hover ? EKARI.gold : UI.border}`,
-          background: "rgba(255,255,255,0.65)",
-          boxShadow: hover ? UI.glow : "none",
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setHover(true);
-        }}
-        onDragLeave={() => setHover(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setHover(false);
-          const files = Array.from(e.dataTransfer.files || []);
-          if (files.length) onDropFiles(files);
-        }}
-      >
-        <div
-          className="text-lg font-extrabold sm:text-2xl"
-          style={{ color: EKARI.text }}
-        >
-          Select media (video or photos) to upload
-        </div>
-        <div className="mt-2 text-xs sm:text-sm" style={{ color: EKARI.dim }}>
-          Or drag and drop it here
-        </div>
-        <div className="mt-6 flex items-center gap-2 text-[11px]" style={{ color: EKARI.dim }}>
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-1"
-            style={{ background: UI.soft, border: `1px solid ${UI.border}` }}
-          >
-            Up to {MAX_MEDIA_MB}MB total
-          </span>
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-1"
-            style={{ background: UI.soft, border: `1px solid ${UI.border}` }}
-          >
-            Video ≤ {Math.round(MAX_VIDEO_SEC / 60)} min
-          </span>
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-1"
-            style={{ background: UI.soft, border: `1px solid ${UI.border}` }}
-          >
-            Up to {MAX_PHOTOS} photos
-          </span>
-        </div>
-      </div>
-    );
-  }
 
   /* ---------- geo ---------- */
   const requestGeo = async () => {
@@ -841,7 +626,7 @@ export default function UploadPage() {
     }
   };
 
-  /* ---------- storage helpers ---------- */
+  /* ---------- storage helpers (PATCHED) ---------- */
   async function uploadResumable(
     blobOrFile: Blob | File,
     path: string,
@@ -850,6 +635,8 @@ export default function UploadPage() {
   ): Promise<{ downloadURL: string; gsUrl: string; fullPath: string }> {
     const rf = ref(storage, path);
     return new Promise((resolve, reject) => {
+
+
       const task = uploadBytesResumable(
         rf,
         blobOrFile as any,
@@ -891,17 +678,20 @@ export default function UploadPage() {
   const saveDeed = async () => {
     if (authLoading) return;
 
+    // guards (parity with mobile)
     if (!uid || !user) {
       setErrorMsg("Please sign in to post.");
       return;
     }
     const authorBadge = buildAuthorBadge(userProfile);
-
     if (!isEditing && !file && imageFiles.length === 0) {
       setErrorMsg("Pick a video or photos and let it load first.");
       setStep(0);
       return;
     }
+
+
+    // Enforce 90s cap for videos
 
     const isVideo = mediaKind === "video";
     const isImage = mediaKind === "image";
@@ -938,12 +728,16 @@ export default function UploadPage() {
       /* ignore geo errors */
     }
 
-    // resolve uploaded audio FIRST
+    // resolve uploaded audio FIRST (so mixer has a URL)
     let resolvedMusicUrl: string | undefined = musicUrl || undefined;
     try {
       if (!resolvedMusicUrl && musicSource === "uploaded" && localSoundFile) {
         const soundPath = `deeds/${uid}/${crypto.randomUUID()}/sound/${localSoundFile.name}`;
-        const up = await uploadFileResumable(localSoundFile, soundPath, setProgress);
+        const up = await uploadFileResumable(
+          localSoundFile,
+          soundPath,
+          setProgress
+        );
         resolvedMusicUrl = up.downloadURL;
       }
     } catch (e) {
@@ -955,6 +749,7 @@ export default function UploadPage() {
       needsServerMix &&
       (musicTitle || resolvedMusicUrl);
 
+
     let deedRef: ReturnType<typeof doc> | null = null;
 
     try {
@@ -963,6 +758,7 @@ export default function UploadPage() {
         : doc(collection(db, "deeds"));
       const deedId = deedRef.id;
 
+      // Only create the placeholder doc on *create*
       if (!isEditing) {
         await setDoc(
           deedRef,
@@ -979,7 +775,9 @@ export default function UploadPage() {
         );
       }
 
+      // =========================
       // VIDEO: Server-mix path
+      // =========================
       if (isVideo && file && durationSec && willServerMix) {
         const rawUp = await uploadResumable(
           file,
@@ -1028,7 +826,7 @@ export default function UploadPage() {
           authorId: uid,
           authorUsername: userProfile?.handle,
           authorPhotoURL: userProfile?.photoURL,
-          authorBadge,
+          authorBadge, // ✅ ADD
           type: "video" as const,
           media,
           caption: caption?.trim() || undefined,
@@ -1067,20 +865,25 @@ export default function UploadPage() {
             loop: loopMusic,
           }),
 
-          status: "mixing",
+          status: "mixing", // ✅ server-mix trigger
           updatedAt: serverTimestamp(),
         });
 
         await updateDoc(deedRef, payload);
+        // 👇 upsert hashtags after deed is saved
       }
 
-      // IMAGE: direct photo
+      // =========================
+      // IMAGE: direct photo or photo->video mix
+      // =========================
       if (isImage && imageFiles.length) {
         const willPhotoServerMix =
           needsServerMix && (musicTitle || resolvedMusicUrl);
 
         const basePath = `deeds/${uid}/${deedRef!.id}`;
+
         const media: any[] = [];
+        const photoSourcesForMix: Array<{ gsUrl: string; storagePath: string; width?: number; height?: number }> = [];
 
         for (let i = 0; i < imageFiles.length; i++) {
           const imgFile = imageFiles[i];
@@ -1089,6 +892,7 @@ export default function UploadPage() {
           const variants = await buildImageVariants(imgFile);
           const ext = variants.mime === "image/webp" ? "webp" : "jpg";
 
+          // store files like: image_0_720.jpg, image_0_1440.jpg, image_1_720.jpg ...
           const smallUp = await uploadResumable(
             variants.smallBlob,
             `${basePath}/image_${i}_720.${ext}`,
@@ -1103,6 +907,14 @@ export default function UploadPage() {
             variants.mime
           );
 
+          // collect mix sources (point to FULL object)
+          photoSourcesForMix.push({
+            gsUrl: fullUp.gsUrl,
+            storagePath: fullUp.fullPath,
+            width: variants.width,
+            height: variants.height,
+          });
+
           media.push(
             pruneUndefined({
               kind: "image" as const,
@@ -1115,12 +927,14 @@ export default function UploadPage() {
                 full: fullUp.downloadURL,
               }),
               blurDataUrl: variants.tinyDataUrl,
+              // for server mix, you can also store per-item:
               gsUrl: willPhotoServerMix ? fullUp.gsUrl : undefined,
               storagePath: willPhotoServerMix ? fullUp.fullPath : undefined,
             })
           );
         }
 
+        // first image becomes the thumbnail
         const firstThumb = media[0]?.thumbUrl;
 
         const payload = pruneUndefined({
@@ -1128,9 +942,12 @@ export default function UploadPage() {
           authorUsername: userProfile?.handle,
           authorPhotoURL: userProfile?.photoURL,
           authorBadge,
+
           type: "photo" as const,
           media,
+
           caption: caption?.trim() || undefined,
+
           music:
             (musicTitle || resolvedMusicUrl) && willPhotoServerMix
               ? pruneUndefined({
@@ -1141,16 +958,21 @@ export default function UploadPage() {
                 soundId: musicSoundId || undefined,
               })
               : undefined,
+
           tags: mergedTags.length ? mergedTags : undefined,
           visibility,
           allowComments,
           geo,
+
           mediaType: "photo" as const,
           mediaThumbUrl: firstThumb,
+
           text: caption?.trim() || undefined,
           createdAtMs: Date.now(),
+
+          // ✅ IMPORTANT: pass multiple sources to server mix
           mix: pruneUndefined({
-            mode: "photo_slideshow",
+            mode: "photo_slideshow", // client-side only
             needsServerMix: false,
             musicGainDb,
             ducking,
@@ -1168,8 +990,11 @@ export default function UploadPage() {
         return;
       }
 
+      // =========================
       // VIDEO: NO MIX — direct Mux
+      // =========================
       if (isVideo && file && durationSec && !willServerMix) {
+
         const { createMuxDirectUpload, uploadVideoToMux } = await import(
           "@/utils/muxUpload"
         );
@@ -1178,6 +1003,7 @@ export default function UploadPage() {
           passthrough: { deedId, uid },
         });
 
+        // if Mux fails to return a URL, bail out cleanly
         if (!uploadUrl || typeof uploadUrl !== "string") {
           console.error("❌ Mux uploadUrl missing:", uploadUrl);
           throw new Error("Failed to generate upload link. Please try again.");
@@ -1218,7 +1044,7 @@ export default function UploadPage() {
           authorId: uid,
           authorUsername: userProfile?.handle,
           authorPhotoURL: userProfile?.photoURL,
-          authorBadge,
+          authorBadge, // ✅ ADD
           type: "video" as const,
           media,
           caption: caption?.trim() || undefined,
@@ -1239,18 +1065,25 @@ export default function UploadPage() {
           countryTag: countryName || undefined,
           countryCode: countryCode || undefined,
           countyTag: countyName || undefined,
+
           mediaType: "video" as const,
           mediaThumbUrl: thumbUrl,
           text: caption?.trim() || undefined,
           createdAtMs: Date.now(),
+
           mix: pruneUndefined({
             needsServerMix: false,
             keepMic,
           }),
+
+          // ⭐ IMPORTANT: do NOT set status here.
+          // Placeholder doc already has "uploading" / "processing".
+          // Mux webhook will flip to "ready".
           updatedAt: serverTimestamp(),
         });
 
         await updateDoc(deedRef, payload);
+        // 👇 upsert hashtags after deed is saved
       }
 
       // cleanup + navigate
@@ -1303,29 +1136,157 @@ export default function UploadPage() {
   const previewMusicUri = localSoundUrl || (musicUrl || null);
   const previewPhotoUri =
     mediaKind === "image"
-      ? firstImageUrl || (!mediaUrl && posterUrl ? posterUrl : null)
+      ? (firstImageUrl || (!mediaUrl && posterUrl ? posterUrl : null))
       : null;
 
-  /* ---------- Inner page JSX ---------- */
+  const MAX_PHOTOS = 12; // pick your limit
+
+  const clearImagePreviews = () => {
+    // revoke old urls
+    imageUrls.forEach((u) => {
+      try { URL.revokeObjectURL(u); } catch { }
+    });
+    setImageFiles([]);
+    setImageUrls([]);
+  };
+
+  const onDropFiles = async (files: File[]) => {
+    if (!files?.length) return;
+
+    // decide if user selected video or images
+    const hasVideo = files.some((f) => f.type.startsWith("video/"));
+    const hasImage = files.some((f) => f.type.startsWith("image/"));
+
+    // Don’t allow mixing video+image in same pick
+    if (hasVideo && hasImage) {
+      showInfoModal("Pick one type", "Please select either a video OR photos (not both).");
+      return;
+    }
+
+    // ==========================
+    // VIDEO (single)
+    // ==========================
+    if (hasVideo) {
+      const v = files.find((f) => f.type.startsWith("video/"))!;
+      const mb = v.size / (1024 * 1024);
+      if (mb > MAX_MEDIA_MB) {
+        showInfoModal("File too large", `Max ${MAX_MEDIA_MB} MB. Your file is ~${mb.toFixed(1)} MB.`);
+        return;
+      }
+
+      // clear image state
+      clearImagePreviews();
+
+      // your existing video logic
+      if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+      setFile(v);
+      const url = URL.createObjectURL(v);
+      setMediaUrl(url);
+      setProgress(0);
+      setErrorMsg("");
+      setMediaKind("video");
+      setThumbDataUrl(null);
+      setCoverMs(800);
+      setStripThumbs([]);
+
+      try {
+        const meta = await probeVideoMeta(url);
+        setDurationSec(Math.round(meta.duration || 0));
+        setVideoWH({ width: meta.width, height: meta.height });
+        const initialCover = await captureVideoFrame(url, 0.8);
+        setThumbDataUrl(initialCover);
+        buildStrip(url, Math.max(1, Math.round(meta.duration || 0)));
+      } finally {
+        setStep(1);
+      }
+
+      return;
+    }
+
+    // ==========================
+    // IMAGES (multiple)
+    // ==========================
+    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    if (!imgs.length) {
+      showInfoModal("Unsupported file", "Please select a video or image.");
+      return;
+    }
+
+    if (imgs.length > MAX_PHOTOS) {
+      showInfoModal("Too many photos", `Please select up to ${MAX_PHOTOS} photos.`);
+      return;
+    }
+
+    // total size guard
+    const totalMb = imgs.reduce((s, f) => s + f.size, 0) / (1024 * 1024);
+    if (totalMb > MAX_MEDIA_MB) {
+      showInfoModal("Files too large", `Total must be ≤ ${MAX_MEDIA_MB} MB. Yours is ~${totalMb.toFixed(1)} MB.`);
+      return;
+    }
+
+    // clear video state
+    if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+    setFile(null);
+    setMediaUrl(null);
+    setDurationSec(null);
+    setStripThumbs([]);
+    setThumbDataUrl(null);
+    setCoverMs(800);
+
+    // clear old image previews
+    clearImagePreviews();
+
+    // build new previews
+    const urls = imgs.map((f) => URL.createObjectURL(f));
+    setImageFiles(imgs);
+    setImageUrls(urls);
+
+    // set image mode and poster
+    setMediaKind("image");
+    setVideoWH({});
+    setProgress(0);
+    setErrorMsg("");
+    setStep(1);
+  };
+  function DropZone({ onDropFiles }: { onDropFiles: (files: File[]) => void }) {
+    const [hover, setHover] = useState(false);
+    return (
+      <div
+        className="m-2 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-12 text-center transition sm:px-6 sm:py-16"
+        style={{ borderColor: hover ? EKARI.gold : EKARI.hair }}
+        onDragOver={(e) => { e.preventDefault(); setHover(true); }}
+        onDragLeave={() => setHover(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setHover(false);
+          const files = Array.from(e.dataTransfer.files || []);
+          if (files.length) onDropFiles(files);
+        }}
+      >
+        <div className="text-lg font-extrabold sm:text-2xl" style={{ color: EKARI.text }}>
+          Select media (video or photos) to upload
+        </div>
+        <div className="mt-2 text-xs sm:text-sm" style={{ color: EKARI.dim }}>
+          Or drag and drop it here
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Put your existing inner page JSX into a "Body" variable so we can reuse it
   const Body = (
     <StudioShell
       title={isEditing ? "Edit Post" : "Upload"}
       ctaHref="/studio/upload"
       ctaLabel={isEditing ? "New Upload" : "+ Upload"}
     >
-      {/* Desktop header row */}
+      {/* Desktop header row (optional) */}
       {isDesktop && (
-        <div className="mb-4 w-full flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <button
             onClick={goBack}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-extrabold transition active:scale-[0.99]"
-            style={{
-              borderRadius: UI.radiusSm,
-              border: `1px solid ${UI.border}`,
-              background: "rgba(255,255,255,0.7)",
-              boxShadow: UI.shadow2,
-              color: EKARI.text,
-            }}
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold hover:bg-black/5"
+            style={{ borderColor: EKARI.hair, color: EKARI.text }}
             aria-label="Back"
             title="Back"
           >
@@ -1333,7 +1294,7 @@ export default function UploadPage() {
             Back
           </button>
           <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
-            {isEditing ? "Edit your deed" : "Create a new deed"}
+            {isEditing ? "Edit your post" : "Create a new post"}
           </div>
           <div className="w-20" />
         </div>
@@ -1344,48 +1305,43 @@ export default function UploadPage() {
         ? null
         : !isEditing &&
         bannerDraft && (
-          <Card className="mb-5 px-4 py-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm" style={{ color: EKARI.text }}>
-                A video you were editing wasn’t saved. Continue editing?
-              </div>
-              <div className="flex gap-2">
-                <button
-                  className="px-3 py-1.5 font-extrabold transition active:scale-[0.99]"
-                  style={{
-                    borderRadius: UI.radiusSm,
-                    border: `1px solid ${UI.border}`,
-                    background: UI.soft,
-                    color: EKARI.text,
-                  }}
-                  onClick={() => {
-                    localStorage.removeItem(DRAFT_KEY);
-                    setBannerDraft(false);
-                  }}
-                >
-                  Discard
-                </button>
-                <button
-                  className="px-3 py-1.5 font-extrabold text-white transition active:scale-[0.99]"
-                  style={{
-                    borderRadius: UI.radiusSm,
-                    background: EKARI.forest,
-                    boxShadow: "0 14px 30px -22px rgba(35,63,57,0.55)",
-                  }}
-                  onClick={() => setBannerDraft(false)}
-                >
-                  Continue
-                </button>
-              </div>
+          <div
+            className="mb-4 flex flex-col gap-3 rounded-xl border bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            style={{ borderColor: EKARI.hair }}
+          >
+            <div className="text-sm" style={{ color: EKARI.text }}>
+              A video you were editing wasn’t saved. Continue editing?
             </div>
-          </Card>
+            <div className="flex gap-2">
+              <button
+                className="rounded-lg border px-3 py-1.5 font-bold"
+                style={{ borderColor: EKARI.hair }}
+                onClick={() => {
+                  localStorage.removeItem(DRAFT_KEY);
+                  setBannerDraft(false);
+                }}
+              >
+                Discard
+              </button>
+              <button
+                className="rounded-lg px-3 py-1.5 font-bold text-white"
+                style={{ backgroundColor: EKARI.forest }}
+                onClick={() => setBannerDraft(false)}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
         )}
 
       {/* STEP 0: Select */}
       {!isEditing && step === 0 && (
-        <Card className="p-2">
+        <div
+          className="rounded-2xl border bg-white"
+          style={{ borderColor: EKARI.hair }}
+        >
           <DropZone onDropFiles={onDropFiles} />
-          <div className="px-4 pb-8 pt-2 text-center sm:py-10">
+          <div className="px-4 pb-8 pt-6 text-center sm:py-10">
             <input
               id="file-input-drop"
               type="file"
@@ -1399,26 +1355,16 @@ export default function UploadPage() {
             />
 
             <button
-              className="relative mx-auto mt-3 rounded-2xl px-6 py-3 text-sm font-extrabold text-white transition active:scale-[0.99]"
-              style={{
-                background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
-                boxShadow: `0 16px 40px -24px rgba(199,146,87,0.65)`,
-              }}
-              onClick={() => document.getElementById("file-input-drop")?.click()}
+              className="mx-auto mt-3 rounded-lg px-5 py-3 text-sm font-bold text-white sm:text-base"
+              style={{ backgroundColor: EKARI.gold }}
+              onClick={() =>
+                document.getElementById("file-input-drop")?.click()
+              }
             >
-              <span
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  borderRadius: UI.radius,
-                  background:
-                    "linear-gradient(180deg, rgba(255,255,255,0.22), transparent 55%)",
-                  mixBlendMode: "overlay",
-                }}
-              />
               Select media
             </button>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* STEP 1: Details */}
@@ -1429,25 +1375,21 @@ export default function UploadPage() {
             {/* tabs */}
             <div className="mb-3 flex justify-center">
               <div
-                className="inline-flex overflow-hidden rounded-full backdrop-blur"
-                style={{
-                  border: `1px solid ${UI.border}`,
-                  background: "rgba(255,255,255,0.75)",
-                  boxShadow: UI.shadow2,
-                }}
+                className="inline-flex overflow-hidden rounded-full border bg-white/90 backdrop-blur"
+                style={{ borderColor: EKARI.hair }}
               >
                 {(["feed", "profile", "web"] as const).map((k) => (
                   <button
                     key={k}
                     onClick={() => setPreviewTab(k)}
                     className={[
-                      "px-4 py-1.5 text-sm font-extrabold transition",
+                      "px-4 py-1.5 text-sm font-medium transition",
                       previewTab === k
                         ? "text-white"
                         : "text-black/70 hover:bg-black/5",
                     ].join(" ")}
                     style={{
-                      background:
+                      backgroundColor:
                         previewTab === k ? EKARI.forest : "transparent",
                     }}
                   >
@@ -1464,12 +1406,8 @@ export default function UploadPage() {
             {/* FEED */}
             {previewTab === "feed" && (
               <div
-                className="relative mx-auto aspect-[9/16] w-full overflow-hidden bg-black lg:max-h-[98vh] lg:max-w-[320px]"
-                style={{
-                  borderRadius: UI.radius,
-                  border: `1px solid ${UI.border}`,
-                  boxShadow: "0 22px 70px -44px rgba(16,24,40,0.55)",
-                }}
+                className="relative mx-auto aspect-[9/16] w-full overflow-hidden rounded-2xl border bg-black shadow-[0_8px_30px_rgba(0,0,0,.12)] lg:max-h-[98vh] lg:max-w-[320px]"
+                style={{ borderColor: EKARI.hair }}
               >
                 {isBlobUrl(posterUrl) ? (
                   <img
@@ -1551,14 +1489,8 @@ export default function UploadPage() {
             {/* PROFILE */}
             {previewTab === "profile" && (
               <div
-                className="relative mx-auto w-full max-w-[360px] overflow-hidden"
-                style={{
-                  borderRadius: UI.radius,
-                  border: `1px solid ${UI.border}`,
-                  background: "rgba(255,255,255,0.86)",
-                  boxShadow: UI.shadow2,
-                  backdropFilter: "blur(14px)",
-                }}
+                className="relative mx-auto w/full max-w-[360px] overflow-hidden rounded-2xl border bg-white shadow-[0_8px_30px_rgba(0,0,0,.06)]"
+                style={{ borderColor: EKARI.hair }}
               >
                 <div className="px-4 pt-4 text-center">
                   <div className="mx-auto h-12 w-12 overflow-hidden rounded-full bg-gray-100">
@@ -1621,12 +1553,8 @@ export default function UploadPage() {
             {/* WEB/TV */}
             {previewTab === "web" && (
               <div
-                className="relative mx-auto aspect-video w-full max-w-3xl overflow-hidden bg-black"
-                style={{
-                  borderRadius: UI.radius,
-                  border: `1px solid ${UI.border}`,
-                  boxShadow: "0 22px 70px -44px rgba(16,24,40,0.55)",
-                }}
+                className="relative mx-auto aspect-video w/full max-w-3xl overflow-hidden rounded-2xl border bg-black shadow-[0_8px_30px_rgba(0,0,0,.12)]"
+                style={{ borderColor: EKARI.hair }}
               >
                 {isBlobUrl(posterUrl) ? (
                   <img
@@ -1691,10 +1619,10 @@ export default function UploadPage() {
 
           {/* DETAILS COLUMN */}
           <div className="order-2 lg:order-1">
-            <Card className="mb-4 p-4" solid>
+            <div className="mb-4 rounded-xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="font-extrabold" style={{ color: EKARI.text }}>
-                  {isEditing ? "Editing post" : file?.name || "New upload"}
+                <div className="font-bold" style={{ color: EKARI.text }}>
+                  {isEditing ? "Editing post" : (file?.name || "New upload")}
                   <span className="text-xs font-normal" style={{ color: EKARI.dim }}>
                     {" "}
                     {file ? `(${(file.size / (1024 * 1024)).toFixed(2)}MB)` : ""} •{" "}
@@ -1713,35 +1641,27 @@ export default function UploadPage() {
                     }}
                   />
                   <button
-                    className="px-3 py-1.5 text-sm font-extrabold transition active:scale-[0.99]"
-                    style={{
-                      borderRadius: UI.radiusSm,
-                      border: `1px solid ${UI.border}`,
-                      background: UI.soft,
-                      color: EKARI.text,
-                    }}
+                    className="rounded-lg border px-3 py-1.5 text-sm"
+                    style={{ borderColor: EKARI.hair }}
                     onClick={replaceMedia}
                   >
                     <IoSwapHorizontalOutline className="inline -mt-0.5 mr-1" />{" "}
-                    {file ? "Replace again" : isEditing ? "Replace video" : "Replace"}
+                    {file ? "Replace again" : (isEditing ? "Replace video" : "Replace")}
                   </button>
 
                   {!isEditing && (
                     <button
-                      className="px-3 py-1.5 text-sm font-extrabold transition active:scale-[0.99]"
-                      style={{
-                        borderRadius: UI.radiusSm,
-                        border: `1px solid ${UI.border}`,
-                        background: "rgba(180,35,24,0.06)",
-                        color: EKARI.danger,
-                      }}
+                      className="rounded-lg border px-3 py-1.5 text-sm"
+                      style={{ borderColor: EKARI.hair, color: EKARI.danger }}
                       onClick={() => {
                         showConfirmModal({
                           title: "Remove media?",
                           message: "This will remove this media from your upload.",
                           confirmText: "Remove",
                           cancelText: "Cancel",
-                          onConfirm: () => clearMedia(),
+                          onConfirm: () => {
+                            clearMedia();
+                          },
                         });
                       }}
                     >
@@ -1756,10 +1676,14 @@ export default function UploadPage() {
                   <UploadProgress value={progress} />
                 </div>
               )}
-            </Card>
+            </div>
 
+            {/* Cover selector + Preview Mixer (cover only for video) */}
             {/* Cover selector + Preview Mixer */}
-            <Card className="mb-4 p-4" solid>
+            <div
+              className="mb-4 rounded-2xl border bg-white p-4 shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)]"
+              style={{ borderColor: EKARI.hair }}
+            >
               <div className="flex items-center justify-between">
                 <div className="font-extrabold" style={{ color: EKARI.text }}>
                   {mediaKind === "video" ? "Cover" : "Preview"}
@@ -1778,46 +1702,34 @@ export default function UploadPage() {
 
               <div className="mt-3 grid grid-cols-1 gap-4 w-full">
                 {/* LEFT: Preview Card */}
-                {mediaUrl || previewPhotoUri || previewMusicUri ? (
+                {(mediaUrl || previewPhotoUri || previewMusicUri) ? (
                   <div
-                    className="w-full overflow-hidden"
-                    style={{
-                      borderRadius: UI.radius,
-                      border: `1px solid ${UI.border}`,
-                      background: "rgba(255,255,255,0.7)",
-                      boxShadow: UI.shadow2,
-                    }}
+                    className="w-full overflow-hidden rounded-2xl border"
+                    style={{ borderColor: EKARI.hair }}
                   >
-                    <div
-                      className="px-3 py-2"
-                      style={{ borderBottom: `1px solid ${UI.border}` }}
-                    >
+                    <div className="border-b px-3 py-2" style={{ borderColor: EKARI.hair }}>
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
                           Preview
                         </div>
                         <div className="text-[11px]" style={{ color: EKARI.dim }}>
-                          {mediaKind === "video"
-                            ? formatDuration(durationSec || 0)
-                            : `${imageUrls.length || 1} photo(s)`}
+                          {mediaKind === "video" ? formatDuration(durationSec || 0) : `${imageUrls.length || 1} photo(s)`}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-3 p-3 w-full">
-                      <div className="mx-auto w-full max-w-[240px]">
+                    <div className="flex gap-2 p-3 w-full">
+                      <div className="mx-auto w-full max-w-[230px]">
                         <PreviewMixerCard
                           title=""
-                          videoUri={mediaKind === "video" ? mediaUrl || undefined : undefined}
-                          photoUri={mediaKind === "image" ? firstImageUrl || undefined : undefined}
+                          videoUri={mediaKind === "video" ? (mediaUrl || undefined) : undefined}
+                          photoUri={mediaKind === "image" ? (firstImageUrl || undefined) : undefined}
                           posterUri={posterUrl || undefined}
                           musicUri={previewMusicUri || undefined}
                           musicOffsetMs={Math.round(startOffsetSec * 1000)}
                           musicGain={musicGain01UI}
                           videoGain={videoGain01UI}
-                          onOffsetChange={(ms: number) =>
-                            setStartOffsetSec(Math.max(0, ms / 1000))
-                          }
+                          onOffsetChange={(ms: number) => setStartOffsetSec(Math.max(0, ms / 1000))}
                           onGainChange={(g01: number) => {
                             setMusicGainDb(Math.round(gain01ToDb(g01)));
                             setMusicGain01UI(g01);
@@ -1829,27 +1741,17 @@ export default function UploadPage() {
                         />
                       </div>
 
-                      {/* Selected Photos */}
+                      {/* Selected Photos (nice grid) */}
                       {mediaKind === "image" && imageUrls.length > 0 && (
-                        <div
-                          className="rounded-2xl p-3"
-                          style={{
-                            border: `1px solid ${UI.border}`,
-                            background: "rgba(15,23,42,0.02)",
-                          }}
-                        >
+                        <div className="mt-4 rounded-xl border p-3" style={{ borderColor: EKARI.hair, background: "#FCFCFD" }}>
                           <div className="flex items-center justify-between">
                             <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
                               Selected photos ({imageUrls.length})
                             </div>
 
                             <button
-                              className="rounded-2xl px-3 py-1.5 text-xs font-extrabold transition active:scale-[0.99]"
-                              style={{
-                                border: `1px solid ${UI.border}`,
-                                background: "rgba(180,35,24,0.06)",
-                                color: EKARI.danger,
-                              }}
+                              className="rounded-lg border px-3 py-1.5 text-xs font-bold"
+                              style={{ borderColor: EKARI.hair, color: EKARI.danger }}
                               onClick={() =>
                                 showConfirmModal({
                                   title: "Remove photos?",
@@ -1869,15 +1771,10 @@ export default function UploadPage() {
                             {imageUrls.map((u, idx) => (
                               <button
                                 key={u}
-                                className="group relative aspect-[3/4] overflow-hidden transition active:scale-[0.99]"
+                                className="group relative aspect-[3/4] overflow-hidden rounded-lg border"
                                 style={{
-                                  borderRadius: UI.radiusSm,
-                                  border: `1px solid ${idx === 0 ? EKARI.gold : UI.border
-                                    }`,
-                                  boxShadow:
-                                    idx === 0
-                                      ? "0 14px 30px -24px rgba(199,146,87,0.55)"
-                                      : "none",
+                                  borderColor: idx === 0 ? EKARI.gold : EKARI.hair,
+                                  borderWidth: idx === 0 ? 2 : 1,
                                 }}
                                 title={idx === 0 ? "Primary preview" : `Photo ${idx + 1}`}
                                 onClick={() => {
@@ -1896,11 +1793,7 @@ export default function UploadPage() {
                                   });
                                 }}
                               >
-                                <img
-                                  src={u}
-                                  alt={`picked-${idx}`}
-                                  className="h-full w-full object-cover transition group-hover:scale-[1.03]"
-                                />
+                                <img src={u} alt={`picked-${idx}`} className="h-full w-full object-cover transition group-hover:scale-[1.03]" />
                                 {idx === 0 && (
                                   <div
                                     className="absolute left-1 top-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold"
@@ -1921,36 +1814,20 @@ export default function UploadPage() {
                     </div>
                   </div>
                 ) : (
-                  <div
-                    className="p-4 text-sm"
-                    style={{
-                      borderRadius: UI.radius,
-                      border: `1px solid ${UI.border}`,
-                      background: UI.soft,
-                      color: EKARI.dim,
-                    }}
-                  >
+                  <div className="rounded-xl border p-4 text-sm" style={{ borderColor: EKARI.hair, color: EKARI.dim }}>
                     Select media to preview.
                   </div>
                 )}
 
                 {/* RIGHT: Timeline / strip (video only) */}
-                <div
-                  className={`min-w-0 ${mediaKind === "image" ? "opacity-50 pointer-events-none" : ""
-                    }`}
-                >
+                <div className={`min-w-0 ${mediaKind === "image" ? "opacity-50 pointer-events-none" : ""}`}>
                   <div className="mb-2 text-xs" style={{ color: EKARI.dim }}>
                     {mediaKind === "video"
-                      ? file
-                        ? "Choose a frame as thumbnail"
-                        : "Select a video to enable timeline."
+                      ? (file ? "Choose a frame as thumbnail" : "Select a video to enable timeline.")
                       : "Cover timeline is for videos only."}
                   </div>
 
-                  <div
-                    className={`flex w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:thin] ${file && mediaKind === "video" ? "" : "opacity-60 pointer-events-none"
-                      }`}
-                  >
+                  <div className={`flex w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:thin] ${file && mediaKind === "video" ? "" : "opacity-60 pointer-events-none"}`}>
                     {stripBusy && (
                       <div className="text-xs" style={{ color: EKARI.dim }}>
                         Generating previews…
@@ -1960,9 +1837,7 @@ export default function UploadPage() {
                     {stripThumbs.map((u, idx) => {
                       const tMs =
                         durationSec && stripThumbs.length
-                          ? Math.floor(
-                            ((idx + 1) / (stripThumbs.length + 1)) * durationSec * 1000
-                          )
+                          ? Math.floor(((idx + 1) / (stripThumbs.length + 1)) * durationSec * 1000)
                           : 0;
                       const isActive = Math.abs((coverMs ?? 0) - tMs) < 450;
 
@@ -1970,13 +1845,10 @@ export default function UploadPage() {
                         <button
                           key={`${u}-${idx}`}
                           onClick={() => generateThumbAt(tMs)}
-                          className="relative h-20 w-14 sm:h-24 sm:w-16 shrink-0 overflow-hidden transition active:scale-[0.99]"
+                          className="relative h-20 w-14 sm:h-24 sm:w-16 shrink-0 overflow-hidden rounded-lg border"
                           style={{
-                            borderRadius: UI.radiusSm,
-                            border: `1px solid ${isActive ? EKARI.gold : UI.border}`,
-                            boxShadow: isActive
-                              ? "0 14px 30px -24px rgba(199,146,87,0.55)"
-                              : "none",
+                            borderColor: isActive ? EKARI.gold : EKARI.hair,
+                            borderWidth: isActive ? 2 : 1,
                           }}
                           title={`${(tMs / 1000).toFixed(1)}s`}
                         >
@@ -2002,24 +1874,17 @@ export default function UploadPage() {
                   )}
                 </div>
               </div>
-            </Card>
+            </div>
+
 
             {/* Description + Hashtags + Sound + Settings */}
-            <Card className="p-4" solid>
-              <div className="font-extrabold" style={{ color: EKARI.text }}>
-                Description
-              </div>
+            <div className="rounded-xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
+              <div className="font-extrabold" style={{ color: EKARI.text }}>Description</div>
 
               <div className="mt-2">
                 <textarea
-                  className="w-full p-3 text-sm outline-none transition focus-visible:ring-2"
-                  style={{
-                    borderRadius: UI.radiusSm,
-                    border: `1px solid ${UI.border}`,
-                    backgroundColor: "rgba(15,23,42,0.03)",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
-                    color: EKARI.text,
-                  }}
+                  className="w-full rounded-xl border p-3 text-sm"
+                  style={{ borderColor: EKARI.hair, backgroundColor: "#F6F7FB", color: EKARI.text }}
                   rows={5}
                   placeholder="Say something…"
                   value={caption}
@@ -2038,14 +1903,11 @@ export default function UploadPage() {
                   <span>Max {CAPTION_MAX} characters</span>
                   <span
                     style={{
-                      color:
-                        CAPTION_MAX - (caption?.length ?? 0) <= 20
-                          ? EKARI.text
-                          : EKARI.dim,
-                      fontWeight: 800,
+                      color: (CAPTION_MAX - (caption?.length ?? 0)) <= 20 ? EKARI.text : EKARI.dim,
+                      fontWeight: 700,
                     }}
                   >
-                    {CAPTION_MAX - (caption?.length ?? 0)} left
+                    {(CAPTION_MAX - (caption?.length ?? 0))} left
                   </span>
                 </div>
               </div>
@@ -2053,9 +1915,7 @@ export default function UploadPage() {
               {/* Hashtags */}
               <div className="mt-4 grid grid-cols-1">
                 <div>
-                  <div className="font-extrabold" style={{ color: EKARI.text }}>
-                    Hashtags
-                  </div>
+                  <div className="font-extrabold" style={{ color: EKARI.text }}>Hashtags</div>
                   <HashtagPicker
                     value={selectedTags}
                     onChange={setSelectedTags}
@@ -2069,14 +1929,12 @@ export default function UploadPage() {
                 </div>
               </div>
 
-              {/* Sound */}
+              {/* Sound row */}
               <div className="mt-5">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="inline-flex items-center gap-2">
                     <IoMusicalNotesOutline />
-                    <div className="font-extrabold" style={{ color: EKARI.text }}>
-                      Sound
-                    </div>
+                    <div className="font-extrabold" style={{ color: EKARI.text }}>Sound</div>
                   </div>
                   {musicTitle ? (
                     <span className="text-xs text-gray-600">
@@ -2089,13 +1947,8 @@ export default function UploadPage() {
                   <button
                     type="button"
                     onClick={() => setSoundOpen(true)}
-                    className="px-3 py-1.5 text-sm font-extrabold transition active:scale-[0.99]"
-                    style={{
-                      borderRadius: UI.radiusSm,
-                      border: `1px solid ${UI.border}`,
-                      background: UI.soft,
-                      color: EKARI.text,
-                    }}
+                    className="rounded-xl border px-3 py-1.5 text-sm font-bold"
+                    style={{ borderColor: EKARI.hair }}
                   >
                     + Use Sound
                   </button>
@@ -2106,12 +1959,8 @@ export default function UploadPage() {
                 {/* Mixing controls */}
                 {(musicTitle || musicUrl || localSoundFile) && (
                   <div
-                    className="mt-4 p-3"
-                    style={{
-                      borderRadius: UI.radius,
-                      border: `1px solid ${UI.border}`,
-                      background: "rgba(15,23,42,0.02)",
-                    }}
+                    className="mt-4 rounded-xl border p-3"
+                    style={{ borderColor: EKARI.hair, background: "#FDFDFE" }}
                   >
                     <div className="mb-2 text-sm font-extrabold" style={{ color: EKARI.text }}>
                       Mixing
@@ -2197,149 +2046,61 @@ export default function UploadPage() {
                 musicTitle={musicTitle}
               />
 
-              {/* Desktop actions */}
-              {!isMobile && (
-                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                  {!isEditing && (
-                    <button
-                      className="rounded-2xl px-4 py-2 font-extrabold transition active:scale-[0.99]"
-                      style={{
-                        border: `1px solid ${UI.border}`,
-                        background: UI.soft,
-                        color: EKARI.text,
-                      }}
-                      onClick={() => {
-                        if (typeof window === "undefined") return;
-                        localStorage.setItem(
-                          DRAFT_KEY,
-                          JSON.stringify({
-                            caption,
-                            selectedTags,
-                            visibility,
-                            allowComments,
-                            musicTitle,
-                            coverMs,
-                            musicGainDb,
-                            videoGainDb,
-                            ducking,
-                            duckAmountDb,
-                            loopMusic,
-                            startOffsetSec,
-                          })
-                        );
-                        showInfoModal("Draft saved", "Your draft has been saved on this device.");
-                      }}
-                    >
-                      Save draft
-                    </button>
-                  )}
-
+              {/* Footer actions */}
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                {!isEditing && (
                   <button
-                    className="relative inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 font-extrabold text-white disabled:opacity-60 transition active:scale-[0.99]"
-                    style={{
-                      background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
-                      boxShadow: `0 16px 40px -24px rgba(199,146,87,0.65)`,
+                    className="rounded-xl border px-4 py-2 font-bold"
+                    style={{ borderColor: EKARI.hair }}
+                    onClick={() => {
+                      if (typeof window === "undefined") return;
+                      localStorage.setItem(
+                        DRAFT_KEY,
+                        JSON.stringify({
+                          caption,
+                          selectedTags,
+                          visibility,
+                          allowComments,
+                          musicTitle,
+                          coverMs,
+                          musicGainDb,
+                          videoGainDb,
+                          ducking,
+                          duckAmountDb,
+                          loopMusic,
+                          startOffsetSec,
+                        })
+                      );
+                      showInfoModal("Draft saved", "Your draft has been saved on this device.");
                     }}
-                    disabled={!canPost || busy}
-                    onClick={saveDeed}
                   >
-                    <span
-                      className="pointer-events-none absolute inset-0"
-                      style={{
-                        borderRadius: UI.radius,
-                        background:
-                          "linear-gradient(180deg, rgba(255,255,255,0.22), transparent 55%)",
-                        mixBlendMode: "overlay",
-                      }}
-                    />
-                    <IoCloudUploadOutline />
-                    {busy
-                      ? isEditing
-                        ? `Saving… ${Math.round(progress)}%`
-                        : `Uploading… ${Math.round(progress)}%`
-                      : isEditing
-                        ? "Save changes"
-                        : "Post"}
+                    Save draft
                   </button>
-                </div>
-              )}
+                )}
+
+                <button
+                  className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-bold text-white disabled:opacity-60"
+                  style={{ backgroundColor: EKARI.gold }}
+                  disabled={!canPost || busy}
+                  onClick={saveDeed}
+                >
+                  <IoCloudUploadOutline />
+                  {busy
+                    ? isEditing
+                      ? `Saving… ${Math.round(progress)}%`
+                      : `Uploading… ${Math.round(progress)}%`
+                    : isEditing
+                      ? "Save changes"
+                      : "Post"}
+                </button>
+              </div>
 
               {!!errorMsg && (
                 <div className="mt-3 text-sm" style={{ color: EKARI.danger }}>
                   {errorMsg}
                 </div>
               )}
-            </Card>
-
-            {/* ✅ Premium sticky action bar for MOBILE */}
-            {isMobile && (
-              <div
-                className="sticky bottom-0 z-40 mt-6"
-                style={{
-                  paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)",
-                }}
-              >
-                <div
-                  className="mx-2 px-3 py-3"
-                  style={{
-                    borderRadius: "28px",
-                    background: "rgba(255,255,255,0.78)",
-                    border: `1px solid ${UI.border}`,
-                    boxShadow: UI.shadow,
-                    backdropFilter: "blur(16px)",
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    {!isEditing && (
-                      <button
-                        className="flex-1 px-4 py-2 font-extrabold transition active:scale-[0.99]"
-                        style={{
-                          borderRadius: "18px",
-                          background: UI.soft,
-                          border: `1px solid ${UI.border}`,
-                          color: EKARI.text,
-                        }}
-                        onClick={() => {
-                          localStorage.setItem(
-                            DRAFT_KEY,
-                            JSON.stringify({
-                              caption,
-                              selectedTags,
-                              visibility,
-                              allowComments,
-                              musicTitle,
-                              coverMs,
-                              musicGainDb,
-                              videoGainDb,
-                              ducking,
-                              duckAmountDb,
-                              loopMusic,
-                              startOffsetSec,
-                            })
-                          );
-                          showInfoModal("Draft saved", "Your draft has been saved on this device.");
-                        }}
-                      >
-                        Save draft
-                      </button>
-                    )}
-
-                    <button
-                      className="flex-1 px-4 py-2 font-extrabold text-white disabled:opacity-60 transition active:scale-[0.99]"
-                      style={{
-                        borderRadius: "18px",
-                        background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
-                        boxShadow: `0 16px 40px -24px rgba(199,146,87,0.65)`,
-                      }}
-                      disabled={!canPost || busy}
-                      onClick={saveDeed}
-                    >
-                      {busy ? `${Math.round(progress)}%` : isEditing ? "Save changes" : "Post"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}
@@ -2380,35 +2141,23 @@ export default function UploadPage() {
         }}
       />
 
-      {/* safe-area bottom spacer for mobile */}
+      {/* ✅ Add a safe-area bottom spacer for mobile */}
       {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
     </StudioShell>
   );
 
-  // ✅ MOBILE: fixed inset + glass header + scroll area (no AppShell)
+  // ✅ MOBILE: fixed inset + sticky header + scroll area (no AppShell)
   if (isMobile) {
     return (
-      <div className="fixed inset-0 flex flex-col" style={{ background: UI.gradient }}>
-        <div
-          className="sticky top-0 z-50 backdrop-blur-xl"
-          style={{
-            background: "rgba(255,255,255,0.75)",
-            borderBottom: `1px solid ${UI.border}`,
-            boxShadow: "0 8px 30px -22px rgba(16,24,40,0.35)",
-          }}
-        >
+      <div className="fixed inset-0 flex flex-col bg-white">
+        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
           <div
             className="h-14 px-3 flex items-center gap-2"
             style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             <button
               onClick={goBack}
-              className="h-10 w-10 rounded-full grid place-items-center transition active:scale-[0.98]"
-              style={{
-                background: "rgba(255,255,255,0.75)",
-                border: `1px solid ${UI.border}`,
-                boxShadow: "0 10px 24px -18px rgba(16,24,40,0.35)",
-              }}
+              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
               aria-label="Back"
               title="Back"
             >
@@ -2429,10 +2178,9 @@ export default function UploadPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-6xl px-2 sm:px-6 lg:px-8 py-4">
-            {Body}
-          </div>
+          {Body}
 
+          {/* Global confirm / alert modal for this page (keep working on mobile) */}
           <ConfirmModal
             open={confirmState.open}
             title={confirmState.title}
@@ -2453,28 +2201,27 @@ export default function UploadPage() {
     );
   }
 
-  // ✅ DESKTOP: keep AppShell + premium background container
+  // ✅ DESKTOP: keep AppShell
   return (
     <AppShell>
-      <div className="min-h-[100dvh] w-full" style={{ background: UI.gradient }}>
-        <div className="mx-auto w-full max-w-6xl px-3 sm:px-6 lg:px-8 py-6">{Body}</div>
+      {Body}
 
-        <ConfirmModal
-          open={confirmState.open}
-          title={confirmState.title}
-          message={confirmState.message}
-          confirmText={confirmState.confirmText}
-          cancelText={confirmState.cancelText}
-          onCancel={() => {
-            setConfirmState((s) => ({ ...s, open: false }));
-          }}
-          onConfirm={() => {
-            const fn = confirmState.onConfirm;
-            setConfirmState((s) => ({ ...s, open: false }));
-            if (fn) fn();
-          }}
-        />
-      </div>
+      {/* Global confirm / alert modal for desktop */}
+      <ConfirmModal
+        open={confirmState.open}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        onCancel={() => {
+          setConfirmState((s) => ({ ...s, open: false }));
+        }}
+        onConfirm={() => {
+          const fn = confirmState.onConfirm;
+          setConfirmState((s) => ({ ...s, open: false }));
+          if (fn) fn();
+        }}
+      />
     </AppShell>
   );
 }
@@ -2503,19 +2250,10 @@ function SettingsPanel({
 }) {
   return (
     <div
-      className="mt-6 overflow-hidden"
-      style={{
-        borderRadius: UI.radius,
-        border: `1px solid ${UI.border}`,
-        background: "rgba(255,255,255,0.86)",
-        boxShadow: UI.shadow2,
-        backdropFilter: "blur(14px)",
-      }}
+      className="mt-6 overflow-hidden rounded-2xl border bg-white shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)]"
+      style={{ borderColor: EKARI.hair }}
     >
-      <div
-        className="px-4 py-3"
-        style={{ borderBottom: `1px solid ${UI.border}` }}
-      >
+      <div className="border-b px-4 py-3" style={{ borderColor: EKARI.hair }}>
         <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
           Settings
         </div>
@@ -2562,11 +2300,7 @@ function SettingsPanel({
         icon={<IoTimeOutline />}
         title="Duration"
         hint={`Limit ${Math.round(MAX_VIDEO_SEC / 60)} min`}
-        right={
-          <BadgeMono>
-            {mediaKind === "video" ? formatDuration(durationSec) : "-"}
-          </BadgeMono>
-        }
+        right={<BadgeMono>{mediaKind === "video" ? formatDuration(durationSec) : "-"}</BadgeMono>}
       />
 
       {musicTitle ? (
@@ -2576,9 +2310,7 @@ function SettingsPanel({
             icon={<IoMusicalNotesOutline />}
             title="Music"
             hint="Track used in this post"
-            right={
-              <BadgeMono className="max-w-[200px] truncate">{musicTitle}</BadgeMono>
-            }
+            right={<BadgeMono className="max-w-[200px] truncate">{musicTitle}</BadgeMono>}
           />
         </>
       ) : null}
@@ -2599,19 +2331,11 @@ function SettingRow({
   right?: React.ReactNode;
 }) {
   return (
-    <div
-      className="flex items-center justify-between px-4 py-3 transition"
-      style={{ background: "transparent" }}
-      role="group"
-    >
+    <div className="flex items-center justify-between px-4 py-3 transition hover:bg-[#FAFAFB]" role="group">
       <div className="min-w-0 flex items-center gap-3">
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-          style={{
-            border: `1px solid ${UI.border}`,
-            backgroundColor: "rgba(35,63,57,0.06)",
-            color: EKARI.text,
-          }}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border"
+          style={{ borderColor: EKARI.hair, backgroundColor: "#F2F5F4", color: EKARI.text }}
         >
           {icon}
         </div>
@@ -2631,7 +2355,7 @@ function SettingRow({
   );
 }
 function Divider() {
-  return <div className="h-px w-full" style={{ backgroundColor: UI.border }} />;
+  return <div className="h-px w-full" style={{ backgroundColor: EKARI.hair }} />;
 }
 function Switch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -2641,15 +2365,9 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: () => void 
       aria-checked={checked}
       onClick={onChange}
       className="relative inline-flex h-6 w-11 items-center rounded-full transition outline-none ring-0 focus-visible:ring-2 focus-visible:ring-offset-2"
-      style={{
-        backgroundColor: checked ? EKARI.forest : "#D1D5DB",
-        boxShadow: `0 0 0 1px ${UI.border}`,
-      }}
+      style={{ backgroundColor: checked ? EKARI.forest : "#D1D5DB", boxShadow: "0 0 0 1px rgba(0,0,0,0.02)" }}
     >
-      <span
-        className="inline-block h-5 w-5 transform rounded-full bg-white transition"
-        style={{ transform: `translateX(${checked ? "22px" : "2px"})` }}
-      />
+      <span className="inline-block h-5 w-5 transform rounded-full bg-white transition" style={{ transform: `translateX(${checked ? "22px" : "2px"})` }} />
     </button>
   );
 }
@@ -2663,21 +2381,8 @@ function Select({
   options: { label: string; value: string }[];
 }) {
   return (
-    <div
-      className="px-2.5 py-1.5"
-      style={{
-        borderRadius: UI.radiusSm,
-        border: `1px solid ${UI.border}`,
-        background: "rgba(255,255,255,0.85)",
-        boxShadow: UI.shadow2,
-      }}
-    >
-      <select
-        value={value}
-        onChange={onChange}
-        className="bg-transparent text-sm font-extrabold outline-none"
-        style={{ color: EKARI.text }}
-      >
+    <div className="rounded-lg border px-2.5 py-1.5" style={{ borderColor: EKARI.hair, background: "#fff" }}>
+      <select value={value} onChange={onChange} className="bg-transparent text-sm font-bold outline-none" style={{ color: EKARI.text }}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -2691,7 +2396,7 @@ function UploadProgress({ value, compact = false }: { value: number; compact?: b
   const pct = Math.max(0, Math.min(100, Math.round(value || 0)));
   return (
     <div aria-label="Upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-      <div className={compact ? "h-1 rounded" : "h-2 rounded"} style={{ backgroundColor: "rgba(15,23,42,0.08)" }}>
+      <div className={compact ? "h-1 rounded" : "h-2 rounded"} style={{ backgroundColor: "#f3f4f6" }}>
         <div
           className={compact ? "h-1 rounded" : "h-2 rounded"}
           style={{
@@ -2712,13 +2417,8 @@ function UploadProgress({ value, compact = false }: { value: number; compact?: b
 function BadgeMono({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center px-2 py-1 text-xs font-extrabold ${className}`}
-      style={{
-        borderRadius: UI.radiusSm,
-        border: `1px solid ${UI.border}`,
-        background: UI.soft,
-        color: EKARI.text,
-      }}
+      className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-bold ${className}`}
+      style={{ borderColor: EKARI.hair, background: "#F9FAFB", color: EKARI.text }}
       title={typeof children === "string" ? children : undefined}
     >
       {children}
@@ -2728,31 +2428,23 @@ function BadgeMono({ children, className = "" }: { children: React.ReactNode; cl
 
 function UploadModal({ open, progress }: { open: boolean; progress: number }) {
   if (!open) return null;
+
   const pct = Math.max(0, Math.min(100, Math.round(progress || 0)));
+
+  // (optional) SSR safety for Next.js
   if (typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[999] grid place-items-center bg-black/50 backdrop-blur-sm">
-      <div
-        className="w-[92%] max-w-md p-5"
-        style={{
-          borderRadius: UI.radius,
-          background: "rgba(255,255,255,0.9)",
-          border: `1px solid ${UI.border}`,
-          boxShadow: UI.shadow,
-          backdropFilter: "blur(16px)",
-        }}
-      >
-        <div className="mb-2 text-sm font-extrabold" style={{ color: EKARI.text }}>
+      <div className="w-[92%] max-w-md rounded-2xl bg-white p-5 shadow-xl">
+        <div className="mb-2 text-sm font-bold text-gray-900">
           {pct < 100 ? "Uploading your deed…" : "Finalizing…"}
         </div>
-        <div className="mb-3 text-4xl font-black tracking-tight" style={{ color: EKARI.text }}>
+        <div className="mb-3 text-4xl font-extrabold tracking-tight text-gray-900">
           {pct}%
         </div>
         <UploadProgress value={pct} />
-        <div className="mt-3 text-xs" style={{ color: EKARI.dim }}>
-          {pct < 100 ? "Uploading…" : "Almost done…"}
-        </div>
+        <div className="mt-3 text-xs text-gray-500">{pct < 100 ? "Uploading…" : "Almost done…"}</div>
       </div>
     </div>,
     document.body
@@ -2804,27 +2496,11 @@ function CreateTab() {
 }
 
 /* ---------- mixing UI helpers ---------- */
-function MixRow({
-  label,
-  hint,
-  child,
-  disabled,
-}: {
-  label: string;
-  hint?: string;
-  child: React.ReactNode;
-  disabled?: boolean;
-}) {
+function MixRow({ label, hint, child, disabled }: { label: string; hint?: string; child: React.ReactNode; disabled?: boolean }) {
   return (
     <div className={`mt-3 ${disabled ? "opacity-60" : ""}`}>
-      <div className="mb-1 text-xs font-extrabold" style={{ color: EKARI.text }}>
-        {label}
-      </div>
-      {hint && (
-        <div className="mb-1 text-[11px]" style={{ color: EKARI.dim }}>
-          {hint}
-        </div>
-      )}
+      <div className="mb-1 text-xs font-bold" style={{ color: EKARI.text }}>{label}</div>
+      {hint && <div className="mb-1 text-[11px]" style={{ color: EKARI.dim }}>{hint}</div>}
       <div>{child}</div>
     </div>
   );
@@ -2877,7 +2553,7 @@ function ThemedRange({
           "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white",
         ].join(" ")}
         style={{
-          background: `linear-gradient(to right, ${EKARI.forest} 0% ${percent}%, rgba(15,23,42,0.12) ${percent}% 100%)`,
+          background: `linear-gradient(to right, ${EKARI.forest} 0% ${percent}%, ${EKARI.hair} ${percent}% 100%)`,
         } as React.CSSProperties}
       />
       <style jsx>{`
@@ -2885,11 +2561,7 @@ function ThemedRange({
         input[type="range"]::-moz-range-thumb { background: ${EKARI.gold}; }
         input[type="range"]:focus-visible { box-shadow: 0 0 0 2px ${EKARI.forest}33; }
       `}</style>
-      {label && (
-        <div className="mt-1 text-xs font-extrabold" style={{ color: EKARI.forest }}>
-          {label}
-        </div>
-      )}
+      {label && <div className="mt-1 text-xs font-bold" style={{ color: EKARI.forest }}>{label}</div>}
     </div>
   );
 }
@@ -2976,6 +2648,8 @@ function dataUrlToBlob(dataUrl: string): Blob {
   for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
   return new Blob([u8], { type: mime });
 }
+
+// Generate a thumbnail from a File at timeMs (ms)
 async function generateThumbAtWeb(file: File, timeMs: number): Promise<string | null> {
   const url = URL.createObjectURL(file);
   try {
