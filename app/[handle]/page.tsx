@@ -53,6 +53,7 @@ import {
   IoStorefrontOutline,
   IoShareSocialOutline,
   IoAnalyticsOutline,
+  IoBookmarkOutline,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -651,6 +652,14 @@ function ProfileHeroStorefront({
                   My market store
                 </Link>
 
+                <Link
+                  href="/nexus/events/saved"
+                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]"
+                  style={{ color: EKARI.text, borderColor: EKARI.hair }}
+                >
+                  <IoBookmarkOutline size={16} />
+                  Saved events
+                </Link>
 
               </>)}
               {showAdminBadge && isOwner && (
