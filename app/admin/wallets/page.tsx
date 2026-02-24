@@ -1,7 +1,7 @@
 // app/admin/wallets/page.tsx
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   collection,
   onSnapshot,
@@ -15,7 +15,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, app } from "@/lib/firebase";
 import Link from "next/link";
 import Image from "next/image";
-import { ConfirmModal } from "@/app/components/ConfirmModal"; // 🔹 Global modal
+import { ConfirmModalWithdraw } from "@/app/components/ConfirmModalWithdraw";
 
 const EKARI = {
   forest: "#233F39",
@@ -29,36 +29,165 @@ const EKARI = {
 
 type WithdrawalStatus = "pending" | "approved" | "rejected";
 
+/**
+ * ✅ UPDATED payout methods:
+ * - mpesa = automated B2C
+ * - bank = MANUAL deposit (we store bank details; no destinationId)
+ * - manual = any other manual settlement (cash etc.)
+ */
+type PayoutMethod = "mpesa" | "bank" | "manual";
+type SettlementCurrency = "KES" | "USD";
+
 type WithdrawalRequest = {
   id: string;
   creatorId: string;
   amount: number; // minor units
-  currency: string;
+  currency: string; // base currency stored in request (your wallet is USD internally)
+
   status: WithdrawalStatus;
   requestedAt?: any;
   processedAt?: any;
   processedBy?: string;
+
   payoutRef?: string | null;
-  payoutMethod?: "mpesa" | "bank" | "manual" | null;
+  payoutMethod?: PayoutMethod | null;
   mpesaReceiptCode?: string | null;
   note?: string | null;
+
+  payoutStatus?: "queued" | "success" | "failed" | "timeout" | null;
+
+  settlementCurrency?: SettlementCurrency | null;
+
+  /**
+   * ✅ Keep destinationId optional:
+   * - mpesa -> phone normalized
+   * - bank/manual -> optional (we may leave empty since bank details are stored separately)
+   */
+  destinationId?: string | null;
+
+  feeMinor?: number | null;
+  netMinor?: number | null;
+
+  creatorSettlementSnapshot?: any; // optional snapshot at request time
 };
 
 type CreatorLite = {
   handle?: string | null;
   photoURL?: string | null;
+  phone?: string | null;
+
+  // ✅ UPDATED settlement schema (bank manual)
+  settlement?: {
+    enabled?: boolean;
+    method?: "mpesa" | "bank";
+    mpesa?: { phone?: string | null; accountName?: string | null };
+    bank?: {
+      bankName?: string | null;
+      accountName?: string | null;
+      accountNumber?: string | null;
+      branchName?: string | null;
+      payoutMode?: "manual" | string | null;
+    };
+  } | null;
+};
+
+type MpesaShortcodeState = {
+  shortcode?: string | null;
+  balanceKesMinor?: number;
+  lastC2BAt?: any;
+  lastB2CAt?: any;
+  updatedAt?: any;
+};
+
+type MpesaC2BTopup = {
+  id: string;
+  transId?: string;
+  amountKesMinor?: number;
+  msisdn?: string | null;
+  billRefNumber?: string | null;
+  transTime?: string | null;
+  businessShortCode?: string | null;
+  createdAt?: any;
+};
+
+type MpesaB2CLog = {
+  id: string;
+  requestId?: string | null;
+  creatorId?: string | null;
+  phone?: string | null;
+  amountKesMinor?: number;
+  status?: "queued" | "success" | "failed" | "timeout" | string;
+  mpesaReceipt?: string | null;
+  resultCode?: number | null;
+  resultDesc?: string | null;
+  createdAt?: any;
+  updatedAt?: any;
 };
 
 function formatDate(v: any) {
   if (!v) return "";
-  if (v.toDate) {
-    return v.toDate().toLocaleString();
-  }
+  if (v.toDate) return v.toDate().toLocaleString();
   if (typeof v === "string") return v;
   return "";
 }
 
-/** Small hook to load creator handle + avatar for each row */
+function formatKesMinor(v?: number) {
+  const n = typeof v === "number" ? v : 0;
+  return `KSh ${(n / 100).toFixed(2)}`;
+}
+
+/** ✅ generic money formatter for popup (KES / USD) */
+function formatMoneyMinor(currency: string, minor?: number) {
+  const n = typeof minor === "number" ? minor : 0;
+  const cur = String(currency || "").toUpperCase();
+  const major = n / 100;
+
+  if (cur === "KES") return `KSh ${major.toFixed(2)}`;
+  if (cur === "USD") return `$${major.toFixed(2)}`;
+  return `${cur} ${major.toFixed(2)}`;
+}
+
+/** ✅ mpesa always settles in KES */
+function getSettleCurrency(
+  payoutMethod: PayoutMethod,
+  picked: SettlementCurrency
+): SettlementCurrency {
+  return payoutMethod === "mpesa" ? "KES" : picked;
+}
+
+/**
+ * ✅ derive fee + net (for popup)
+ * - If backend sets feeMinor/netMinor, we use them.
+ * - Else fallback to fee=0, net=amount-fee (same minor units as req.amount).
+ */
+function deriveFeeNet(req?: WithdrawalRequest | null) {
+  const requestedMinor = typeof req?.amount === "number" ? req!.amount : 0;
+  const feeMinor = typeof req?.feeMinor === "number" ? req!.feeMinor! : 0;
+  const netMinor =
+    typeof req?.netMinor === "number"
+      ? req!.netMinor!
+      : Math.max(0, requestedMinor - feeMinor);
+  return { requestedMinor, feeMinor, netMinor };
+}
+
+function normalizeMsisdnKE(input: string) {
+  const raw = String(input || "").trim().replace(/\s+/g, "");
+  if (!raw) return "";
+  let x = raw;
+  if (x.startsWith("+")) x = x.slice(1);
+
+  // accept 07.. or 01..
+  if (/^0[71]\d{8}$/.test(x)) return "254" + x.slice(1);
+  if (/^254[71]\d{8}$/.test(x)) return x;
+
+  return "";
+}
+
+function cleanStr(v: any) {
+  return String(v ?? "").trim().replace(/\s+/g, " ");
+}
+
+/** Small hook to load creator handle + avatar (and settlement) */
 function useCreatorProfile(creatorId?: string): CreatorLite | null {
   const [profile, setProfile] = useState<CreatorLite | null>(null);
 
@@ -79,6 +208,8 @@ function useCreatorProfile(creatorId?: string): CreatorLite | null {
         setProfile({
           handle: data.handle ?? null,
           photoURL: data.photoURL ?? null,
+          phone: data.phone ?? data.msisdn ?? data.mpesaPhone ?? null,
+          settlement: data.settlement ?? null,
         });
       },
       () => setProfile(null)
@@ -89,25 +220,102 @@ function useCreatorProfile(creatorId?: string): CreatorLite | null {
   return profile;
 }
 
+/** ✅ helper: extract settlement pref from snapshot (if present) */
+function extractPrefFromSnapshot(snap: any): {
+  enabled: boolean;
+  method: "mpesa" | "bank";
+  mpesaPhone?: string;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankBranchName?: string;
+} {
+  const enabled = !!snap?.enabled;
+  const method =
+    String(snap?.method || "mpesa").toLowerCase() === "bank" ? "bank" : "mpesa";
+
+  const mpesaPhone = cleanStr(snap?.mpesa?.phone || "");
+  const bankName = cleanStr(snap?.bank?.bankName || "");
+  const bankAccountName = cleanStr(snap?.bank?.accountName || "");
+  const bankAccountNumber = cleanStr(snap?.bank?.accountNumber || "");
+  const bankBranchName = cleanStr(snap?.bank?.branchName || "");
+
+  return {
+    enabled,
+    method,
+    mpesaPhone: mpesaPhone || undefined,
+    bankName: bankName || undefined,
+    bankAccountName: bankAccountName || undefined,
+    bankAccountNumber: bankAccountNumber || undefined,
+    bankBranchName: bankBranchName || undefined,
+  };
+}
+
 export default function AdminWalletsPage() {
   const [items, setItems] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
+  // shortcode balance + histories
+  const [mpesa, setMpesa] = useState<MpesaShortcodeState | null>(null);
+  const [topups, setTopups] = useState<MpesaC2BTopup[]>([]);
+  const [b2cLogs, setB2cLogs] = useState<MpesaB2CLog[]>([]);
+  const [walletTab, setWalletTab] = useState<
+    "withdrawals" | "topups" | "disbursements"
+  >("withdrawals");
+
   // filters/search
   const [statusFilter, setStatusFilter] = useState<
     "all" | "pending" | "approved" | "rejected"
   >("pending");
+
+  // method filter
+  const [methodFilter, setMethodFilter] = useState<
+    "all" | "mpesa" | "bank" | "manual"
+  >("all");
+
   const [search, setSearch] = useState("");
 
-  // 🔹 Global confirm + feedback modals
-  const [confirmConfig, setConfirmConfig] = useState<{
-    title: string;
-    message: string;
-    confirmText?: string;
-    cancelText?: string;
-    onConfirm: () => void;
-  } | null>(null);
+  // Modal state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmText, setConfirmText] = useState("Confirm");
+
+  const [pendingReq, setPendingReq] = useState<WithdrawalRequest | null>(null);
+  const [pendingDecision, setPendingDecision] = useState<
+    "approve" | "reject" | null
+  >(null);
+
+  /**
+   * ✅ UPDATED approve form:
+   * - mpesa -> destinationId = phone (required)
+   * - bank -> bank details required (manual)
+   * - manual -> optional destination note
+   */
+  const [approveForm, setApproveForm] = useState<{
+    payoutMethod: PayoutMethod;
+    settlementCurrency: SettlementCurrency;
+    destinationId: string; // mpesa: phone, manual: optional note, bank: optional (can remain empty)
+    payoutRef: string;
+
+    bankName: string;
+    bankAccountName: string;
+    bankAccountNumber: string;
+    bankBranchName: string;
+  }>({
+    payoutMethod: "mpesa",
+    settlementCurrency: "KES",
+    destinationId: "",
+    payoutRef: "",
+
+    bankName: "",
+    bankAccountName: "",
+    bankAccountNumber: "",
+    bankBranchName: "",
+  });
+
+  const [rejectNote, setRejectNote] = useState("");
 
   const [feedbackModal, setFeedbackModal] = useState<{
     title: string;
@@ -118,15 +326,91 @@ export default function AdminWalletsPage() {
     setFeedbackModal({ title, message });
   };
 
+  // Listen shortcode balance
   useEffect(() => {
-    const q = query(
+    const ref = doc(db, "adminSettings", "mpesa");
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        if (!snap.exists()) {
+          setMpesa(null);
+          return;
+        }
+        const data = snap.data() as any;
+        setMpesa({
+          shortcode: data?.shortcode ?? null,
+          balanceKesMinor:
+            typeof data?.balanceKesMinor === "number" ? data.balanceKesMinor : 0,
+          lastC2BAt: data?.lastC2BAt ?? null,
+          lastB2CAt: data?.lastB2CAt ?? null,
+          updatedAt: data?.updatedAt ?? null,
+        });
+      },
+      (err) => {
+        console.error("Error loading adminSettings/mpesa", err);
+        setMpesa(null);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  // Listen topups (C2B)
+  useEffect(() => {
+    const qy = query(
+      collection(db, "mpesaC2B"),
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
+    const unsub = onSnapshot(
+      qy,
+      (snap) => {
+        const rows: MpesaC2BTopup[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as DocumentData),
+        })) as any;
+        setTopups(rows);
+      },
+      (err) => {
+        console.error("Error loading mpesaC2B", err);
+        setTopups([]);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  // Listen B2C logs
+  useEffect(() => {
+    const qy = query(
+      collection(db, "mpesaB2C"),
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
+    const unsub = onSnapshot(
+      qy,
+      (snap) => {
+        const rows: MpesaB2CLog[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as DocumentData),
+        })) as any;
+        setB2cLogs(rows);
+      },
+      (err) => {
+        console.error("Error loading mpesaB2C", err);
+        setB2cLogs([]);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  // Withdrawals list
+  useEffect(() => {
+    const qy = query(
       collection(db, "withdrawalRequests"),
       orderBy("requestedAt", "desc"),
       limit(100)
     );
-
     const unsub = onSnapshot(
-      q,
+      qy,
       (snap) => {
         const rows: WithdrawalRequest[] = snap.docs.map((d) => ({
           id: d.id,
@@ -141,7 +425,6 @@ export default function AdminWalletsPage() {
         setLoading(false);
       }
     );
-
     return () => unsub();
   }, []);
 
@@ -151,48 +434,228 @@ export default function AdminWalletsPage() {
     return items.filter((req) => {
       if (statusFilter !== "all" && req.status !== statusFilter) return false;
 
+      if (methodFilter !== "all") {
+        const pm = (req.payoutMethod || "").toLowerCase();
+        if (pm !== methodFilter) return false;
+      }
+
       if (!q) return true;
+
+      // ✅ include snapshot bank fields in search (manual bank)
+      const snap = req.creatorSettlementSnapshot || {};
+      const snapPref = extractPrefFromSnapshot(snap);
 
       const haystack =
         (req.creatorId || "").toLowerCase() +
         " " +
         (req.id || "").toLowerCase() +
         " " +
-        (req.payoutRef || "").toLowerCase();
+        (req.payoutRef || "").toLowerCase() +
+        " " +
+        (req.mpesaReceiptCode || "").toLowerCase() +
+        " " +
+        (req.payoutMethod || "").toLowerCase() +
+        " " +
+        (req.destinationId || "").toLowerCase() +
+        " " +
+        (snapPref.mpesaPhone || "").toLowerCase() +
+        " " +
+        (snapPref.bankName || "").toLowerCase() +
+        " " +
+        (snapPref.bankAccountName || "").toLowerCase() +
+        " " +
+        (snapPref.bankAccountNumber || "").toLowerCase();
 
       return haystack.includes(q);
     });
-  }, [items, statusFilter, search]);
+  }, [items, statusFilter, methodFilter, search]);
 
-  // 🔹 Core processing (no alerts/confirm here)
-  const processDecision = async (
-    req: WithdrawalRequest,
-    decision: "approve" | "reject"
-  ) => {
-    if (actionBusyId) return;
+  const openApproveModal = (req: WithdrawalRequest, creator: CreatorLite | null) => {
+    const amountMajor = req.amount / 100;
+    const cur = String(req.currency || "USD").toUpperCase();
 
-    // Optional extra info: MPesa receipt code / reason
-    let payoutRef: string | undefined;
-    let note: string | undefined;
-    let payoutMethod: "mpesa" | "manual" | undefined;
+    setPendingReq(req);
+    setPendingDecision("approve");
 
-    if (decision === "approve") {
-      payoutMethod = "mpesa";
-      // still using prompt for free-text input (not a simple alert)
-      const refInput = window.prompt(
-        "Optionally enter the M-Pesa receipt or bank reference code (you can leave this blank and fill later):"
-      );
-      if (refInput && refInput.trim()) {
-        payoutRef = refInput.trim();
-      }
-    } else {
-      const reason = window.prompt(
-        "Optionally enter a short reason for rejecting this withdrawal (will be visible in logs / email):"
-      );
-      if (reason && reason.trim()) {
-        note = reason.trim();
+    /**
+     * ✅ Prefer snapshot at request-time if present (stronger),
+     * fallback to current creator profile settlement.
+     */
+    const snapPref = extractPrefFromSnapshot(req.creatorSettlementSnapshot);
+    const profileS = creator?.settlement;
+
+    const enabled =
+      req.creatorSettlementSnapshot != null ? snapPref.enabled : !!profileS?.enabled;
+
+    const methodPref =
+      req.creatorSettlementSnapshot != null
+        ? (snapPref.method as PayoutMethod)
+        : ((String(profileS?.method || "mpesa").toLowerCase() === "bank"
+          ? "bank"
+          : "mpesa") as PayoutMethod);
+
+    const mpesaPhone =
+      req.creatorSettlementSnapshot != null
+        ? snapPref.mpesaPhone || ""
+        : String(profileS?.mpesa?.phone || "");
+
+    const bankName =
+      req.creatorSettlementSnapshot != null
+        ? snapPref.bankName || ""
+        : String(profileS?.bank?.bankName || "");
+
+    const bankAccountName =
+      req.creatorSettlementSnapshot != null
+        ? snapPref.bankAccountName || ""
+        : String(profileS?.bank?.accountName || "");
+
+    const bankAccountNumber =
+      req.creatorSettlementSnapshot != null
+        ? snapPref.bankAccountNumber || ""
+        : String(profileS?.bank?.accountNumber || "");
+
+    const bankBranchName =
+      req.creatorSettlementSnapshot != null
+        ? snapPref.bankBranchName || ""
+        : String(profileS?.bank?.branchName || "");
+
+    // ✅ destinationId only used for mpesa phone (bank is manual details)
+    const destinationId = enabled && methodPref === "mpesa" ? mpesaPhone : "";
+
+    const initialMethod: PayoutMethod = enabled ? methodPref : "mpesa";
+    const initialSettleCur: SettlementCurrency =
+      initialMethod === "mpesa" ? "KES" : "USD";
+
+    setApproveForm({
+      payoutMethod: initialMethod,
+      settlementCurrency: initialSettleCur,
+      destinationId,
+      payoutRef: "",
+
+      bankName: bankName,
+      bankAccountName: bankAccountName,
+      bankAccountNumber: bankAccountNumber,
+      bankBranchName: bankBranchName,
+    });
+
+    setRejectNote("");
+
+    const prefLabel = enabled
+      ? methodPref === "mpesa"
+        ? `Preferred: MPESA (${mpesaPhone || "—"})`
+        : `Preferred: BANK (manual) (${bankName || "—"} • ${bankAccountNumber || "—"})`
+      : "Preferred: Not enabled";
+
+    // ✅ include fee + settle amount in popup message
+    const { requestedMinor, feeMinor, netMinor } = deriveFeeNet(req);
+    const settleCur = getSettleCurrency(initialMethod, initialSettleCur);
+    const requestedTxt = `${cur} ${amountMajor.toFixed(2)}`;
+    const feeTxt = formatMoneyMinor(settleCur, feeMinor);
+    const netTxt = formatMoneyMinor(settleCur, netMinor);
+
+    setConfirmTitle("Approve withdrawal");
+    setConfirmMessage(
+      `Approve withdrawal of ${requestedTxt} for creator ${req.creatorId}?\n\n` +
+      `${prefLabel}\n\n` +
+      `Processing fee: ${feeTxt}\n` +
+      `Amount to settle (${settleCur}): ${netTxt}\n\n` +
+      `Choose payout method and details below.`
+    );
+    setConfirmText("Approve");
+    setConfirmOpen(true);
+  };
+
+  const openRejectModal = (req: WithdrawalRequest) => {
+    const amountMajor = req.amount / 100;
+    const cur = String(req.currency || "USD").toUpperCase();
+
+    setPendingReq(req);
+    setPendingDecision("reject");
+
+    setRejectNote("");
+    setConfirmTitle("Reject withdrawal");
+    setConfirmMessage(
+      `Reject withdrawal of ${cur} ${amountMajor.toFixed(
+        2
+      )} for creator ${req.creatorId}?\n\nOptionally include a short reason.`
+    );
+    setConfirmText("Reject");
+    setConfirmOpen(true);
+  };
+
+  const validateApproveForm = () => {
+    if (pendingDecision !== "approve") return { ok: true as const };
+
+    const m = approveForm.payoutMethod;
+
+    if (m === "mpesa") {
+      const phone = normalizeMsisdnKE(approveForm.destinationId);
+      if (!phone) {
+        return {
+          ok: false as const,
+          message: "M-Pesa requires a valid phone number (07.. / 01.. / 254..).",
+        };
       }
     }
+
+    if (m === "bank") {
+      // ✅ bank is MANUAL deposit: require bank details (not destinationId)
+      const bankName = cleanStr(approveForm.bankName);
+      const accName = cleanStr(approveForm.bankAccountName);
+      const accNo = cleanStr(approveForm.bankAccountNumber);
+
+      if (!bankName || !accName || !accNo) {
+        return {
+          ok: false as const,
+          message: "Bank (manual) requires Bank name, Account name, and Account number.",
+        };
+      }
+    }
+
+    return { ok: true as const };
+  };
+
+  const processDecision = async () => {
+    if (!pendingReq || !pendingDecision) return;
+    if (actionBusyId) return;
+
+    const req = pendingReq;
+    const decision = pendingDecision;
+
+    const payoutMethod: PayoutMethod | undefined =
+      decision === "approve" ? approveForm.payoutMethod : undefined;
+
+    const settlementCurrency: SettlementCurrency | undefined =
+      decision === "approve"
+        ? approveForm.payoutMethod === "mpesa"
+          ? "KES"
+          : approveForm.settlementCurrency
+        : undefined;
+
+    // ✅ destinationId only meaningful for mpesa (phone). For bank/manual we can omit.
+    const destinationId: string | undefined =
+      decision === "approve"
+        ? approveForm.payoutMethod === "mpesa"
+          ? normalizeMsisdnKE(approveForm.destinationId) || undefined
+          : approveForm.destinationId.trim() || undefined
+        : undefined;
+
+    const payoutRef: string | undefined =
+      decision === "approve" && approveForm.payoutRef.trim()
+        ? approveForm.payoutRef.trim()
+        : undefined;
+
+    const note: string | undefined =
+      decision === "reject" && rejectNote.trim()
+        ? rejectNote.trim()
+        : decision === "approve" && approveForm.payoutMethod === "bank"
+          ? `BANK MANUAL: ${cleanStr(approveForm.bankName)} | ${cleanStr(
+            approveForm.bankAccountName
+          )} | ${cleanStr(approveForm.bankAccountNumber)}${cleanStr(approveForm.bankBranchName)
+            ? ` | Branch: ${cleanStr(approveForm.bankBranchName)}`
+            : ""
+          }`
+          : undefined;
 
     try {
       setActionBusyId(`${req.id}:${decision}`);
@@ -202,9 +665,19 @@ export default function AdminWalletsPage() {
         {
           requestId: string;
           decision: "approve" | "reject";
-          payoutMethod?: "mpesa" | "manual";
+          payoutMethod?: PayoutMethod;
           payoutRef?: string;
           note?: string;
+          settlementCurrency?: SettlementCurrency;
+          destinationId?: string;
+
+          bankDetails?: {
+            bankName: string;
+            accountName: string;
+            accountNumber: string;
+            branchName?: string;
+            payoutMode: "manual";
+          };
         },
         { ok: boolean }
       >(functions, "processWithdrawalRequest");
@@ -215,9 +688,24 @@ export default function AdminWalletsPage() {
         payoutMethod,
         payoutRef,
         note,
+        settlementCurrency,
+        destinationId,
+
+        bankDetails:
+          decision === "approve" && approveForm.payoutMethod === "bank"
+            ? {
+              bankName: cleanStr(approveForm.bankName),
+              accountName: cleanStr(approveForm.bankAccountName),
+              accountNumber: cleanStr(approveForm.bankAccountNumber),
+              branchName: cleanStr(approveForm.bankBranchName) || undefined,
+              payoutMode: "manual",
+            }
+            : undefined,
       });
 
-      // onSnapshot will update table automatically
+      setConfirmOpen(false);
+      setPendingReq(null);
+      setPendingDecision(null);
     } catch (err: any) {
       console.error("processWithdrawalRequest error", err);
       openFeedback(
@@ -230,209 +718,752 @@ export default function AdminWalletsPage() {
     }
   };
 
-  const handleDecision = async (
-    req: WithdrawalRequest,
-    decision: "approve" | "reject"
-  ) => {
-    if (actionBusyId) return;
+  const mpesaBalanceText = formatKesMinor(mpesa?.balanceKesMinor ?? 0);
+  const lowBalance =
+    typeof mpesa?.balanceKesMinor === "number" && mpesa.balanceKesMinor < 0;
 
-    const amountMajor = req.amount / 100;
+  const approveValidation = validateApproveForm();
 
-    const confirmMessage =
-      decision === "approve"
-        ? `Approve withdrawal of KSh ${amountMajor.toFixed(
-          2
-        )} for creator ${req.creatorId}?\n\nMake sure you have already sent the M-Pesa / bank payout or are about to do so.`
-        : `Reject withdrawal of KSh ${amountMajor.toFixed(
-          2
-        )} for creator ${req.creatorId}?\n\nThis will mark the request as rejected and notify the creator.`;
-
-    setConfirmConfig({
-      title: decision === "approve" ? "Approve withdrawal" : "Reject withdrawal",
-      message: confirmMessage,
-      confirmText: decision === "approve" ? "Approve" : "Reject",
-      cancelText: "Cancel",
-      onConfirm: () => {
-        setConfirmConfig(null);
-        void processDecision(req, decision);
-      },
-    });
-  };
+  const confirmDisabled =
+    !!actionBusyId ||
+    (pendingDecision === "approve" && approveValidation.ok === false);
 
   return (
     <>
+      {/* Shortcode balance + tabs */}
+      <div
+        className="rounded-3xl bg-white/80 p-4 md:p-5 shadow-sm border mb-4"
+        style={{ borderColor: EKARI.hair }}
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <h2
+              className="text-sm md:text-base font-extrabold"
+              style={{ color: EKARI.ink }}
+            >
+              M-Pesa Shortcode Wallet
+            </h2>
+            <p className="text-xs" style={{ color: EKARI.dim }}>
+              Realtime ledger balance (C2B adds, B2C subtracts on success).
+            </p>
+          </div>
+
+          <div className="flex flex-col md:items-end gap-1">
+            <div className="text-xs" style={{ color: EKARI.dim }}>
+              Shortcode:{" "}
+              <span className="font-semibold" style={{ color: EKARI.ink }}>
+                {mpesa?.shortcode || "—"}
+              </span>
+            </div>
+            <div
+              className="text-lg md:text-xl font-extrabold"
+              style={{ color: EKARI.ink }}
+            >
+              {mpesaBalanceText}
+            </div>
+            <div className="text-[11px]" style={{ color: EKARI.dim }}>
+              Last topup: {formatDate(mpesa?.lastC2BAt)}{" "}
+              <span className="mx-1">•</span>
+              Last payout: {formatDate(mpesa?.lastB2CAt)}
+            </div>
+            {lowBalance && (
+              <div className="text-[11px] font-semibold text-red-600">
+                Balance looks invalid (negative). Check ledger logic.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs">
+            {(["withdrawals", "topups", "disbursements"] as const).map((t) => {
+              const active = walletTab === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setWalletTab(t)}
+                  className={[
+                    "px-3 py-1 rounded-full font-semibold transition",
+                    active ? "bg-white shadow-sm" : "text-slate-500 hover:bg-white/70",
+                  ].join(" ")}
+                  style={
+                    active
+                      ? { color: EKARI.ink }
+                      : { color: "rgba(55,65,81,0.9)" }
+                  }
+                >
+                  {t === "withdrawals"
+                    ? "Withdrawals"
+                    : t === "topups"
+                      ? "C2B Topups"
+                      : "B2C Disbursements"}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search/filters apply to withdrawals only */}
+          {walletTab === "withdrawals" && (
+            <div className="flex flex-col gap-2 md:items-end">
+              <div className="flex flex-col md:flex-row gap-2 md:items-center">
+                <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs">
+                  {(["pending", "approved", "rejected", "all"] as const).map((s) => {
+                    const active = statusFilter === s;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setStatusFilter(s)}
+                        className={[
+                          "px-3 py-1 rounded-full font-semibold transition",
+                          active ? "bg-white shadow-sm" : "text-slate-500 hover:bg-white/70",
+                        ].join(" ")}
+                        style={
+                          active
+                            ? { color: EKARI.ink }
+                            : { color: "rgba(55,65,81,0.9)" }
+                        }
+                      >
+                        {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs">
+                  {(["all", "mpesa", "bank", "manual"] as const).map((m) => {
+                    const active = methodFilter === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMethodFilter(m)}
+                        className={[
+                          "px-3 py-1 rounded-full font-semibold transition",
+                          active ? "bg-white shadow-sm" : "text-slate-500 hover:bg-white/70",
+                        ].join(" ")}
+                        style={
+                          active
+                            ? { color: EKARI.ink }
+                            : { color: "rgba(55,65,81,0.9)" }
+                        }
+                        title="Filter withdrawals by payout method"
+                      >
+                        {m === "all" ? "All methods" : m.toUpperCase()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Search by creator UID, request ID, bank name, account…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full md:w-80 rounded-full border px-3 py-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                style={{ borderColor: EKARI.hair, color: EKARI.ink }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* MAIN CONTENT */}
       <div
         className="rounded-3xl bg-white/80 p-4 md:p-5 shadow-sm border space-y-4"
         style={{ borderColor: EKARI.hair }}
       >
-        {/* Header */}
-        <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1
-              className="text-lg md:text-xl font-extrabold"
-              style={{ color: EKARI.ink }}
-            >
-              Creator withdrawals
-            </h1>
-            <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-              Review and approve withdrawal requests from creator wallets.
-              Approved payouts should match M-Pesa / bank transfers you make.
-            </p>
-          </div>
+        {walletTab === "withdrawals" ? (
+          <>
+            <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h1
+                  className="text-lg md:text-xl font-extrabold"
+                  style={{ color: EKARI.ink }}
+                >
+                  Creator withdrawals
+                </h1>
+                <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
+                  Approve or reject creator withdrawals. ✅ M-Pesa = automated (B2C KES). ✅ Bank = manual deposit.
+                </p>
+              </div>
+            </header>
 
-          {/* Filters + search */}
-          <div className="flex flex-col md:flex-row gap-2 md:items-center">
-            <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs">
-              {(["pending", "approved", "rejected", "all"] as const).map(
-                (s) => {
-                  const active = statusFilter === s;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStatusFilter(s)}
-                      className={[
-                        "px-3 py-1 rounded-full font-semibold transition",
-                        active
-                          ? "bg-white shadow-sm"
-                          : "text-slate-500 hover:bg-white/70",
-                      ].join(" ")}
-                      style={
-                        active
-                          ? { color: EKARI.ink }
-                          : { color: "rgba(55,65,81,0.9)" }
+            {loading ? (
+              <div className="flex items-center gap-2 py-6">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-800 border-t-transparent" />
+                <p className="text-xs" style={{ color: EKARI.dim }}>
+                  Loading withdrawal requests…
+                </p>
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
+                <p className="mb-1 text-sm font-extrabold" style={{ color: EKARI.ink }}>
+                  No matching withdrawal requests
+                </p>
+                <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
+                  Try changing the status/method filter or search text.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: EKARI.hair }}>
+                      <th className="py-2 pr-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Creator
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Amount
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Status
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Requested
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Payout ref / method
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Processed
+                      </th>
+                      <th className="py-2 pl-3 text-right font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((req) => {
+                      const amountMajor = req.amount / 100;
+                      const isPending = req.status === "pending";
+                      const busyApprove = actionBusyId === `${req.id}:approve`;
+                      const busyReject = actionBusyId === `${req.id}:reject`;
+
+                      let statusColor = "#F97316";
+                      let statusBg = "#FFEDD5";
+                      if (req.status === "approved") {
+                        statusColor = "#16A34A";
+                        statusBg = "#DCFCE7";
                       }
-                    >
-                      {s === "all"
-                        ? "All"
-                        : s.charAt(0).toUpperCase() + s.slice(1)}
-                    </button>
-                  );
-                }
-              )}
-            </div>
+                      if (req.status === "rejected") {
+                        statusColor = "#DC2626";
+                        statusBg = "#FEE2E2";
+                      }
 
-            <input
-              type="text"
-              placeholder="Search by creator UID, request ID, reference…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full md:w-64 rounded-full border px-3 py-1.5 text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              style={{ borderColor: EKARI.hair, color: EKARI.ink }}
-            />
-          </div>
-        </header>
+                      return (
+                        <WithdrawalRow
+                          key={req.id}
+                          req={req}
+                          amountMajor={amountMajor}
+                          statusColor={statusColor}
+                          statusBg={statusBg}
+                          isPending={isPending}
+                          busyApprove={busyApprove}
+                          busyReject={busyReject}
+                          onApprove={(r, c) => openApproveModal(r, c)}
+                          onReject={() => openRejectModal(req)}
+                        />
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        ) : walletTab === "topups" ? (
+          <>
+            <header className="flex flex-col gap-1">
+              <h3 className="text-base font-extrabold" style={{ color: EKARI.ink }}>
+                C2B Topups (Shortcode deposits)
+              </h3>
+              <p className="text-xs" style={{ color: EKARI.dim }}>
+                Confirmed payments received on the shortcode (credits balance immediately).
+              </p>
+            </header>
 
-        {/* Table / states */}
-        {loading ? (
-          <div className="flex items-center gap-2 py-6">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-800 border-t-transparent" />
-            <p className="text-xs" style={{ color: EKARI.dim }}>
-              Loading withdrawal requests…
-            </p>
-          </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
-            <p
-              className="mb-1 text-sm font-extrabold"
-              style={{ color: EKARI.ink }}
-            >
-              No matching withdrawal requests
-            </p>
-            <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-              Try changing the status filter or search text.
-            </p>
-          </div>
+            {topups.length === 0 ? (
+              <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
+                <p className="text-sm font-extrabold" style={{ color: EKARI.ink }}>
+                  No topups yet
+                </p>
+                <p className="text-xs" style={{ color: EKARI.dim }}>
+                  When C2B confirmations start coming in, they will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: EKARI.hair }}>
+                      <th className="py-2 pr-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Trans ID
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Amount
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Phone
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Bill Ref
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Time
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topups.map((t) => (
+                      <tr
+                        key={t.id}
+                        className="border-b last:border-b-0"
+                        style={{ borderColor: EKARI.hair }}
+                      >
+                        <td className="py-2 pr-3 font-mono text-xs" style={{ color: EKARI.ink }}>
+                          {t.transId || t.id}
+                        </td>
+                        <td className="py-2 px-3 text-xs font-semibold" style={{ color: EKARI.ink }}>
+                          {formatKesMinor(t.amountKesMinor)}
+                        </td>
+                        <td className="py-2 px-3 text-xs" style={{ color: EKARI.dim }}>
+                          {t.msisdn || "—"}
+                        </td>
+                        <td className="py-2 px-3 text-xs" style={{ color: EKARI.dim }}>
+                          {t.billRefNumber || "—"}
+                        </td>
+                        <td className="py-2 px-3 text-xs" style={{ color: EKARI.dim }}>
+                          {formatDate(t.createdAt) || t.transTime || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b" style={{ borderColor: EKARI.hair }}>
-                  <th className="py-2 pr-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
-                    Creator
-                  </th>
-                  <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
-                    Amount
-                  </th>
-                  <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
-                    Status
-                  </th>
-                  <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
-                    Requested
-                  </th>
-                  <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
-                    Payout ref / method
-                  </th>
-                  <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
-                    Processed
-                  </th>
-                  <th className="py-2 pl-3 text-right font-semibold text-xs uppercase tracking-wide text-slate-500">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((req) => {
-                  const amountMajor = req.amount / 100;
-                  const isPending = req.status === "pending";
-                  const busyApprove = actionBusyId === `${req.id}:approve`;
-                  const busyReject = actionBusyId === `${req.id}:reject`;
+          <>
+            <header className="flex flex-col gap-1">
+              <h3 className="text-base font-extrabold" style={{ color: EKARI.ink }}>
+                B2C Disbursements (Withdraw payouts)
+              </h3>
+              <p className="text-xs" style={{ color: EKARI.dim }}>
+                These are payouts sent via B2C. Balance is reduced only when result = success.
+              </p>
+            </header>
 
-                  let statusColor = "#F97316"; // pending
-                  let statusBg = "#FFEDD5";
-                  if (req.status === "approved") {
-                    statusColor = "#16A34A";
-                    statusBg = "#DCFCE7";
-                  }
-                  if (req.status === "rejected") {
-                    statusColor = "#DC2626";
-                    statusBg = "#FEE2E2";
-                  }
+            {b2cLogs.length === 0 ? (
+              <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
+                <p className="text-sm font-extrabold" style={{ color: EKARI.ink }}>
+                  No disbursements yet
+                </p>
+                <p className="text-xs" style={{ color: EKARI.dim }}>
+                  When B2C payouts are sent, they will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: EKARI.hair }}>
+                      <th className="py-2 pr-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Status
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Amount
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Phone
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Receipt
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Request / Ref
+                      </th>
+                      <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
+                        Updated
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {b2cLogs.map((r) => {
+                      const s = String(r.status || "queued").toLowerCase();
+                      const badge =
+                        s === "success"
+                          ? { bg: "#DCFCE7", fg: "#16A34A" }
+                          : s === "failed" || s === "timeout"
+                            ? { bg: "#FEE2E2", fg: "#DC2626" }
+                            : { bg: "#FFEDD5", fg: "#F97316" };
 
-                  return (
-                    <WithdrawalRow
-                      key={req.id}
-                      req={req}
-                      amountMajor={amountMajor}
-                      statusColor={statusColor}
-                      statusBg={statusBg}
-                      isPending={isPending}
-                      busyApprove={busyApprove}
-                      busyReject={busyReject}
-                      handleDecision={handleDecision}
-                    />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      return (
+                        <tr
+                          key={r.id}
+                          className="border-b last:border-b-0"
+                          style={{ borderColor: EKARI.hair }}
+                        >
+                          <td className="py-2 pr-3">
+                            <span
+                              className="inline-flex items-center rounded-full px-2 py-[2px] text-[11px] font-semibold"
+                              style={{ backgroundColor: badge.bg, color: badge.fg }}
+                            >
+                              {String(r.status || "queued").toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-xs font-semibold" style={{ color: EKARI.ink }}>
+                            {formatKesMinor(r.amountKesMinor)}
+                          </td>
+                          <td className="py-2 px-3 text-xs" style={{ color: EKARI.dim }}>
+                            {r.phone || "—"}
+                          </td>
+                          <td className="py-2 px-3 text-xs font-mono" style={{ color: EKARI.ink }}>
+                            {r.mpesaReceipt || "—"}
+                          </td>
+                          <td className="py-2 px-3 text-xs" style={{ color: EKARI.dim }}>
+                            <div className="flex flex-col">
+                              {r.requestId ? (
+                                <span className="font-mono text-[11px]">{r.requestId}</span>
+                              ) : (
+                                <span className="text-[11px] font-mono">{r.id}</span>
+                              )}
+                              {(r.resultDesc || r.resultCode !== undefined) && (
+                                <span className="text-[10px] text-slate-500">
+                                  {r.resultCode ?? ""} {r.resultDesc ?? ""}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-xs" style={{ color: EKARI.dim }}>
+                            {formatDate(r.updatedAt) ||
+                              formatDate(r.createdAt) ||
+                              "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* 🔹 Confirm modal (approve / reject) */}
-      <ConfirmModal
-        open={!!confirmConfig}
-        title={confirmConfig?.title || ""}
-        message={confirmConfig?.message || ""}
-        confirmText={confirmConfig?.confirmText || "Confirm"}
-        cancelText={confirmConfig?.cancelText || "Cancel"}
-        onConfirm={() => {
-          if (confirmConfig?.onConfirm) {
-            confirmConfig.onConfirm();
-          } else {
-            setConfirmConfig(null);
-          }
+      {/* Approve/Reject modal */}
+      <ConfirmModalWithdraw
+        open={confirmOpen}
+        title={confirmTitle}
+        message={confirmMessage}
+        confirmText={confirmText}
+        cancelText="Cancel"
+        confirmDisabled={confirmDisabled}
+        onCancel={() => {
+          if (actionBusyId) return;
+          setConfirmOpen(false);
+          setPendingReq(null);
+          setPendingDecision(null);
         }}
-        onCancel={() => setConfirmConfig(null)}
-      />
+        onConfirm={() => {
+          if (actionBusyId) return;
+          void processDecision();
+        }}
+      >
+        {pendingDecision === "approve" ? (
+          <div className="space-y-3">
+            {!approveValidation.ok && (
+              <div
+                className="rounded-xl border px-3 py-2 text-xs bg-red-50 text-red-700"
+                style={{ borderColor: "#FCA5A5" }}
+              >
+                {approveValidation.message}
+              </div>
+            )}
 
-      {/* 🔹 Feedback / error modal */}
-      <ConfirmModal
+            {/* ✅ Settlement summary (fee + net) */}
+            {pendingReq && (
+              <div
+                className="rounded-2xl border bg-white px-3 py-3"
+                style={{ borderColor: EKARI.hair }}
+              >
+                {(() => {
+                  const { requestedMinor, feeMinor, netMinor } = deriveFeeNet(pendingReq);
+                  const settleCur = getSettleCurrency(
+                    approveForm.payoutMethod,
+                    approveForm.settlementCurrency
+                  );
+
+                  const requestedTxt = formatMoneyMinor(
+                    pendingReq.currency || "USD",
+                    requestedMinor
+                  );
+                  const feeTxt = formatMoneyMinor(settleCur, feeMinor);
+                  const netTxt = formatMoneyMinor(settleCur, netMinor);
+
+                  const showWarn =
+                    String(pendingReq.currency || "").toUpperCase() !==
+                    String(settleCur).toUpperCase() &&
+                    (pendingReq.feeMinor == null || pendingReq.netMinor == null);
+
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Requested</span>
+                        <span className="font-extrabold text-slate-900">
+                          {requestedTxt}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Processing fee</span>
+                        <span className="font-semibold text-slate-900">{feeTxt}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">
+                          Amount to settle{" "}
+                          <span className="text-[10px]">({settleCur})</span>
+                        </span>
+                        <span className="font-extrabold text-emerald-700">
+                          {netTxt}
+                        </span>
+                      </div>
+
+                      {showWarn && (
+                        <div className="mt-2 text-[11px] text-amber-700">
+                          Note: fee/net are fallback values. For accurate conversion,
+                          backend should write <span className="font-semibold">feeMinor</span>{" "}
+                          and <span className="font-semibold">netMinor</span> in the
+                          settlement currency.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Withdraw method
+              </label>
+              <select
+                value={approveForm.payoutMethod}
+                onChange={(e) => {
+                  const m = e.target.value as PayoutMethod;
+                  setApproveForm((p) => ({
+                    ...p,
+                    payoutMethod: m,
+                    settlementCurrency: m === "mpesa" ? "KES" : p.settlementCurrency,
+                    destinationId: "",
+                    payoutRef: "",
+                    bankName: p.bankName,
+                    bankAccountName: p.bankAccountName,
+                    bankAccountNumber: p.bankAccountNumber,
+                    bankBranchName: p.bankBranchName,
+                  }));
+                }}
+                className="w-full rounded-xl border px-3 py-2 text-sm"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <option value="mpesa">M-Pesa (B2C • KES only)</option>
+                <option value="bank">Bank (Manual deposit)</option>
+                <option value="manual">Manual (Other)</option>
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                M-Pesa is automated B2C. Bank is paid manually using bank details.
+              </p>
+            </div>
+
+            {approveForm.payoutMethod !== "mpesa" ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Settlement currency
+                </label>
+                <select
+                  value={approveForm.settlementCurrency}
+                  onChange={(e) =>
+                    setApproveForm((p) => ({
+                      ...p,
+                      settlementCurrency: e.target.value as SettlementCurrency,
+                    }))
+                  }
+                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  style={{ borderColor: EKARI.hair }}
+                >
+                  <option value="USD">USD</option>
+                  <option value="KES">KES</option>
+                </select>
+              </div>
+            ) : (
+              <div
+                className="rounded-xl border px-3 py-2 text-sm bg-slate-50"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <span className="text-xs font-bold text-slate-700">
+                  Settlement currency:
+                </span>{" "}
+                <span className="text-sm font-extrabold text-slate-900">KES</span>
+              </div>
+            )}
+
+            {approveForm.payoutMethod === "mpesa" ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  M-Pesa phone (required)
+                </label>
+                <input
+                  value={approveForm.destinationId}
+                  onChange={(e) =>
+                    setApproveForm((p) => ({ ...p, destinationId: e.target.value }))
+                  }
+                  placeholder='e.g. "0705084684"'
+                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  style={{ borderColor: EKARI.hair }}
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Accepts 07.. / 01.. / 254.. / +254..
+                </p>
+              </div>
+            ) : approveForm.payoutMethod === "bank" ? (
+              <div className="space-y-2">
+                <div className="rounded-xl border bg-amber-50 border-amber-200 px-3 py-2">
+                  <p className="text-[11px] font-semibold text-amber-900">
+                    Bank is manual deposit
+                  </p>
+                  <p className="text-[11px] text-amber-900/80">
+                    Fill bank details below. Admin will pay manually after approval.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Bank name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      value={approveForm.bankName}
+                      onChange={(e) =>
+                        setApproveForm((p) => ({ ...p, bankName: e.target.value }))
+                      }
+                      placeholder="e.g. Equity / KCB"
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      style={{ borderColor: EKARI.hair }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Account number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      value={approveForm.bankAccountNumber}
+                      onChange={(e) =>
+                        setApproveForm((p) => ({
+                          ...p,
+                          bankAccountNumber: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. 0123456789"
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      style={{ borderColor: EKARI.hair }}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Account name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      value={approveForm.bankAccountName}
+                      onChange={(e) =>
+                        setApproveForm((p) => ({
+                          ...p,
+                          bankAccountName: e.target.value,
+                        }))
+                      }
+                      placeholder="Name as it appears on the bank account"
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      style={{ borderColor: EKARI.hair }}
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Branch (optional)
+                    </label>
+                    <input
+                      value={approveForm.bankBranchName}
+                      onChange={(e) =>
+                        setApproveForm((p) => ({
+                          ...p,
+                          bankBranchName: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. Tomboya Street"
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      style={{ borderColor: EKARI.hair }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Destination (optional)
+                </label>
+                <input
+                  value={approveForm.destinationId}
+                  onChange={(e) =>
+                    setApproveForm((p) => ({ ...p, destinationId: e.target.value }))
+                  }
+                  placeholder='Optional note e.g. "Paid cash"'
+                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  style={{ borderColor: EKARI.hair }}
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Reference / Receipt (optional)
+              </label>
+              <input
+                value={approveForm.payoutRef}
+                onChange={(e) =>
+                  setApproveForm((p) => ({ ...p, payoutRef: e.target.value }))
+                }
+                placeholder='Optional override e.g. "QWE123..." (Mpesa will auto fill on success)'
+                className="w-full rounded-xl border px-3 py-2 text-sm"
+                style={{ borderColor: EKARI.hair }}
+              />
+            </div>
+          </div>
+        ) : pendingDecision === "reject" ? (
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-700">
+              Reject reason (optional)
+            </label>
+            <textarea
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              placeholder="Short reason to show creator…"
+              className="w-full rounded-xl border px-3 py-2 text-sm min-h-[84px]"
+              style={{ borderColor: EKARI.hair }}
+            />
+          </div>
+        ) : null}
+      </ConfirmModalWithdraw>
+
+      {/* Feedback / error modal */}
+      <ConfirmModalWithdraw
         open={!!feedbackModal}
         title={feedbackModal?.title || ""}
         message={feedbackModal?.message || ""}
         confirmText="OK"
-        cancelText="Close"
+        cancelText={null}
         onConfirm={() => setFeedbackModal(null)}
         onCancel={() => setFeedbackModal(null)}
       />
@@ -449,10 +1480,8 @@ function WithdrawalRow(props: {
   isPending: boolean;
   busyApprove: boolean;
   busyReject: boolean;
-  handleDecision: (
-    req: WithdrawalRequest,
-    decision: "approve" | "reject"
-  ) => Promise<void> | void;
+  onApprove: (req: WithdrawalRequest, creator: CreatorLite | null) => void;
+  onReject: () => void;
 }) {
   const {
     req,
@@ -462,23 +1491,30 @@ function WithdrawalRow(props: {
     isPending,
     busyApprove,
     busyReject,
-    handleDecision,
+    onApprove,
+    onReject,
   } = props;
 
   const creator = useCreatorProfile(req.creatorId);
 
   const displayHandle =
-    creator?.handle && typeof creator.handle === "string"
-      ? creator.handle
-      : null;
+    creator?.handle && typeof creator.handle === "string" ? creator.handle : null;
 
   const initialId = req.creatorId?.slice(0, 6) || "creator";
 
+  // ✅ show preference (prefer snapshot if present)
+  const snapPref = extractPrefFromSnapshot(req.creatorSettlementSnapshot);
+  const prefEnabled =
+    req.creatorSettlementSnapshot != null ? snapPref.enabled : !!creator?.settlement?.enabled;
+  const prefMethod =
+    req.creatorSettlementSnapshot != null
+      ? snapPref.method
+      : (String(creator?.settlement?.method || "mpesa").toLowerCase() === "bank"
+        ? "bank"
+        : "mpesa");
+
   return (
-    <tr
-      className="border-b last:border-b-0"
-      style={{ borderColor: EKARI.hair }}
-    >
+    <tr className="border-b last:border-b-0" style={{ borderColor: EKARI.hair }}>
       <td className="py-2 pr-3 align-top">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
@@ -503,36 +1539,55 @@ function WithdrawalRow(props: {
                 {displayHandle}
               </Link>
             ) : (
-              <span className="text-xs font-semibold text-slate-800">
-                {initialId}…
-              </span>
+              <span className="text-xs font-semibold text-slate-800">{initialId}…</span>
             )}
-            <span
-              className="text-[10px] text-slate-500"
-              title={req.creatorId}
-            >
+            <span className="text-[10px] text-slate-500" title={req.creatorId}>
               {req.creatorId.slice(0, 12)}…
             </span>
+
+            {prefEnabled ? (
+              <span className="mt-0.5 text-[10px] text-slate-500">
+                Pref: {String(prefMethod).toUpperCase()}
+                {prefMethod === "mpesa" &&
+                  (snapPref.mpesaPhone || creator?.settlement?.mpesa?.phone) ? (
+                  <>
+                    {" "}
+                    • {String(snapPref.mpesaPhone || creator?.settlement?.mpesa?.phone)}
+                  </>
+                ) : null}
+                {prefMethod === "bank" &&
+                  (snapPref.bankName || creator?.settlement?.bank?.bankName) ? (
+                  <>
+                    {" "}
+                    • {String(snapPref.bankName || creator?.settlement?.bank?.bankName)}
+                  </>
+                ) : null}
+              </span>
+            ) : (
+              <span className="mt-0.5 text-[10px] text-slate-400">Pref: —</span>
+            )}
           </div>
         </div>
       </td>
 
       <td className="py-2 px-3 align-top">
         <span className="font-semibold" style={{ color: EKARI.ink }}>
-          {req.currency || "KES"} {amountMajor.toFixed(2)}
+          {req.currency || "USD"} {amountMajor.toFixed(2)}
         </span>
       </td>
 
       <td className="py-2 px-3 align-top">
         <span
           className="inline-flex items-center rounded-full px-2 py-[2px] text-[11px] font-semibold"
-          style={{
-            backgroundColor: statusBg,
-            color: statusColor,
-          }}
+          style={{ backgroundColor: statusBg, color: statusColor }}
         >
           {req.status.toUpperCase()}
         </span>
+        {req.payoutStatus && (
+          <div className="mt-1 text-[10px] text-slate-500">
+            Payout: {String(req.payoutStatus).toUpperCase()}
+          </div>
+        )}
       </td>
 
       <td className="py-2 px-3 align-top">
@@ -548,16 +1603,33 @@ function WithdrawalRow(props: {
               {req.payoutRef}
             </span>
           )}
+          {req.mpesaReceiptCode && (
+            <span className="text-xs font-mono" style={{ color: EKARI.ink }}>
+              Receipt: {req.mpesaReceiptCode}
+            </span>
+          )}
           {req.payoutMethod && (
             <span className="text-[10px] text-slate-500">
               Method: {req.payoutMethod.toUpperCase()}
             </span>
           )}
-          {req.note && (
+          {req.settlementCurrency && (
             <span className="text-[10px] text-slate-500">
-              Note: {req.note}
+              Settle: {req.settlementCurrency}
             </span>
           )}
+          {req.destinationId && (
+            <span className="text-[10px] text-slate-500">Dest: {req.destinationId}</span>
+          )}
+          {req.note && <span className="text-[10px] text-slate-500">Note: {req.note}</span>}
+
+          {req.creatorSettlementSnapshot?.method === "bank" &&
+            req.creatorSettlementSnapshot?.bank ? (
+            <span className="text-[10px] text-slate-500">
+              Bank: {String(req.creatorSettlementSnapshot.bank.bankName || "—")} •{" "}
+              {String(req.creatorSettlementSnapshot.bank.accountNumber || "—")}
+            </span>
+          ) : null}
         </div>
       </td>
 
@@ -577,7 +1649,7 @@ function WithdrawalRow(props: {
             <button
               type="button"
               disabled={busyApprove}
-              onClick={() => handleDecision(req, "approve")}
+              onClick={() => onApprove(req, creator)}
               className={[
                 "rounded-full px-3 py-1 text-xs font-semibold",
                 "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed",
@@ -588,7 +1660,7 @@ function WithdrawalRow(props: {
             <button
               type="button"
               disabled={busyReject}
-              onClick={() => handleDecision(req, "reject")}
+              onClick={onReject}
               className={[
                 "rounded-full px-3 py-1 text-xs font-semibold",
                 "bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed",

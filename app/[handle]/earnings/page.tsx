@@ -39,16 +39,15 @@ const EKARI = {
 };
 
 type Wallet = {
-  // 🔹 ALWAYS USD minor units (source of truth)
   totalReceived?: number; // USD minor
-  pendingBalance?: number; // USD minor (earnings + topups)
+  pendingBalance?: number; // USD minor
   totalDonations?: number;
 };
 
 type Donation = {
   id: string;
   deedId: string;
-  paidAmount?: number; // gateway minor units (USD or KES)
+  paidAmount?: number;
   paidCurrency?: string;
   paidAt?: any;
 
@@ -92,6 +91,23 @@ type FinanceSettings = {
 type PreferredCurrency = "USD" | "KES";
 type HistoryTab = "donations" | "topups";
 
+/** ✅ Settlement details (UPDATED):
+ * - M-Pesa: automated
+ * - Bank: MANUAL deposit (collect bank details; no destinationId)
+ */
+type SettlementMethod = "mpesa" | "bank";
+type SettlementDetails = {
+  enabled: boolean;
+  method: SettlementMethod;
+  mpesa: { phone: string; accountName?: string };
+  bank: {
+    bankName?: string;
+    accountName?: string;
+    accountNumber?: string;
+    branchName?: string;
+  };
+};
+
 type FeedbackModalState =
   | {
     title: string;
@@ -115,6 +131,27 @@ function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
 }
 
+function normalizePhone(raw: string) {
+  const x = String(raw || "").trim().replace(/\s+/g, "");
+  if (!x) return "";
+  // Keep + if present; accept 07.., 01.., 254.., +254..
+  if (x.startsWith("+")) return x;
+  return x;
+}
+
+function isValidMpesaPhone(raw: string) {
+  const x = String(raw || "").trim().replace(/\s+/g, "");
+  if (!x) return false;
+  const y = x.startsWith("+") ? x.slice(1) : x;
+  return /^0[71]\d{8}$/.test(y) || /^254[71]\d{8}$/.test(y);
+}
+
+function cleanStr(v: any) {
+  return String(v ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 export default function EarningsPage() {
   const params = useParams<{ handle: string }>();
   const router = useRouter();
@@ -123,10 +160,7 @@ export default function EarningsPage() {
   // IMPORTANT: your db stores handle WITH @, and the route param is without @
   const rawHandle = params?.handle.replace("%40", "@");
   const handle =
-    rawHandle && !rawHandle.startsWith("@")
-      ? `@${rawHandle}`
-      : rawHandle;
-  // const handle = "@" + (params?.handle || "");
+    rawHandle && !rawHandle.startsWith("@") ? `@${rawHandle}` : rawHandle;
 
   const { user, loading: authLoading } = useAuth();
 
@@ -139,31 +173,44 @@ export default function EarningsPage() {
   const [forbidden, setForbidden] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  // 🔹 Finance + thresholds
-  const [minWithdrawUSD, setMinWithdrawUSD] = useState(5); // fallback $5
+  // Finance + thresholds
+  const [minWithdrawUSD, setMinWithdrawUSD] = useState(5);
   const [financeSettings, setFinanceSettings] =
     useState<FinanceSettings | null>(null);
 
-  // 🔹 Display currency (user preference)
+  // Display currency (user preference)
   const [preferredCurrency, setPreferredCurrency] =
     useState<PreferredCurrency>("USD");
 
-  // 🔹 History tab
+  // ✅ Settlement details state
+  const [settlement, setSettlement] = useState<SettlementDetails>({
+    enabled: false,
+    method: "mpesa", // ✅ default automated option
+    mpesa: { phone: "", accountName: "" },
+    bank: { bankName: "", accountName: "", accountNumber: "", branchName: "" },
+  });
+  const [savingSettlement, setSavingSettlement] = useState(false);
+  const [settlementSavedToast, setSettlementSavedToast] = useState<string | null>(
+    null
+  );
+
+  // History tab
   const [activeTab, setActiveTab] = useState<HistoryTab>("donations");
 
-  // 🔹 Top-up modal state
+  // Top-up modal state
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState<string>("");
   const [topupLoading, setTopupLoading] = useState(false);
   const [topupError, setTopupError] = useState<string | null>(null);
   const [topupAnimated, setTopupAnimated] = useState(false);
 
-  // 🔹 Withdraw confirmation / feedback modals
+  // Withdraw confirmation / feedback modals
   const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<FeedbackModalState>(null);
 
   const goBack = useCallback(() => {
-    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    if (typeof window !== "undefined" && window.history.length > 1)
+      router.back();
     else router.push(`/${params?.handle || ""}`);
   }, [router, params?.handle]);
 
@@ -250,7 +297,7 @@ export default function EarningsPage() {
     };
   }, [handle, user, authLoading]);
 
-  // 1b) Once we know ownerUid, load their preferredCurrency
+  // 1b) Once we know ownerUid, load preferences (currency + settlement)
   useEffect(() => {
     if (!ownerUid) return;
 
@@ -260,11 +307,31 @@ export default function EarningsPage() {
       (snap) => {
         if (!snap.exists()) return;
         const data = snap.data() as any;
-        const pref = String(data.preferredCurrency || "USD").toUpperCase();
-        setPreferredCurrency(pref === "KES" ? "KES" : "USD");
+
+        const prefCur = String(data.preferredCurrency || "USD").toUpperCase();
+        setPreferredCurrency(prefCur === "KES" ? "KES" : "USD");
+
+        const s = data.settlement || {};
+        const method =
+          String(s.method || "mpesa").toLowerCase() === "bank" ? "bank" : "mpesa";
+
+        setSettlement({
+          enabled: !!s.enabled,
+          method,
+          mpesa: {
+            phone: String(s.mpesa?.phone || ""),
+            accountName: s.mpesa?.accountName ? String(s.mpesa.accountName) : "",
+          },
+          bank: {
+            bankName: s.bank?.bankName ? String(s.bank.bankName) : "",
+            accountName: s.bank?.accountName ? String(s.bank.accountName) : "",
+            accountNumber: s.bank?.accountNumber ? String(s.bank.accountNumber) : "",
+            branchName: s.bank?.branchName ? String(s.bank.branchName) : "",
+          },
+        });
       },
       (err) => {
-        console.error("Error loading preferred currency", err);
+        console.error("Error loading user prefs", err);
       }
     );
 
@@ -345,7 +412,7 @@ export default function EarningsPage() {
     };
   }, [ownerUid]);
 
-  // 🔹 Base currency is always USD for the wallet
+  // Base currency is always USD for wallet
   const baseCurrency: "USD" = "USD";
   const displayCurrency: PreferredCurrency = preferredCurrency;
 
@@ -427,6 +494,42 @@ export default function EarningsPage() {
       return;
     }
 
+    // ✅ If payouts are enabled, require the chosen method details
+    if (settlement.enabled) {
+      if (settlement.method === "mpesa") {
+        if (!isValidMpesaPhone(settlement.mpesa.phone)) {
+          setFeedbackModal({
+            title: "Add your M-Pesa details",
+            message:
+              "Please enter a valid M-Pesa phone number in Settlement details, then Save.",
+          });
+          return;
+        }
+      } else {
+        // bank manual: require bank name + account number + account name
+        const bankName = cleanStr(settlement.bank.bankName);
+        const accNo = cleanStr(settlement.bank.accountNumber);
+        const accName = cleanStr(settlement.bank.accountName);
+
+        if (!bankName || !accNo || !accName) {
+          setFeedbackModal({
+            title: "Add your bank details",
+            message:
+              "For Bank (manual deposit), please fill Bank name, Account number, and Account name in Settlement details, then Save.",
+          });
+          return;
+        }
+      }
+    } else {
+      // if not enabled, you can still allow request but admin may not know where to pay
+      setFeedbackModal({
+        title: "Enable settlement details",
+        message:
+          "Please enable Settlement details and save your M-Pesa or Bank details before requesting withdrawal.",
+      });
+      return;
+    }
+
     const amount = wallet.pendingBalance; // full balance in USD minor
 
     try {
@@ -438,6 +541,29 @@ export default function EarningsPage() {
         status: "pending",
         requestedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+
+        // ✅ Snapshot of the latest saved details at request time (helps admins)
+        creatorSettlementSnapshot: {
+          enabled: settlement.enabled,
+          method: settlement.method,
+          mpesa:
+            settlement.method === "mpesa"
+              ? {
+                phone: normalizePhone(settlement.mpesa.phone) || null,
+                accountName: cleanStr(settlement.mpesa.accountName) || null,
+              }
+              : null,
+          bank:
+            settlement.method === "bank"
+              ? {
+                bankName: cleanStr(settlement.bank.bankName) || null,
+                accountName: cleanStr(settlement.bank.accountName) || null,
+                accountNumber: cleanStr(settlement.bank.accountNumber) || null,
+                branchName: cleanStr(settlement.bank.branchName) || null,
+                payoutMode: "manual",
+              }
+              : null,
+        },
       });
 
       setFeedbackModal({
@@ -466,6 +592,77 @@ export default function EarningsPage() {
       await updateDoc(userRef, { preferredCurrency: next });
     } catch (err) {
       console.error("Error updating preferredCurrency", err);
+    }
+  };
+
+  /** ✅ Save settlement details (UPDATED: bank manual, no destinationId) */
+  const handleSaveSettlementDetails = async () => {
+    if (!ownerUid) return;
+
+    if (settlement.enabled) {
+      if (settlement.method === "mpesa") {
+        if (!isValidMpesaPhone(settlement.mpesa.phone)) {
+          setFeedbackModal({
+            title: "Invalid M-Pesa phone",
+            message: "Enter a valid phone number (07.. / 01.. / 254.. / +254..).",
+          });
+          return;
+        }
+      }
+
+      if (settlement.method === "bank") {
+        const bankName = cleanStr(settlement.bank.bankName);
+        const accNo = cleanStr(settlement.bank.accountNumber);
+        const accName = cleanStr(settlement.bank.accountName);
+
+        if (!bankName || !accNo || !accName) {
+          setFeedbackModal({
+            title: "Bank details required",
+            message:
+              "For Bank (manual deposit), please fill Bank name, Account number, and Account name.",
+          });
+          return;
+        }
+      }
+    }
+
+    try {
+      setSavingSettlement(true);
+      const userRef = doc(db, "users", ownerUid);
+
+      await updateDoc(userRef, {
+        settlement: {
+          enabled: settlement.enabled,
+          method: settlement.method,
+
+          mpesa: {
+            phone: normalizePhone(settlement.mpesa.phone),
+            accountName: cleanStr(settlement.mpesa.accountName) || null,
+          },
+
+          // ✅ bank is manual deposit; store bank fields only
+          bank: {
+            bankName: cleanStr(settlement.bank.bankName) || null,
+            accountName: cleanStr(settlement.bank.accountName) || null,
+            accountNumber: cleanStr(settlement.bank.accountNumber) || null,
+            branchName: cleanStr(settlement.bank.branchName) || null,
+            payoutMode: "manual",
+          },
+
+          updatedAt: serverTimestamp(),
+        },
+      });
+
+      setSettlementSavedToast("Saved ✅");
+      setTimeout(() => setSettlementSavedToast(null), 1600);
+    } catch (err) {
+      console.error("Error saving settlement details", err);
+      setFeedbackModal({
+        title: "Unable to save",
+        message: "We couldn’t save your settlement details. Please try again.",
+      });
+    } finally {
+      setSavingSettlement(false);
     }
   };
 
@@ -518,7 +715,7 @@ export default function EarningsPage() {
 
       const url = res.data.checkoutUrl;
       if (!url) {
-        setTopupError("We were unable to start the top-up. Please try again in a moment.");
+        setTopupError("We were unable to start the top-up. Please try again.");
         setTopupLoading(false);
         return;
       }
@@ -641,7 +838,8 @@ export default function EarningsPage() {
           )}
           {item.status && (
             <p className="mt-0.5 text-[11px]" style={{ color: EKARI.dim }}>
-              Status: <span className="font-semibold capitalize">{item.status}</span>
+              Status:{" "}
+              <span className="font-semibold capitalize">{item.status}</span>
             </p>
           )}
           {dateLabel && (
@@ -655,7 +853,7 @@ export default function EarningsPage() {
     );
   };
 
-  /* ---------- Gated states (render bodies, then wrap) ---------- */
+  /* ---------- Gated states ---------- */
 
   const InvalidRouteBody = (
     <main
@@ -694,7 +892,8 @@ export default function EarningsPage() {
           Sign in to view earnings
         </h1>
         <p className="text-sm" style={{ color: EKARI.dim }}>
-          You need to be signed in to see your ekarihub wallet and uplift history.
+          You need to be signed in to see your ekarihub wallet and uplift
+          history.
         </p>
       </div>
     </main>
@@ -710,7 +909,8 @@ export default function EarningsPage() {
           Profile not found
         </h1>
         <p className="text-sm" style={{ color: EKARI.dim }}>
-          We couldn’t find a creator with handle <span className="font-semibold">{handle}</span>.
+          We couldn’t find a creator with handle{" "}
+          <span className="font-semibold">{handle}</span>.
         </p>
       </div>
     </main>
@@ -726,21 +926,20 @@ export default function EarningsPage() {
           Earnings are private
         </h1>
         <p className="text-sm" style={{ color: EKARI.dim }}>
-          You can only view earnings for your own handle. This page is restricted to the
-          creator who owns{" "}
+          You can only view earnings for your own handle. This page is
+          restricted to the creator who owns{" "}
           <span className="font-semibold">{handle}</span>.
         </p>
       </div>
     </main>
   );
 
-  // Wrap helper (mobile = sticky header & full-height, desktop = AppShell)
+  // Wrap helper
   const wrap = (body: React.ReactNode, title = "My Earnings") => {
     if (!isMobile) return <AppShell>{body}</AppShell>;
 
     return (
       <div className="fixed inset-0 flex flex-col bg-white">
-        {/* Mobile sticky header with safe-area + goBack */}
         <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
           <div
             className="h-14 px-3 flex items-center gap-2"
@@ -754,7 +953,10 @@ export default function EarningsPage() {
               <IoArrowBack size={18} />
             </button>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[15px] font-black" style={{ color: EKARI.ink }}>
+              <div
+                className="truncate text-[15px] font-black"
+                style={{ color: EKARI.ink }}
+              >
                 {title}
               </div>
               <div className="truncate text-[11px]" style={{ color: EKARI.dim }}>
@@ -771,7 +973,6 @@ export default function EarningsPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">{body}</div>
-
         <div style={{ height: "env(safe-area-inset-bottom)" }} />
       </div>
     );
@@ -791,11 +992,13 @@ export default function EarningsPage() {
       style={{ backgroundColor: EKARI.sand }}
     >
       <div className="mx-auto max-w-4xl flex w-full flex-col gap-4 rounded-3xl bg-white p-4 shadow-sm backdrop-blur">
-        {/* Desktop header (mobile uses sticky header) */}
         {!isMobile && (
           <header className="border-b border-slate-200 pb-3">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <Link href={`/${params?.handle || ""}`} className="inline-flex items-center gap-1.5">
+              <Link
+                href={`/${params?.handle || ""}`}
+                className="inline-flex items-center gap-1.5"
+              >
                 <span
                   className="flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:shadow-sm"
                   style={{
@@ -811,11 +1014,15 @@ export default function EarningsPage() {
             </div>
 
             <div className="space-y-1">
-              <h1 className="text-xl font-black md:text-2xl" style={{ color: EKARI.ink }}>
+              <h1
+                className="text-xl font-black md:text-2xl"
+                style={{ color: EKARI.ink }}
+              >
                 My Earnings 💸
               </h1>
               <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-                Track tips, topups, and uplifts flowing into your ekarihub wallet.
+                Track tips, topups, and uplifts flowing into your ekarihub
+                wallet.
               </p>
             </div>
           </header>
@@ -838,7 +1045,9 @@ export default function EarningsPage() {
             </div>
             <p className="mt-1 text-xl font-black" style={{ color: EKARI.ink }}>
               {displayCurrency}{" "}
-              {totalReceivedDisplayMajor.toFixed(displayCurrency === "KES" ? 0 : 2)}
+              {totalReceivedDisplayMajor.toFixed(
+                displayCurrency === "KES" ? 0 : 2
+              )}
             </p>
             <p className="mt-1 text-xs" style={{ color: EKARI.dim }}>
               Across {wallet?.totalDonations || 0} uplifts
@@ -860,12 +1069,15 @@ export default function EarningsPage() {
             </div>
             <p className="mt-1 text-xl font-black" style={{ color: EKARI.ink }}>
               {displayCurrency}{" "}
-              {pendingBalanceDisplayMajor.toFixed(displayCurrency === "KES" ? 0 : 2)}
+              {pendingBalanceDisplayMajor.toFixed(
+                displayCurrency === "KES" ? 0 : 2
+              )}
             </p>
             <div className="mt-1 flex items-start justify-between gap-2">
               <p className="text-xs" style={{ color: EKARI.dim }}>
-                This is your current ekarihub wallet balance. You can withdraw once you
-                reach the minimum threshold, or use it to donate to other deeds.
+                This is your current ekarihub wallet balance. You can withdraw
+                once you reach the minimum threshold, or use it to donate to
+                other deeds.
               </p>
               <button
                 type="button"
@@ -879,7 +1091,8 @@ export default function EarningsPage() {
         </section>
 
         {/* Withdraw button / message */}
-        {wallet?.pendingBalance && wallet.pendingBalance >= minThresholdUsdMajor * 100 ? (
+        {wallet?.pendingBalance &&
+          wallet.pendingBalance >= minThresholdUsdMajor * 100 ? (
           <button
             type="button"
             onClick={() => setConfirmWithdrawOpen(true)}
@@ -890,8 +1103,12 @@ export default function EarningsPage() {
         ) : (
           <p className="mt-2 text-xs text-red-500 font-medium">
             Minimum withdrawal: {displayCurrency}{" "}
-            {minThresholdDisplayMajor.toFixed(displayCurrency === "KES" ? 0 : 2)}
-            {displayCurrency === "KES" && <> (≈ USD {minThresholdUsdMajor.toFixed(2)})</>}
+            {minThresholdDisplayMajor.toFixed(
+              displayCurrency === "KES" ? 0 : 2
+            )}
+            {displayCurrency === "KES" && (
+              <> (≈ USD {minThresholdUsdMajor.toFixed(2)})</>
+            )}
           </p>
         )}
 
@@ -932,8 +1149,12 @@ export default function EarningsPage() {
             className="flex items-center gap-1.5 rounded-full border px-3 py-1.5"
             style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}
           >
-            <span className="text-[11px] font-semibold" style={{ color: EKARI.dim }}>
-              Split: ~{creatorSharePercentEffective}% you · {platformSharePercentEffective}% ekarihub
+            <span
+              className="text-[11px] font-semibold"
+              style={{ color: EKARI.dim }}
+            >
+              Split: ~{creatorSharePercentEffective}% you ·{" "}
+              {platformSharePercentEffective}% ekarihub
             </span>
           </div>
 
@@ -941,10 +1162,224 @@ export default function EarningsPage() {
             className="flex items-center gap-1.5 rounded-full border px-3 py-1.5"
             style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}
           >
-            <span className="text-[11px] font-semibold" style={{ color: EKARI.dim }}>
-              Provider fees (est.) ~{processingFeePercentEffective}% from your share
+            <span
+              className="text-[11px] font-semibold"
+              style={{ color: EKARI.dim }}
+            >
+              Provider fees (est.) ~{processingFeePercentEffective}% from your
+              share
             </span>
           </div>
+        </section>
+
+        {/* ✅ Settlement details (UPDATED UI) */}
+        <section
+          className="rounded-2xl border bg-white px-4 py-4 shadow-sm"
+          style={{ borderColor: EKARI.hair }}
+        >
+          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3
+                className="text-sm md:text-base font-extrabold"
+                style={{ color: EKARI.ink }}
+              >
+                Settlement details
+              </h3>
+              <p className="text-xs" style={{ color: EKARI.dim }}>
+                Enable payouts and set where we should settle your withdrawals.
+                <span className="ml-1 font-semibold">
+                  M-Pesa is automated · Bank is manual deposit.
+                </span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 mt-2 md:mt-0">
+              <button
+                type="button"
+                onClick={() =>
+                  setSettlement((p) => ({ ...p, enabled: !p.enabled }))
+                }
+                className={[
+                  "rounded-full px-3 py-1.5 text-xs font-bold border",
+                  settlement.enabled
+                    ? "bg-emerald-900 text-white"
+                    : "bg-white text-slate-700",
+                ].join(" ")}
+                style={{ borderColor: EKARI.hair }}
+              >
+                {settlement.enabled ? "Enabled" : "Disabled"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveSettlementDetails}
+                disabled={savingSettlement}
+                className="rounded-full bg-emerald-900 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
+              >
+                {savingSettlement ? "Saving…" : "Save"}
+              </button>
+
+              {settlementSavedToast && (
+                <span className="text-xs font-semibold text-emerald-700">
+                  {settlementSavedToast}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Preferred method
+              </label>
+              <select
+                value={settlement.method}
+                disabled={!settlement.enabled}
+                onChange={(e) => {
+                  const m =
+                    (e.target.value as SettlementMethod) === "bank"
+                      ? "bank"
+                      : "mpesa";
+                  setSettlement((p) => ({ ...p, method: m }));
+                }}
+                className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <option value="mpesa">M-Pesa (Automated)</option>
+                <option value="bank">Bank (Manual deposit)</option>
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                This preference helps admin settle your withdrawal correctly.
+              </p>
+            </div>
+
+            {/* Right side: mpesa phone OR short bank hint */}
+            {settlement.method === "mpesa" ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  M-Pesa phone
+                </label>
+                <input
+                  value={settlement.mpesa.phone}
+                  disabled={!settlement.enabled}
+                  onChange={(e) =>
+                    setSettlement((p) => ({
+                      ...p,
+                      mpesa: { ...p.mpesa, phone: e.target.value },
+                    }))
+                  }
+                  placeholder='e.g. "07xxxxxxxx"'
+                  className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
+                  style={{ borderColor: EKARI.hair }}
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Accepts 07.. / 01.. / 254.. / +254..
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border bg-slate-50 px-3 py-3">
+                <p className="text-xs font-bold text-slate-800">
+                  Bank is manual deposit
+                </p>
+                <p className="mt-1 text-[11px] text-slate-600">
+                  We’ll use the bank details below to pay you manually after
+                  approval.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ✅ Bank fields (manual) */}
+          {settlement.method === "bank" && (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Bank name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={settlement.bank.bankName || ""}
+                  disabled={!settlement.enabled}
+                  onChange={(e) =>
+                    setSettlement((p) => ({
+                      ...p,
+                      bank: { ...p.bank, bankName: e.target.value },
+                    }))
+                  }
+                  placeholder="e.g. Equity / KCB"
+                  className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
+                  style={{ borderColor: EKARI.hair }}
+                />
+              </div>
+
+              <div className="md:col-span-1">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Account number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={settlement.bank.accountNumber || ""}
+                  disabled={!settlement.enabled}
+                  onChange={(e) =>
+                    setSettlement((p) => ({
+                      ...p,
+                      bank: { ...p.bank, accountNumber: e.target.value },
+                    }))
+                  }
+                  placeholder="e.g. 0123456789"
+                  className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
+                  style={{ borderColor: EKARI.hair }}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Account name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={settlement.bank.accountName || ""}
+                  disabled={!settlement.enabled}
+                  onChange={(e) =>
+                    setSettlement((p) => ({
+                      ...p,
+                      bank: { ...p.bank, accountName: e.target.value },
+                    }))
+                  }
+                  placeholder="Name as it appears on the bank account"
+                  className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
+                  style={{ borderColor: EKARI.hair }}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Branch (optional)
+                </label>
+                <input
+                  value={settlement.bank.branchName || ""}
+                  disabled={!settlement.enabled}
+                  onChange={(e) =>
+                    setSettlement((p) => ({
+                      ...p,
+                      bank: { ...p.bank, branchName: e.target.value },
+                    }))
+                  }
+                  placeholder="e.g. Tomboya Street"
+                  className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
+                  style={{ borderColor: EKARI.hair }}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <div className="rounded-2xl bg-amber-50 border border-amber-200 px-3 py-2">
+                  <p className="text-[11px] font-semibold text-amber-900">
+                    Note:
+                  </p>
+                  <p className="text-[11px] text-amber-900/80">
+                    Keep bank details accurate.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* History */}
@@ -987,20 +1422,28 @@ export default function EarningsPage() {
           ) : activeTab === "donations" ? (
             donations.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
-                <p className="mb-1 text-sm font-extrabold" style={{ color: EKARI.ink }}>
+                <p
+                  className="mb-1 text-sm font-extrabold"
+                  style={{ color: EKARI.ink }}
+                >
                   No uplifts yet
                 </p>
                 <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-                  When viewers support your deeds with tips, they’ll appear here in real-time.
-                  Keep creating and sharing value. 🌱
+                  When viewers support your deeds with tips, they’ll appear here
+                  in real-time. Keep creating and sharing value. 🌱
                 </p>
               </div>
             ) : (
-              <div className="pt-1 pb-4">{donations.map((d) => renderDonation(d))}</div>
+              <div className="pt-1 pb-4">
+                {donations.map((d) => renderDonation(d))}
+              </div>
             )
           ) : topups.length === 0 ? (
             <div className="rounded-2xl bg-slate-50 px-5 py-6 text-center">
-              <p className="mb-1 text-sm font-extrabold" style={{ color: EKARI.ink }}>
+              <p
+                className="mb-1 text-sm font-extrabold"
+                style={{ color: EKARI.ink }}
+              >
                 No wallet topups yet
               </p>
               <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
@@ -1013,7 +1456,7 @@ export default function EarningsPage() {
         </section>
       </div>
 
-      {/* 🔹 Top-up modal */}
+      {/* Top-up modal */}
       {topupOpen &&
         createPortal(
           <div className="fixed inset-0 z-[70] flex items-center justify-center">
@@ -1080,7 +1523,9 @@ export default function EarningsPage() {
                 <p className="mt-1 text-[11px] text-gray-400">
                   You’ll be redirected to a secure Paystack page to complete the top-up.
                 </p>
-                {topupError && <p className="mt-2 text-[11px] text-red-500">{topupError}</p>}
+                {topupError && (
+                  <p className="mt-2 text-[11px] text-red-500">{topupError}</p>
+                )}
               </div>
 
               <button
@@ -1112,7 +1557,7 @@ export default function EarningsPage() {
           document.body
         )}
 
-      {/* 🔹 Confirm Withdraw Modal */}
+      {/* Confirm Withdraw Modal */}
       <ConfirmModal
         open={confirmWithdrawOpen}
         title="Withdraw your wallet balance?"
@@ -1128,7 +1573,7 @@ export default function EarningsPage() {
         onCancel={() => setConfirmWithdrawOpen(false)}
       />
 
-      {/* 🔹 Feedback Modal (success / error) */}
+      {/* Feedback Modal */}
       <ConfirmModal
         open={!!feedbackModal}
         title={feedbackModal?.title || ""}

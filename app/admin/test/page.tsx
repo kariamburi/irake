@@ -1,3 +1,4 @@
+// app/admin/test/page.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -11,6 +12,8 @@ const EKARI = {
   text: "#0F172A",
   hair: "#E5E7EB",
 };
+
+const CLOUD_BASE = "https://us-central1-ekarihub-aed5a.cloudfunctions.net"; // ✅ your cloud base
 
 export default function AdminClaimsToolPage() {
   const [busy, setBusy] = useState(false);
@@ -27,6 +30,10 @@ export default function AdminClaimsToolPage() {
   // Backfill state
   const [backfillBusy, setBackfillBusy] = useState(false);
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
+
+  // ✅ NEW: Register M-Pesa C2B URLs
+  const [mpesaBusy, setMpesaBusy] = useState(false);
+  const [mpesaResult, setMpesaResult] = useState<string | null>(null);
 
   const handleMakeMeAdmin = async () => {
     const auth = getAuth(app);
@@ -54,12 +61,8 @@ export default function AdminClaimsToolPage() {
 
       await user.getIdToken(true);
 
-      setResult(
-        `Admin claim set for UID: ${res.data.targetUid}. admin=${res.data.admin}`
-      );
-      alert(
-        "You are now admin. If things look weird, sign out and sign in again."
-      );
+      setResult(`Admin claim set for UID: ${res.data.targetUid}. admin=${res.data.admin}`);
+      alert("You are now admin. If things look weird, sign out and sign in again.");
     } catch (err: any) {
       console.error("setUserAdminClaim error", err);
       alert(err?.message || "Failed to set admin claim");
@@ -106,9 +109,7 @@ export default function AdminClaimsToolPage() {
       setPushResult(`✅ Push sent. targetUserId=${res.data.targetUserId}`);
     } catch (err: any) {
       console.error("testPush error", err);
-      setPushResult(
-        `❌ ${err?.code || ""} ${err?.message || "Failed to send push"}`
-      );
+      setPushResult(`❌ ${err?.code || ""} ${err?.message || "Failed to send push"}`);
       alert(err?.message || "Failed to send push");
     } finally {
       setPushBusy(false);
@@ -137,19 +138,14 @@ export default function AdminClaimsToolPage() {
       await user.getIdToken(true);
 
       const functions = getFunctions(app, "us-central1");
-      const testEmail = httpsCallable<{ to: string }, { ok: boolean }>(
-        functions,
-        "testEmail"
-      );
+      const testEmail = httpsCallable<{ to: string }, { ok: boolean }>(functions, "testEmail");
 
       const res = await testEmail({ to });
 
       setEmailResult(res.data.ok ? `✅ Email sent to ${to}` : "❌ Email not sent");
     } catch (err: any) {
       console.error("testEmail error", err);
-      setEmailResult(
-        `❌ ${err?.code || ""} ${err?.message || "Failed to send email"}`
-      );
+      setEmailResult(`❌ ${err?.code || ""} ${err?.message || "Failed to send email"}`);
       alert(err?.message || "Failed to send email");
     } finally {
       setEmailBusy(false);
@@ -170,7 +166,6 @@ export default function AdminClaimsToolPage() {
       setBackfillBusy(true);
       setBackfillResult(null);
 
-      // refresh token (if you guard this callable by admin claim)
       await user.getIdToken(true);
 
       const functions = getFunctions(app, "us-central1");
@@ -200,7 +195,6 @@ export default function AdminClaimsToolPage() {
             : `⏳ Backfilling… rounds=${rounds}, lastProcessed=${processed}, totalProcessed=${totalProcessed}`
         );
 
-        // optional safety: if your function ever returns 0 processed without done=true
         if (!done && processed === 0) {
           setBackfillResult(
             `⚠️ Backfill returned processed=0 but done=false. Stopping to avoid infinite loop. rounds=${rounds}`
@@ -210,20 +204,60 @@ export default function AdminClaimsToolPage() {
       }
     } catch (err: any) {
       console.error("backfillMarketListings error", err);
-      setBackfillResult(
-        `❌ ${err?.code || ""} ${err?.message || "Failed to backfill"}`
-      );
+      setBackfillResult(`❌ ${err?.code || ""} ${err?.message || "Failed to backfill"}`);
       alert(err?.message || "Failed to backfill");
     } finally {
       setBackfillBusy(false);
     }
   };
 
+  // ✅ NEW: Register Mpesa C2B URLs (validation + confirmation)
+  const handleRegisterMpesaC2BUrls = async () => {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+
+    if (!user) {
+      alert("Please log in first.");
+      return;
+    }
+
+    try {
+      setMpesaBusy(true);
+      setMpesaResult(null);
+
+      await user.getIdToken(true);
+
+      const functions = getFunctions(app, "us-central1");
+
+      const registerMpesaC2BUrls = httpsCallable<
+        { validationUrl: string; confirmationUrl: string },
+        { ok: boolean; message?: string; validationUrl?: string; confirmationUrl?: string }
+      >(functions, "registerMpesaC2BUrls");
+
+      const validationUrl = `${CLOUD_BASE}/mpesaC2BValidation`;
+      const confirmationUrl = `${CLOUD_BASE}/mpesaC2BConfirmation`;
+
+      const res = await registerMpesaC2BUrls({
+        validationUrl,
+        confirmationUrl,
+      });
+
+      setMpesaResult(
+        res.data.ok
+          ? `✅ Registered OK\nvalidationUrl=${validationUrl}\nconfirmationUrl=${confirmationUrl}`
+          : `❌ Not registered: ${res.data.message || "unknown error"}`
+      );
+    } catch (err: any) {
+      console.error("registerMpesaC2BUrls error", err);
+      setMpesaResult(`❌ ${err?.code || ""} ${err?.message || "Failed to register URLs"}`);
+      alert(err?.message || "Failed to register URLs");
+    } finally {
+      setMpesaBusy(false);
+    }
+  };
+
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{ backgroundColor: "#F9FAFB" }}
-    >
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#F9FAFB" }}>
       <div
         className="max-w-md w-full rounded-2xl border shadow-sm p-6 space-y-4"
         style={{ backgroundColor: EKARI.sand, borderColor: EKARI.hair }}
@@ -233,9 +267,8 @@ export default function AdminClaimsToolPage() {
         </h1>
 
         <p className="text-sm" style={{ color: "#6B7280" }}>
-          You must be logged in as a SUPER_ADMIN UID (hard-coded in Cloud
-          Functions). Click the button below to grant <strong>admin=true</strong>{" "}
-          to your own account.
+          You must be logged in as a SUPER_ADMIN UID (hard-coded in Cloud Functions). Click the button below to grant{" "}
+          <strong>admin=true</strong> to your own account.
         </p>
 
         <button
@@ -252,8 +285,42 @@ export default function AdminClaimsToolPage() {
         </button>
 
         {result && (
-          <div className="mt-2 text-xs break-all" style={{ color: "#4B5563" }}>
+          <div className="mt-2 text-xs break-all whitespace-pre-wrap" style={{ color: "#4B5563" }}>
             {result}
+          </div>
+        )}
+
+        {/* Divider */}
+        <div className="pt-2">
+          <div className="h-px w-full" style={{ backgroundColor: EKARI.hair }} />
+        </div>
+
+        {/* ✅ NEW: Mpesa URL registration */}
+        <h2 className="text-sm font-extrabold" style={{ color: EKARI.text }}>
+          M-Pesa Setup
+        </h2>
+        <p className="text-xs" style={{ color: "#6B7280" }}>
+          Registers your C2B <strong>Validation</strong> + <strong>Confirmation</strong> URLs using the callable{" "}
+          <code>registerMpesaC2BUrls</code>.
+        </p>
+
+        <button
+          onClick={handleRegisterMpesaC2BUrls}
+          disabled={mpesaBusy}
+          className="w-full rounded-full py-2.5 text-sm font-bold border"
+          style={{
+            borderColor: EKARI.forest,
+            color: EKARI.forest,
+            backgroundColor: "transparent",
+            opacity: mpesaBusy ? 0.7 : 1,
+          }}
+        >
+          {mpesaBusy ? "Registering…" : "Register M-Pesa C2B URLs"}
+        </button>
+
+        {mpesaResult && (
+          <div className="mt-1 text-xs break-all whitespace-pre-wrap" style={{ color: "#4B5563" }}>
+            {mpesaResult}
           </div>
         )}
 
@@ -266,8 +333,8 @@ export default function AdminClaimsToolPage() {
           Test Tools
         </h2>
         <p className="text-xs" style={{ color: "#6B7280" }}>
-          These require <strong>admin=true</strong>. If you just granted the
-          claim, the buttons will force-refresh your token automatically.
+          These require <strong>admin=true</strong>. If you just granted the claim, the buttons will force-refresh your
+          token automatically.
         </p>
 
         {/* Push test */}
@@ -286,7 +353,7 @@ export default function AdminClaimsToolPage() {
         </button>
 
         {pushResult && (
-          <div className="mt-1 text-xs break-all" style={{ color: "#4B5563" }}>
+          <div className="mt-1 text-xs break-all whitespace-pre-wrap" style={{ color: "#4B5563" }}>
             {pushResult}
           </div>
         )}
@@ -315,7 +382,7 @@ export default function AdminClaimsToolPage() {
           </button>
 
           {emailResult && (
-            <div className="mt-1 text-xs break-all" style={{ color: "#4B5563" }}>
+            <div className="mt-1 text-xs break-all whitespace-pre-wrap" style={{ color: "#4B5563" }}>
               {emailResult}
             </div>
           )}
@@ -330,8 +397,7 @@ export default function AdminClaimsToolPage() {
           Maintenance
         </h2>
         <p className="text-xs" style={{ color: "#6B7280" }}>
-          Runs the <strong>backfillMarketListings</strong> callable in batches
-          until it reports <code>done=true</code>.
+          Runs the <strong>backfillMarketListings</strong> callable in batches until it reports <code>done=true</code>.
         </p>
 
         <button
@@ -349,7 +415,7 @@ export default function AdminClaimsToolPage() {
         </button>
 
         {backfillResult && (
-          <div className="mt-1 text-xs break-all" style={{ color: "#4B5563" }}>
+          <div className="mt-1 text-xs break-all whitespace-pre-wrap" style={{ color: "#4B5563" }}>
             {backfillResult}
           </div>
         )}
