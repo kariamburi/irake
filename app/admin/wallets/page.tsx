@@ -30,19 +30,21 @@ const EKARI = {
 type WithdrawalStatus = "pending" | "approved" | "rejected";
 
 /**
- * ✅ UPDATED payout methods:
- * - mpesa = automated B2C
- * - bank = MANUAL deposit (we store bank details; no destinationId)
- * - manual = any other manual settlement (cash etc.)
+ * ✅ payout methods:
+ * - mpesa = automated B2C (KES ONLY)
+ * - bank = MANUAL deposit (use user preferred currency; no destinationId needed)
+ * - manual = any other manual settlement (use user preferred currency)
  */
-type PayoutMethod = "mpesa" | "bank" | "manual";
+type PayoutMethod = "mpesa" | "bank";
 type SettlementCurrency = "KES" | "USD";
 
 type WithdrawalRequest = {
   id: string;
   creatorId: string;
+
+  // ✅ stored in BASE currency (you said USD is base)
   amount: number; // minor units
-  currency: string; // base currency stored in request (your wallet is USD internally)
+  currency: string; // base currency stored in request, eg "USD"
 
   status: WithdrawalStatus;
   requestedAt?: any;
@@ -58,17 +60,12 @@ type WithdrawalRequest = {
 
   settlementCurrency?: SettlementCurrency | null;
 
-  /**
-   * ✅ Keep destinationId optional:
-   * - mpesa -> phone normalized
-   * - bank/manual -> optional (we may leave empty since bank details are stored separately)
-   */
   destinationId?: string | null;
 
   feeMinor?: number | null;
   netMinor?: number | null;
 
-  creatorSettlementSnapshot?: any; // optional snapshot at request time
+  creatorSettlementSnapshot?: any;
 };
 
 type CreatorLite = {
@@ -76,10 +73,11 @@ type CreatorLite = {
   photoURL?: string | null;
   phone?: string | null;
 
-  // ✅ UPDATED settlement schema (bank manual)
+  // ✅ UPDATED: include preferred currency
   settlement?: {
     enabled?: boolean;
     method?: "mpesa" | "bank";
+    currency?: SettlementCurrency; // ✅ user preference currency for BANK/MANUAL (USD or KES)
     mpesa?: { phone?: string | null; accountName?: string | null };
     bank?: {
       bankName?: string | null;
@@ -124,6 +122,10 @@ type MpesaB2CLog = {
   updatedAt?: any;
 };
 
+type FinanceSettings = {
+  usdToKesRate?: number; // e.g. 130
+};
+
 function formatDate(v: any) {
   if (!v) return "";
   if (v.toDate) return v.toDate().toLocaleString();
@@ -136,7 +138,6 @@ function formatKesMinor(v?: number) {
   return `KSh ${(n / 100).toFixed(2)}`;
 }
 
-/** ✅ generic money formatter for popup (KES / USD) */
 function formatMoneyMinor(currency: string, minor?: number) {
   const n = typeof minor === "number" ? minor : 0;
   const cur = String(currency || "").toUpperCase();
@@ -147,18 +148,62 @@ function formatMoneyMinor(currency: string, minor?: number) {
   return `${cur} ${major.toFixed(2)}`;
 }
 
-/** ✅ mpesa always settles in KES */
-function getSettleCurrency(
-  payoutMethod: PayoutMethod,
-  picked: SettlementCurrency
-): SettlementCurrency {
-  return payoutMethod === "mpesa" ? "KES" : picked;
+function onlyCurrency(v: any): SettlementCurrency {
+  const x = String(v || "").toUpperCase();
+  return x === "KES" ? "KES" : "USD";
+}
+
+function normalizeMsisdnKE(input: string) {
+  const raw = String(input || "").trim().replace(/\s+/g, "");
+  if (!raw) return "";
+  let x = raw;
+  if (x.startsWith("+")) x = x.slice(1);
+
+  if (/^0[71]\d{8}$/.test(x)) return "254" + x.slice(1);
+  if (/^254[71]\d{8}$/.test(x)) return x;
+
+  return "";
+}
+
+function cleanStr(v: any) {
+  return String(v ?? "").trim().replace(/\s+/g, " ");
+}
+
+/** ✅ FX helpers (USD <-> KES) */
+function convertUsdMinorToKesMinor(usdMinor: number, usdToKesRate: number) {
+  const usdMajor = usdMinor / 100;
+  const kesMajor = usdMajor * usdToKesRate;
+  return Math.round(kesMajor * 100);
+}
+function convertKesMinorToUsdMinor(kesMinor: number, usdToKesRate: number) {
+  const kesMajor = kesMinor / 100;
+  const usdMajor = kesMajor / usdToKesRate;
+  return Math.round(usdMajor * 100);
+}
+function convertMinor(
+  amountMinor: number,
+  fromCurrency: string,
+  toCurrency: "USD" | "KES",
+  usdToKesRate: number
+) {
+  const from = String(fromCurrency || "").toUpperCase();
+  if (from === toCurrency) return amountMinor;
+
+  if (from === "USD" && toCurrency === "KES") {
+    return convertUsdMinorToKesMinor(amountMinor, usdToKesRate);
+  }
+  if (from === "KES" && toCurrency === "USD") {
+    return convertKesMinorToUsdMinor(amountMinor, usdToKesRate);
+  }
+
+  // unknown -> no conversion
+  return amountMinor;
 }
 
 /**
- * ✅ derive fee + net (for popup)
+ * ✅ derive fee + net (in base currency of request)
  * - If backend sets feeMinor/netMinor, we use them.
- * - Else fallback to fee=0, net=amount-fee (same minor units as req.amount).
+ * - Else fallback fee=0, net=amount
  */
 function deriveFeeNet(req?: WithdrawalRequest | null) {
   const requestedMinor = typeof req?.amount === "number" ? req!.amount : 0;
@@ -168,23 +213,6 @@ function deriveFeeNet(req?: WithdrawalRequest | null) {
       ? req!.netMinor!
       : Math.max(0, requestedMinor - feeMinor);
   return { requestedMinor, feeMinor, netMinor };
-}
-
-function normalizeMsisdnKE(input: string) {
-  const raw = String(input || "").trim().replace(/\s+/g, "");
-  if (!raw) return "";
-  let x = raw;
-  if (x.startsWith("+")) x = x.slice(1);
-
-  // accept 07.. or 01..
-  if (/^0[71]\d{8}$/.test(x)) return "254" + x.slice(1);
-  if (/^254[71]\d{8}$/.test(x)) return x;
-
-  return "";
-}
-
-function cleanStr(v: any) {
-  return String(v ?? "").trim().replace(/\s+/g, " ");
 }
 
 /** Small hook to load creator handle + avatar (and settlement) */
@@ -224,6 +252,7 @@ function useCreatorProfile(creatorId?: string): CreatorLite | null {
 function extractPrefFromSnapshot(snap: any): {
   enabled: boolean;
   method: "mpesa" | "bank";
+  currency?: SettlementCurrency; // ✅ preferred currency for bank/manual
   mpesaPhone?: string;
   bankName?: string;
   bankAccountName?: string;
@@ -234,6 +263,9 @@ function extractPrefFromSnapshot(snap: any): {
   const method =
     String(snap?.method || "mpesa").toLowerCase() === "bank" ? "bank" : "mpesa";
 
+  const currency =
+    snap?.currency != null ? onlyCurrency(snap.currency) : undefined;
+
   const mpesaPhone = cleanStr(snap?.mpesa?.phone || "");
   const bankName = cleanStr(snap?.bank?.bankName || "");
   const bankAccountName = cleanStr(snap?.bank?.accountName || "");
@@ -243,6 +275,7 @@ function extractPrefFromSnapshot(snap: any): {
   return {
     enabled,
     method,
+    currency,
     mpesaPhone: mpesaPhone || undefined,
     bankName: bankName || undefined,
     bankAccountName: bankAccountName || undefined,
@@ -251,12 +284,85 @@ function extractPrefFromSnapshot(snap: any): {
   };
 }
 
+/**
+ * ✅ MAIN RULE YOU ASKED FOR:
+ * - If method is MPESA => settlement currency MUST be KES, and amount must be converted using FX rate.
+ * - If method is BANK/MANUAL => use user's preferred currency (USD or KES). If USD => no conversion.
+ */
+function getPreferredSettlement(
+  req: WithdrawalRequest,
+  creator: CreatorLite | null,
+  usdToKesRate: number
+): {
+  method: PayoutMethod;
+  currency: SettlementCurrency;
+  amountMinor: number; // in settlement currency
+  hint: string; // text shown under amount
+} {
+  const baseCur = String(req.currency || "USD").toUpperCase();
+  const baseAmountMinor = typeof req.amount === "number" ? req.amount : 0;
+
+  const snapPref = extractPrefFromSnapshot(req.creatorSettlementSnapshot);
+  const profileS = creator?.settlement;
+
+  const enabled =
+    req.creatorSettlementSnapshot != null
+      ? snapPref.enabled
+      : !!profileS?.enabled;
+
+  const methodPref: PayoutMethod =
+    enabled
+      ? req.creatorSettlementSnapshot != null
+        ? (snapPref.method as PayoutMethod)
+        : (String(profileS?.method || "mpesa").toLowerCase() === "bank"
+          ? "bank"
+          : "mpesa")
+      : "mpesa";
+
+  // preferred currency applies to bank/manual only
+  const prefCurrency: SettlementCurrency =
+    req.creatorSettlementSnapshot != null
+      ? snapPref.currency ?? "USD"
+      : onlyCurrency(profileS?.currency ?? "USD");
+
+  if (methodPref === "mpesa") {
+    const kesMinor = convertMinor(baseAmountMinor, baseCur, "KES", usdToKesRate);
+    return {
+      method: "mpesa",
+      currency: "KES",
+      amountMinor: kesMinor,
+      hint:
+        baseCur === "KES"
+          ? "MPESA settles in KES"
+          : `MPESA settles in KES (FX @ ${usdToKesRate})`,
+    };
+  }
+
+  // bank/manual: use preferred currency
+  const settleCur = prefCurrency;
+  const settleMinor = convertMinor(
+    baseAmountMinor,
+    baseCur,
+    settleCur,
+    usdToKesRate
+  );
+
+  return {
+    method: "bank",
+    currency: settleCur,
+    amountMinor: settleMinor,
+    hint:
+      settleCur === baseCur
+        ? `BANK settles in ${settleCur}`
+        : `BANK settles in ${settleCur} (FX @ ${usdToKesRate})`,
+  };
+}
+
 export default function AdminWalletsPage() {
   const [items, setItems] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
 
-  // shortcode balance + histories
   const [mpesa, setMpesa] = useState<MpesaShortcodeState | null>(null);
   const [topups, setTopups] = useState<MpesaC2BTopup[]>([]);
   const [b2cLogs, setB2cLogs] = useState<MpesaB2CLog[]>([]);
@@ -264,19 +370,16 @@ export default function AdminWalletsPage() {
     "withdrawals" | "topups" | "disbursements"
   >("withdrawals");
 
-  // filters/search
   const [statusFilter, setStatusFilter] = useState<
     "all" | "pending" | "approved" | "rejected"
   >("pending");
 
-  // method filter
   const [methodFilter, setMethodFilter] = useState<
-    "all" | "mpesa" | "bank" | "manual"
+    "all" | "mpesa" | "bank"
   >("all");
 
   const [search, setSearch] = useState("");
 
-  // Modal state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState("");
   const [confirmMessage, setConfirmMessage] = useState("");
@@ -287,22 +390,20 @@ export default function AdminWalletsPage() {
     "approve" | "reject" | null
   >(null);
 
-  /**
-   * ✅ UPDATED approve form:
-   * - mpesa -> destinationId = phone (required)
-   * - bank -> bank details required (manual)
-   * - manual -> optional destination note
-   */
   const [approveForm, setApproveForm] = useState<{
     payoutMethod: PayoutMethod;
     settlementCurrency: SettlementCurrency;
-    destinationId: string; // mpesa: phone, manual: optional note, bank: optional (can remain empty)
+    destinationId: string;
     payoutRef: string;
 
     bankName: string;
     bankAccountName: string;
     bankAccountNumber: string;
     bankBranchName: string;
+
+    // ✅ new: store computed settlement amount (in settlement currency minor)
+    settlementAmountMinor?: number;
+    fxRateUsed?: number;
   }>({
     payoutMethod: "mpesa",
     settlementCurrency: "KES",
@@ -325,6 +426,27 @@ export default function AdminWalletsPage() {
   const openFeedback = (title: string, message: string) => {
     setFeedbackModal({ title, message });
   };
+
+  const [financeSettings, setFinanceSettings] =
+    useState<FinanceSettings | null>(null);
+
+  useEffect(() => {
+    const ref = doc(db, "adminSettings", "finance");
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const data = (snap.data() as FinanceSettings) || null;
+        setFinanceSettings(data);
+      },
+      () => setFinanceSettings(null)
+    );
+    return () => unsub();
+  }, []);
+
+  const usdToKesRate = useMemo(() => {
+    const v = financeSettings?.usdToKesRate;
+    return typeof v === "number" && v > 0 ? v : 130;
+  }, [financeSettings?.usdToKesRate]);
 
   // Listen shortcode balance
   useEffect(() => {
@@ -441,7 +563,6 @@ export default function AdminWalletsPage() {
 
       if (!q) return true;
 
-      // ✅ include snapshot bank fields in search (manual bank)
       const snap = req.creatorSettlementSnapshot || {};
       const snapPref = extractPrefFromSnapshot(snap);
 
@@ -464,35 +585,37 @@ export default function AdminWalletsPage() {
         " " +
         (snapPref.bankAccountName || "").toLowerCase() +
         " " +
-        (snapPref.bankAccountNumber || "").toLowerCase();
+        (snapPref.bankAccountNumber || "").toLowerCase() +
+        " " +
+        (snapPref.currency || "").toLowerCase();
 
       return haystack.includes(q);
     });
   }, [items, statusFilter, methodFilter, search]);
 
   const openApproveModal = (req: WithdrawalRequest, creator: CreatorLite | null) => {
-    const amountMajor = req.amount / 100;
-    const cur = String(req.currency || "USD").toUpperCase();
-
     setPendingReq(req);
     setPendingDecision("approve");
 
-    /**
-     * ✅ Prefer snapshot at request-time if present (stronger),
-     * fallback to current creator profile settlement.
-     */
     const snapPref = extractPrefFromSnapshot(req.creatorSettlementSnapshot);
     const profileS = creator?.settlement;
 
     const enabled =
       req.creatorSettlementSnapshot != null ? snapPref.enabled : !!profileS?.enabled;
 
-    const methodPref =
+    const methodPref: PayoutMethod =
+      enabled
+        ? req.creatorSettlementSnapshot != null
+          ? (snapPref.method as PayoutMethod)
+          : (String(profileS?.method || "mpesa").toLowerCase() === "bank"
+            ? "bank"
+            : "mpesa")
+        : "mpesa";
+
+    const prefCurrency: SettlementCurrency =
       req.creatorSettlementSnapshot != null
-        ? (snapPref.method as PayoutMethod)
-        : ((String(profileS?.method || "mpesa").toLowerCase() === "bank"
-          ? "bank"
-          : "mpesa") as PayoutMethod);
+        ? snapPref.currency ?? "USD"
+        : onlyCurrency(profileS?.currency ?? "USD");
 
     const mpesaPhone =
       req.creatorSettlementSnapshot != null
@@ -519,46 +642,51 @@ export default function AdminWalletsPage() {
         ? snapPref.bankBranchName || ""
         : String(profileS?.bank?.branchName || "");
 
-    // ✅ destinationId only used for mpesa phone (bank is manual details)
-    const destinationId = enabled && methodPref === "mpesa" ? mpesaPhone : "";
+    // ✅ compute default settlement based on your rule
+    const pref = getPreferredSettlement(req, creator, usdToKesRate);
 
-    const initialMethod: PayoutMethod = enabled ? methodPref : "mpesa";
-    const initialSettleCur: SettlementCurrency =
-      initialMethod === "mpesa" ? "KES" : "USD";
+    // destinationId only for mpesa phone
+    const destinationId = pref.method === "mpesa" ? mpesaPhone : "";
 
     setApproveForm({
-      payoutMethod: initialMethod,
-      settlementCurrency: initialSettleCur,
+      payoutMethod: pref.method,
+      settlementCurrency: pref.currency,
       destinationId,
       payoutRef: "",
 
-      bankName: bankName,
-      bankAccountName: bankAccountName,
-      bankAccountNumber: bankAccountNumber,
-      bankBranchName: bankBranchName,
+      bankName,
+      bankAccountName,
+      bankAccountNumber,
+      bankBranchName,
+
+      settlementAmountMinor: pref.amountMinor,
+      fxRateUsed: usdToKesRate,
     });
 
     setRejectNote("");
 
+    const baseCur = String(req.currency || "USD").toUpperCase();
+    const baseRequestedTxt = formatMoneyMinor(baseCur, req.amount);
+
     const prefLabel = enabled
       ? methodPref === "mpesa"
         ? `Preferred: MPESA (${mpesaPhone || "—"})`
-        : `Preferred: BANK (manual) (${bankName || "—"} • ${bankAccountNumber || "—"})`
+        : `Preferred: BANK (${prefCurrency}) (manual)`
       : "Preferred: Not enabled";
 
-    // ✅ include fee + settle amount in popup message
-    const { requestedMinor, feeMinor, netMinor } = deriveFeeNet(req);
-    const settleCur = getSettleCurrency(initialMethod, initialSettleCur);
-    const requestedTxt = `${cur} ${amountMajor.toFixed(2)}`;
-    const feeTxt = formatMoneyMinor(settleCur, feeMinor);
-    const netTxt = formatMoneyMinor(settleCur, netMinor);
+    const settleTxt = formatMoneyMinor(pref.currency, pref.amountMinor);
+    const fxLine =
+      baseCur !== pref.currency
+        ? `\nConverted: ${settleTxt} @ ${usdToKesRate}`
+        : "";
 
     setConfirmTitle("Approve withdrawal");
     setConfirmMessage(
-      `Approve withdrawal of ${requestedTxt} for creator ${req.creatorId}?\n\n` +
+      `Approve withdrawal of ${baseRequestedTxt} for creator ${req.creatorId}?\n\n` +
       `${prefLabel}\n\n` +
-      `Processing fee: ${feeTxt}\n` +
-      `Amount to settle (${settleCur}): ${netTxt}\n\n` +
+      `Settlement method: ${pref.method.toUpperCase()}\n` +
+      `Settlement currency: ${pref.currency}\n` +
+      `Amount to settle: ${settleTxt}${fxLine}\n\n` +
       `Choose payout method and details below.`
     );
     setConfirmText("Approve");
@@ -566,18 +694,15 @@ export default function AdminWalletsPage() {
   };
 
   const openRejectModal = (req: WithdrawalRequest) => {
-    const amountMajor = req.amount / 100;
-    const cur = String(req.currency || "USD").toUpperCase();
-
+    const baseCur = String(req.currency || "USD").toUpperCase();
     setPendingReq(req);
     setPendingDecision("reject");
 
     setRejectNote("");
     setConfirmTitle("Reject withdrawal");
     setConfirmMessage(
-      `Reject withdrawal of ${cur} ${amountMajor.toFixed(
-        2
-      )} for creator ${req.creatorId}?\n\nOptionally include a short reason.`
+      `Reject withdrawal of ${formatMoneyMinor(baseCur, req.amount)} for creator ${req.creatorId
+      }?\n\nOptionally include a short reason.`
     );
     setConfirmText("Reject");
     setConfirmOpen(true);
@@ -599,7 +724,6 @@ export default function AdminWalletsPage() {
     }
 
     if (m === "bank") {
-      // ✅ bank is MANUAL deposit: require bank details (not destinationId)
       const bankName = cleanStr(approveForm.bankName);
       const accName = cleanStr(approveForm.bankAccountName);
       const accNo = cleanStr(approveForm.bankAccountNumber);
@@ -607,7 +731,8 @@ export default function AdminWalletsPage() {
       if (!bankName || !accName || !accNo) {
         return {
           ok: false as const,
-          message: "Bank (manual) requires Bank name, Account name, and Account number.",
+          message:
+            "Bank (manual) requires Bank name, Account name, and Account number.",
         };
       }
     }
@@ -625,6 +750,9 @@ export default function AdminWalletsPage() {
     const payoutMethod: PayoutMethod | undefined =
       decision === "approve" ? approveForm.payoutMethod : undefined;
 
+    // ✅ Enforce your rule here:
+    // - mpesa => KES
+    // - bank/manual => user's chosen currency (defaulted to preference)
     const settlementCurrency: SettlementCurrency | undefined =
       decision === "approve"
         ? approveForm.payoutMethod === "mpesa"
@@ -632,7 +760,6 @@ export default function AdminWalletsPage() {
           : approveForm.settlementCurrency
         : undefined;
 
-    // ✅ destinationId only meaningful for mpesa (phone). For bank/manual we can omit.
     const destinationId: string | undefined =
       decision === "approve"
         ? approveForm.payoutMethod === "mpesa"
@@ -657,6 +784,16 @@ export default function AdminWalletsPage() {
           }`
           : undefined;
 
+    // ✅ compute settlement amount MINOR based on your rule (send to backend)
+    const baseCur = String(req.currency || "USD").toUpperCase();
+    const settleCur = settlementCurrency || "USD";
+    const computedSettlementMinor = convertMinor(
+      req.amount,
+      baseCur,
+      settleCur,
+      usdToKesRate
+    );
+
     try {
       setActionBusyId(`${req.id}:${decision}`);
 
@@ -670,6 +807,10 @@ export default function AdminWalletsPage() {
           note?: string;
           settlementCurrency?: SettlementCurrency;
           destinationId?: string;
+
+          // ✅ NEW (safe extra fields):
+          settlementAmountMinor?: number; // in settlementCurrency minor
+          fxRateUsed?: number;
 
           bankDetails?: {
             bankName: string;
@@ -690,6 +831,10 @@ export default function AdminWalletsPage() {
         note,
         settlementCurrency,
         destinationId,
+
+        // ✅ IMPORTANT: this is what fixes MPESA payout amount (KES)
+        settlementAmountMinor: decision === "approve" ? computedSettlementMinor : undefined,
+        fxRateUsed: decision === "approve" ? usdToKesRate : undefined,
 
         bankDetails:
           decision === "approve" && approveForm.payoutMethod === "bank"
@@ -746,6 +891,9 @@ export default function AdminWalletsPage() {
             <p className="text-xs" style={{ color: EKARI.dim }}>
               Realtime ledger balance (C2B adds, B2C subtracts on success).
             </p>
+            <p className="text-[11px]" style={{ color: EKARI.dim }}>
+              FX: 1 USD ≈ {usdToKesRate} KES
+            </p>
           </div>
 
           <div className="flex flex-col md:items-end gap-1">
@@ -788,9 +936,7 @@ export default function AdminWalletsPage() {
                     active ? "bg-white shadow-sm" : "text-slate-500 hover:bg-white/70",
                   ].join(" ")}
                   style={
-                    active
-                      ? { color: EKARI.ink }
-                      : { color: "rgba(55,65,81,0.9)" }
+                    active ? { color: EKARI.ink } : { color: "rgba(55,65,81,0.9)" }
                   }
                 >
                   {t === "withdrawals"
@@ -803,7 +949,6 @@ export default function AdminWalletsPage() {
             })}
           </div>
 
-          {/* Search/filters apply to withdrawals only */}
           {walletTab === "withdrawals" && (
             <div className="flex flex-col gap-2 md:items-end">
               <div className="flex flex-col md:flex-row gap-2 md:items-center">
@@ -820,9 +965,7 @@ export default function AdminWalletsPage() {
                           active ? "bg-white shadow-sm" : "text-slate-500 hover:bg-white/70",
                         ].join(" ")}
                         style={
-                          active
-                            ? { color: EKARI.ink }
-                            : { color: "rgba(55,65,81,0.9)" }
+                          active ? { color: EKARI.ink } : { color: "rgba(55,65,81,0.9)" }
                         }
                       >
                         {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -831,8 +974,8 @@ export default function AdminWalletsPage() {
                   })}
                 </div>
 
-                <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs">
-                  {(["all", "mpesa", "bank", "manual"] as const).map((m) => {
+                <div className="inline-flex rounded-full bg-slate-300 p-1 text-xs">
+                  {(["all", "mpesa", "bank"] as const).map((m) => {
                     const active = methodFilter === m;
                     return (
                       <button
@@ -844,11 +987,8 @@ export default function AdminWalletsPage() {
                           active ? "bg-white shadow-sm" : "text-slate-500 hover:bg-white/70",
                         ].join(" ")}
                         style={
-                          active
-                            ? { color: EKARI.ink }
-                            : { color: "rgba(55,65,81,0.9)" }
+                          active ? { color: EKARI.ink } : { color: "rgba(55,65,81,0.9)" }
                         }
-                        title="Filter withdrawals by payout method"
                       >
                         {m === "all" ? "All methods" : m.toUpperCase()}
                       </button>
@@ -879,14 +1019,11 @@ export default function AdminWalletsPage() {
           <>
             <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <h1
-                  className="text-lg md:text-xl font-extrabold"
-                  style={{ color: EKARI.ink }}
-                >
+                <h1 className="text-lg md:text-xl font-extrabold" style={{ color: EKARI.ink }}>
                   Creator withdrawals
                 </h1>
                 <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-                  Approve or reject creator withdrawals. ✅ M-Pesa = automated (B2C KES). ✅ Bank = manual deposit.
+                  ✅ M-Pesa settles in KES (converted from USD base). ✅ Bank uses user preferred currency.
                 </p>
               </div>
             </header>
@@ -916,7 +1053,7 @@ export default function AdminWalletsPage() {
                         Creator
                       </th>
                       <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
-                        Amount
+                        Amount (settlement)
                       </th>
                       <th className="py-2 px-3 text-left font-semibold text-xs uppercase tracking-wide text-slate-500">
                         Status
@@ -937,7 +1074,6 @@ export default function AdminWalletsPage() {
                   </thead>
                   <tbody>
                     {filteredItems.map((req) => {
-                      const amountMajor = req.amount / 100;
                       const isPending = req.status === "pending";
                       const busyApprove = actionBusyId === `${req.id}:approve`;
                       const busyReject = actionBusyId === `${req.id}:reject`;
@@ -957,7 +1093,7 @@ export default function AdminWalletsPage() {
                         <WithdrawalRow
                           key={req.id}
                           req={req}
-                          amountMajor={amountMajor}
+                          usdToKesRate={usdToKesRate}
                           statusColor={statusColor}
                           statusBg={statusBg}
                           isPending={isPending}
@@ -989,9 +1125,6 @@ export default function AdminWalletsPage() {
                 <p className="text-sm font-extrabold" style={{ color: EKARI.ink }}>
                   No topups yet
                 </p>
-                <p className="text-xs" style={{ color: EKARI.dim }}>
-                  When C2B confirmations start coming in, they will appear here.
-                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -1017,11 +1150,7 @@ export default function AdminWalletsPage() {
                   </thead>
                   <tbody>
                     {topups.map((t) => (
-                      <tr
-                        key={t.id}
-                        className="border-b last:border-b-0"
-                        style={{ borderColor: EKARI.hair }}
-                      >
+                      <tr key={t.id} className="border-b last:border-b-0" style={{ borderColor: EKARI.hair }}>
                         <td className="py-2 pr-3 font-mono text-xs" style={{ color: EKARI.ink }}>
                           {t.transId || t.id}
                         </td>
@@ -1060,9 +1189,6 @@ export default function AdminWalletsPage() {
                 <p className="text-sm font-extrabold" style={{ color: EKARI.ink }}>
                   No disbursements yet
                 </p>
-                <p className="text-xs" style={{ color: EKARI.dim }}>
-                  When B2C payouts are sent, they will appear here.
-                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -1100,11 +1226,7 @@ export default function AdminWalletsPage() {
                             : { bg: "#FFEDD5", fg: "#F97316" };
 
                       return (
-                        <tr
-                          key={r.id}
-                          className="border-b last:border-b-0"
-                          style={{ borderColor: EKARI.hair }}
-                        >
+                        <tr key={r.id} className="border-b last:border-b-0" style={{ borderColor: EKARI.hair }}>
                           <td className="py-2 pr-3">
                             <span
                               className="inline-flex items-center rounded-full px-2 py-[2px] text-[11px] font-semibold"
@@ -1137,9 +1259,7 @@ export default function AdminWalletsPage() {
                             </div>
                           </td>
                           <td className="py-2 px-3 text-xs" style={{ color: EKARI.dim }}>
-                            {formatDate(r.updatedAt) ||
-                              formatDate(r.createdAt) ||
-                              "—"}
+                            {formatDate(r.updatedAt) || formatDate(r.createdAt) || "—"}
                           </td>
                         </tr>
                       );
@@ -1182,63 +1302,59 @@ export default function AdminWalletsPage() {
               </div>
             )}
 
-            {/* ✅ Settlement summary (fee + net) */}
+            {/* ✅ Summary incl fee/net, shown in settlement currency */}
             {pendingReq && (
-              <div
-                className="rounded-2xl border bg-white px-3 py-3"
-                style={{ borderColor: EKARI.hair }}
-              >
+              <div className="rounded-2xl border bg-white px-3 py-3" style={{ borderColor: EKARI.hair }}>
                 {(() => {
                   const { requestedMinor, feeMinor, netMinor } = deriveFeeNet(pendingReq);
-                  const settleCur = getSettleCurrency(
-                    approveForm.payoutMethod,
-                    approveForm.settlementCurrency
-                  );
+                  const baseCur = String(pendingReq.currency || "USD").toUpperCase();
 
-                  const requestedTxt = formatMoneyMinor(
-                    pendingReq.currency || "USD",
-                    requestedMinor
-                  );
-                  const feeTxt = formatMoneyMinor(settleCur, feeMinor);
-                  const netTxt = formatMoneyMinor(settleCur, netMinor);
+                  const settleCur: SettlementCurrency =
+                    approveForm.payoutMethod === "mpesa" ? "KES" : approveForm.settlementCurrency;
 
-                  const showWarn =
-                    String(pendingReq.currency || "").toUpperCase() !==
-                    String(settleCur).toUpperCase() &&
-                    (pendingReq.feeMinor == null || pendingReq.netMinor == null);
+                  const requestedSettleMinor = convertMinor(
+                    requestedMinor,
+                    baseCur,
+                    settleCur,
+                    usdToKesRate
+                  );
+                  const feeSettleMinor = convertMinor(feeMinor, baseCur, settleCur, usdToKesRate);
+                  const netSettleMinor = convertMinor(netMinor, baseCur, settleCur, usdToKesRate);
 
                   return (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Requested</span>
+                        <span className="text-slate-500">Requested (base)</span>
                         <span className="font-extrabold text-slate-900">
-                          {requestedTxt}
+                          {formatMoneyMinor(baseCur, requestedMinor)}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Processing fee</span>
-                        <span className="font-semibold text-slate-900">{feeTxt}</span>
+                        <span className="text-slate-500">Requested (settlement)</span>
+                        <span className="font-extrabold text-slate-900">
+                          {formatMoneyMinor(settleCur, requestedSettleMinor)}
+                          {baseCur !== settleCur ? (
+                            <span className="ml-2 text-[11px] font-semibold text-slate-500">
+                              @ {usdToKesRate}
+                            </span>
+                          ) : null}
+                        </span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">
-                          Amount to settle{" "}
-                          <span className="text-[10px]">({settleCur})</span>
+                        <span className="text-slate-500">Fee</span>
+                        <span className="font-semibold text-slate-900">
+                          {formatMoneyMinor(settleCur, feeSettleMinor)}
                         </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Net to settle</span>
                         <span className="font-extrabold text-emerald-700">
-                          {netTxt}
+                          {formatMoneyMinor(settleCur, netSettleMinor)}
                         </span>
                       </div>
-
-                      {showWarn && (
-                        <div className="mt-2 text-[11px] text-amber-700">
-                          Note: fee/net are fallback values. For accurate conversion,
-                          backend should write <span className="font-semibold">feeMinor</span>{" "}
-                          and <span className="font-semibold">netMinor</span> in the
-                          settlement currency.
-                        </div>
-                      )}
                     </div>
                   );
                 })()}
@@ -1259,10 +1375,6 @@ export default function AdminWalletsPage() {
                     settlementCurrency: m === "mpesa" ? "KES" : p.settlementCurrency,
                     destinationId: "",
                     payoutRef: "",
-                    bankName: p.bankName,
-                    bankAccountName: p.bankAccountName,
-                    bankAccountNumber: p.bankAccountNumber,
-                    bankBranchName: p.bankBranchName,
                   }));
                 }}
                 className="w-full rounded-xl border px-3 py-2 text-sm"
@@ -1270,17 +1382,14 @@ export default function AdminWalletsPage() {
               >
                 <option value="mpesa">M-Pesa (B2C • KES only)</option>
                 <option value="bank">Bank (Manual deposit)</option>
-                <option value="manual">Manual (Other)</option>
+
               </select>
-              <p className="mt-1 text-[11px] text-slate-500">
-                M-Pesa is automated B2C. Bank is paid manually using bank details.
-              </p>
             </div>
 
             {approveForm.payoutMethod !== "mpesa" ? (
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Settlement currency
+                  Settlement currency (bank/manual)
                 </label>
                 <select
                   value={approveForm.settlementCurrency}
@@ -1298,13 +1407,8 @@ export default function AdminWalletsPage() {
                 </select>
               </div>
             ) : (
-              <div
-                className="rounded-xl border px-3 py-2 text-sm bg-slate-50"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <span className="text-xs font-bold text-slate-700">
-                  Settlement currency:
-                </span>{" "}
+              <div className="rounded-xl border px-3 py-2 text-sm bg-slate-50" style={{ borderColor: EKARI.hair }}>
+                <span className="text-xs font-bold text-slate-700">Settlement currency:</span>{" "}
                 <span className="text-sm font-extrabold text-slate-900">KES</span>
               </div>
             )}
@@ -1323,18 +1427,12 @@ export default function AdminWalletsPage() {
                   className="w-full rounded-xl border px-3 py-2 text-sm"
                   style={{ borderColor: EKARI.hair }}
                 />
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Accepts 07.. / 01.. / 254.. / +254..
-                </p>
               </div>
             ) : approveForm.payoutMethod === "bank" ? (
               <div className="space-y-2">
                 <div className="rounded-xl border bg-amber-50 border-amber-200 px-3 py-2">
                   <p className="text-[11px] font-semibold text-amber-900">
                     Bank is manual deposit
-                  </p>
-                  <p className="text-[11px] text-amber-900/80">
-                    Fill bank details below. Admin will pay manually after approval.
                   </p>
                 </div>
 
@@ -1345,10 +1443,7 @@ export default function AdminWalletsPage() {
                     </label>
                     <input
                       value={approveForm.bankName}
-                      onChange={(e) =>
-                        setApproveForm((p) => ({ ...p, bankName: e.target.value }))
-                      }
-                      placeholder="e.g. Equity / KCB"
+                      onChange={(e) => setApproveForm((p) => ({ ...p, bankName: e.target.value }))}
                       className="w-full rounded-xl border px-3 py-2 text-sm"
                       style={{ borderColor: EKARI.hair }}
                     />
@@ -1361,12 +1456,8 @@ export default function AdminWalletsPage() {
                     <input
                       value={approveForm.bankAccountNumber}
                       onChange={(e) =>
-                        setApproveForm((p) => ({
-                          ...p,
-                          bankAccountNumber: e.target.value,
-                        }))
+                        setApproveForm((p) => ({ ...p, bankAccountNumber: e.target.value }))
                       }
-                      placeholder="e.g. 0123456789"
                       className="w-full rounded-xl border px-3 py-2 text-sm"
                       style={{ borderColor: EKARI.hair }}
                     />
@@ -1379,12 +1470,8 @@ export default function AdminWalletsPage() {
                     <input
                       value={approveForm.bankAccountName}
                       onChange={(e) =>
-                        setApproveForm((p) => ({
-                          ...p,
-                          bankAccountName: e.target.value,
-                        }))
+                        setApproveForm((p) => ({ ...p, bankAccountName: e.target.value }))
                       }
-                      placeholder="Name as it appears on the bank account"
                       className="w-full rounded-xl border px-3 py-2 text-sm"
                       style={{ borderColor: EKARI.hair }}
                     />
@@ -1397,12 +1484,8 @@ export default function AdminWalletsPage() {
                     <input
                       value={approveForm.bankBranchName}
                       onChange={(e) =>
-                        setApproveForm((p) => ({
-                          ...p,
-                          bankBranchName: e.target.value,
-                        }))
+                        setApproveForm((p) => ({ ...p, bankBranchName: e.target.value }))
                       }
-                      placeholder="e.g. Tomboya Street"
                       className="w-full rounded-xl border px-3 py-2 text-sm"
                       style={{ borderColor: EKARI.hair }}
                     />
@@ -1432,10 +1515,7 @@ export default function AdminWalletsPage() {
               </label>
               <input
                 value={approveForm.payoutRef}
-                onChange={(e) =>
-                  setApproveForm((p) => ({ ...p, payoutRef: e.target.value }))
-                }
-                placeholder='Optional override e.g. "QWE123..." (Mpesa will auto fill on success)'
+                onChange={(e) => setApproveForm((p) => ({ ...p, payoutRef: e.target.value }))}
                 className="w-full rounded-xl border px-3 py-2 text-sm"
                 style={{ borderColor: EKARI.hair }}
               />
@@ -1449,7 +1529,6 @@ export default function AdminWalletsPage() {
             <textarea
               value={rejectNote}
               onChange={(e) => setRejectNote(e.target.value)}
-              placeholder="Short reason to show creator…"
               className="w-full rounded-xl border px-3 py-2 text-sm min-h-[84px]"
               style={{ borderColor: EKARI.hair }}
             />
@@ -1457,7 +1536,6 @@ export default function AdminWalletsPage() {
         ) : null}
       </ConfirmModalWithdraw>
 
-      {/* Feedback / error modal */}
       <ConfirmModalWithdraw
         open={!!feedbackModal}
         title={feedbackModal?.title || ""}
@@ -1471,10 +1549,9 @@ export default function AdminWalletsPage() {
   );
 }
 
-/** Row separated so we can use hooks inside (for creator profile). */
 function WithdrawalRow(props: {
   req: WithdrawalRequest;
-  amountMajor: number;
+  usdToKesRate: number;
   statusColor: string;
   statusBg: string;
   isPending: boolean;
@@ -1485,7 +1562,7 @@ function WithdrawalRow(props: {
 }) {
   const {
     req,
-    amountMajor,
+    usdToKesRate,
     statusColor,
     statusBg,
     isPending,
@@ -1505,13 +1582,28 @@ function WithdrawalRow(props: {
   // ✅ show preference (prefer snapshot if present)
   const snapPref = extractPrefFromSnapshot(req.creatorSettlementSnapshot);
   const prefEnabled =
-    req.creatorSettlementSnapshot != null ? snapPref.enabled : !!creator?.settlement?.enabled;
+    req.creatorSettlementSnapshot != null
+      ? snapPref.enabled
+      : !!creator?.settlement?.enabled;
+
   const prefMethod =
     req.creatorSettlementSnapshot != null
       ? snapPref.method
       : (String(creator?.settlement?.method || "mpesa").toLowerCase() === "bank"
         ? "bank"
         : "mpesa");
+
+  const prefCurrency =
+    req.creatorSettlementSnapshot != null
+      ? snapPref.currency ?? "USD"
+      : onlyCurrency(creator?.settlement?.currency ?? "USD");
+
+  // ✅ settlement display amount based on your rule
+  const baseCur = String(req.currency || "USD").toUpperCase();
+  const settleCur: SettlementCurrency =
+    prefMethod === "mpesa" ? "KES" : prefCurrency;
+
+  const settleMinor = convertMinor(req.amount, baseCur, settleCur, usdToKesRate);
 
   return (
     <tr className="border-b last:border-b-0" style={{ borderColor: EKARI.hair }}>
@@ -1530,6 +1622,7 @@ function WithdrawalRow(props: {
               <span>{initialId.toUpperCase()}</span>
             )}
           </div>
+
           <div className="flex flex-col">
             {displayHandle ? (
               <Link
@@ -1541,6 +1634,7 @@ function WithdrawalRow(props: {
             ) : (
               <span className="text-xs font-semibold text-slate-800">{initialId}…</span>
             )}
+
             <span className="text-[10px] text-slate-500" title={req.creatorId}>
               {req.creatorId.slice(0, 12)}…
             </span>
@@ -1548,20 +1642,7 @@ function WithdrawalRow(props: {
             {prefEnabled ? (
               <span className="mt-0.5 text-[10px] text-slate-500">
                 Pref: {String(prefMethod).toUpperCase()}
-                {prefMethod === "mpesa" &&
-                  (snapPref.mpesaPhone || creator?.settlement?.mpesa?.phone) ? (
-                  <>
-                    {" "}
-                    • {String(snapPref.mpesaPhone || creator?.settlement?.mpesa?.phone)}
-                  </>
-                ) : null}
-                {prefMethod === "bank" &&
-                  (snapPref.bankName || creator?.settlement?.bank?.bankName) ? (
-                  <>
-                    {" "}
-                    • {String(snapPref.bankName || creator?.settlement?.bank?.bankName)}
-                  </>
-                ) : null}
+                {prefMethod === "bank" ? ` • ${prefCurrency}` : ""}
               </span>
             ) : (
               <span className="mt-0.5 text-[10px] text-slate-400">Pref: —</span>
@@ -1571,9 +1652,18 @@ function WithdrawalRow(props: {
       </td>
 
       <td className="py-2 px-3 align-top">
-        <span className="font-semibold" style={{ color: EKARI.ink }}>
-          {req.currency || "USD"} {amountMajor.toFixed(2)}
-        </span>
+        <div className="flex flex-col">
+          <span className="font-semibold" style={{ color: EKARI.ink }}>
+            {formatMoneyMinor(settleCur, settleMinor)}
+          </span>
+
+          {/* show base beneath if converted */}
+          {baseCur !== settleCur && (
+            <span className="text-[10px] text-slate-500">
+              Base: {formatMoneyMinor(baseCur, req.amount)} @ {usdToKesRate}
+            </span>
+          )}
+        </div>
       </td>
 
       <td className="py-2 px-3 align-top">
@@ -1622,14 +1712,6 @@ function WithdrawalRow(props: {
             <span className="text-[10px] text-slate-500">Dest: {req.destinationId}</span>
           )}
           {req.note && <span className="text-[10px] text-slate-500">Note: {req.note}</span>}
-
-          {req.creatorSettlementSnapshot?.method === "bank" &&
-            req.creatorSettlementSnapshot?.bank ? (
-            <span className="text-[10px] text-slate-500">
-              Bank: {String(req.creatorSettlementSnapshot.bank.bankName || "—")} •{" "}
-              {String(req.creatorSettlementSnapshot.bank.accountNumber || "—")}
-            </span>
-          ) : null}
         </div>
       </td>
 
