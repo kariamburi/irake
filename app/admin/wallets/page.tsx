@@ -362,7 +362,10 @@ export default function AdminWalletsPage() {
   const [items, setItems] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
-
+  const [topupOpen, setTopupOpen] = useState(false);
+  const [topupBusy, setTopupBusy] = useState(false);
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupPhone, setTopupPhone] = useState("");
   const [mpesa, setMpesa] = useState<MpesaShortcodeState | null>(null);
   const [topups, setTopups] = useState<MpesaC2BTopup[]>([]);
   const [b2cLogs, setB2cLogs] = useState<MpesaB2CLog[]>([]);
@@ -681,14 +684,14 @@ export default function AdminWalletsPage() {
         : "";
 
     setConfirmTitle("Approve withdrawal");
-    setConfirmMessage(
-      `Approve withdrawal of ${baseRequestedTxt} for creator ${req.creatorId}?\n\n` +
-      `${prefLabel}\n\n` +
-      `Settlement method: ${pref.method.toUpperCase()}\n` +
-      `Settlement currency: ${pref.currency}\n` +
-      `Amount to settle: ${settleTxt}${fxLine}\n\n` +
-      `Choose payout method and details below.`
-    );
+    //setConfirmMessage(
+    //  `Approve withdrawal of ${baseRequestedTxt} for creator ${req.creatorId}?\n\n` +
+    //  `${prefLabel}\n\n` +
+    // `Settlement method: ${pref.method.toUpperCase()}\n` +
+    // `Settlement currency: ${pref.currency}\n` +
+    // `Amount to settle: ${settleTxt}${fxLine}\n\n` +
+    // `Choose payout method and details below.`
+    //);
     setConfirmText("Approve");
     setConfirmOpen(true);
   };
@@ -903,6 +906,7 @@ export default function AdminWalletsPage() {
                 {mpesa?.shortcode || "—"}
               </span>
             </div>
+
             <div
               className="text-lg md:text-xl font-extrabold"
               style={{ color: EKARI.ink }}
@@ -919,6 +923,18 @@ export default function AdminWalletsPage() {
                 Balance looks invalid (negative). Check ledger logic.
               </div>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setTopupAmount("");
+                setTopupPhone("");
+                setTopupOpen(true);
+              }}
+              className="mt-2 rounded-full px-4 py-2 text-xs font-extrabold text-white shadow-sm hover:opacity-95"
+              style={{ backgroundColor: EKARI.forest }}
+            >
+              + Top up via M-Pesa (STK Push)
+            </button>
           </div>
         </div>
 
@@ -1292,19 +1308,23 @@ export default function AdminWalletsPage() {
         }}
       >
         {pendingDecision === "approve" ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Top alert (only when needed) */}
             {!approveValidation.ok && (
               <div
-                className="rounded-xl border px-3 py-2 text-xs bg-red-50 text-red-700"
+                className="rounded-2xl border px-4 py-3 text-xs bg-red-50 text-red-700"
                 style={{ borderColor: "#FCA5A5" }}
               >
                 {approveValidation.message}
               </div>
             )}
 
-            {/* ✅ Summary incl fee/net, shown in settlement currency */}
+            {/* Compact settlement summary */}
             {pendingReq && (
-              <div className="rounded-2xl border bg-white px-3 py-3" style={{ borderColor: EKARI.hair }}>
+              <div
+                className="rounded-3xl border bg-white p-4"
+                style={{ borderColor: EKARI.hair }}
+              >
                 {(() => {
                   const { requestedMinor, feeMinor, netMinor } = deriveFeeNet(pendingReq);
                   const baseCur = String(pendingReq.currency || "USD").toUpperCase();
@@ -1312,48 +1332,57 @@ export default function AdminWalletsPage() {
                   const settleCur: SettlementCurrency =
                     approveForm.payoutMethod === "mpesa" ? "KES" : approveForm.settlementCurrency;
 
-                  const requestedSettleMinor = convertMinor(
-                    requestedMinor,
-                    baseCur,
-                    settleCur,
-                    usdToKesRate
-                  );
+                  const requestedSettleMinor = convertMinor(requestedMinor, baseCur, settleCur, usdToKesRate);
                   const feeSettleMinor = convertMinor(feeMinor, baseCur, settleCur, usdToKesRate);
                   const netSettleMinor = convertMinor(netMinor, baseCur, settleCur, usdToKesRate);
 
+                  const showFx = baseCur !== settleCur;
+
                   return (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Requested (base)</span>
-                        <span className="font-extrabold text-slate-900">
-                          {formatMoneyMinor(baseCur, requestedMinor)}
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold text-slate-500">To settle</p>
+                          <p className="text-xl md:text-2xl font-extrabold" style={{ color: EKARI.ink }}>
+                            {formatMoneyMinor(settleCur, netSettleMinor)}
+                          </p>
+
+                          {showFx ? (
+                            <p className="mt-1 text-[11px] text-slate-500">
+                              Converted from {formatMoneyMinor(baseCur, requestedMinor)} @ {usdToKesRate}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-[11px] text-slate-500">
+                              Base: {formatMoneyMinor(baseCur, requestedMinor)}
+                            </p>
+                          )}
+                        </div>
+
+                        <span
+                          className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-extrabold"
+                          style={{
+                            backgroundColor: approveForm.payoutMethod === "mpesa" ? "#ECFDF5" : "#EFF6FF",
+                            color: approveForm.payoutMethod === "mpesa" ? "#047857" : "#1D4ED8",
+                          }}
+                        >
+                          {approveForm.payoutMethod === "mpesa" ? "MPESA • KES" : `BANK • ${approveForm.settlementCurrency}`}
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Requested (settlement)</span>
-                        <span className="font-extrabold text-slate-900">
-                          {formatMoneyMinor(settleCur, requestedSettleMinor)}
-                          {baseCur !== settleCur ? (
-                            <span className="ml-2 text-[11px] font-semibold text-slate-500">
-                              @ {usdToKesRate}
-                            </span>
-                          ) : null}
-                        </span>
-                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-2xl bg-slate-50 p-3">
+                          <p className="text-[11px] text-slate-500">Requested</p>
+                          <p className="text-sm font-extrabold text-slate-900">
+                            {formatMoneyMinor(settleCur, requestedSettleMinor)}
+                          </p>
+                        </div>
 
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Fee</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatMoneyMinor(settleCur, feeSettleMinor)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Net to settle</span>
-                        <span className="font-extrabold text-emerald-700">
-                          {formatMoneyMinor(settleCur, netSettleMinor)}
-                        </span>
+                        <div className="rounded-2xl bg-slate-50 p-3">
+                          <p className="text-[11px] text-slate-500">Fee</p>
+                          <p className="text-sm font-extrabold text-slate-900">
+                            {formatMoneyMinor(settleCur, feeSettleMinor)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1361,164 +1390,154 @@ export default function AdminWalletsPage() {
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Withdraw method
-              </label>
-              <select
-                value={approveForm.payoutMethod}
-                onChange={(e) => {
-                  const m = e.target.value as PayoutMethod;
-                  setApproveForm((p) => ({
-                    ...p,
-                    payoutMethod: m,
-                    settlementCurrency: m === "mpesa" ? "KES" : p.settlementCurrency,
-                    destinationId: "",
-                    payoutRef: "",
-                  }));
-                }}
-                className="w-full rounded-xl border px-3 py-2 text-sm"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <option value="mpesa">M-Pesa (B2C • KES only)</option>
-                <option value="bank">Bank (Manual deposit)</option>
-
-              </select>
-            </div>
-
-            {approveForm.payoutMethod !== "mpesa" ? (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Settlement currency (bank/manual)
-                </label>
-                <select
-                  value={approveForm.settlementCurrency}
-                  onChange={(e) =>
-                    setApproveForm((p) => ({
-                      ...p,
-                      settlementCurrency: e.target.value as SettlementCurrency,
-                    }))
-                  }
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <option value="USD">USD</option>
-                  <option value="KES">KES</option>
-                </select>
+            {/* Form sections */}
+            <div className="rounded-3xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-extrabold" style={{ color: EKARI.ink }}>
+                  Settlement method
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  {approveForm.payoutMethod === "mpesa" ? "Auto payout (B2C)" : "Manual deposit"}
+                </p>
               </div>
-            ) : (
-              <div className="rounded-xl border px-3 py-2 text-sm bg-slate-50" style={{ borderColor: EKARI.hair }}>
-                <span className="text-xs font-bold text-slate-700">Settlement currency:</span>{" "}
-                <span className="text-sm font-extrabold text-slate-900">KES</span>
-              </div>
-            )}
 
-            {approveForm.payoutMethod === "mpesa" ? (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  M-Pesa phone (required)
-                </label>
-                <input
-                  value={approveForm.destinationId}
-                  onChange={(e) =>
-                    setApproveForm((p) => ({ ...p, destinationId: e.target.value }))
-                  }
-                  placeholder='e.g. "0705084684"'
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
-                  style={{ borderColor: EKARI.hair }}
-                />
-              </div>
-            ) : approveForm.payoutMethod === "bank" ? (
-              <div className="space-y-2">
-                <div className="rounded-xl border bg-amber-50 border-amber-200 px-3 py-2">
-                  <p className="text-[11px] font-semibold text-amber-900">
-                    Bank is manual deposit
-                  </p>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Method */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Method</label>
+                  <select
+                    value={approveForm.payoutMethod}
+                    onChange={(e) => {
+                      const m = e.target.value as PayoutMethod;
+                      setApproveForm((p) => ({
+                        ...p,
+                        payoutMethod: m,
+                        settlementCurrency: m === "mpesa" ? "KES" : p.settlementCurrency,
+                        destinationId: "",
+                        payoutRef: "",
+                      }));
+                    }}
+                    className="w-full rounded-2xl border px-3 py-2 text-sm bg-white"
+                    style={{ borderColor: EKARI.hair }}
+                  >
+                    <option value="mpesa">M-Pesa (B2C • KES only)</option>
+                    <option value="bank">Bank (Manual deposit)</option>
+                  </select>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {/* Currency (only bank) */}
+                {approveForm.payoutMethod === "bank" ? (
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Settlement currency
+                    </label>
+                    <select
+                      value={approveForm.settlementCurrency}
+                      onChange={(e) =>
+                        setApproveForm((p) => ({
+                          ...p,
+                          settlementCurrency: e.target.value as SettlementCurrency,
+                        }))
+                      }
+                      className="w-full rounded-2xl border px-3 py-2 text-sm bg-white"
+                      style={{ borderColor: EKARI.hair }}
+                    >
+                      <option value="USD">USD</option>
+                      <option value="KES">KES</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-slate-50 border px-3 py-2" style={{ borderColor: EKARI.hair }}>
+                    <p className="text-[11px] font-bold text-slate-600">Settlement currency</p>
+                    <p className="text-sm font-extrabold text-slate-900">KES</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="my-4 h-px bg-slate-100" />
+
+              {/* Details */}
+              {approveForm.payoutMethod === "mpesa" ? (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    M-Pesa phone <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    value={approveForm.destinationId}
+                    onChange={(e) => setApproveForm((p) => ({ ...p, destinationId: e.target.value }))}
+                    placeholder='e.g. 0712345678'
+                    className="w-full rounded-2xl border px-3 py-2 text-sm"
+                    style={{ borderColor: EKARI.hair }}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    This is the number that will receive the B2C payout.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Bank name <span className="text-red-500">*</span>
                     </label>
                     <input
                       value={approveForm.bankName}
                       onChange={(e) => setApproveForm((p) => ({ ...p, bankName: e.target.value }))}
-                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      className="w-full rounded-2xl border px-3 py-2 text-sm"
                       style={{ borderColor: EKARI.hair }}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Account number <span className="text-red-500">*</span>
                     </label>
                     <input
                       value={approveForm.bankAccountNumber}
-                      onChange={(e) =>
-                        setApproveForm((p) => ({ ...p, bankAccountNumber: e.target.value }))
-                      }
-                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      onChange={(e) => setApproveForm((p) => ({ ...p, bankAccountNumber: e.target.value }))}
+                      className="w-full rounded-2xl border px-3 py-2 text-sm"
                       style={{ borderColor: EKARI.hair }}
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Account name <span className="text-red-500">*</span>
                     </label>
                     <input
                       value={approveForm.bankAccountName}
-                      onChange={(e) =>
-                        setApproveForm((p) => ({ ...p, bankAccountName: e.target.value }))
-                      }
-                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      onChange={(e) => setApproveForm((p) => ({ ...p, bankAccountName: e.target.value }))}
+                      className="w-full rounded-2xl border px-3 py-2 text-sm"
                       style={{ borderColor: EKARI.hair }}
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Branch (optional)
                     </label>
                     <input
                       value={approveForm.bankBranchName}
-                      onChange={(e) =>
-                        setApproveForm((p) => ({ ...p, bankBranchName: e.target.value }))
-                      }
-                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      onChange={(e) => setApproveForm((p) => ({ ...p, bankBranchName: e.target.value }))}
+                      className="w-full rounded-2xl border px-3 py-2 text-sm"
                       style={{ borderColor: EKARI.hair }}
                     />
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Destination (optional)
+              )}
+
+              {/* Optional reference */}
+              <div className="mt-4">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Reference / Receipt (optional)
                 </label>
                 <input
-                  value={approveForm.destinationId}
-                  onChange={(e) =>
-                    setApproveForm((p) => ({ ...p, destinationId: e.target.value }))
-                  }
-                  placeholder='Optional note e.g. "Paid cash"'
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  value={approveForm.payoutRef}
+                  onChange={(e) => setApproveForm((p) => ({ ...p, payoutRef: e.target.value }))}
+                  className="w-full rounded-2xl border px-3 py-2 text-sm"
                   style={{ borderColor: EKARI.hair }}
                 />
               </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Reference / Receipt (optional)
-              </label>
-              <input
-                value={approveForm.payoutRef}
-                onChange={(e) => setApproveForm((p) => ({ ...p, payoutRef: e.target.value }))}
-                className="w-full rounded-xl border px-3 py-2 text-sm"
-                style={{ borderColor: EKARI.hair }}
-              />
             </div>
           </div>
         ) : pendingDecision === "reject" ? (
@@ -1529,13 +1548,91 @@ export default function AdminWalletsPage() {
             <textarea
               value={rejectNote}
               onChange={(e) => setRejectNote(e.target.value)}
-              className="w-full rounded-xl border px-3 py-2 text-sm min-h-[84px]"
+              className="w-full rounded-2xl border px-3 py-2 text-sm min-h-[120px]"
               style={{ borderColor: EKARI.hair }}
             />
           </div>
         ) : null}
       </ConfirmModalWithdraw>
+      <ConfirmModalWithdraw
+        open={topupOpen}
+        title="Top up shortcode wallet"
+        message="Enter amount (KES) and a phone number to receive an STK push. After payment, the balance will update automatically via C2B confirmation."
+        confirmText={topupBusy ? "Sending..." : "Send STK Push"}
+        cancelText="Cancel"
+        confirmDisabled={topupBusy}
+        onCancel={() => {
+          if (topupBusy) return;
+          setTopupOpen(false);
+        }}
+        onConfirm={async () => {
+          if (topupBusy) return;
 
+          const amount = Number(topupAmount);
+          const phone = normalizeMsisdnKE(topupPhone);
+
+          if (!amount || amount <= 0) {
+            openFeedback("Invalid amount", "Enter a valid amount in KES (e.g. 1000).");
+            return;
+          }
+          if (!phone) {
+            openFeedback("Invalid phone", "Enter a valid phone (07.. / 01.. / 254..).");
+            return;
+          }
+
+          try {
+            setTopupBusy(true);
+            const functions = getFunctions(app, "us-central1");
+
+            const adminStartC2BTopupStk = httpsCallable<
+              { amount: number; phone: string; accountRef?: string },
+              { ok: boolean; message?: string; checkoutRequestId?: string }
+            >(functions, "adminStartC2BTopupStk");
+
+            const r = await adminStartC2BTopupStk({
+              amount: Math.round(amount),
+              phone,
+              accountRef: "EKARI_TOPUP",
+            });
+
+            setTopupOpen(false);
+            openFeedback("STK sent", r.data?.message || "STK push sent. Ask the user to enter PIN.");
+          } catch (err: any) {
+            console.error(err);
+            openFeedback("Topup failed", err?.message || "Unable to send STK push.");
+          } finally {
+            setTopupBusy(false);
+          }
+        }}
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Amount (KES)</label>
+            <input
+              value={topupAmount}
+              onChange={(e) => setTopupAmount(e.target.value)}
+              placeholder="e.g. 1000"
+              type="number"
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+              style={{ borderColor: EKARI.hair }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Phone to prompt (STK)</label>
+            <input
+              value={topupPhone}
+              onChange={(e) => setTopupPhone(e.target.value)}
+              placeholder='e.g. "0712345678"'
+              className="w-full rounded-xl border px-3 py-2 text-sm"
+              style={{ borderColor: EKARI.hair }}
+            />
+            <p className="mt-1 text-[11px] text-slate-500">
+              The phone will receive the PIN prompt. Payment credits the shortcode wallet via C2B confirmation.
+            </p>
+          </div>
+        </div>
+      </ConfirmModalWithdraw>
       <ConfirmModalWithdraw
         open={!!feedbackModal}
         title={feedbackModal?.title || ""}
