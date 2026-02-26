@@ -234,8 +234,8 @@ export default function AdminClaimsToolPage() {
         { ok: boolean; message?: string; validationUrl?: string; confirmationUrl?: string }
       >(functions, "registerMpesaC2BUrls");
 
-      const validationUrl = `${CLOUD_BASE}/mpesaC2BValidation`;
-      const confirmationUrl = `${CLOUD_BASE}/mpesaC2BConfirmation`;
+      const validationUrl = `${CLOUD_BASE}/ekariC2BValidation`;
+      const confirmationUrl = `${CLOUD_BASE}/ekariC2BConfirmation`;
 
       const res = await registerMpesaC2BUrls({
         validationUrl,
