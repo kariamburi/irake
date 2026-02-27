@@ -375,7 +375,7 @@ export default function AdminClaimsToolPage() {
           </div>
         )}
 */}
-        {/* Divider */}
+        {/* Push test 
         <div className="pt-2">
           <div className="h-px w-full" style={{ backgroundColor: EKARI.hair }} />
         </div>
@@ -388,7 +388,7 @@ export default function AdminClaimsToolPage() {
           token automatically.
         </p>
 
-        {/* ✅ NEW: B2C test */}
+       
         <button
           onClick={handleTestB2C}
           disabled={b2cBusy}
@@ -408,7 +408,7 @@ export default function AdminClaimsToolPage() {
           </div>
         )}
 
-        {/* Push test 
+      
         <button
           onClick={handleTestPush}
           disabled={pushBusy}
