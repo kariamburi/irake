@@ -369,6 +369,9 @@ export default function AdminWalletsPage() {
   const [mpesa, setMpesa] = useState<MpesaShortcodeState | null>(null);
   const [topups, setTopups] = useState<MpesaC2BTopup[]>([]);
   const [b2cLogs, setB2cLogs] = useState<MpesaB2CLog[]>([]);
+  const [reverseOpen, setReverseOpen] = useState(false);
+  const [reverseReq, setReverseReq] = useState<WithdrawalRequest | null>(null);
+  const [reverseNote, setReverseNote] = useState("");
   const [walletTab, setWalletTab] = useState<
     "withdrawals" | "topups" | "disbursements"
   >("withdrawals");
@@ -392,7 +395,39 @@ export default function AdminWalletsPage() {
   const [pendingDecision, setPendingDecision] = useState<
     "approve" | "reject" | null
   >(null);
+  const openReverseModal = (req: WithdrawalRequest) => {
+    setReverseReq(req);
+    setReverseNote("Reversed due to failed B2C payout");
+    setReverseOpen(true);
+  };
 
+  const doReverse = async () => {
+    if (!reverseReq || actionBusyId) return;
+
+    try {
+      setActionBusyId(`${reverseReq.id}:reverse`);
+      const functions = getFunctions(app, "us-central1");
+
+      const reverseWithdrawalApproval = httpsCallable<
+        { requestId: string; note?: string },
+        { ok: boolean }
+      >(functions, "reverseWithdrawalApproval");
+
+      await reverseWithdrawalApproval({
+        requestId: reverseReq.id,
+        note: reverseNote.trim(),
+      });
+
+      setReverseOpen(false);
+      setReverseReq(null);
+      setReverseNote("");
+    } catch (err: any) {
+      console.error(err);
+      openFeedback("Reverse failed", err?.message || "Unable to reverse this withdrawal.");
+    } finally {
+      setActionBusyId(null);
+    }
+  };
   const [approveForm, setApproveForm] = useState<{
     payoutMethod: PayoutMethod;
     settlementCurrency: SettlementCurrency;
@@ -1117,6 +1152,8 @@ export default function AdminWalletsPage() {
                           busyReject={busyReject}
                           onApprove={(r, c) => openApproveModal(r, c)}
                           onReject={() => openRejectModal(req)}
+                          onReverse={(r) => openReverseModal(r)}
+                          actionBusyId={actionBusyId}
                         />
                       );
                     })}
@@ -1634,6 +1671,37 @@ export default function AdminWalletsPage() {
         </div>
       </ConfirmModalWithdraw>
       <ConfirmModalWithdraw
+        open={reverseOpen}
+        title="Reverse payout (temporary)"
+        message={
+          reverseReq
+            ? `This will refund the creator's pending balance and set the withdrawal back to PENDING.\n\nOnly use when MPESA payout FAILED/TIMEOUT.\n\nRequest: ${reverseReq.id}`
+            : ""
+        }
+        confirmText={actionBusyId === `${reverseReq?.id}:reverse` ? "Reversing..." : "Reverse"}
+        cancelText="Cancel"
+        confirmDisabled={!reverseReq || !!actionBusyId}
+        onCancel={() => {
+          if (actionBusyId) return;
+          setReverseOpen(false);
+          setReverseReq(null);
+          setReverseNote("");
+        }}
+        onConfirm={() => void doReverse()}
+      >
+        <div className="space-y-2">
+          <label className="block text-xs font-bold text-slate-700">
+            Reason (saved in Firestore)
+          </label>
+          <textarea
+            value={reverseNote}
+            onChange={(e) => setReverseNote(e.target.value)}
+            className="w-full rounded-2xl border px-3 py-2 text-sm min-h-[90px]"
+            style={{ borderColor: EKARI.hair }}
+          />
+        </div>
+      </ConfirmModalWithdraw>
+      <ConfirmModalWithdraw
         open={!!feedbackModal}
         title={feedbackModal?.title || ""}
         message={feedbackModal?.message || ""}
@@ -1656,6 +1724,9 @@ function WithdrawalRow(props: {
   busyReject: boolean;
   onApprove: (req: WithdrawalRequest, creator: CreatorLite | null) => void;
   onReject: () => void;
+  // ✅ NEW:
+  onReverse: (req: WithdrawalRequest) => void;
+  actionBusyId: string | null;
 }) {
   const {
     req,
@@ -1675,7 +1746,12 @@ function WithdrawalRow(props: {
     creator?.handle && typeof creator.handle === "string" ? creator.handle : null;
 
   const initialId = req.creatorId?.slice(0, 6) || "creator";
+  const canReverse =
+    req.status === "approved" &&
+    String(req.payoutMethod || "").toLowerCase() === "mpesa" &&
+    (req.payoutStatus === "failed" || req.payoutStatus === "timeout");
 
+  const busyReverse = props.actionBusyId === `${req.id}:reverse`;
   // ✅ show preference (prefer snapshot if present)
   const snapPref = extractPrefFromSnapshot(req.creatorSettlementSnapshot);
   const prefEnabled =
@@ -1848,6 +1924,19 @@ function WithdrawalRow(props: {
               {busyReject ? "Rejecting…" : "Reject"}
             </button>
           </div>
+        ) : canReverse ? (
+          <button
+            type="button"
+            disabled={busyReverse}
+            onClick={() => props.onReverse(req)}
+            className={[
+              "rounded-full px-3 py-1 text-xs font-semibold",
+              "bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed",
+            ].join(" ")}
+            title="Refund wallet pending balance and return request to pending"
+          >
+            {busyReverse ? "Reversing…" : "Reverse"}
+          </button>
         ) : (
           <span className="text-[11px] text-slate-400">Processed</span>
         )}

@@ -35,6 +35,10 @@ export default function AdminClaimsToolPage() {
   const [mpesaBusy, setMpesaBusy] = useState(false);
   const [mpesaResult, setMpesaResult] = useState<string | null>(null);
 
+  // ✅ NEW: B2C test
+  const [b2cBusy, setB2cBusy] = useState(false);
+  const [b2cResult, setB2cResult] = useState<string | null>(null);
+
   const handleMakeMeAdmin = async () => {
     const auth = getAuth(app);
     const user = auth.currentUser;
@@ -256,13 +260,60 @@ export default function AdminClaimsToolPage() {
     }
   };
 
+  // ✅ NEW: Test B2C (KES 10 → 0728820092)
+  const handleTestB2C = async () => {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+
+    if (!user) {
+      alert("Please log in first.");
+      return;
+    }
+
+    try {
+      setB2cBusy(true);
+      setB2cResult(null);
+
+      await user.getIdToken(true);
+
+      const functions = getFunctions(app, "us-central1");
+      const testB2C = httpsCallable<{}, any>(functions, "testB2C");
+
+      const res = await testB2C({});
+
+      const data = res?.data || {};
+      const phone = data.phone || "0728820092";
+      const amountMinor = Number(data.amountKesMinor || 0);
+      const amount = (amountMinor / 100).toFixed(2);
+
+      const r = data.result || {};
+      const lines = [
+        `✅ B2C Test queued`,
+        `Phone: ${phone}`,
+        `Amount: KES ${amount}`,
+        `LocalOriginatorConversationId: ${r.localOriginatorConversationId || "—"}`,
+        `Daraja OriginatorConversationId: ${r.darajaOriginatorConversationId || "—"}`,
+        `ConversationId: ${r.conversationId || "—"}`,
+        `Response: ${r.responseCode || "—"} ${r.responseDescription || ""}`,
+      ];
+
+      setB2cResult(lines.join("\n"));
+    } catch (err: any) {
+      console.error("testB2C error", err);
+      setB2cResult(`❌ ${err?.code || ""} ${err?.message || "B2C test failed"}`);
+      alert(err?.message || "B2C test failed");
+    } finally {
+      setB2cBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#F9FAFB" }}>
       <div
         className="max-w-md w-full rounded-2xl border shadow-sm p-6 space-y-4"
         style={{ backgroundColor: EKARI.sand, borderColor: EKARI.hair }}
       >
-        <h1 className="text-xl font-extrabold" style={{ color: EKARI.text }}>
+        {/*<h1 className="text-xl font-extrabold" style={{ color: EKARI.text }}>
           EKARI Admin Claim Tool
         </h1>
 
@@ -290,12 +341,12 @@ export default function AdminClaimsToolPage() {
           </div>
         )}
 
-        {/* Divider */}
+        Divider 
         <div className="pt-2">
           <div className="h-px w-full" style={{ backgroundColor: EKARI.hair }} />
         </div>
 
-        {/* ✅ NEW: Mpesa URL registration */}
+    
         <h2 className="text-sm font-extrabold" style={{ color: EKARI.text }}>
           M-Pesa Setup
         </h2>
@@ -323,7 +374,7 @@ export default function AdminClaimsToolPage() {
             {mpesaResult}
           </div>
         )}
-
+*/}
         {/* Divider */}
         <div className="pt-2">
           <div className="h-px w-full" style={{ backgroundColor: EKARI.hair }} />
@@ -337,7 +388,27 @@ export default function AdminClaimsToolPage() {
           token automatically.
         </p>
 
-        {/* Push test */}
+        {/* ✅ NEW: B2C test */}
+        <button
+          onClick={handleTestB2C}
+          disabled={b2cBusy}
+          className="w-full rounded-full py-2.5 text-sm font-bold"
+          style={{
+            backgroundColor: EKARI.forest,
+            color: EKARI.sand,
+            opacity: b2cBusy ? 0.7 : 1,
+          }}
+        >
+          {b2cBusy ? "Testing B2C…" : "Test B2C (KES 10 → 0728820092)"}
+        </button>
+
+        {b2cResult && (
+          <div className="mt-1 text-xs break-all whitespace-pre-wrap" style={{ color: "#4B5563" }}>
+            {b2cResult}
+          </div>
+        )}
+
+        {/* Push test 
         <button
           onClick={handleTestPush}
           disabled={pushBusy}
@@ -357,8 +428,8 @@ export default function AdminClaimsToolPage() {
             {pushResult}
           </div>
         )}
-
-        {/* Email test */}
+*/}
+        {/* Email test 
         <div className="space-y-2 pt-2">
           <input
             value={emailTo}
@@ -387,8 +458,8 @@ export default function AdminClaimsToolPage() {
             </div>
           )}
         </div>
-
-        {/* Divider */}
+*/}
+        {/* Divider 
         <div className="pt-4">
           <div className="h-px w-full" style={{ backgroundColor: EKARI.hair }} />
         </div>
@@ -418,7 +489,7 @@ export default function AdminClaimsToolPage() {
           <div className="mt-1 text-xs break-all whitespace-pre-wrap" style={{ color: "#4B5563" }}>
             {backfillResult}
           </div>
-        )}
+        )}*/}
       </div>
     </div>
   );
