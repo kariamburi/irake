@@ -45,6 +45,8 @@ export type DeedDoc = {
   id: string;
   authorId: string;
   authorBadge?: AuthorBadge,
+  authorUsername?: string;
+  authorPhotoURL?: string;
   caption?: string;
   text?: string;
   allowComments?: boolean;
@@ -101,6 +103,8 @@ export const toDeed = (d: DocumentData, id: string): DeedDoc => {
   return {
     id,
     authorId: d.authorId,
+    authorUsername: d.authorUsername,
+    authorPhotoURL: d.authorPhotoURL,
     caption: d.caption ?? d.text ?? "",
     text: d.text ?? d.caption ?? "",
     allowComments: !!d.allowComments,

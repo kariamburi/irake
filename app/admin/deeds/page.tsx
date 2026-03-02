@@ -3,6 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
     collection,
     query,
@@ -49,13 +50,7 @@ type DeedStatus =
     | "deleted"
     | string;
 
-type Visibility =
-    | "public"
-    | "private"
-    | "unlisted"
-    | "contacts"
-    | "hidden"
-    | string;
+type Visibility = "public" | "private" | "unlisted" | "contacts" | "hidden" | string;
 
 type DeedAdminRow = DeedDoc & {
     id: string;
@@ -74,21 +69,39 @@ function nfmt(n: number) {
     return String(n);
 }
 
+/* ------------------------ Creator helpers ------------------------ */
+
+function safeHandleSlug(handle: string) {
+    // your stored handle includes "@ssabawa" — public URL likely expects "ssabawa"
+    return handle.replace(/^@+/, "").trim();
+}
+
+function getInitialId(handle?: string | null, authorId?: string | null) {
+    const base = String(handle || authorId || "U").replace(/^@+/, "").trim();
+    return base.slice(0, 2).toUpperCase();
+}
+
+function getCreatorMeta(d: any) {
+    // ✅ matches your deed collection sample
+
+    const handleRaw: string | null = d.authorUsername ?? null; // e.g. "@ssabawa"
+    const handleSlug: string | null = handleRaw ? safeHandleSlug(handleRaw) : null;
+    const photoURL: string | null = d.authorPhotoURL ?? null;
+
+    const initialId = getInitialId(handleRaw, d.authorId);
+    return { handleRaw, handleSlug, photoURL, initialId };
+}
+
 /* ------------------------ Deed quick-view modal ------------------------ */
 
 type DeedPreviewDoc = {
     caption?: string;
+    authorPhotoURL?: string;
     authorUsername?: string | null;
     mediaThumbUrl?: string | null;
 };
 
-function DeedPreviewModal({
-    deedId,
-    onClose,
-}: {
-    deedId: string;
-    onClose: () => void;
-}) {
+function DeedPreviewModal({ deedId, onClose }: { deedId: string; onClose: () => void }) {
     const [deed, setDeed] = useState<DeedPreviewDoc | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -116,8 +129,11 @@ function DeedPreviewModal({
 
     const stop = (e: React.MouseEvent) => e.stopPropagation();
 
-    const handle = deed?.authorUsername || undefined; // adjust if your field is named differently
-    const publicUrl = handle ? `/${handle}/deed/${deedId}` : null;
+    const handleRaw = deed?.authorUsername || undefined; // "@ssabawa"
+    const handleSlug = handleRaw ? safeHandleSlug(handleRaw) : undefined;
+
+    // ✅ If your public profile route is "/@ssabawa", change to: `/${handleRaw}`
+    const publicUrl = handleSlug ? `/${handleSlug}/deed/${deedId}` : null;
 
     return (
         <div
@@ -175,10 +191,7 @@ function DeedPreviewModal({
                 {/* Body */}
                 <div className="flex-1 bg-gray-50/60 flex flex-col">
                     {loading ? (
-                        <div
-                            className="flex-1 grid place-items-center text-sm"
-                            style={{ color: EKARI.dim }}
-                        >
+                        <div className="flex-1 grid place-items-center text-sm" style={{ color: EKARI.dim }}>
                             Loading deed…
                         </div>
                     ) : !deed ? (
@@ -186,26 +199,20 @@ function DeedPreviewModal({
                             className="flex-1 grid place-items-center text-sm text-center px-4"
                             style={{ color: EKARI.dim }}
                         >
-                            Could not load this deed. It may have been removed or you don&apos;t
-                            have access.
+                            Could not load this deed. It may have been removed or you don&apos;t have access.
                         </div>
                     ) : publicUrl ? (
                         <div className="flex-1">
-                            <iframe
-                                src={publicUrl}
-                                title="Deed preview"
-                                className="w-full h-full rounded-b-3xl"
-                            />
+                            <iframe src={publicUrl} title="Deed preview" className="w-full h-full rounded-b-3xl" />
                         </div>
                     ) : (
                         <div className="flex-1 p-4 text-sm" style={{ color: EKARI.ink }}>
                             <p className="mb-2 font-semibold">
-                                This deed does not have an author handle yet, so the public page path
-                                can&apos;t be built.
+                                This deed does not have an author handle yet, so the public page path can&apos;t be
+                                built.
                             </p>
                             <p className="text-xs" style={{ color: EKARI.dim }}>
-                                You can still open it from other admin tools that load the deed document
-                                directly.
+                                You can still open it from other admin tools that load the deed document directly.
                             </p>
                         </div>
                     )}
@@ -344,21 +351,12 @@ export default function AdminDeedsPage() {
 
     const softDelete = async (row: DeedAdminRow) => {
         if (!row.id) return;
-        const ok = window.confirm(
-            "Soft-delete this deed? It will be removed from feeds but kept for audit."
-        );
+        const ok = window.confirm("Soft-delete this deed? It will be removed from feeds but kept for audit.");
         if (!ok) return;
         setBusyId(row.id);
         try {
-
             const fn = httpsCallable(getFunctions(app), "deleteDeedCascade");
             await fn({ deedId: row.id });
-
-            // await updateDoc(doc(db, "deeds", row.id), {
-            //   status: "deleted",
-            //    visibility: "hidden",
-            //    updatedAt: new Date().toISOString(),
-            // });
         } catch (e: any) {
             alert(e?.message || "Failed to delete deed.");
         } finally {
@@ -375,15 +373,11 @@ export default function AdminDeedsPage() {
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                         <div>
-                            <h1
-                                className="text-xl md:text-2xl font-extrabold"
-                                style={{ color: EKARI.ink }}
-                            >
+                            <h1 className="text-xl md:text-2xl font-extrabold" style={{ color: EKARI.ink }}>
                                 Deeds moderation
                             </h1>
                             <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-                                Review, feature, or hide deeds across ekarihub. This view is only
-                                visible to ekarihub staff.
+                                Review, feature, or hide deeds across ekarihub. This view is only visible to ekarihub staff.
                             </p>
                         </div>
 
@@ -421,9 +415,8 @@ export default function AdminDeedsPage() {
                         <p>
                             Focus on <span className="font-semibold">failed</span> and{" "}
                             <span className="font-semibold">processing</span> deeds first, then{" "}
-                            <span className="font-semibold">abusive / hidden</span> content. Use
-                            the status & visibility controls on each row to manage what appears
-                            in feeds.
+                            <span className="font-semibold">abusive / hidden</span> content. Use the status & visibility
+                            controls on each row to manage what appears in feeds.
                         </p>
                     </div>
 
@@ -451,6 +444,7 @@ export default function AdminDeedsPage() {
                                             <th className="py-2 px-3 pr-4">Actions</th>
                                         </tr>
                                     </thead>
+
                                     <tbody>
                                         {rows.map((d) => {
                                             const status = (d.status as DeedStatus) || "ready";
@@ -458,33 +452,40 @@ export default function AdminDeedsPage() {
                                             const likes = Number(d.stats?.likes ?? 0);
                                             const comments = Number(d.stats?.comments ?? 0);
                                             const views = Number(d.stats?.views ?? 0);
+
                                             const isVideo =
-                                                !!d.media &&
-                                                Array.isArray(d.media) &&
-                                                (d.media[0] as any)?.type === "video";
+                                                !!d.media && Array.isArray(d.media) && (d.media[0] as any)?.kind === "video";
 
                                             const isBusy = busyId === d.id;
 
+                                            const { handleRaw, handleSlug, photoURL, initialId } = getCreatorMeta(d);
+                                            const profileHref = handleSlug ? `/${handleSlug}` : null; // ✅ recommended
+                                            // If your profile route is actually "/@ssabawa", change to:
+                                            // const profileHref = handleRaw ? `/${handleRaw}` : null;
+
                                             return (
-                                                <tr
-                                                    key={d.id}
-                                                    className="border-b border-slate-50 last:border-none"
-                                                >
+                                                <tr key={d.id} className="border-b border-slate-50 last:border-none">
                                                     {/* Deed summary */}
                                                     <td className="py-2 pl-4 pr-3 align-top">
                                                         <div className="flex items-start gap-2">
                                                             <div className="mt-0.5">
                                                                 <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center">
-                                                                    <IoPlayCircleOutline
-                                                                        className="text-slate-500"
-                                                                        size={18}
-                                                                    />
+                                                                    <IoPlayCircleOutline className="text-slate-500" size={18} />
                                                                 </div>
                                                             </div>
+
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="text-xs md:text-sm font-semibold text-slate-900 line-clamp-2">
-                                                                    {d.caption || "Untitled deed"}
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPreviewDeedId(d.id)}
+                                                                        className="text-emerald-700 font-semibold hover:underline text-left"
+                                                                    >
+                                                                        {d.caption || "Untitled deed"}
+                                                                    </button>
                                                                 </div>
+
                                                                 <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap gap-2">
                                                                     <span>
                                                                         ID:{" "}
@@ -492,21 +493,21 @@ export default function AdminDeedsPage() {
                                                                             {d.id}
                                                                         </span>
                                                                     </span>
+
                                                                     {isVideo && (
                                                                         <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                                                                             Video
                                                                         </span>
                                                                     )}
                                                                 </div>
+
                                                                 <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
                                                                     <IoTimeOutline size={12} />
                                                                     <span>{formatDate(d.createdAt)}</span>
                                                                     {status !== "ready" && (
                                                                         <>
                                                                             <span>•</span>
-                                                                            <span className="capitalize">
-                                                                                {status.toLowerCase()}
-                                                                            </span>
+                                                                            <span className="capitalize">{status.toLowerCase()}</span>
                                                                         </>
                                                                     )}
                                                                 </div>
@@ -514,16 +515,62 @@ export default function AdminDeedsPage() {
                                                         </div>
                                                     </td>
 
-                                                    {/* Creator */}
+                                                    {/* Creator (avatar + handle clickable) */}
                                                     <td className="py-2 px-3 align-top hidden md:table-cell">
-                                                        {d.authorId ? (
-                                                            <span className="inline-flex items-center text-[11px] font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
-                                                                {d.authorId}
-                                                            </span>
+                                                        {!d.authorId && !handleRaw ? (
+                                                            <span className="text-[11px] text-slate-400 italic">Unknown</span>
                                                         ) : (
-                                                            <span className="text-[11px] text-slate-400 italic">
-                                                                Unknown
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                {/* Avatar */}
+                                                                {profileHref ? (
+                                                                    <Link href={profileHref} className="shrink-0" title={handleRaw ?? initialId}>
+                                                                        <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                                                            {photoURL ? (
+                                                                                <Image
+                                                                                    src={photoURL}
+                                                                                    alt={handleRaw ?? initialId}
+                                                                                    width={32}
+                                                                                    height={32}
+                                                                                    className="h-full w-full object-cover"
+                                                                                />
+                                                                            ) : (
+                                                                                <span>{initialId}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    </Link>
+                                                                ) : (
+                                                                    <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                                                        <span>{initialId}</span>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Handle + fallback authorId */}
+                                                                <div className="flex flex-col min-w-0">
+                                                                    {profileHref && handleRaw ? (
+                                                                        <Link
+                                                                            href={profileHref}
+                                                                            className="text-xs font-semibold text-emerald-700 hover:underline truncate"
+                                                                            title={handleRaw}
+                                                                        >
+                                                                            {handleRaw}
+                                                                        </Link>
+                                                                    ) : handleRaw ? (
+                                                                        <span className="text-xs font-semibold text-slate-800 truncate" title={handleRaw}>
+                                                                            {handleRaw}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-xs font-semibold text-slate-800 truncate">
+                                                                            {String(d.authorId || "").slice(0, 10)}…
+                                                                        </span>
+                                                                    )}
+
+                                                                    {d.authorId ? (
+                                                                        <span className="text-[11px] text-slate-500 font-mono truncate">
+                                                                            {String(d.authorId).slice(0, 12)}…
+                                                                        </span>
+                                                                    ) : null}
+                                                                </div>
+                                                            </div>
                                                         )}
                                                     </td>
 
@@ -531,17 +578,11 @@ export default function AdminDeedsPage() {
                                                     <td className="py-2 px-3 align-top">
                                                         <div className="flex flex-col gap-0.5 text-[11px] text-slate-600">
                                                             <div className="flex items-center gap-1.5">
-                                                                <IoHeartOutline
-                                                                    className="text-rose-400"
-                                                                    size={12}
-                                                                />
+                                                                <IoHeartOutline className="text-rose-400" size={12} />
                                                                 <span>{nfmt(likes)} likes</span>
                                                             </div>
                                                             <div className="flex items-center gap-1.5">
-                                                                <IoChatbubbleEllipsesOutline
-                                                                    className="text-slate-400"
-                                                                    size={12}
-                                                                />
+                                                                <IoChatbubbleEllipsesOutline className="text-slate-400" size={12} />
                                                                 <span>{nfmt(comments)} comments</span>
                                                             </div>
                                                             <div className="flex items-center gap-1.5">
@@ -576,16 +617,8 @@ export default function AdminDeedsPage() {
                                                     {/* Actions */}
                                                     <td className="py-2 px-3 pr-4 align-top">
                                                         <div className="flex flex-col gap-1 text-[11px]">
-                                                            {/* Preview deed in modal */}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setPreviewDeedId(d.id)}
-                                                                className="text-emerald-700 font-semibold hover:underline text-left"
-                                                            >
-                                                                Preview deed
-                                                            </button>
 
-                                                            {/* Visibility controls */}
+
                                                             <div className="flex flex-wrap gap-1 mt-1">
                                                                 {vis !== "public" && (
                                                                     <button
@@ -609,7 +642,6 @@ export default function AdminDeedsPage() {
                                                                 )}
                                                             </div>
 
-                                                            {/* Status / delete */}
                                                             <div className="flex flex-wrap gap-1 mt-1">
                                                                 {status !== "ready" && (
                                                                     <button
@@ -621,6 +653,7 @@ export default function AdminDeedsPage() {
                                                                         Mark ready
                                                                     </button>
                                                                 )}
+
                                                                 {status !== "failed" && (
                                                                     <button
                                                                         disabled={isBusy}
@@ -631,6 +664,7 @@ export default function AdminDeedsPage() {
                                                                         Mark failed
                                                                     </button>
                                                                 )}
+
                                                                 {status !== "deleted" && (
                                                                     <button
                                                                         disabled={isBusy}
@@ -643,11 +677,7 @@ export default function AdminDeedsPage() {
                                                                 )}
                                                             </div>
 
-                                                            {isBusy && (
-                                                                <span className="mt-0.5 text-[10px] text-slate-400">
-                                                                    Working…
-                                                                </span>
-                                                            )}
+                                                            {isBusy && <span className="mt-0.5 text-[10px] text-slate-400">Working…</span>}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -661,9 +691,7 @@ export default function AdminDeedsPage() {
                 </div>
             </div>
 
-            {previewDeedId && (
-                <DeedPreviewModal deedId={previewDeedId} onClose={closePreview} />
-            )}
+            {previewDeedId && <DeedPreviewModal deedId={previewDeedId} onClose={closePreview} />}
         </>
     );
 }
@@ -678,18 +706,13 @@ function StatCard({
     tone: "default" | "success" | "warn" | "danger";
 }) {
     let bg = "bg-slate-50 border-slate-200 text-slate-700";
-    if (tone === "success")
-        bg = "bg-emerald-50 border-emerald-100 text-emerald-800";
+    if (tone === "success") bg = "bg-emerald-50 border-emerald-100 text-emerald-800";
     if (tone === "warn") bg = "bg-amber-50 border-amber-100 text-amber-800";
     if (tone === "danger") bg = "bg-rose-50 border-rose-100 text-rose-800";
 
     return (
-        <div
-            className={`rounded-2xl border px-3 py-2 flex flex-col justify-center ${bg}`}
-        >
-            <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">
-                {label}
-            </span>
+        <div className={`rounded-2xl border px-3 py-2 flex flex-col justify-center ${bg}`}>
+            <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{label}</span>
             <span className="text-lg font-extrabold leading-tight">{nfmt(value)}</span>
         </div>
     );

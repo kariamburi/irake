@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
     collection,
     doc,
@@ -16,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { onAuthStateChanged, getAuth } from "firebase/auth";
 import { db, app } from "@/lib/firebase"; // adjust if your exports differ
+import { EKARI } from "@/app/constants/constants";
 
 type BillingCycle = "monthly" | "yearly";
 type SubStatus = "active" | "trialing" | "expired" | "canceled";
@@ -31,13 +33,22 @@ type SellerSubscription = {
 
 type UserDoc = {
     firstName?: string;
-    lastName?: string;
+    lastName?: string; // sometimes you use surname in users collection
+    surname?: string;
     username?: string;
-    handle?: string;
+    handle?: string; // "@skya"
     email?: string;
+
+    // your real users collection uses photoURL
+    photoURL?: string;
+
+    // legacy possibilities
     photo?: string;
     imageUrl?: string;
+
     isAdmin?: boolean;
+    isDeactivated?: boolean;
+    isSuspended?: boolean;
 };
 
 type PackageDoc = {
@@ -55,8 +66,12 @@ type Row = {
     packageName: string;
 
     userName: string;
-    handle: string;
+    handle: string; // "@skya" or fallback
     email: string;
+
+    photoURL?: string | null;
+    isDeactivated?: boolean;
+    isSuspended?: boolean;
 
     currentPeriodEnd?: Date | null;
 
@@ -95,11 +110,20 @@ function safeLower(s: string) {
 }
 
 function statusRank(s: SubStatus) {
-    // customize if you want different priority
     if (s === "active") return 1;
     if (s === "trialing") return 2;
     if (s === "expired") return 3;
     return 4; // canceled
+}
+
+function handleSlug(handle?: string) {
+    if (!handle) return "";
+    return String(handle).replace(/^@+/, "").trim();
+}
+
+function initialsFrom(handle?: string, uid?: string) {
+    const base = handleSlug(handle) || (uid ? uid.slice(0, 2) : "U");
+    return base.slice(0, 2).toUpperCase();
 }
 
 export default function AdminSubscriptionsPage() {
@@ -187,9 +211,6 @@ export default function AdminSubscriptionsPage() {
                 }
 
                 // D) OPTIONAL: detect if user has any checkout docs (for showing button)
-                // You can change this to your actual collection names.
-                // This will attempt to find ONE recent checkout for each uid. (cheap-ish)
-                // If you have thousands of users, consider removing this and show button always.
                 const hasPaymentsMap = new Map<string, boolean>();
                 for (const uid of uids) {
                     try {
@@ -202,7 +223,6 @@ export default function AdminSubscriptionsPage() {
                         const snap = await getDocs(q1);
                         hasPaymentsMap.set(uid, !snap.empty);
                     } catch {
-                        // ignore (collection might not exist / no index)
                         hasPaymentsMap.set(uid, false);
                     }
                 }
@@ -210,11 +230,15 @@ export default function AdminSubscriptionsPage() {
                 const built: Row[] = subs.map(({ uid, sub }) => {
                     const u = userMap.get(uid) || {};
                     const p = pkgMap.get(sub.packageId) || {};
+
                     const first = u.firstName || "";
-                    const last = u.lastName || "";
+                    const last = u.lastName || u.surname || "";
                     const name = (first + " " + last).trim() || "—";
+
                     const handle = u.handle || u.username || "—";
                     const email = u.email || "—";
+
+                    const photoURL = u.photoURL || u.imageUrl || u.photo || null;
 
                     return {
                         uid,
@@ -225,6 +249,9 @@ export default function AdminSubscriptionsPage() {
                         userName: name,
                         handle: String(handle),
                         email: String(email),
+                        photoURL,
+                        isDeactivated: !!u.isDeactivated,
+                        isSuspended: !!u.isSuspended,
                         currentPeriodEnd: toDate(sub.currentPeriodEnd),
                         hasPayments: hasPaymentsMap.get(uid) || false,
                     };
@@ -263,13 +290,9 @@ export default function AdminSubscriptionsPage() {
 
         const copy = [...filtered];
         copy.sort((a, b) => {
-            if (sortKey === "status") {
-                return (statusRank(a.status) - statusRank(b.status)) * dir;
-            }
-            if (sortKey === "plan") {
-                return a.packageName.localeCompare(b.packageName) * dir;
-            }
-            // periodEnd
+            if (sortKey === "status") return (statusRank(a.status) - statusRank(b.status)) * dir;
+            if (sortKey === "plan") return a.packageName.localeCompare(b.packageName) * dir;
+
             const ad = a.currentPeriodEnd?.getTime() ?? 0;
             const bd = b.currentPeriodEnd?.getTime() ?? 0;
             return (ad - bd) * dir;
@@ -350,7 +373,7 @@ export default function AdminSubscriptionsPage() {
 
                 <select
                     value={sortDir}
-                    onChange={(e) => setSortDir(e.target.value as SortDir)}
+                    onChange={(e) => setSortDir(e.target.value as any)}
                     style={{ border: "1px solid #E5E7EB", borderRadius: 12, padding: "10px 12px" }}
                 >
                     <option value="desc">Desc</option>
@@ -359,11 +382,14 @@ export default function AdminSubscriptionsPage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-y-auto" style={{ marginTop: 14, border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}>
+            <div
+                className="overflow-y-auto"
+                style={{ marginTop: 14, border: "1px solid #E5E7EB", borderRadius: 14, overflow: "hidden" }}
+            >
                 <div
                     style={{
                         display: "grid",
-                        gridTemplateColumns: "260px 170px 120px 110px 210px 1fr 220px",
+                        gridTemplateColumns: "300px 170px 120px 110px 210px 1fr 220px",
                         background: "#F9FAFB",
                         padding: "10px 12px",
                         fontWeight: 800,
@@ -385,108 +411,205 @@ export default function AdminSubscriptionsPage() {
                 ) : sorted.length === 0 ? (
                     <div style={{ padding: 14 }}>No results.</div>
                 ) : (
-                    sorted.map((r) => (
-                        <div
-                            key={r.uid}
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "260px 170px 120px 110px 210px 1fr 220px",
-                                padding: "12px",
-                                borderTop: "1px solid #E5E7EB",
-                                alignItems: "center",
-                                fontSize: 13,
-                            }}
-                        >
-                            <div>
-                                <div style={{ fontWeight: 800 }}>{r.userName}</div>
-                                <div style={{ color: "#6B7280", fontSize: 12 }}>
-                                    {r.handle} • {r.email}
+                    sorted.map((r) => {
+                        const slug = handleSlug(r.handle);
+                        const publicHref = slug ? `/${slug}` : null;
+                        const initials = initialsFrom(r.handle, r.uid);
+
+                        return (
+                            <div
+                                key={r.uid}
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "300px 170px 120px 110px 210px 1fr 220px",
+                                    padding: "12px",
+                                    borderTop: "1px solid #E5E7EB",
+                                    alignItems: "center",
+                                    fontSize: 13,
+                                }}
+                            >
+                                {/* ✅ Avatar + handle link */}
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                                    {publicHref ? (
+                                        <Link href={publicHref} style={{ textDecoration: "none" }} title={r.handle}>
+                                            <div
+                                                style={{
+                                                    height: 34,
+                                                    width: 34,
+                                                    borderRadius: 999,
+                                                    overflow: "hidden",
+                                                    background: "#E2E8F0",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    fontWeight: 900,
+                                                    fontSize: 12,
+                                                    color: "#475569",
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                {r.photoURL ? (
+                                                    <Image
+                                                        src={r.photoURL}
+                                                        alt={r.handle || r.uid}
+                                                        width={34}
+                                                        height={34}
+                                                        style={{ height: "100%", width: "100%", objectFit: "cover" }}
+                                                    />
+                                                ) : (
+                                                    <span>{initials}</span>
+                                                )}
+                                            </div>
+                                        </Link>
+                                    ) : (
+                                        <div
+                                            style={{
+                                                height: 34,
+                                                width: 34,
+                                                borderRadius: 999,
+                                                overflow: "hidden",
+                                                background: "#E2E8F0",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                fontWeight: 900,
+                                                fontSize: 12,
+                                                color: "#475569",
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            <span>{initials}</span>
+                                        </div>
+                                    )}
+
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontWeight: 900, display: "flex", alignItems: "center", gap: 8 }}>
+                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                {r.userName}
+                                            </span>
+
+                                            {publicHref && r.handle !== "—" ? (
+                                                <Link
+                                                    href={publicHref}
+                                                    style={{
+                                                        fontSize: 12,
+                                                        fontWeight: 800,
+                                                        color: EKARI.forest,
+                                                        textDecoration: "none",
+                                                    }}
+                                                >
+                                                    {r.handle}
+                                                </Link>
+                                            ) : (
+                                                <span style={{ fontSize: 12, color: "#6B7280", fontWeight: 800 }}>{r.handle}</span>
+                                            )}
+
+                                            {(r.isSuspended || r.isDeactivated) && (
+                                                <span
+                                                    style={{
+                                                        display: "inline-block",
+                                                        padding: "2px 8px",
+                                                        borderRadius: 999,
+                                                        background: "#FEF2F2",
+                                                        border: "1px solid #FECACA",
+                                                        color: "#991B1B",
+                                                        fontSize: 10,
+                                                        fontWeight: 900,
+                                                    }}
+                                                >
+                                                    {r.isSuspended ? "Suspended" : "Deactivated"}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div style={{ color: "#6B7280", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                            {r.email}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ fontWeight: 800 }}>{r.packageName}</div>
+
+                                <div>
+                                    <span
+                                        style={{
+                                            display: "inline-block",
+                                            padding: "4px 10px",
+                                            borderRadius: 999,
+                                            fontWeight: 800,
+                                            fontSize: 12,
+                                            background:
+                                                r.status === "active"
+                                                    ? "#ECFDF5"
+                                                    : r.status === "trialing"
+                                                        ? "#EFF6FF"
+                                                        : r.status === "canceled"
+                                                            ? "#FEF2F2"
+                                                            : "#F3F4F6",
+                                            color:
+                                                r.status === "active"
+                                                    ? "#065F46"
+                                                    : r.status === "trialing"
+                                                        ? "#1D4ED8"
+                                                        : r.status === "canceled"
+                                                            ? "#991B1B"
+                                                            : "#374151",
+                                        }}
+                                    >
+                                        {r.status}
+                                    </span>
+                                </div>
+
+                                <div style={{ fontWeight: 700 }}>{r.billingCycle}</div>
+                                <div style={{ color: "#374151" }}>{fmtDate(r.currentPeriodEnd)}</div>
+
+                                <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: "#6B7280" }}>
+                                    {r.uid}
+                                </div>
+
+                                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                    {/* Open user (admin) */}
+                                    <Link
+                                        href={`/admin/users/${r.uid}`}
+                                        style={{
+                                            border: "1px solid #E5E7EB",
+                                            borderRadius: 999,
+                                            padding: "7px 10px",
+                                            fontWeight: 800,
+                                            fontSize: 12,
+                                            textDecoration: "none",
+                                            color: "#111827",
+                                            background: "#fff",
+                                        }}
+                                    >
+                                        Open user
+                                    </Link>
+
+                                    {/* Payments history */}
+                                    <Link
+                                        href={`/admin/payments?uid=${encodeURIComponent(r.uid)}&tab=subscriptions`}
+                                        style={{
+                                            border: "1px solid #E5E7EB",
+                                            borderRadius: 999,
+                                            padding: "7px 10px",
+                                            fontWeight: 800,
+                                            fontSize: 12,
+                                            textDecoration: "none",
+                                            color: r.hasPayments ? "#111827" : "#9CA3AF",
+                                            background: "#fff",
+                                            pointerEvents: r.hasPayments ? "auto" : "none",
+                                            opacity: r.hasPayments ? 1 : 0.65,
+                                        }}
+                                        title={r.hasPayments ? "View payments history" : "No checkout records found"}
+                                    >
+                                        Payments
+                                    </Link>
                                 </div>
                             </div>
-
-                            <div style={{ fontWeight: 800 }}>{r.packageName}</div>
-
-                            <div>
-                                <span
-                                    style={{
-                                        display: "inline-block",
-                                        padding: "4px 10px",
-                                        borderRadius: 999,
-                                        fontWeight: 800,
-                                        fontSize: 12,
-                                        background:
-                                            r.status === "active"
-                                                ? "#ECFDF5"
-                                                : r.status === "trialing"
-                                                    ? "#EFF6FF"
-                                                    : r.status === "canceled"
-                                                        ? "#FEF2F2"
-                                                        : "#F3F4F6",
-                                        color:
-                                            r.status === "active"
-                                                ? "#065F46"
-                                                : r.status === "trialing"
-                                                    ? "#1D4ED8"
-                                                    : r.status === "canceled"
-                                                        ? "#991B1B"
-                                                        : "#374151",
-                                    }}
-                                >
-                                    {r.status}
-                                </span>
-                            </div>
-
-                            <div style={{ fontWeight: 700 }}>{r.billingCycle}</div>
-                            <div style={{ color: "#374151" }}>{fmtDate(r.currentPeriodEnd)}</div>
-
-                            <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: "#6B7280" }}>
-                                {r.uid}
-                            </div>
-
-                            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                                {/* Open user */}
-                                <Link
-                                    href={`/admin/users/${r.uid}`}
-                                    style={{
-                                        border: "1px solid #E5E7EB",
-                                        borderRadius: 999,
-                                        padding: "7px 10px",
-                                        fontWeight: 800,
-                                        fontSize: 12,
-                                        textDecoration: "none",
-                                        color: "#111827",
-                                        background: "#fff",
-                                    }}
-                                >
-                                    Open user
-                                </Link>
-
-                                {/* Payments history */}
-                                <Link
-                                    href={`/admin/payments?uid=${encodeURIComponent(r.uid)}&type=package`}
-                                    style={{
-                                        border: "1px solid #E5E7EB",
-                                        borderRadius: 999,
-                                        padding: "7px 10px",
-                                        fontWeight: 800,
-                                        fontSize: 12,
-                                        textDecoration: "none",
-                                        color: r.hasPayments ? "#111827" : "#9CA3AF",
-                                        background: "#fff",
-                                        pointerEvents: r.hasPayments ? "auto" : "none",
-                                        opacity: r.hasPayments ? 1 : 0.65,
-                                    }}
-                                    title={r.hasPayments ? "View payments history" : "No checkout records found"}
-                                >
-                                    Payments
-                                </Link>
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
-
-
         </div>
     );
 }

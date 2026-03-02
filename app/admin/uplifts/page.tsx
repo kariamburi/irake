@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   collection,
   deleteDoc,
@@ -14,6 +15,7 @@ import {
   query,
   startAfter,
   where,
+  documentId,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -43,6 +45,34 @@ type DonationRow = {
 
 type DonationFilter = "all" | "pending" | "succeeded" | "failed";
 
+type UserLite = {
+  handle?: string; // "@skya"
+  handleLower?: string; // "skya"
+  username?: string;
+  photoURL?: string;
+  imageUrl?: string;
+  photo?: string;
+  firstName?: string;
+  surname?: string;
+  lastName?: string;
+};
+
+function chunk<T>(arr: T[], size: number) {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function handleSlug(handle?: string) {
+  if (!handle) return "";
+  return String(handle).replace(/^@+/, "").trim();
+}
+
+function initialsFrom(handle?: string, uid?: string) {
+  const base = handleSlug(handle) || (uid ? uid.slice(0, 2) : "U");
+  return base.slice(0, 2).toUpperCase();
+}
+
 function formatMoneyMinor(n?: number, currency?: string) {
   if (!n || n <= 0) return "—";
   const unit = n / 100;
@@ -68,6 +98,70 @@ function statusPill(status?: string) {
   return { s, bg, fg };
 }
 
+function UserChip({
+  uid,
+  user,
+}: {
+  uid?: string;
+  user?: UserLite | null;
+}) {
+  if (!uid) return <span className="text-[11px] text-gray-400">—</span>;
+
+  const photo = user?.photoURL || user?.imageUrl || user?.photo || null;
+  const handle = user?.handle || user?.username || null;
+  const slug = user?.handleLower || handleSlug(handle || "");
+  const href = slug ? `/${slug}` : null;
+  const initials = initialsFrom(handle || undefined, uid);
+
+  const Avatar = (
+    <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
+      {photo ? (
+        <Image
+          src={photo}
+          alt={handle || uid}
+          width={32}
+          height={32}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </div>
+  );
+
+  const Handle = handle ? (
+    href ? (
+      <Link
+        href={href}
+        className="text-xs font-semibold text-emerald-700 hover:underline truncate"
+        title={handle}
+      >
+        {handle}
+      </Link>
+    ) : (
+      <span className="text-xs font-semibold text-slate-800 truncate">{handle}</span>
+    )
+  ) : (
+    <span className="text-xs font-semibold text-slate-800 truncate">
+      {uid.slice(0, 6)}…
+    </span>
+  );
+
+  const Body = (
+    <div className="flex flex-col min-w-0">
+      {Handle}
+      <span className="text-[10px] text-slate-400 font-mono truncate">{uid}</span>
+    </div>
+  );
+
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {href ? <Link href={href}>{Avatar}</Link> : Avatar}
+      {Body}
+    </div>
+  );
+}
+
 export default function AdminDonationsPage() {
   const [rows, setRows] = useState<DonationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,16 +175,19 @@ export default function AdminDonationsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
+  // users cache for creator/donor chips
+  const [usersMap, setUsersMap] = useState<Record<string, UserLite>>({});
+
   const makeBaseQuery = useCallback(() => {
-    // NOTE: Firestore query rules:
-    // - if you use where() you usually need composite index with orderBy
-    // We'll keep this index-friendly by:
-    // - using where(status==...) only for pending/succeeded
-    // - "failed" uses client-side filtering (non-equal conditions are messy)
     const base = collection(db, "donations");
 
     if (filter === "pending" || filter === "succeeded") {
-      return query(base, where("status", "==", filter), orderBy("createdAt", "desc"), limit(30));
+      return query(
+        base,
+        where("status", "==", filter),
+        orderBy("createdAt", "desc"),
+        limit(30)
+      );
     }
 
     return query(base, orderBy("createdAt", "desc"), limit(30));
@@ -107,7 +204,10 @@ export default function AdminDonationsPage() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const next = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as DonationRow[];
+        const next = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as any),
+        })) as DonationRow[];
 
         setRows(next);
         setCursor(snap.docs.length ? snap.docs[snap.docs.length - 1] : null);
@@ -144,10 +244,12 @@ export default function AdminDonationsPage() {
       }
 
       const snap = await getDocs(qMore);
-      const next = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as DonationRow[];
+      const next = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      })) as DonationRow[];
 
       setRows((prev) => {
-        // avoid duplicates
         const seen = new Set(prev.map((x) => x.id));
         return [...prev, ...next.filter((x) => !seen.has(x.id))];
       });
@@ -198,14 +300,7 @@ export default function AdminDonationsPage() {
     if (!q) return list;
 
     return list.filter((r) => {
-      const hay = [
-        r.id,
-        r.deedId,
-        r.creatorId,
-        r.donorId,
-        r.status,
-        r.currency,
-      ]
+      const hay = [r.id, r.deedId, r.creatorId, r.donorId, r.status, r.currency]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -214,13 +309,46 @@ export default function AdminDonationsPage() {
     });
   }, [rows, filter, search]);
 
-  const FilterChip = ({
-    label,
-    value,
-  }: {
-    label: string;
-    value: DonationFilter;
-  }) => {
+  // ✅ fetch users for creatorId + donorId (batched)
+  useEffect(() => {
+    const ids = Array.from(
+      new Set(
+        filtered
+          .flatMap((r) => [r.creatorId, r.donorId])
+          .filter(Boolean) as string[]
+      )
+    );
+
+    const missing = ids.filter((id) => !usersMap[id]);
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const nextMap: Record<string, UserLite> = {};
+        for (const group of chunk(missing, 10)) {
+          const qy = query(collection(db, "users"), where(documentId(), "in", group));
+          const snap = await getDocs(qy);
+          snap.forEach((d) => {
+            nextMap[d.id] = (d.data() as any) || {};
+          });
+        }
+        if (!cancelled && Object.keys(nextMap).length) {
+          setUsersMap((prev) => ({ ...prev, ...nextMap }));
+        }
+      } catch (e) {
+        console.error("Fetch users for donations page failed:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered]);
+
+  const FilterChip = ({ label, value }: { label: string; value: DonationFilter }) => {
     const active = filter === value;
     return (
       <button
@@ -275,7 +403,8 @@ export default function AdminDonationsPage() {
             Uplifts
           </h1>
           <p className="text-sm" style={{ color: EKARI.dim }}>
-            View all uplifts. You can delete only <span className="font-semibold">pending</span> items.
+            View all uplifts. You can delete only{" "}
+            <span className="font-semibold">pending</span> items.
           </p>
         </div>
 
@@ -343,6 +472,8 @@ export default function AdminDonationsPage() {
             <thead>
               <tr className="bg-gray-50 text-gray-500">
                 <th className="text-left px-4 py-3 font-semibold">Uplift</th>
+                <th className="text-left px-2 py-3 font-semibold">Creator</th>
+                <th className="text-left px-2 py-3 font-semibold">Donor</th>
                 <th className="text-left px-2 py-3 font-semibold">Amount</th>
                 <th className="text-left px-2 py-3 font-semibold">Status</th>
                 <th className="text-left px-2 py-3 font-semibold">Created</th>
@@ -355,13 +486,13 @@ export default function AdminDonationsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-gray-400">
                     Loading…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-gray-400">
                     No uplifts found.
                   </td>
                 </tr>
@@ -371,9 +502,12 @@ export default function AdminDonationsPage() {
                   const canDelete = s === "pending";
                   const deleting = deletingId === d.id;
 
-                  const gross = d.grossAmountUsdMinor ? (d.grossAmountUsdMinor / 100) : null;
-                  const platform = d.platformShareUsdMinor ? (d.platformShareUsdMinor / 100) : null;
-                  const creator = d.creatorShareNetUsdMinor ? (d.creatorShareNetUsdMinor / 100) : null;
+                  const gross = d.grossAmountUsdMinor ? d.grossAmountUsdMinor / 100 : null;
+                  const platform = d.platformShareUsdMinor ? d.platformShareUsdMinor / 100 : null;
+                  const creatorUsd = d.creatorShareNetUsdMinor ? d.creatorShareNetUsdMinor / 100 : null;
+
+                  const creatorUser = d.creatorId ? usersMap[d.creatorId] : null;
+                  const donorUser = d.donorId ? usersMap[d.donorId] : null;
 
                   return (
                     <tr
@@ -384,20 +518,23 @@ export default function AdminDonationsPage() {
                       <td className="px-4 py-3">
                         <div className="font-mono text-[11px]">{d.id}</div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          Deed: {d.deedId?.slice(0, 10) ?? "—"} • Creator: {d.creatorId?.slice(0, 10) ?? "—"}
+                          Deed: {d.deedId?.slice(0, 12) ?? "—"}
                         </div>
-                        <div className="text-[11px] text-gray-500">
-                          Donor: {d.donorId?.slice(0, 10) ?? "—"}
-                        </div>
+                      </td>
+
+                      <td className="px-2 py-3">
+                        <UserChip uid={d.creatorId} user={creatorUser} />
+                      </td>
+
+                      <td className="px-2 py-3">
+                        <UserChip uid={d.donorId} user={donorUser} />
                       </td>
 
                       <td className="px-2 py-3">
                         <div className="font-extrabold text-[12px]">
                           {formatMoneyMinor(d.amount, d.currency)}
                         </div>
-                        <div className="text-[11px] text-gray-500">
-                          {d.currency || "—"}
-                        </div>
+                        <div className="text-[11px] text-gray-500">{d.currency || "—"}</div>
                       </td>
 
                       <td className="px-2 py-3">
@@ -421,19 +558,34 @@ export default function AdminDonationsPage() {
                         <div>
                           Gross:{" "}
                           <span className="font-semibold" style={{ color: EKARI.text }}>
-                            {gross == null ? "—" : `USD ${gross.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            {gross == null
+                              ? "—"
+                              : `USD ${gross.toLocaleString("en-KE", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`}
                           </span>
                         </div>
                         <div>
                           Creator:{" "}
                           <span className="font-semibold" style={{ color: EKARI.text }}>
-                            {creator == null ? "—" : `USD ${creator.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            {creatorUsd == null
+                              ? "—"
+                              : `USD ${creatorUsd.toLocaleString("en-KE", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`}
                           </span>
                         </div>
                         <div>
                           Platform:{" "}
                           <span className="font-semibold text-emerald-700">
-                            {platform == null ? "—" : `USD ${platform.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            {platform == null
+                              ? "—"
+                              : `USD ${platform.toLocaleString("en-KE", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`}
                           </span>
                         </div>
                       </td>
@@ -466,10 +618,18 @@ export default function AdminDonationsPage() {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: EKARI.hair }}>
+        <div
+          className="flex items-center justify-between px-4 py-3 border-t"
+          style={{ borderColor: EKARI.hair }}
+        >
           <div className="text-[11px]" style={{ color: EKARI.dim }}>
-            Showing <span className="font-semibold" style={{ color: EKARI.text }}>{filtered.length}</span>{" "}
-            row(s){filter !== "all" ? ` • filter: ${filter}` : ""}{search ? " • search applied" : ""}
+            Showing{" "}
+            <span className="font-semibold" style={{ color: EKARI.text }}>
+              {filtered.length}
+            </span>{" "}
+            row(s)
+            {filter !== "all" ? ` • filter: ${filter}` : ""}
+            {search ? " • search applied" : ""}
           </div>
 
           <div className="flex items-center gap-2">
@@ -487,8 +647,8 @@ export default function AdminDonationsPage() {
       </div>
 
       <div className="text-[11px]" style={{ color: EKARI.dim }}>
-        Tip: If you want “failed” to be a strict server-side query, we can map your exact failure statuses
-        (e.g. <span className="font-semibold">failed</span>, <span className="font-semibold">canceled</span>, <span className="font-semibold">requires_payment_method</span>) and query them explicitly.
+        Tip: If you want “failed” to be strict server-side, we can map your exact failure statuses
+        and query them explicitly.
       </div>
     </div>
   );

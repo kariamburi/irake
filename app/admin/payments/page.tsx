@@ -3,6 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import {
     collection,
@@ -14,6 +15,7 @@ import {
     Timestamp,
     doc,
     getDoc,
+    documentId,
 } from "firebase/firestore";
 import { onAuthStateChanged, getAuth } from "firebase/auth";
 import { db, app } from "@/lib/firebase";
@@ -41,6 +43,16 @@ type PaymentRow = {
 
     label?: string;
     raw?: any;
+};
+
+type UserLite = {
+    id: string;
+    handle?: string | null; // "@skya"
+    photoURL?: string | null;
+    firstName?: string | null;
+    surname?: string | null;
+    isDeactivated?: boolean;
+    isSuspended?: boolean;
 };
 
 const EKARI = {
@@ -103,7 +115,6 @@ function normalizeToUsdMinor(opts: {
     // if stored in KES minor -> convert to USD minor using rate
     if (cur === "KES") {
         const rate = usdToKesRate > 0 ? usdToKesRate : 130;
-        // Same logic you used in webhook for KES→USD: Math.round(amountMinor / rate)
         const usdMinor = Math.round(amount / rate);
         return { usdMinor, note: `KES→USD @${rate}` };
     }
@@ -112,10 +123,8 @@ function normalizeToUsdMinor(opts: {
     return { usdMinor: amount, note: `treated as USD (${cur || "unknown"})` };
 }
 
-/**
- * Firestore sources per tab.
- * Adjust field names if your docs differ.
- */
+/* ---------------- Firestore sources per tab ---------------- */
+
 type Tab = "donations" | "subscriptions" | "activation";
 type WhereOp =
     | "=="
@@ -149,17 +158,34 @@ const SOURCES: Record<Tab, SourceCfg[]> = {
         {
             collectionName: "packageCheckouts",
             uidField: "userUid",
-            createdAtField: "createdAt", // or "paidAt" if that’s what you have
+            createdAtField: "createdAt",
         },
     ],
     activation: [
         {
             collectionName: "verificationSessions",
-            uidField: "userUid", // only works if you store userUid in the session doc
+            uidField: "userUid",
             createdAtField: "paidAt",
         },
     ],
 };
+
+/* ---------------- user helpers ---------------- */
+
+function handleSlug(handle?: string | null) {
+    return handle ? String(handle).replace(/^@+/, "").trim() : "";
+}
+
+function initialsFrom(handle?: string | null, id?: string) {
+    const base = handleSlug(handle) || (id ? id.slice(0, 2) : "U");
+    return base.slice(0, 2).toUpperCase();
+}
+
+function chunk<T>(arr: T[], size: number) {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+}
 
 export default function AdminPaymentsPage() {
     const sp = useSearchParams();
@@ -177,6 +203,10 @@ export default function AdminPaymentsPage() {
     // ✅ FX rate (KES per 1 USD)
     const [usdToKesRate, setUsdToKesRate] = useState<number>(130);
 
+    // ✅ Users cache for uid -> profile
+    const [usersById, setUsersById] = useState<Record<string, UserLite>>({});
+    const [usersLoading, setUsersLoading] = useState(false);
+
     // auth + admin check (supports claim OR users/{uid}.isAdmin)
     useEffect(() => {
         const unsub = onAuthStateChanged(getAuth(app), async (u) => {
@@ -191,7 +221,6 @@ export default function AdminPaymentsPage() {
             setAuthUid(u.uid);
 
             try {
-                // 1) try custom claim admin (recommended)
                 const token = await u.getIdTokenResult();
                 const claimAdmin = !!(token.claims as any)?.admin;
                 if (claimAdmin) {
@@ -200,7 +229,6 @@ export default function AdminPaymentsPage() {
                     return;
                 }
 
-                // 2) fallback to users doc field isAdmin
                 const snap = await getDoc(doc(db, "users", u.uid));
                 const data = (snap.data() as any) || {};
                 setIsAdmin(!!data.isAdmin);
@@ -284,30 +312,16 @@ export default function AdminPaymentsPage() {
                             wheres.push(where(w.field, w.op, w.value));
                         }
 
-                        const qy = query(
-                            colRef,
-                            ...wheres,
-                            orderBy(src.createdAtField, "desc"),
-                            limit(200)
-                        );
-
+                        const qy = query(colRef, ...wheres, orderBy(src.createdAtField, "desc"), limit(200));
                         const snap = await getDocs(qy);
 
                         const built: PaymentRow[] = snap.docs.map((d) => {
                             const x: any = d.data();
 
                             const created =
-                                toDate(x[src.createdAtField]) ||
-                                toDate(x.createdAt) ||
-                                toDate(x.paidAt) ||
-                                null;
+                                toDate(x[src.createdAtField]) || toDate(x.createdAt) || toDate(x.paidAt) || null;
 
-                            const status =
-                                x.status ||
-                                x.state ||
-                                x.paystackStatus ||
-                                x.paymentStatus ||
-                                "—";
+                            const status = x.status || x.state || x.paystackStatus || x.paymentStatus || "—";
 
                             const currency =
                                 x.currency ||
@@ -317,19 +331,17 @@ export default function AdminPaymentsPage() {
                                 (tab === "donations" ? "USD" : "KES") ||
                                 "—";
 
-                            // raw amount (usually minor)
                             const rawAmount =
                                 x.paidAmountMinor ??
                                 x.gatewayAmountMinor ??
                                 x.amountMinor ??
                                 x.amountInMinor ??
                                 x.amount ??
-                                x.grossAmountUsdMinor ?? // donations canonical
+                                x.grossAmountUsdMinor ??
                                 x.paidAmount ??
                                 null;
 
-                            const amount =
-                                typeof rawAmount === "number" ? rawAmount : null;
+                            const amount = typeof rawAmount === "number" ? rawAmount : null;
 
                             const norm = normalizeToUsdMinor({
                                 tab,
@@ -349,8 +361,7 @@ export default function AdminPaymentsPage() {
                                 x.mpesaReceiptNumber ||
                                 "";
 
-                            const checkoutUrl =
-                                x.checkoutUrl || x.url || x.authorizationUrl || "";
+                            const checkoutUrl = x.checkoutUrl || x.url || x.authorizationUrl || "";
 
                             const inferredUid =
                                 (src.uidField && x[src.uidField]) ||
@@ -397,9 +408,7 @@ export default function AdminPaymentsPage() {
                     }
                 }
 
-                throw (
-                    pickedError || new Error("Failed to load from all configured sources.")
-                );
+                throw pickedError || new Error("Failed to load from all configured sources.");
             } catch (e: any) {
                 console.error("Admin payments load error:", e);
 
@@ -413,10 +422,7 @@ export default function AdminPaymentsPage() {
                         setErrorMsg(
                             "Missing or insufficient permissions. Firestore rules blocked this collection for admin reads."
                         );
-                    } else if (
-                        lower.includes("failed-precondition") ||
-                        lower.includes("index")
-                    ) {
+                    } else if (lower.includes("failed-precondition") || lower.includes("index")) {
                         setErrorMsg(
                             "Firestore index required for this query (where + orderBy). Create the composite index suggested in the console."
                         );
@@ -433,6 +439,55 @@ export default function AdminPaymentsPage() {
             cancelled = true;
         };
     }, [tab, uid, authUid, isAdmin, checkingAdmin, usdToKesRate]);
+
+    // ✅ Fetch user profiles for any uid present in rows
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadUsers() {
+            const ids = Array.from(new Set(rows.map((r) => r.uid).filter(Boolean))) as string[];
+            if (ids.length === 0) return;
+
+            const missing = ids.filter((id) => !usersById[id]);
+            if (missing.length === 0) return;
+
+            setUsersLoading(true);
+            try {
+                const batches = chunk(missing, 10); // Firestore "in" supports up to 10
+                const next: Record<string, UserLite> = {};
+
+                for (const batch of batches) {
+                    const q = query(collection(db, "users"), where(documentId(), "in", batch));
+                    const snap = await getDocs(q);
+
+                    snap.docs.forEach((docSnap) => {
+                        const u = docSnap.data() as any;
+                        next[docSnap.id] = {
+                            id: docSnap.id,
+                            handle: u.handle ?? null,
+                            photoURL: u.photoURL ?? null,
+                            firstName: u.firstName ?? null,
+                            surname: u.surname ?? null,
+                            isDeactivated: !!u.isDeactivated,
+                            isSuspended: !!u.isSuspended,
+                        };
+                    });
+                }
+
+                if (!cancelled) setUsersById((prev) => ({ ...prev, ...next }));
+            } catch (e) {
+                console.error("AdminPayments loadUsers error", e);
+            } finally {
+                if (!cancelled) setUsersLoading(false);
+            }
+        }
+
+        loadUsers();
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [rows]);
 
     const title = useMemo(() => {
         if (tab === "donations") return "Uplifts";
@@ -457,25 +512,20 @@ export default function AdminPaymentsPage() {
 
     if (checkingAdmin) return <div className="p-6">Checking access…</div>;
     if (!authUid) return <div className="p-6">Please sign in.</div>;
-    if (!isAdmin)
-        return <div className="p-6">You don’t have permission to view payments.</div>;
+    if (!isAdmin) return <div className="p-6">You don’t have permission to view payments.</div>;
 
     return (
         <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
                 <div>
-                    <h1
-                        className="text-2xl md:text-3xl font-extrabold"
-                        style={{ color: EKARI.text }}
-                    >
+                    <h1 className="text-2xl md:text-3xl font-extrabold" style={{ color: EKARI.text }}>
                         Payments (USD)
                     </h1>
                     <p className="text-sm" style={{ color: EKARI.dim }}>
                         {uid ? (
                             <>
-                                Showing <b>{title}</b> for UID{" "}
-                                <span className="font-mono">{uid}</span>
+                                Showing <b>{title}</b> for UID <span className="font-mono">{uid}</span>
                             </>
                         ) : (
                             <>
@@ -483,6 +533,11 @@ export default function AdminPaymentsPage() {
                             </>
                         )}
                     </p>
+                    {usersLoading ? (
+                        <p className="text-[11px] mt-1" style={{ color: EKARI.dim }}>
+                            Loading user profiles…
+                        </p>
+                    ) : null}
                 </div>
 
                 <div className="flex gap-2">
@@ -508,71 +563,49 @@ export default function AdminPaymentsPage() {
 
             {/* Tabs */}
             <div className="flex flex-wrap gap-2">
-                {(["donations", "subscriptions", "activation"] as PaymentTab[]).map(
-                    (t) => {
-                        const active = t === tab;
-                        return (
-                            <Link
-                                key={t}
-                                href={`/admin/payments?${uid ? `uid=${encodeURIComponent(uid)}&` : ""
-                                    }tab=${t}`}
-                                className="rounded-full px-4 py-2 text-xs font-extrabold border"
-                                style={{
-                                    borderColor: EKARI.hair,
-                                    background: active ? EKARI.text : "#fff",
-                                    color: active ? "#fff" : EKARI.text,
-                                }}
-                            >
-                                {t === "donations"
-                                    ? "Uplifts"
-                                    : t === "subscriptions"
-                                        ? "Subscriptions"
-                                        : "Activation fee"}
-                            </Link>
-                        );
-                    }
-                )}
+                {(["donations", "subscriptions", "activation"] as PaymentTab[]).map((t) => {
+                    const active = t === tab;
+                    return (
+                        <Link
+                            key={t}
+                            href={`/admin/payments?${uid ? `uid=${encodeURIComponent(uid)}&` : ""}tab=${t}`}
+                            className="rounded-full px-4 py-2 text-xs font-extrabold border"
+                            style={{
+                                borderColor: EKARI.hair,
+                                background: active ? EKARI.text : "#fff",
+                                color: active ? "#fff" : EKARI.text,
+                            }}
+                        >
+                            {t === "donations" ? "Uplifts" : t === "subscriptions" ? "Subscriptions" : "Activation fee"}
+                        </Link>
+                    );
+                })}
             </div>
 
             {/* Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div
-                    className="rounded-2xl border bg-white p-4"
-                    style={{ borderColor: EKARI.hair }}
-                >
+                <div className="rounded-2xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
                     <div className="text-xs font-semibold text-gray-500">Records</div>
-                    <div
-                        className="text-2xl font-extrabold mt-1"
-                        style={{ color: EKARI.text }}
-                    >
+                    <div className="text-2xl font-extrabold mt-1" style={{ color: EKARI.text }}>
                         {loading ? "…" : totals.count.toLocaleString("en-US")}
                     </div>
                 </div>
 
-                <div
-                    className="rounded-2xl border bg-white p-4 sm:col-span-2"
-                    style={{ borderColor: EKARI.hair }}
-                >
+                <div className="rounded-2xl border bg-white p-4 sm:col-span-2" style={{ borderColor: EKARI.hair }}>
                     <div className="text-xs font-semibold text-gray-500">Total (USD)</div>
-                    <div
-                        className="text-2xl font-extrabold mt-1"
-                        style={{ color: EKARI.text }}
-                    >
+                    <div className="text-2xl font-extrabold mt-1" style={{ color: EKARI.text }}>
                         {loading ? "…" : fmtUsdFromMinor(totals.totalUsdMinor)}
                     </div>
                     <div className="mt-2 text-[11px] text-gray-500">
-                        KES payments are converted using rate: <b>{usdToKesRate}</b> (KES per
-                        USD). Uplifts use canonical USD from webhook when available.
+                        KES payments are converted using rate: <b>{usdToKesRate}</b> (KES per USD). Uplifts use canonical USD
+                        from webhook when available.
                     </div>
                 </div>
             </div>
 
             {/* Error */}
             {errorMsg ? (
-                <div
-                    className="p-3 rounded-2xl border"
-                    style={{ borderColor: "#FECACA", background: "#FEF2F2" }}
-                >
+                <div className="p-3 rounded-2xl border" style={{ borderColor: "#FECACA", background: "#FEF2F2" }}>
                     <div className="text-sm font-extrabold" style={{ color: "#991B1B" }}>
                         Error
                     </div>
@@ -580,26 +613,21 @@ export default function AdminPaymentsPage() {
                         {errorMsg}
                     </div>
 
-                    {/* Show index hint only if it’s really an index error */}
                     {errorMsg.toLowerCase().includes("index") ? (
                         <div className="mt-2 text-[12px]" style={{ color: EKARI.dim }}>
                             Fix: create the composite index suggested in the console for{" "}
-                            <code className="font-mono">
-                                {uid ? "uidField == uid, " : ""}orderBy createdAtField desc
-                            </code>
-                            .
+                            <code className="font-mono">{uid ? "uidField == uid, " : ""}orderBy createdAtField desc</code>.
                         </div>
                     ) : null}
                 </div>
             ) : null}
 
             {/* Table */}
-            <div
-                className="rounded-2xl border bg-white overflow-hidden"
-                style={{ borderColor: EKARI.hair }}
-            >
-                <div className="grid grid-cols-[180px_140px_190px_1fr_220px] bg-gray-50 px-4 py-2 text-xs font-extrabold text-gray-500">
+            <div className="rounded-2xl border bg-white overflow-hidden" style={{ borderColor: EKARI.hair }}>
+                {/* ✅ Added User column */}
+                <div className="grid grid-cols-[180px_220px_140px_190px_1fr_220px] bg-gray-50 px-4 py-2 text-xs font-extrabold text-gray-500">
                     <div>Date</div>
+                    <div>User</div>
                     <div>Status</div>
                     <div>Amount (USD)</div>
                     <div>Reference / Label</div>
@@ -611,62 +639,112 @@ export default function AdminPaymentsPage() {
                 ) : rows.length === 0 ? (
                     <div className="p-4 text-sm text-gray-500">No records found.</div>
                 ) : (
-                    rows.map((r) => (
-                        <div
-                            key={r.id}
-                            className="grid grid-cols-[180px_140px_190px_1fr_220px] px-4 py-3 border-t text-sm items-center"
-                            style={{ borderColor: EKARI.hair }}
-                        >
-                            <div className="text-gray-700">{fmtDate(r.createdAt)}</div>
-                            <div className="font-extrabold">{r.status}</div>
+                    rows.map((r) => {
+                        const u = r.uid ? usersById[r.uid] : undefined;
+                        const h = u?.handle ?? null; // "@skya"
+                        const slug = handleSlug(h);
+                        const href = slug ? `/${slug}` : null;
+                        const initials = initialsFrom(h, r.uid);
+                        const suspended = !!u?.isSuspended;
+                        const deactivated = !!u?.isDeactivated;
 
-                            <div className="min-w-0">
-                                <div className="font-extrabold">
-                                    {fmtUsdFromMinor(r.amountUsdMinor ?? null)}
-                                </div>
-                                {r.usdNote ? (
-                                    <div className="text-[10px] text-gray-400">{r.usdNote}</div>
-                                ) : null}
-                            </div>
+                        return (
+                            <div
+                                key={r.id}
+                                className="grid grid-cols-[180px_220px_140px_190px_1fr_220px] px-4 py-3 border-t text-sm items-center"
+                                style={{ borderColor: EKARI.hair }}
+                            >
+                                <div className="text-gray-700">{fmtDate(r.createdAt)}</div>
 
-                            <div className="min-w-0">
-                                <div className="font-mono text-xs text-gray-500 truncate">
-                                    {r.reference || "—"}
-                                </div>
+                                {/* ✅ User cell */}
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        {href ? (
+                                            <Link href={href} className="shrink-0" title={h ?? r.uid ?? ""}>
+                                                <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-[11px] font-extrabold text-slate-700">
+                                                    {u?.photoURL ? (
+                                                        <Image
+                                                            src={u.photoURL}
+                                                            alt={h ?? r.uid ?? "user"}
+                                                            width={32}
+                                                            height={32}
+                                                            className="h-full w-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span>{initials}</span>
+                                                    )}
+                                                </div>
+                                            </Link>
+                                        ) : (
+                                            <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-[11px] font-extrabold text-slate-700">
+                                                <span>{initials}</span>
+                                            </div>
+                                        )}
 
-                                {r.label ? (
-                                    <div className="text-[11px] text-emerald-700 font-semibold truncate">
-                                        {r.label}
+                                        <div className="min-w-0 flex flex-col">
+                                            {href && h ? (
+                                                <Link
+                                                    href={href}
+                                                    className="text-xs font-semibold text-emerald-700 hover:underline truncate"
+                                                    title={h}
+                                                >
+                                                    {h}
+                                                </Link>
+                                            ) : (
+                                                <div className="text-[11px] text-gray-400 font-mono truncate">
+                                                    {r.uid ? `${r.uid.slice(0, 12)}…` : "—"}
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-center gap-2">
+                                                {!uid && r.uid ? (
+                                                    <span className="text-[11px] text-gray-400 font-mono truncate">uid: {r.uid}</span>
+                                                ) : null}
+
+                                                {(suspended || deactivated) && (
+                                                    <span className="inline-flex items-center rounded-full bg-rose-50 border border-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                                                        {suspended ? "Suspended" : "Deactivated"}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                ) : null}
+                                </div>
 
-                                {!uid && r.uid ? (
-                                    <div className="text-[11px] text-gray-400 font-mono truncate">
-                                        uid: {r.uid}
-                                    </div>
-                                ) : null}
-                            </div>
+                                <div className="font-extrabold">{r.status}</div>
 
-                            <div className="text-right">
-                                {r.checkoutUrl ? (
-                                    <a
-                                        href={r.checkoutUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="font-extrabold text-emerald-700 hover:underline"
-                                    >
-                                        Open ↗
-                                    </a>
-                                ) : (
-                                    <span className="text-gray-300">—</span>
-                                )}
+                                <div className="min-w-0">
+                                    <div className="font-extrabold">{fmtUsdFromMinor(r.amountUsdMinor ?? null)}</div>
+                                    {r.usdNote ? <div className="text-[10px] text-gray-400">{r.usdNote}</div> : null}
+                                </div>
+
+                                <div className="min-w-0">
+                                    <div className="font-mono text-xs text-gray-500 truncate">{r.reference || "—"}</div>
+
+                                    {r.label ? (
+                                        <div className="text-[11px] text-emerald-700 font-semibold truncate">{r.label}</div>
+                                    ) : null}
+                                </div>
+
+                                <div className="text-right">
+                                    {r.checkoutUrl ? (
+                                        <a
+                                            href={r.checkoutUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="font-extrabold text-emerald-700 hover:underline"
+                                        >
+                                            Open ↗
+                                        </a>
+                                    ) : (
+                                        <span className="text-gray-300">—</span>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
-
-
         </div>
     );
 }
