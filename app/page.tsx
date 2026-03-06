@@ -1964,14 +1964,14 @@ function VideoCard({
     router.push(`/${encodeURIComponent(handle.startsWith("@") ? handle : `@${handle}`)}`);
   };
 
-  const railBtn = isMobile ? "h-14 w-14" : "h-10 w-10";
+  const railBtn = isMobile ? "h-8 w-8" : "h-8 w-8";
   const railIcon = isMobile ? 26 : 22;
   const railCount = isMobile ? "text-[10px]" : "text-[10px]";
   const railTextColor = isMobile ? "text-white" : "text-white";
   const railBg =
     isMobile
-      ? "bg-white/50 border-white/50"
-      : "bg-white/95 md:bg-white/95 md:border-gray-200";
+      ? "mb-3"
+      : "mb-3";
 
   return (
     <div className={cn("relative w-full", isMobile ? "" : "py-1")}>
@@ -2284,13 +2284,14 @@ function VideoCard({
                 onClick={onSupportClick}
                 className={cn(
                   railBtn,
-                  "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
+                  "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
                   railBg
                 )}
               >
                 💰
+                <div className={cn("mt-0.5 leading-3 font-bold", railCount, railTextColor)}>Uplift</div>
               </button>
-              <div className={cn("mt-0.5 leading-3 font-bold", railCount, railTextColor)}>Uplift</div>
+
             </>
           )}
 
@@ -2300,52 +2301,56 @@ function VideoCard({
             onClick={onLikeClick}
             className={cn(
               railBtn,
-              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
               railBg
             )}
           >
             <IoHeart size={railIcon} style={{ color: liked ? actionActiveColor : actionIdleColor, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))", }} />
+            <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(likeCount)}</div>
+
           </button>
-          <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(likeCount)}</div>
 
           <button
             aria-label="Comments"
             onClick={onCommentsClick}
             className={cn(
               railBtn,
-              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
               railBg
             )}
           >
             <IoChatbubble size={railIcon} style={{ color: commented ? actionActiveColor : actionIdleColor, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))", }} />
+            <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(commentsCount)}</div>
+
           </button>
-          <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(commentsCount)}</div>
 
           <button
             aria-label="Save"
             onClick={onSaveClick}
             className={cn(
               railBtn,
-              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
               railBg
             )}
           >
             <IoBookmark size={railIcon} style={{ color: saved ? actionActiveColor : actionIdleColor, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))", }} />
+            <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalBookmarks)}</div>
+
           </button>
-          <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalBookmarks)}</div>
 
           <button
             aria-label="Share"
             onClick={onShare}
             className={cn(
               railBtn,
-              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition",
               railBg
             )}
           >
             <IoArrowRedo size={railIcon} style={{ color: shared ? actionActiveColor : actionIdleColor, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))", }} />
+            <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalShares)}</div>
+
           </button>
-          <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalShares)}</div>
           {/* ✅ MOBILE: mute/unmute lives on rail so it never gets hidden */}
           {item.mediaType === "video" && (
             <button
