@@ -257,7 +257,11 @@ const MAX_AVATAR_SIZE = 512;
 const isFirebaseUrl = (u?: string | null) =>
   !!u &&
   (u.startsWith("gs://") || u.includes("firebasestorage.googleapis.com"));
-
+async function softDeleteMyAccountWeb() {
+  const functions = getFunctions();
+  const fn = httpsCallable(functions, "softDeleteAccount");
+  await fn({});
+}
 /** Responsive helpers */
 function useMediaQuery(queryStr: string) {
   const [matches, setMatches] = React.useState(false);
@@ -835,27 +839,26 @@ export default function EditProfilePage() {
 
 
   // ---------- Delete account (calls backend cloud function) ----------
+  // ---------- Delete account (soft delete via cloud function) ----------
   const handleConfirmDelete = async () => {
     if (!uid) return;
+
     setDeleting(true);
     setErrorMsg("");
     setSuccessMsg("");
-    try {
-      const functions = getFunctions();
-      const fn = httpsCallable(functions, "deleteAccountCascade");
-      await fn({});
 
+    try {
+      await softDeleteMyAccountWeb();
       await auth.signOut();
       router.replace("/");
     } catch (err: any) {
-      console.error("Delete account failed", err);
+      console.error("Soft delete account failed", err);
       setErrorMsg(err?.message || "Failed to delete account. Please try again.");
     } finally {
       setDeleting(false);
       setConfirmDeleteOpen(false);
     }
   };
-
   const validWebsite = validateUrl(website || "");
 
   // ✅ Build the main content once, then wrap it differently for mobile/desktop

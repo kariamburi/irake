@@ -1,29 +1,38 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { IoPause, IoPlay, IoMusicalNotes } from "react-icons/io5";
 
 export type PhotoItem = {
     url: string;
     previewUrl?: string | null;
 };
 
-// ✅ Exclusive audio (TikTok-like)
+/** ✅ Exclusive audio (TikTok-like) */
 let CURRENT_AUDIO: HTMLAudioElement | null = null;
-function playExclusiveAudio(a: HTMLAudioElement) {
+
+function clamp(n: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, n));
+}
+
+async function playExclusiveAudio(audio: HTMLAudioElement) {
     try {
-        if (CURRENT_AUDIO && CURRENT_AUDIO !== a) {
-            CURRENT_AUDIO.pause();
-            CURRENT_AUDIO.currentTime = 0;
+        if (CURRENT_AUDIO && CURRENT_AUDIO !== audio) {
+            try {
+                CURRENT_AUDIO.pause();
+                CURRENT_AUDIO.currentTime = 0;
+            } catch { }
         }
-        CURRENT_AUDIO = a;
-        a.play().catch(() => { });
+        CURRENT_AUDIO = audio;
+        await audio.play().catch(() => { });
     } catch { }
 }
-function pauseIfCurrentAudio(a: HTMLAudioElement) {
+
+function pauseIfCurrentAudio(audio: HTMLAudioElement) {
     try {
-        if (CURRENT_AUDIO === a) CURRENT_AUDIO = null;
-        a.pause();
+        if (CURRENT_AUDIO === audio) CURRENT_AUDIO = null;
+        audio.pause();
     } catch { }
 }
 
@@ -34,6 +43,7 @@ export function PhotoSliderPlayer({
     paused = false, // external pause
     muted = false,
     audioAllowed = true,
+    showProgress = true,
     showAudioIndicator = true,
     onIndexChange,
     onFirstLoad,
@@ -47,6 +57,7 @@ export function PhotoSliderPlayer({
     paused?: boolean;
     muted?: boolean;
     audioAllowed?: boolean;
+    showProgress?: boolean;
     showAudioIndicator?: boolean;
     onIndexChange?: (index: number) => void;
     onFirstLoad?: () => void;
@@ -56,246 +67,227 @@ export function PhotoSliderPlayer({
 }) {
     const [index, setIndex] = useState(0);
     const [fullLoaded, setFullLoaded] = useState(false);
+    const [manualPaused, setManualPaused] = useState(false);
 
-    // local (gesture) pause
-    const [holdPaused, setHoldPaused] = useState(false);
+    /** ✅ prevents black flash: keep previous frame behind until current loads */
+    const [prevUrl, setPrevUrl] = useState<string | null>(null);
 
-    // progress (0..1) for active segment (we animate it ourselves)
+    /** progress 0..1 */
     const [progress, setProgress] = useState(0);
+
     const rafRef = useRef<number | null>(null);
     const lastTRef = useRef<number>(0);
 
     const firstLoadedRef = useRef(false);
+
+    /** audio */
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const lastAudioUrlRef = useRef<string | null>(null);
 
     const count = photos.length;
     const signature = useMemo(() => photos.map((p) => p.url).join("|"), [photos]);
 
-    const isPaused = paused || holdPaused;
+    /** ✅ only these pauses now */
+    const isPaused = paused || manualPaused;
 
-    // ===== reset when photos change =====
+    const clearRaf = useCallback(() => {
+        if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+        }
+    }, []);
+
+    const goNext = useCallback(() => {
+        setIndex((i) => (count ? (i + 1) % count : 0));
+    }, [count]);
+
+    const goPrev = useCallback(() => {
+        setIndex((i) => (count ? (i - 1 + count) % count : 0));
+    }, [count]);
+
+    const startProgressLoop = useCallback(
+        (from: number) => {
+            clearRaf();
+            setProgress(from);
+            lastTRef.current = 0;
+
+            if (count <= 1) return;
+            if (isPaused) return;
+            if (!firstLoadedRef.current) return;
+
+            const tick = (t: number) => {
+                rafRef.current = requestAnimationFrame(tick);
+
+                if (isPaused) {
+                    lastTRef.current = t;
+                    return;
+                }
+
+                if (!firstLoadedRef.current) {
+                    lastTRef.current = t;
+                    return;
+                }
+
+                if (!lastTRef.current) {
+                    lastTRef.current = t;
+                    return;
+                }
+
+                const dt = t - lastTRef.current;
+                lastTRef.current = t;
+
+                setProgress((p) => {
+                    const next = p + dt / intervalMs;
+                    if (next >= 1) {
+                        goNext();
+                        return 0;
+                    }
+                    return next;
+                });
+            };
+
+            rafRef.current = requestAnimationFrame(tick);
+        },
+        [clearRaf, count, goNext, intervalMs, isPaused]
+    );
+
+    /** reset on photos change */
     useEffect(() => {
         setIndex(0);
         setFullLoaded(false);
+        setManualPaused(false);
+        setPrevUrl(null);
         setProgress(0);
         firstLoadedRef.current = false;
-
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
         lastTRef.current = 0;
-    }, [signature]);
+        clearRaf();
+    }, [signature, clearRaf]);
 
-    // notify parent
+    /** notify parent */
     useEffect(() => {
         onIndexChange?.(index);
     }, [index, onIndexChange]);
 
-    // when slide changes
+    /** index changes => restart segment */
     useEffect(() => {
         setFullLoaded(false);
         setProgress(0);
         lastTRef.current = 0;
-    }, [index]);
 
-    // ===== progress + autoplay (TikTok style) =====
+        if (!isPaused && count > 1) {
+            startProgressLoop(0);
+        }
+    }, [index, isPaused, count, startProgressLoop]);
+
+    /** pause/resume => freeze + resume */
     useEffect(() => {
         if (count <= 1) return;
 
-        // stop raf
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-        lastTRef.current = 0;
+        if (isPaused) {
+            clearRaf();
+            return;
+        }
 
-        const tick = (t: number) => {
-            rafRef.current = requestAnimationFrame(tick);
+        startProgressLoop(progress);
+    }, [isPaused, count, progress, startProgressLoop, clearRaf]);
 
-            // pause
-            if (isPaused) {
-                lastTRef.current = t; // keep time fresh to avoid jumps
-                return;
-            }
-
-            // wait until first image is loaded to feel smoother (optional)
-            // if you want strict behavior, remove this block.
-            if (!firstLoadedRef.current) {
-                lastTRef.current = t;
-                return;
-            }
-
-            if (!lastTRef.current) lastTRef.current = t;
-            const dt = t - lastTRef.current;
-            lastTRef.current = t;
-
-            setProgress((p) => {
-                const next = p + dt / intervalMs;
-                if (next >= 1) {
-                    // advance
-                    setIndex((i) => (i + 1) % count);
-                    return 0;
-                }
-                return next;
-            });
-        };
-
-        rafRef.current = requestAnimationFrame(tick);
-
-        return () => {
-            if (rafRef.current) cancelAnimationFrame(rafRef.current);
-            rafRef.current = null;
-        };
-    }, [count, intervalMs, isPaused]);
-
-    // ===== audio behavior =====
+    /** ✅ track previous url to prevent black flash */
     useEffect(() => {
-        if (!audioUrl) {
-            if (audioRef.current) pauseIfCurrentAudio(audioRef.current);
-            return;
-        }
+        if (!count) return;
+        const prevIndex = clamp(index - 1, 0, count - 1);
+        const prev = photos[prevIndex]?.url;
+        setPrevUrl(prev || null);
+    }, [index, count, photos]);
 
-        if (!audioRef.current || (audioRef.current as any).__src !== audioUrl) {
-            if (audioRef.current) pauseIfCurrentAudio(audioRef.current);
+    /** ✅ prefetch next image for smoother transitions */
+    useEffect(() => {
+        if (!count) return;
+        const next = photos[(index + 1) % count]?.url;
+        if (!next) return;
 
-            const a = new Audio(audioUrl);
-            (a as any).__src = audioUrl;
+        const img = new window.Image();
+        img.src = next;
+    }, [index, count, photos]);
+
+    /** audio behavior */
+    useEffect(() => {
+        let cancelled = false;
+
+        const run = async () => {
+            if (!audioUrl) {
+                if (audioRef.current) pauseIfCurrentAudio(audioRef.current);
+                return;
+            }
+
+            if (!audioRef.current || lastAudioUrlRef.current !== audioUrl) {
+                if (audioRef.current) {
+                    pauseIfCurrentAudio(audioRef.current);
+                }
+
+                const a = new Audio(audioUrl);
+                a.loop = true;
+                a.preload = "auto";
+
+                audioRef.current = a;
+                lastAudioUrlRef.current = audioUrl;
+            }
+
+            const a = audioRef.current!;
+            a.muted = !!muted;
             a.loop = true;
-            a.preload = "auto";
-            audioRef.current = a;
-        }
 
-        const a = audioRef.current!;
-        a.muted = muted;
+            if (isPaused || muted || !audioAllowed) {
+                pauseIfCurrentAudio(a);
+                return;
+            }
 
-        if (isPaused || muted || !audioAllowed) {
-            pauseIfCurrentAudio(a);
-            return;
-        }
+            if (!cancelled) {
+                await playExclusiveAudio(a);
+            }
+        };
 
-        playExclusiveAudio(a);
+        run();
 
         return () => {
-            pauseIfCurrentAudio(a);
+            cancelled = true;
+            if (audioRef.current) pauseIfCurrentAudio(audioRef.current);
         };
     }, [audioUrl, isPaused, muted, audioAllowed]);
 
+    /** cleanup */
+    useEffect(() => {
+        return () => {
+            clearRaf();
+
+            const a = audioRef.current;
+            audioRef.current = null;
+            lastAudioUrlRef.current = null;
+
+            if (a) {
+                pauseIfCurrentAudio(a);
+                try {
+                    a.src = "";
+                } catch { }
+            }
+        };
+    }, [clearRaf]);
+
     if (!count) return null;
 
-    const current = photos[Math.max(0, Math.min(count - 1, index))];
+    const current = photos[clamp(index, 0, count - 1)];
     const objectClass = fit === "contain" ? "object-contain" : "object-cover";
 
-    // ===== TikTok gestures: tap L/R, hold to pause, drag while holding to scrub =====
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const pointerState = useRef<{
-        down: boolean;
-        startX: number;
-        lastX: number;
-        scrubbing: boolean;
-        holding: boolean;
-    }>({ down: false, startX: 0, lastX: 0, scrubbing: false, holding: false });
-
-    const holdTimerRef = useRef<number | null>(null);
-
-    const goNext = () => setIndex((i) => Math.min(count - 1, i + 1));
-    const goPrev = () => setIndex((i) => Math.max(0, i - 1));
-
-    function clearHoldTimer() {
-        if (holdTimerRef.current) {
-            window.clearTimeout(holdTimerRef.current);
-            holdTimerRef.current = null;
-        }
-    }
-
-    function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-        if (count <= 0) return;
-        (e.currentTarget as any).setPointerCapture?.(e.pointerId);
-
-        pointerState.current.down = true;
-        pointerState.current.startX = e.clientX;
-        pointerState.current.lastX = e.clientX;
-        pointerState.current.scrubbing = false;
-        pointerState.current.holding = false;
-
-        // Hold threshold like TikTok
-        clearHoldTimer();
-        holdTimerRef.current = window.setTimeout(() => {
-            pointerState.current.holding = true;
-            setHoldPaused(true);
-        }, 180);
-    }
-
-    function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-        if (!pointerState.current.down) return;
-
-        const x = e.clientX;
-        const dx = x - pointerState.current.startX;
-        pointerState.current.lastX = x;
-
-        // If holding, allow scrubbing (slide back/forward)
-        if (pointerState.current.holding) {
-            const threshold = 22; // feels good on mobile + desktop
-            if (Math.abs(dx) >= threshold) {
-                pointerState.current.scrubbing = true;
-
-                // step by step (like “scrub to previous/next”)
-                if (dx > 0) {
-                    // moved right => previous
-                    pointerState.current.startX = x;
-                    goPrev();
-                } else {
-                    // moved left => next
-                    pointerState.current.startX = x;
-                    goNext();
-                }
-            }
-        } else {
-            // if user moves finger before hold triggers, cancel hold
-            if (Math.abs(dx) > 10) clearHoldTimer();
-        }
-    }
-
-    function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-        if (!pointerState.current.down) return;
-        pointerState.current.down = false;
-
-        clearHoldTimer();
-
-        // If we were holding, just release (resume)
-        if (pointerState.current.holding) {
-            pointerState.current.holding = false;
-            setHoldPaused(false);
-            return;
-        }
-
-        // Tap behavior (left/right zones)
-        const el = containerRef.current;
-        const w = el?.getBoundingClientRect().width || 1;
-        const x = e.clientX - (el?.getBoundingClientRect().left || 0);
-
-        // If user dragged (even without hold), ignore tap
-        const tapDx = Math.abs(pointerState.current.lastX - pointerState.current.startX);
-        if (tapDx > 10) return;
-
-        if (x < w * 0.35) goPrev();
-        else goNext();
-    }
-
-    function onPointerCancel() {
-        pointerState.current.down = false;
-        pointerState.current.holding = false;
-        clearHoldTimer();
-        setHoldPaused(false);
-    }
+    const toggleManualPause = useCallback(() => {
+        if (paused) return;
+        setManualPaused((p) => !p);
+    }, [paused]);
 
     return (
         <div
-            ref={containerRef}
-            className={`relative w-full h-full overflow-hidden select-none touch-none ${className ?? ""}`}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerCancel}
+            className={`relative h-full w-full overflow-hidden bg-black select-none ${className ?? ""}`}
             onContextMenu={(e) => e.preventDefault()}
         >
-            {/* preview blur */}
+            {/* ✅ Optional blurred preview behind */}
             {!!current.previewUrl && !fullLoaded && (
                 <img
                     src={current.previewUrl}
@@ -307,6 +299,20 @@ export function PhotoSliderPlayer({
                 />
             )}
 
+            {/* ✅ Previous stays behind (prevents black flash) */}
+            {!!prevUrl && prevUrl !== current.url && (
+                <img
+                    key={`prev:${prevUrl}`}
+                    src={prevUrl}
+                    alt=""
+                    aria-hidden
+                    className={`absolute inset-0 h-full w-full ${objectClass}`}
+                    draggable={false}
+                    decoding="async"
+                />
+            )}
+
+            {/* ✅ Current fades in smoothly */}
             <AnimatePresence initial={false}>
                 <motion.img
                     key={`${index}:${current.url}`}
@@ -316,56 +322,105 @@ export function PhotoSliderPlayer({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.28 }}
+                    transition={{ duration: 0.35 }}
                     draggable={false}
                     decoding="async"
                     loading="eager"
                     fetchPriority="high"
                     onLoad={() => {
                         setFullLoaded(true);
+
                         if (!firstLoadedRef.current) {
                             firstLoadedRef.current = true;
                             onFirstLoad?.();
+
+                            if (!isPaused && count > 1) {
+                                startProgressLoop(progress);
+                            }
                         }
                     }}
                     onError={() => {
                         onLoadError?.(index, current.url);
+
                         if (!firstLoadedRef.current) {
                             firstLoadedRef.current = true;
                             onFirstLoad?.();
+
+                            if (!isPaused && count > 1) {
+                                startProgressLoop(progress);
+                            }
                         }
                     }}
                 />
             </AnimatePresence>
 
-            {/* Pause overlay (subtle) */}
+            {/* ✅ Invisible 3-zone tap overlay (Prev / Play-Pause / Next) */}
+            <div className="absolute inset-0 z-20 flex mb-[180px] mr-16">
+                <button
+                    type="button"
+                    aria-label="Previous photo"
+                    onClick={goPrev}
+                    className="h-full w-1/3 bg-transparent"
+                />
+                <button
+                    type="button"
+                    aria-label={isPaused ? "Play slideshow" : "Pause slideshow"}
+                    onClick={toggleManualPause}
+                    disabled={paused}
+                    className="h-full w-1/3 bg-transparent disabled:cursor-not-allowed"
+                />
+                <button
+                    type="button"
+                    aria-label="Next photo"
+                    onClick={goNext}
+                    className="h-full w-1/3 bg-transparent"
+                />
+            </div>
+
+            {/* paused hint */}
             <AnimatePresence>
                 {isPaused && (
                     <motion.div
-                        className="absolute inset-0 z-20 flex items-center justify-center"
+                        className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                     >
-                        <div className="rounded-full bg-black/35 backdrop-blur px-4 py-2 text-white text-xs font-semibold">
-                            Paused
+                        <div className="rounded-full bg-black/35 px-4 py-3 backdrop-blur">
+                            <IoPause className="text-white" size={18} />
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Audio indicator (optional) */}
+            {/* optional small play hint when not paused and center zone is used */}
+            <AnimatePresence>
+                {!isPaused && manualPaused === false && false && (
+                    <motion.div
+                        className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <div className="rounded-full bg-black/35 px-4 py-3 backdrop-blur">
+                            <IoPlay className="text-white" size={18} />
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Audio indicator */}
             {showAudioIndicator && !!audioUrl && !muted && (
-                <div className="absolute top-3 right-3 z-30">
-                    <div className="rounded-full bg-black/35 backdrop-blur px-2.5 py-1 text-[11px] font-semibold text-white">
-                        ♪
+                <div className="absolute right-3 top-3 z-40">
+                    <div className="rounded-full bg-black/35 px-2.5 py-1 backdrop-blur">
+                        <IoMusicalNotes className="text-white" size={13} />
                     </div>
                 </div>
             )}
 
-            {/* TikTok segmented progress (top) */}
-            {count > 1 && (
-                <div className="absolute left-3 right-3 top-3 z-30">
+            {/* progress bars */}
+            {showProgress && count > 1 && (
+                <div className="absolute left-3 right-3 top-3 z-40 pointer-events-none">
                     <div className="flex items-center gap-1.5">
                         {photos.map((_, i) => {
                             const done = i < index;
@@ -375,13 +430,13 @@ export function PhotoSliderPlayer({
                             return (
                                 <div
                                     key={i}
-                                    className="relative h-[3px] flex-1 rounded-full overflow-hidden bg-white/25"
+                                    className="relative h-[3px] flex-1 overflow-hidden rounded-full bg-white/25"
                                 >
                                     <div
                                         className="absolute inset-0 bg-white"
                                         style={{
                                             transformOrigin: "left",
-                                            transform: `scaleX(${Math.max(0, Math.min(1, fill))})`,
+                                            transform: `scaleX(${fill})`,
                                             transition: active ? "none" : "transform 120ms linear",
                                         }}
                                     />
@@ -391,12 +446,8 @@ export function PhotoSliderPlayer({
                     </div>
                 </div>
             )}
-
-            {/* Tap zones hint (optional, invisible but improves hit targets) */}
-            <div className="absolute inset-0 z-10">
-                <div className="absolute left-0 top-0 h-full w-[35%]" />
-                <div className="absolute right-0 top-0 h-full w-[65%]" />
-            </div>
         </div>
     );
 }
+
+export default PhotoSliderPlayer;

@@ -79,7 +79,10 @@ import { FirebaseError } from "firebase/app";
 
 
 /* ---------- Theme ---------- */
-const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF" };
+// TikTok-style paging
+const INITIAL_LIMIT = 6;
+const LOAD_MORE = 6;
+const THEME = { forest: "#233F39", gold: "#C79257", white: "#FFFFFF", ligtgold: "#fab15d", green: "#16A34A" };
 const EKARI = {
   bg: "#ffffff",
   text: "#111827",
@@ -497,7 +500,7 @@ function useFollowing(uid?: string) {
 type PageCursor = QueryDocumentSnapshot<DocumentData> | null;
 
 async function fetchPublicForYouPage(params: { limitCount?: number; cursor?: PageCursor }) {
-  const limitCount = params.limitCount ?? 30;
+  const limitCount = params.limitCount ?? INITIAL_LIMIT;
   const cursor = params.cursor ?? null;
 
   try {
@@ -525,13 +528,91 @@ async function fetchPublicForYouPage(params: { limitCount?: number; cursor?: Pag
     return {
       items: rows,
       cursor: last,
-      hasMore: snap.docs.length === limitCount, // if we got a full page, assume there may be more
+      hasMore: snap.docs.length === limitCount,
     };
   } catch {
     return { items: [], cursor: null as PageCursor, hasMore: false };
   }
 }
+async function fetchServerFeedIds(surface: TabKey, uid?: string): Promise<string[]> {
+  if (!uid) return [];
 
+  const uniq = (arr: string[]) => Array.from(new Set(arr.map(String).filter(Boolean)));
+
+  try {
+    const feedDocRef = doc(db, `feeds/${uid}/surfaces/${surface}`);
+    const feedSnap = await getDoc(feedDocRef);
+
+    const now = Date.now();
+    let ids: string[] | null = null;
+
+    // 1) Try cache with TTL
+    if (feedSnap.exists()) {
+      const d = feedSnap.data() as any;
+      const ttlSec = Number(d?.ttlSec ?? 60);
+      const updatedAtMs =
+        typeof d?.updatedAt?.toMillis === "function" ? d.updatedAt.toMillis() : 0;
+      const fresh = updatedAtMs && now - updatedAtMs < ttlSec * 1000;
+
+      if (fresh && Array.isArray(d?.ids) && d.ids.length > 0) {
+        ids = uniq(d.ids);
+      }
+    }
+
+    const callRefresh = async () => {
+      const functions = getFunctions(app, "us-central1");
+      const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
+        functions,
+        "refreshFeed"
+      );
+      const res = await refreshFeed({ surface });
+      return uniq(res.data?.ids || []);
+    };
+
+    // 2) Refresh if no fresh ids
+    if (!ids || !ids.length) {
+      try {
+        ids = await callRefresh();
+      } catch {
+        // stale fallback
+        if (feedSnap.exists()) {
+          const d = feedSnap.data() as any;
+          if (Array.isArray(d?.ids) && d.ids.length) ids = uniq(d.ids);
+        }
+      }
+    }
+
+    return Array.isArray(ids) ? uniq(ids) : [];
+  } catch {
+    return [];
+  }
+}
+async function fetchDeedsByIds(ids: string[]) {
+  const clean = Array.from(new Set(ids.map(String).filter(Boolean)));
+  if (!clean.length) return { map: new Map<string, any>(), existingIds: [] as string[] };
+
+  const base = collection(db, "deeds");
+  const docs: { id: string; data: any }[] = [];
+
+  for (let i = 0; i < clean.length; i += 10) {
+    const batch = clean.slice(i, i + 10);
+    const qs = await getDocs(query(base, where(documentId(), "in", batch)));
+    qs.forEach((d) => docs.push({ id: d.id, data: d.data() }));
+  }
+
+  const map = new Map(docs.map((x) => [x.id, x.data]));
+  const existingIds = clean.filter((x) => map.has(x));
+  return { map, existingIds };
+}
+
+async function hydrateDeedsFromIds(ids: string[]): Promise<PlayerItem[]> {
+  if (!ids.length) return [];
+  const { map, existingIds } = await fetchDeedsByIds(ids);
+
+  return existingIds
+    .map((id) => toPlayerItem(map.get(id), id))
+    .filter(Boolean) as PlayerItem[];
+}
 /* ---------- Loader helpers ---------- */
 function useProgressIndicator(isLoading: boolean, minMs = 300, delayMs = 120) {
   const [show, setShow] = React.useState(false);
@@ -1319,62 +1400,136 @@ function useChannelFeed(tab: TabKey, uid?: string) {
   const [items, setItems] = useState<PlayerItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ pagination state only for "forYou"
-  const cursorRef = useRef<any>(null);
-  const hasMoreRef = useRef<boolean>(true);
-  const fetchingMoreRef = useRef<boolean>(false);
+  // ---------- Guest ForYou paging (cursor) ----------
+  const cursorRef = useRef<PageCursor>(null);
+  const hasMorePublicRef = useRef<boolean>(true);
+  const fetchingMorePublicRef = useRef<boolean>(false);
+
+  // ---------- Signed-in tabs paging (ids + hydrated count) ----------
+  const serverIdsRef = useRef<Record<TabKey, string[]>>({
+    forYou: [],
+    following: [],
+    nearby: [],
+  });
+  const serverHydratedRef = useRef<Record<TabKey, number>>({
+    forYou: 0,
+    following: 0,
+    nearby: 0,
+  });
+  const fetchingMoreServerRef = useRef<Record<TabKey, boolean>>({
+    forYou: false,
+    following: false,
+    nearby: false,
+  });
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      cursorRef.current = null;
-      hasMoreRef.current = true;
-      fetchingMoreRef.current = false;
+      setItems([]);
 
+      // reset public paging
+      cursorRef.current = null;
+      hasMorePublicRef.current = true;
+      fetchingMorePublicRef.current = false;
+
+      // reset server paging for this tab
+      serverIdsRef.current[tab] = [];
+      serverHydratedRef.current[tab] = 0;
+      fetchingMoreServerRef.current[tab] = false;
+
+      // -----------------------------
+      // GUEST (only ForYou allowed)
+      // -----------------------------
+      // if (!uid) {
       if (tab === "forYou") {
-        const res = await fetchPublicForYouPage({ limitCount: 30, cursor: null });
+        //  if (tab !== "forYou") {
+        //   setItems([]);
+        //  return;
+        //}
+        const res = await fetchPublicForYouPage({ limitCount: INITIAL_LIMIT, cursor: null });
         cursorRef.current = res.cursor;
-        hasMoreRef.current = res.hasMore;
+        hasMorePublicRef.current = res.hasMore;
         setItems(res.items);
         return;
       }
 
-      // keep your server feeds for other tabs
-      if (!uid) {
-        setItems([]);
-        return;
-      }
-      setItems(await fetchServerFeed(tab, uid));
+      // -----------------------------
+      // SIGNED-IN (ids -> hydrate 6)
+      // -----------------------------
+      const allIds = await fetchServerFeedIds(tab, uid);
+      serverIdsRef.current[tab] = allIds;
+      serverHydratedRef.current[tab] = 0;
+
+      const firstIds = allIds.slice(0, INITIAL_LIMIT);
+      const firstItems = await hydrateDeedsFromIds(firstIds);
+
+      serverHydratedRef.current[tab] = firstIds.length;
+      setItems(firstItems);
     } finally {
       setLoading(false);
     }
   }, [tab, uid]);
 
-  const loadMoreForYou = useCallback(async () => {
-    if (tab !== "forYou") return;
-    if (!hasMoreRef.current) return;
-    if (fetchingMoreRef.current) return;
+  const loadMore = useCallback(async () => {
+    // -----------------------------
+    // GUEST ForYou load more
+    // -----------------------------
+    //if (!uid) {
+    if (tab === "forYou") {
+      // if (tab !== "forYou") return;
+      if (!hasMorePublicRef.current) return;
+      if (fetchingMorePublicRef.current) return;
 
-    fetchingMoreRef.current = true;
-    try {
-      const res = await fetchPublicForYouPage({
-        limitCount: 30,
-        cursor: cursorRef.current,
-      });
+      fetchingMorePublicRef.current = true;
+      try {
+        const res = await fetchPublicForYouPage({
+          limitCount: LOAD_MORE,
+          cursor: cursorRef.current,
+        });
 
-      cursorRef.current = res.cursor;
-      hasMoreRef.current = res.hasMore;
+        cursorRef.current = res.cursor;
+        hasMorePublicRef.current = res.hasMore;
 
-      // ✅ dedupe to prevent duplicates if cursor loads overlap
-      setItems((prev) => {
-        const seen = new Set(prev.map((x) => x.id));
-        const next = res.items.filter((x) => !seen.has(x.id));
-        return next.length ? [...prev, ...next] : prev;
-      });
-    } finally {
-      fetchingMoreRef.current = false;
+        setItems((prev) => {
+          const seen = new Set(prev.map((x) => x.id));
+          const next = res.items.filter((x) => !seen.has(x.id));
+          return next.length ? [...prev, ...next] : prev;
+        });
+      } finally {
+        fetchingMorePublicRef.current = false;
+      }
+      return;
     }
-  }, [tab]);
+
+    // -----------------------------
+    // SIGNED-IN tabs load more
+    // -----------------------------
+    if (fetchingMoreServerRef.current[tab]) return;
+
+    const allIds = serverIdsRef.current[tab] || [];
+    const already = serverHydratedRef.current[tab] || 0;
+
+    if (!allIds.length) return;
+    if (already >= allIds.length) return;
+
+    fetchingMoreServerRef.current[tab] = true;
+    try {
+      const nextIds = allIds.slice(already, already + LOAD_MORE);
+      const nextItems = await hydrateDeedsFromIds(nextIds);
+
+      serverHydratedRef.current[tab] = already + nextIds.length;
+
+      if (nextItems.length) {
+        setItems((prev) => {
+          const seen = new Set(prev.map((x) => x.id));
+          const add = nextItems.filter((x) => !seen.has(x.id));
+          return add.length ? [...prev, ...add] : prev;
+        });
+      }
+    } finally {
+      fetchingMoreServerRef.current[tab] = false;
+    }
+  }, [tab, uid]);
 
   useEffect(() => {
     loadInitial();
@@ -1388,7 +1543,7 @@ function useChannelFeed(tab: TabKey, uid?: string) {
     items: visible,
     loading,
     reload: loadInitial,
-    loadMoreForYou, // ✅ expose this
+    loadMore, // ✅ unified loadMore
   };
 }
 
@@ -1453,6 +1608,7 @@ function VideoCard({
   uid,
   scrollRootRef,
   onOpenComments,
+  commented,
   isMobile,
   cardH,
   dataSaverOn,
@@ -1466,6 +1622,7 @@ function VideoCard({
   cardH: number;
   dataSaverOn?: boolean;
   hlsMaxHeight?: number;
+  commented?: boolean;
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const fsVideoRef = React.useRef<HTMLVideoElement | null>(null);
@@ -1489,10 +1646,18 @@ function VideoCard({
   const [fullscreenKind, setFullscreenKind] = useState<"video" | "photo" | null>(null);
 
   const { liked, count: likeCount, toggle: toggleLike } = useLikes(item.id, uid);
+
   const commentsCount = useCommentsCount(item.id);
+
   const { saved, toggle: toggleSave } = useBookmarks(item.id, uid);
+
   const totalBookmarks = useBookmarkTotalFromDeed(item.id);
   const totalShares = useShareTotalFromDeed(item.id);
+  const [shared, setShared] = useState(false);
+
+  const actionActiveColor = THEME.green;
+  const actionIdleColor = THEME.ligtgold;
+
   const { following, followersCount, toggle: toggleFollow } = useFollowAuthor(item.authorId, uid);
 
   const [donateOpen, setDonateOpen] = useState(false);
@@ -1719,6 +1884,7 @@ function VideoCard({
     try {
       if (navigator.share) {
         await navigator.share({ title: item.text || "ekarihub", text: item.text || "", url });
+        setShared(true);
       } else {
         await navigator.clipboard.writeText(url);
         alert("Link copied!");
@@ -1804,8 +1970,8 @@ function VideoCard({
   const railTextColor = isMobile ? "text-white" : "text-white";
   const railBg =
     isMobile
-      ? "bg-white/10 border-white/15"
-      : "bg-black/40 md:bg-white/95 border-white/30 md:border-gray-200";
+      ? "bg-white/50 border-white/50"
+      : "bg-white/95 md:bg-white/95 md:border-gray-200";
 
   return (
     <div className={cn("relative w-full", isMobile ? "" : "py-1")}>
@@ -2118,7 +2284,7 @@ function VideoCard({
                 onClick={onSupportClick}
                 className={cn(
                   railBtn,
-                  "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+                  "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
                   railBg
                 )}
               >
@@ -2134,11 +2300,11 @@ function VideoCard({
             onClick={onLikeClick}
             className={cn(
               railBtn,
-              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
               railBg
             )}
           >
-            <IoHeart size={railIcon} style={{ color: likeCount ? THEME.forest : THEME.gold }} />
+            <IoHeart size={railIcon} style={{ color: liked ? actionActiveColor : actionIdleColor, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))", }} />
           </button>
           <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(likeCount)}</div>
 
@@ -2147,11 +2313,11 @@ function VideoCard({
             onClick={onCommentsClick}
             className={cn(
               railBtn,
-              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
               railBg
             )}
           >
-            <IoChatbubble size={railIcon} style={{ color: commentsCount ? THEME.forest : THEME.gold }} />
+            <IoChatbubble size={railIcon} style={{ color: commented ? actionActiveColor : actionIdleColor, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))", }} />
           </button>
           <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(commentsCount)}</div>
 
@@ -2160,11 +2326,11 @@ function VideoCard({
             onClick={onSaveClick}
             className={cn(
               railBtn,
-              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
               railBg
             )}
           >
-            <IoBookmark size={railIcon} style={{ color: totalBookmarks ? THEME.forest : THEME.gold }} />
+            <IoBookmark size={railIcon} style={{ color: saved ? actionActiveColor : actionIdleColor, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))", }} />
           </button>
           <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalBookmarks)}</div>
 
@@ -2173,11 +2339,11 @@ function VideoCard({
             onClick={onShare}
             className={cn(
               railBtn,
-              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm border",
+              "grid place-items-center rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition backdrop-blur-sm",
               railBg
             )}
           >
-            <IoArrowRedo size={railIcon} style={{ color: totalShares ? THEME.forest : THEME.gold }} />
+            <IoArrowRedo size={railIcon} style={{ color: shared ? actionActiveColor : actionIdleColor, filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))", }} />
           </button>
           <div className={cn("mt-0.5 leading-3 font-extrabold", railCount, railTextColor)}>{formatCount(totalShares)}</div>
           {/* ✅ MOBILE: mute/unmute lives on rail so it never gets hidden */}
@@ -2429,7 +2595,7 @@ function FeedShell() {
   else hlsMaxHeight = undefined;
 
   const [tab, setTab] = useState<TabKey>("forYou");
-  const { items, loading } = useChannelFeed(tab, uid);
+  const { items, loading, loadMore } = useChannelFeed(tab, uid);
 
   const showTopLoader = useProgressIndicator(loading);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -2446,6 +2612,13 @@ function FeedShell() {
 
   const openComments = useCallback((id: string) => setCommentsId(id), []);
   const closeComments = useCallback(() => setCommentsId(null), []);
+  const [commentedMap, setCommentedMap] = useState<Record<string, boolean>>({});
+  const markCommented = useCallback((deedId: string) => {
+    setCommentedMap((prev) => ({
+      ...prev,
+      [deedId]: true,
+    }));
+  }, []);
 
   // lock body behind mobile sheet
   useEffect(() => {
@@ -2469,6 +2642,15 @@ function FeedShell() {
 
   // step scroll
   const { goPrev, goNext, index } = useStepScroll(scrollerRef as any, () => items.length, true);
+  useEffect(() => {
+    if (loading) return;
+    if (!items.length) return;
+
+    // when you’re close to the end, fetch next chunk
+    if (index >= items.length - 3) {
+      loadMore();
+    }
+  }, [index, items.length, loading, loadMore]);
   useEffect(() => {
     if (!commentsId) return;
     const current = items[index];
@@ -2519,6 +2701,8 @@ function FeedShell() {
           commentsId={commentsId}
           openComments={openComments}
           closeComments={closeComments}
+          commentedMap={commentedMap}
+          markCommented={markCommented}
           cardH={cardH}
           scrollerRef={scrollerRef}
           dataSaverOn={dataSaverOn}
@@ -2537,6 +2721,7 @@ function FeedShell() {
               mode="sidebar"
               deedId={commentsId ?? undefined}
               onClose={closeComments}
+              onsuccesfulcomment={markCommented}
               currentUser={{
                 uid: uid || undefined,
                 photoURL: profile?.photoURL ?? user?.photoURL ?? undefined,
@@ -2633,6 +2818,7 @@ function FeedShell() {
                     uid={uid}
                     scrollRootRef={scrollerRef}
                     onOpenComments={openComments}
+                    commented={!!commentedMap[item.id]}
                     isMobile={isMobile}
                     cardH={cardH}
                     dataSaverOn={dataSaverOn}
@@ -2699,10 +2885,12 @@ function FeedShell() {
                 mode="sheet"
                 deedId={commentsId ?? undefined}
                 onClose={closeComments}
+                onsuccesfulcomment={markCommented}
                 currentUser={{
                   uid: uid || undefined,
-                  photoURL: user?.photoURL,
-                  handle: profile?.handle,
+                  photoURL: profile?.photoURL ?? user?.photoURL ?? null,
+                  handle: profile?.handle ?? null,
+                  name: (user as any)?.displayName ?? null,
                 }}
               />
             </div>
@@ -2713,172 +2901,7 @@ function FeedShell() {
     </MuteProvider>
   );
 }
-function useIsActivePath(href: string, alsoMatch: string[] = []) {
-  const pathname = usePathname() || "/";
-  const matches = [href, ...alsoMatch];
-  return matches.some(
-    (m) =>
-      pathname === m ||
-      (m !== "/" && pathname.startsWith(m + "/")) ||
-      (m === "/" && pathname === "/")
-  );
-}
 
-function badgeText(n?: number) {
-  if (!n || n <= 0) return "";
-  if (n > 999) return "999+";
-  if (n > 99) return "99+";
-  return String(n);
-}
-type MenuItem = {
-  key: string;
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-  alsoMatch?: string[];
-  requiresAuth?: boolean;
-  badgeCount?: number;
-};
-
-
-function SideMenuSheet({
-  open,
-  onClose,
-  onNavigate,
-  items,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onNavigate: (href: string, requiresAuth?: boolean) => void;
-  items: MenuItem[];
-}) {
-  // lock scroll
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  // esc closes
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  return (
-    <div
-      className={cn(
-        "fixed inset-0 z-[120] transition",
-        open ? "pointer-events-auto" : "pointer-events-none"
-      )}
-      aria-hidden={!open}
-    >
-      {/* backdrop */}
-      <div
-        className={cn(
-          "absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity",
-          open ? "opacity-100" : "opacity-0"
-        )}
-        onClick={onClose}
-      />
-
-      {/* sheet */}
-      <div
-        className={cn(
-          "absolute left-0 top-0 h-full w-[86%] max-w-[340px]",
-          "bg-white shadow-2xl border-r",
-          "transition-transform duration-300 will-change-transform",
-          open ? "translate-x-0" : "-translate-x-full"
-        )}
-        style={{ borderColor: EKARI.hair }}
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* header */}
-        <div className="h-[56px] px-4 flex items-center justify-between border-b" style={{ borderColor: EKARI.hair }}>
-          <div className="font-black" style={{ color: EKARI.text }}>Menu</div>
-          <button
-            onClick={onClose}
-            className="h-10 w-10 rounded-xl grid place-items-center border hover:bg-black/5"
-            style={{ borderColor: EKARI.hair }}
-            aria-label="Close menu"
-          >
-            <IoClose size={20} />
-          </button>
-        </div>
-
-        {/* items */}
-        <nav className="p-2 overflow-y-auto h-[calc(100%-56px)]">
-          {items.map((it) => (
-            <MenuRow
-              key={it.key}
-              item={it}
-              onNavigate={onNavigate}
-            />
-          ))}
-        </nav>
-      </div>
-    </div>
-  );
-}
-
-function MenuRow({
-  item,
-  onNavigate,
-}: {
-  item: MenuItem;
-  onNavigate: (href: string, requiresAuth?: boolean) => void;
-}) {
-  const active = useIsActivePath(item.href, item.alsoMatch);
-  const bt = badgeText(item.badgeCount);
-  const showBadge = !!bt;
-
-  return (
-    <button
-      onClick={() => onNavigate(item.href, item.requiresAuth)}
-      className={cn(
-        "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition",
-        "hover:bg-black/5"
-      )}
-      style={{
-        color: EKARI.text,
-        backgroundColor: active ? "rgba(199,146,87,0.10)" : undefined,
-        border: active ? "1px solid rgba(199,146,87,0.35)" : "1px solid transparent",
-      }}
-    >
-      <span
-        className="relative h-10 w-10 rounded-xl grid place-items-center border bg-white"
-        style={{ borderColor: active ? "rgba(199,146,87,0.45)" : EKARI.hair }}
-      >
-        <span style={{ color: active ? THEME.gold : THEME.forest }} className="text-[18px]">
-          {item.icon}
-        </span>
-
-        {showBadge && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[6px] rounded-full bg-red-600 text-white text-[11px] font-extrabold flex items-center justify-center shadow-sm">
-            {bt}
-          </span>
-        )}
-      </span>
-
-      <div className="flex-1 min-w-0">
-        <div className={cn("text-sm truncate", active ? "font-black" : "font-extrabold")}>
-          {item.label}
-        </div>
-
-      </div>
-
-      <IoChevronForward size={18} style={{ color: EKARI.subtext }} />
-    </button>
-  );
-}
 
 function MobileShell(props: any) {
   const {
@@ -2892,6 +2915,8 @@ function MobileShell(props: any) {
     commentsId,
     openComments,
     closeComments,
+    commentedMap,
+    markCommented,
     cardH,
     scrollerRef,
     dataSaverOn,
@@ -2992,14 +3017,6 @@ function MobileShell(props: any) {
     [uid, handle, notifTotal, unreadDM]
   );
 
-  const navigateFromMenu = (href: string, requiresAuth?: boolean) => {
-    setMenuOpen(false);
-    if (requiresAuth && !uid) {
-      window.location.href = `/getstarted?next=${encodeURIComponent(href)}`;
-      return;
-    }
-    window.location.href = href;
-  };
 
   // ✅ Full-bleed black background like TikTok / your app
   return (
@@ -3107,6 +3124,7 @@ function MobileShell(props: any) {
               uid={uid}
               scrollRootRef={scrollerRef}
               onOpenComments={openComments}
+              commented={!!commentedMap[item.id]}
               isMobile={true}
               cardH={cardH}
               dataSaverOn={dataSaverOn}
@@ -3160,7 +3178,9 @@ function MobileShell(props: any) {
               handle: profile?.handle ?? null,
               name: (user as any)?.displayName ?? null,
             }}
-          />
+            onsuccesfulcomment={() => {
+              if (commentsId) markCommented(commentsId);
+            }} />
         </div>
       </div>
       <EkariSideMenuSheet

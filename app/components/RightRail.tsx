@@ -46,7 +46,6 @@ type ActivityDoc = {
     userId?: string;
     deviceId?: string;
     user?: UserEmbed | null;
-
     // legacy fallbacks (older docs)
     userHandle?: string | null;
     userPhotoURL?: string | null;
@@ -54,14 +53,8 @@ type ActivityDoc = {
     createdAt?: any;
 };
 
-function pickHandle(a: any) {
-    return ((a?.user?.handle ?? a?.userHandle ?? "") as string).trim() || null;
-}
 function pickPhoto(a: any) {
     return (a?.user?.photoURL ?? a?.userPhotoURL ?? null) || null;
-}
-function pickName(a: any) {
-    return (a?.user?.name ?? null) || null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -605,6 +598,7 @@ type RightRailProps = {
     open: boolean;
     deedId?: string;
     onClose: () => void;
+    onsuccesfulcomment?: (deedId: string) => void;
     currentUser: { uid?: string; photoURL?: string | null; handle?: string | null; name?: string | null };
     mode?: "sidebar" | "sheet";
     className?: string;
@@ -614,6 +608,7 @@ export default function RightRail({
     open,
     deedId,
     onClose,
+    onsuccesfulcomment,
     currentUser,
     mode = "sidebar",
     className,
@@ -686,7 +681,7 @@ export default function RightRail({
                 parentId: replyTo?.id ?? null,
                 createdAt: serverTimestamp(),
             });
-
+            onsuccesfulcomment?.(deedId);
             setText("");
             setReplyTo(null);
         } finally {

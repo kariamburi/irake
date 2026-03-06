@@ -1,6 +1,7 @@
+// app/[handle]/deed/[deedid]/page.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -8,16 +9,10 @@ import {
     deleteDoc,
     doc,
     getDoc,
-    getDocs,
-    limit,
     onSnapshot,
-    orderBy,
     query,
-    QueryDocumentSnapshot,
-    DocumentData,
     serverTimestamp,
     setDoc,
-    startAfter,
     where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -38,6 +33,7 @@ import {
     IoClose,
 } from "react-icons/io5";
 import {
+    fetchUserSiblings,
     resolveUidByHandle,
     toPlayerItem,
 } from "@/lib/fire-queries";
@@ -50,8 +46,6 @@ import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
 import { PhotoSliderPlayer } from "@/app/components/PhotoSliderPlayer";
 
 type Item = any;
-
-const PAGE_SIZE = 6;
 
 function nfmt(n?: number) {
     const v = n ?? 0;
@@ -189,10 +183,11 @@ function safeUrl(u?: string | null) {
 }
 
 function guessPreview(item: any): string | null {
+    // pick the smallest if you have it
     return (
         safeUrl(item?.thumbUrl) ||
         safeUrl(item?.previewUrl) ||
-        safeUrl(item?.posterUrl) ||
+        safeUrl(item?.posterUrl) || // sometimes you already store a poster
         null
     );
 }
@@ -265,7 +260,9 @@ function ProgressiveImg({
 
     return (
         <div className="relative h-full w-full bg-black">
+            {/* Preview (fast) */}
             {showPreview && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                     key={`p-${retryKey}`}
                     src={preview!}
@@ -279,7 +276,9 @@ function ProgressiveImg({
                 />
             )}
 
+            {/* Full (sharp) */}
             {full && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                     key={`f-${retryKey}`}
                     src={full}
@@ -293,6 +292,7 @@ function ProgressiveImg({
                 />
             )}
 
+            {/* Loader */}
             {!showFull && !failed && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <div className="rounded-full bg-black/40 p-4">
@@ -301,6 +301,7 @@ function ProgressiveImg({
                 </div>
             )}
 
+            {/* Fail state + retry */}
             {failed && (
                 <div className="absolute inset-0 grid place-items-center text-white/80">
                     <div className="flex flex-col items-center gap-3">
@@ -338,8 +339,7 @@ function useFollowingCount(userId?: string) {
     return count;
 }
 
-/* -------------------- time utils -------------------- */
-
+// ---------- time utils ----------
 function toMillisSafe(v: any): number | null {
     if (!v) return null;
     if (typeof v?.toMillis === "function") return v.toMillis();
@@ -417,7 +417,7 @@ function useAuthorProfile(authorId?: string) {
     return profile;
 }
 
-/* -------------------- slide component -------------------- */
+/* -------------------- slide component (one deed) -------------------- */
 
 type DeedSlideProps = {
     item: Item;
@@ -431,6 +431,7 @@ type DeedSlideProps = {
     onPrev: () => void;
     onNext: () => void;
     EKARI: { primary: string };
+    // ✅ NEW for PhotoSliderPlayer
     photoPaused: boolean;
     audioAllowed: boolean;
     fitMode: "contain" | "cover";
@@ -525,9 +526,12 @@ function DeedSlide({
             if (uid) payload.userId = uid;
             else payload.deviceId = baseId;
             await setDoc(doc(db, "shares", sid), payload);
-        } catch { }
+        } catch {
+            /* no-op */
+        }
     };
 
+    // ✅ progressive preview candidate for photos
     const preview = item.mediaType === "photo" ? guessPreview(item) : null;
 
     return (
@@ -558,24 +562,18 @@ function DeedSlide({
                         }))}
                         audioUrl={(item as any)?.music?.url || (item as any)?.musicUrl || undefined}
                         intervalMs={3000}
-                        paused={photoPaused}
-                        muted={muted}
-                        audioAllowed={audioAllowed}
+                        paused={photoPaused}   // ✅ uses your observer
+                        muted={muted}                             // ✅ uses global mute
+                        audioAllowed={audioAllowed}               // ✅ gesture unlock
                         fit={fitMode}
                         onFirstLoad={() => {
                             setReady(true);
+
                         }}
                         onLoadError={() => {
-                            setReady(true);
+                            setReady(true); // fail-safe: don’t block UI
+
                         }}
-                    />
-                ) : item.mediaType === "photo" && item.mediaUrl ? (
-                    <ProgressiveImg
-                        src={item.mediaUrl}
-                        previewSrc={preview}
-                        alt={item.text || "photo"}
-                        className="object-contain"
-                        onReady={() => setReady(true)}
                     />
                 ) : (
                     <div className="grid h-full w-full place-items-center text-white/70">
@@ -583,6 +581,7 @@ function DeedSlide({
                     </div>
                 )}
 
+                {/* keep loader for video path too (until ready) */}
                 {!ready && item.mediaType === "video" && (
                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                         <div className="rounded-full bg-black/40 p-4">
@@ -593,7 +592,7 @@ function DeedSlide({
 
                 <button
                     onClick={() => setMuted((m) => !m)}
-                    className="absolute left-3 top-10 rounded-full bg-white/10 p-2 hover:bg-black/80 z-30"
+                    className="absolute left-3 top-10 rounded-full bg-white/10 p-2 hover:bg-black/80"
                     aria-label={muted ? "Unmute" : "Mute"}
                 >
                     {muted ? <IoVolumeMute /> : <IoVolumeHigh />}
@@ -633,7 +632,7 @@ function DeedSlide({
                 )}
 
                 {isActive && (
-                    <div className="absolute right-3 top-20 -translate-y-1/2 flex flex-col gap-2 z-30">
+                    <div className="absolute right-3 top-20 -translate-y-1/2 flex flex-col gap-2">
                         <button
                             onClick={onPrev}
                             disabled={!hasPrev}
@@ -652,6 +651,7 @@ function DeedSlide({
                         </button>
                     </div>
                 )}
+
 
                 {isOwner && (
                     <Link
@@ -674,6 +674,7 @@ function DeedSlide({
                                     item.authorUsername ? "cursor-pointer" : "cursor-default"
                                 )}
                             >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                     src={avatar}
                                     alt={item.authorUsername || item.authorId || "author"}
@@ -729,6 +730,7 @@ function DeedSlide({
                         <div className="mt-1 flex items-center gap-2">
                             {isLibrarySound && (
                                 <div className="h-5 w-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={soundAvatar} alt={soundLabel} className="h-full w-full object-cover" />
                                 </div>
                             )}
@@ -765,6 +767,7 @@ export default function PlayerByHandlePage() {
         }
     })();
 
+    // IMPORTANT: your routes use "@handle" in the URL
     const handleWithAt = decoded.startsWith("@") ? decoded : `@${decoded}`;
     const deedId = params.deedid || params.videoId || "";
 
@@ -774,6 +777,7 @@ export default function PlayerByHandlePage() {
     const [loading, setLoading] = useState(true);
     const [muted, setMuted] = useState(true);
 
+    // ✅ RightRail toggle:
     const [showRail, setShowRail] = useState(false);
     useEffect(() => {
         setShowRail(isMobile ? false : true);
@@ -789,14 +793,9 @@ export default function PlayerByHandlePage() {
 
     const EKARI = { primary: "#C79257" };
     const [neighborPreloadRange, setNeighborPreloadRange] = useState(1);
+    // ✅ PhotoSlider controls
     const [audioAllowed, setAudioAllowed] = useState(false);
     const [fitMode] = useState<"contain" | "cover">("contain");
-
-    const [authorId, setAuthorId] = useState<string | null>(null);
-    const [lastCursor, setLastCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-    const [hasMore, setHasMore] = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
-
     useEffect(() => {
         let base = 1;
         try {
@@ -823,67 +822,10 @@ export default function PlayerByHandlePage() {
         fn();
     };
 
-    const makeDeedsQuery = useCallback(
-        (authorUid: string, cursor?: QueryDocumentSnapshot<DocumentData> | null) => {
-            const base = [
-                where("authorId", "==", authorUid),
-                where("visibility", "==", "public"),
-                where("status", "==", "ready"),
-                orderBy("createdAt", "desc"),
-                limit(PAGE_SIZE),
-            ] as any[];
-
-            return cursor
-                ? query(collection(db, "deeds"), ...base.slice(0, -1), startAfter(cursor), limit(PAGE_SIZE))
-                : query(collection(db, "deeds"), ...base);
-        },
-        []
-    );
-
-    const loadMore = useCallback(async () => {
-        if (!authorId || !hasMore || loadingMore) return;
-
-        try {
-            setLoadingMore(true);
-
-            const qy = makeDeedsQuery(authorId, lastCursor);
-            const snap = await getDocs(qy);
-
-            const docs = snap.docs;
-            const items = docs.map((d) => toPlayerItem(d.data(), d.id));
-
-            setSiblings((prev) => {
-                const seen = new Set(prev.map((x) => x.id));
-                const merged = [...prev];
-                for (const it of items) {
-                    if (!seen.has(it.id)) merged.push(it);
-                }
-                return merged;
-            });
-
-            setLastCursor(docs.length ? docs[docs.length - 1] : lastCursor);
-            if (docs.length < PAGE_SIZE) setHasMore(false);
-        } catch (err) {
-            console.error("loadMore deeds error:", err);
-        } finally {
-            setLoadingMore(false);
-        }
-    }, [authorId, hasMore, lastCursor, loadingMore, makeDeedsQuery]);
-
     useEffect(() => {
         let active = true;
-
         (async () => {
             if (!handleWithAt || !deedId) return;
-
-            setLoading(true);
-            setSiblings([]);
-            setActiveIndex(0);
-            setInitialIndex(0);
-            setAuthorId(null);
-            setLastCursor(null);
-            setHasMore(true);
-            setLoadingMore(false);
 
             try {
                 const snap = await getDoc(doc(db, "deeds", deedId));
@@ -898,7 +840,9 @@ export default function PlayerByHandlePage() {
                 const current = toPlayerItem(snap.data(), snap.id);
                 const d = snap.data() as any;
 
+                // allow owner to view even if not ready (optional)
                 const isOwner = uid && d?.authorId === uid;
+
                 const isPublic = d?.visibility === "public";
                 const isReady = d?.status === "ready";
 
@@ -907,10 +851,9 @@ export default function PlayerByHandlePage() {
                     setLoading(false);
                     return;
                 }
-
+                // if URL handle doesn't match author, redirect to correct author handle
                 const routeRes = await resolveUidByHandle(handleWithAt);
                 const routeUid = routeRes?.uid;
-
                 if (routeUid && current.authorId !== routeUid) {
                     try {
                         const u = await getDoc(doc(db, "users", current.authorId));
@@ -923,48 +866,17 @@ export default function PlayerByHandlePage() {
                     } catch { }
                 }
 
-                setAuthorId(current.authorId);
-
-                const loaded: Item[] = [];
-                const seen = new Set<string>();
-                let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
-                let foundIndex = -1;
-                let more = true;
-                let guard = 0;
-
-                while (active && more && foundIndex === -1 && guard < 20) {
-                    guard += 1;
-
-                    const qy = makeDeedsQuery(current.authorId, cursor);
-                    const pageSnap = await getDocs(qy);
-
-                    const docs = pageSnap.docs;
-                    const pageItems = docs.map((x) => toPlayerItem(x.data(), x.id));
-
-                    for (const it of pageItems) {
-                        if (!seen.has(it.id)) {
-                            seen.add(it.id);
-                            loaded.push(it);
-                        }
-                    }
-
-                    foundIndex = loaded.findIndex((x) => x.id === deedId);
-                    cursor = docs.length ? docs[docs.length - 1] : cursor;
-                    more = docs.length === PAGE_SIZE;
-                }
-
-                if (foundIndex === -1) {
-                    loaded.unshift(current);
-                    foundIndex = 0;
+                const arr = await fetchUserSiblings(current.authorId, 100);
+                let idx = arr.findIndex((x: any) => x.id === deedId);
+                if (idx === -1) {
+                    arr.unshift(current);
+                    idx = 0;
                 }
 
                 if (!active) return;
-
-                setSiblings(loaded);
-                setInitialIndex(foundIndex);
-                setActiveIndex(foundIndex);
-                setLastCursor(cursor);
-                setHasMore(more);
+                setSiblings(arr);
+                setInitialIndex(idx);
+                setActiveIndex(idx);
                 setLoading(false);
             } catch (err) {
                 console.error("Error loading deed siblings:", err);
@@ -977,7 +889,7 @@ export default function PlayerByHandlePage() {
         return () => {
             active = false;
         };
-    }, [handleWithAt, deedId, router, uid, makeDeedsQuery]);
+    }, [handleWithAt, deedId, router]);
 
     useEffect(() => {
         const el = scrollRef.current;
@@ -985,18 +897,6 @@ export default function PlayerByHandlePage() {
         const h = el.clientHeight || window.innerHeight;
         el.scrollTo({ top: initialIndex * h, behavior: "auto" });
     }, [initialIndex, siblings.length]);
-
-    const maybeLoadMoreNearBottom = useCallback(() => {
-        const el = scrollRef.current;
-        if (!el || !hasMore || loadingMore) return;
-
-        const remaining = el.scrollHeight - (el.scrollTop + el.clientHeight);
-        const threshold = el.clientHeight * 1.5;
-
-        if (remaining <= threshold) {
-            loadMore();
-        }
-    }, [hasMore, loadingMore, loadMore]);
 
     const handleScroll = useCallback(() => {
         const el = scrollRef.current;
@@ -1006,13 +906,10 @@ export default function PlayerByHandlePage() {
 
         const rawIndex = el.scrollTop / h;
         const nextIdx = Math.round(rawIndex);
-
         if (nextIdx !== activeIndex && nextIdx >= 0 && nextIdx < siblings.length) {
             setActiveIndex(nextIdx);
         }
-
-        maybeLoadMoreNearBottom();
-    }, [activeIndex, siblings.length, maybeLoadMoreNearBottom]);
+    }, [activeIndex, siblings.length]);
 
     const onScroll = useCallback(() => {
         if (scrollRaf.current != null) cancelAnimationFrame(scrollRaf.current);
@@ -1032,32 +929,22 @@ export default function PlayerByHandlePage() {
         el.scrollTo({ top: index * h, behavior: "smooth" });
     }, []);
 
+
     const goPrev = useCallback(() => {
+
         if (activeIndex > 0) scrollToIndex(activeIndex - 1);
     }, [activeIndex, scrollToIndex]);
 
-    const goNext = useCallback(async () => {
-        if (activeIndex < siblings.length - 1) {
-            scrollToIndex(activeIndex + 1);
-            return;
-        }
+    const goNext = useCallback(() => {
+        if (activeIndex < siblings.length - 1) scrollToIndex(activeIndex + 1);
+    }, [activeIndex, siblings.length, scrollToIndex]);
 
-        if (hasMore && !loadingMore) {
-            await loadMore();
-
-            setTimeout(() => {
-                const nextIndex = activeIndex + 1;
-                if (nextIndex < (scrollRef.current?.children.length || 0)) {
-                    scrollToIndex(nextIndex);
-                }
-            }, 60);
-        }
-    }, [activeIndex, siblings.length, hasMore, loadingMore, loadMore, scrollToIndex]);
-
+    // keyboard nav (↑/↓) + ESC closes rail if open (desktop)
     useEffect(() => {
         if (isMobile) return;
 
         const onKey = (e: KeyboardEvent) => {
+
             if (e.key === "ArrowUp") {
                 e.preventDefault();
                 goPrev();
@@ -1104,12 +991,10 @@ export default function PlayerByHandlePage() {
     const appUrl = `ekarihub:///${encodeURIComponent(normalized)}/deed/${encodeURIComponent(deedId)}`;
 
     return (
-        <div
-            className="fixed inset-0 bg-black text-white"
+        <div className="fixed inset-0 bg-black text-white"
             onPointerDown={() => setAudioAllowed(true)}
             onTouchStart={() => setAudioAllowed(true)}
-            onClick={() => setAudioAllowed(true)}
-        >
+            onClick={() => setAudioAllowed(true)}>
             <OpenInAppBanner
                 webUrl={webUrl}
                 appUrl={appUrl}
@@ -1119,6 +1004,7 @@ export default function PlayerByHandlePage() {
                 appStoreUrl="https://apps.apple.com"
             />
 
+            {/* Top bar (safe) */}
             <div
                 className="absolute left-0 right-0 top-0 z-50 flex items-center justify-between px-3"
                 style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)" }}
@@ -1143,6 +1029,7 @@ export default function PlayerByHandlePage() {
             </div>
 
             <div className={cn("grid h-full w-full", showRail ? "lg:grid-cols-[minmax(0,1fr)_420px]" : "lg:grid-cols-1")}>
+                {/* MEDIA COLUMN */}
                 <div
                     ref={scrollRef}
                     className="relative flex h-full min-h-0 flex-col items-stretch justify-start overflow-y-scroll snap-y snap-mandatory scroll-smooth"
@@ -1159,21 +1046,16 @@ export default function PlayerByHandlePage() {
                             uid={uid}
                             requireAuth={requireAuth}
                             hasPrev={activeIndex > 0}
-                            hasNext={activeIndex < siblings.length - 1 || hasMore}
+                            hasNext={activeIndex < siblings.length - 1}
                             onPrev={goPrev}
                             onNext={goNext}
                             EKARI={EKARI}
-                            photoPaused={index !== activeIndex}
+                            // ✅ NEW
+                            photoPaused={index !== activeIndex}  // pause when not active or when rail open
                             audioAllowed={audioAllowed}
                             fitMode={fitMode}
                         />
                     ))}
-
-                    {loadingMore && (
-                        <div className="snap-start h-[30vh] flex items-center justify-center">
-                            <BouncingBallLoader />
-                        </div>
-                    )}
                 </div>
 
                 {!isMobile && showRail && (
@@ -1201,6 +1083,7 @@ export default function PlayerByHandlePage() {
                 )}
             </div>
 
+            {/* Adjacent preloading */}
             <AdjacentPreloadWeb siblings={siblings} activeIndex={activeIndex} neighborRange={neighborPreloadRange} />
         </div>
     );
