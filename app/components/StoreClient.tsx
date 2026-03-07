@@ -1835,19 +1835,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
     const likes = Number(userDoc?.likes ?? 0);
 
     async function fetchListingsPage(after?: QueryDocumentSnapshot<DocumentData> | null) {
-        const base1 = query(
-            collection(db, "marketListings"),
-            where("ownerId", "==", sellerId),
-            ...(isOwner ? [] : [where("status", "==", "active")]),
-            orderBy("publishedAt", "desc"),
-            limit(24)
-        );
-
-        const q1 = after ? query(base1, startAfter(after)) : base1;
-        const snap1 = await getDocs(q1);
-        if (!snap1.empty) return snap1;
-
-        const base2 = query(
+        const base = query(
             collection(db, "marketListings"),
             where("seller.id", "==", sellerId),
             ...(isOwner ? [] : [where("status", "==", "active")]),
@@ -1855,8 +1843,8 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
             limit(24)
         );
 
-        const q2 = after ? query(base2, startAfter(after)) : base2;
-        return await getDocs(q2);
+        const q = after ? query(base, startAfter(after)) : base;
+        return await getDocs(q);
     }
     const isOwner = auth.currentUser?.uid === sellerId;
     const updateListingStatus = async (p: any, status: "active" | "sold" | "reserved" | "hidden") => {
