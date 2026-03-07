@@ -2578,7 +2578,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 {status !== "active" && (
                                                     <button
                                                         onClick={() => updateListingStatus(p, "active")}
-                                                        className="px-2 py-1 rounded-md bg-emerald-700 text-white text-xs font-black hover:opacity-90"
+                                                        className="px-2 py-1 rounded-md bg-emerald-700 text-white text-xs hover:opacity-90"
                                                     >
                                                         Activate
                                                     </button>
@@ -2587,7 +2587,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 {status !== "sold" && (
                                                     <button
                                                         onClick={() => updateListingStatus(p, "sold")}
-                                                        className="px-2 py-1 rounded-md bg-amber-600 text-white text-xs font-black hover:opacity-90"
+                                                        className="px-2 py-1 rounded-md bg-amber-600 text-white text-xs hover:opacity-90"
                                                     >
                                                         Sold
                                                     </button>
@@ -2596,7 +2596,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 {status !== "reserved" && (
                                                     <button
                                                         onClick={() => updateListingStatus(p, "reserved")}
-                                                        className="px-2 py-1 rounded-md bg-yellow-500 text-white text-xs font-black hover:opacity-90"
+                                                        className="px-2 py-1 rounded-md bg-yellow-500 text-white text-xs hover:opacity-90"
                                                     >
                                                         Reserve
                                                     </button>
@@ -2605,7 +2605,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 {status !== "hidden" && (
                                                     <button
                                                         onClick={() => updateListingStatus(p, "hidden")}
-                                                        className="px-2 py-1 rounded-md bg-gray-600 text-white text-xs font-black hover:opacity-90"
+                                                        className="px-2 py-1 rounded-md bg-gray-600 text-white text-xs hover:opacity-90"
                                                     >
                                                         Hide
                                                     </button>
@@ -2613,7 +2613,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
                                                 <button
                                                     onClick={() => deleteListing(p)}
-                                                    className="px-2 py-1 rounded-md bg-red-600 text-white text-xs font-black hover:opacity-90"
+                                                    className="px-2 py-1 rounded-md bg-red-600 text-white text-xs hover:opacity-90"
                                                 >
                                                     Delete
                                                 </button>
