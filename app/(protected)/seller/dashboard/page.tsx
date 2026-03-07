@@ -117,7 +117,44 @@ function useIsDesktop() {
 function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
 }
+function getSubEndMs(sub: SellerSubscription | null | undefined) {
+  return (
+    (sub as any)?.currentPeriodEnd?.toMillis?.() ??
+    (sub as any)?.current_period_end?.toMillis?.() ??
+    (sub as any)?.endAt?.toMillis?.() ??
+    0
+  );
+}
 
+function isSubCurrentlyActive(sub: SellerSubscription | null | undefined) {
+  if (!sub) return false;
+
+  const status = String(sub.status || "").toLowerCase();
+  const statusOk = status === "active" || status === "trialing";
+  const endMs = getSubEndMs(sub);
+
+  return statusOk && endMs > Date.now();
+}
+
+function getDisplayPlanStatus(sub: SellerSubscription | null | undefined) {
+  if (!sub) return "inactive";
+
+  const status = String(sub.status || "").toLowerCase();
+  const endMs = getSubEndMs(sub);
+
+  if ((status === "active" || status === "trialing") && endMs > Date.now()) {
+    return status;
+  }
+
+  if (status === "canceled") return "canceled";
+  if (status === "expired") return "expired";
+
+  if ((status === "active" || status === "trialing") && endMs <= Date.now()) {
+    return "expired";
+  }
+
+  return status || "inactive";
+}
 function tierPill(name: string) {
   const n = (name || "").toLowerCase();
   if (n.includes("silver")) return { bg: "#F3F4F6", fg: "#111827", ring: "#E5E7EB" };
@@ -130,9 +167,9 @@ function badgeClasses(kind: string) {
   if (kind === "active") return "bg-emerald-50 text-emerald-800";
   if (kind === "trialing") return "bg-blue-50 text-blue-800";
   if (kind === "expired") return "bg-amber-50 text-amber-800";
+  if (kind === "canceled") return "bg-rose-50 text-rose-800";
   return "bg-gray-100 text-gray-700";
 }
-
 function fmtAnalytics(a: PackageDoc["analyticsLevel"]) {
   if (a === "none") return "No analytics";
   if (a === "basic") return "Basic analytics";
@@ -782,36 +819,50 @@ export default function SellerDashboardPage() {
   }, [sub?.packageId, packages]);
 
   const computed = useMemo(() => {
-    const pkg = activePkg;
+    const subActiveNow = isSubCurrentlyActive(sub);
+    const pkg = subActiveNow ? activePkg : null;
 
-    const activeListings = 0;
-    const limit = pkg?.activeListingsLimit ?? null;
+    const activeListings =
+      typeof (sub as any)?.activeListingsCount === "number"
+        ? Math.max(0, Number((sub as any).activeListingsCount))
+        : 0;
+
+    const limit = subActiveNow ? (pkg?.activeListingsLimit ?? null) : 3;
     const remainingSlots = limit === null ? null : Math.max(0, limit - activeListings);
 
     const boostsTotal = pkg?.monthlyBoostCredits ?? 0;
     const featuredTotal = pkg?.weeklyFeaturedCredits ?? 0;
 
-    // ✅ prefer credits.*Remaining, fallback to legacy, else fallback to totals
-    const boostsLeft =
-      typeof sub?.credits?.boostCreditsRemaining === "number"
-        ? sub.credits.boostCreditsRemaining
-        : (typeof (sub as any)?.boostCreditsRemaining === "number"
-          ? (sub as any).boostCreditsRemaining
-          : boostsTotal);
+    const boostsLeft = subActiveNow
+      ? (
+        typeof sub?.credits?.boostCreditsRemaining === "number"
+          ? sub.credits.boostCreditsRemaining
+          : typeof (sub as any)?.boostCreditsRemaining === "number"
+            ? (sub as any).boostCreditsRemaining
+            : boostsTotal
+      )
+      : 0;
 
-    const featuredLeft =
-      typeof sub?.credits?.featuredCreditsRemaining === "number"
-        ? sub.credits.featuredCreditsRemaining
-        : (typeof (sub as any)?.featuredCreditsRemaining === "number"
-          ? (sub as any).featuredCreditsRemaining
-          : featuredTotal);
+    const featuredLeft = subActiveNow
+      ? (
+        typeof sub?.credits?.featuredCreditsRemaining === "number"
+          ? sub.credits.featuredCreditsRemaining
+          : typeof (sub as any)?.featuredCreditsRemaining === "number"
+            ? (sub as any).featuredCreditsRemaining
+            : featuredTotal
+      )
+      : 0;
 
-    const nearLimit = typeof limit === "number" && limit > 0 ? activeListings / limit >= 0.8 : false;
+    const nearLimit =
+      typeof limit === "number" && limit > 0
+        ? activeListings / limit >= 0.8
+        : false;
 
     return {
       pkg,
-      planName: pkg?.name ?? "Free",
-      planStatus: sub?.status ?? "inactive",
+      subActiveNow,
+      planName: subActiveNow ? (pkg?.name ?? "Paid plan") : "Free",
+      planStatus: getDisplayPlanStatus(sub),
       billingCycle: sub?.billingCycle ?? "monthly",
       activeListings,
       limit,
@@ -819,9 +870,9 @@ export default function SellerDashboardPage() {
       boostsLeft: Math.max(0, boostsLeft),
       featuredLeft: Math.max(0, featuredLeft),
       nearLimit,
+      expiresAtMs: getSubEndMs(sub),
     };
   }, [activePkg, sub]);
-
 
   if (checkingAuth) {
     return <div className="p-6 text-sm" style={{ color: EKARI.dim }}>Loading…</div>;
@@ -875,7 +926,11 @@ export default function SellerDashboardPage() {
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeClasses(computed.planStatus)}`}>
               {computed.planStatus}
             </span>
-
+            {computed.expiresAtMs > 0 && (
+              <span className="text-[10px] text-gray-500">
+                ends {new Date(computed.expiresAtMs).toLocaleDateString()}
+              </span>
+            )}
             <span className="text-[10px] text-gray-500">{computed.billingCycle}</span>
           </div>
 
@@ -889,7 +944,9 @@ export default function SellerDashboardPage() {
       <Card
         title="Listings"
         value={
-          computed.limit === null ? `${computed.activeListings} / Unlimited` : `${computed.activeListings} / ${computed.limit}`
+          computed.limit === null
+            ? `${computed.activeListings} / Unlimited`
+            : `${computed.activeListings} / ${computed.limit}`
         }
         hint={computed.remainingSlots === null ? "No listing limit" : `${computed.remainingSlots} slots left`}
       />
@@ -993,7 +1050,7 @@ export default function SellerDashboardPage() {
         <div className="p-4" style={{ background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)" }}>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {packages.map((p) => {
-              const isCurrent = p.id === sub?.packageId;
+              const isCurrent = computed.subActiveNow && p.id === sub?.packageId;
               return (
                 <PackageCard
                   key={p.id}
@@ -1050,7 +1107,7 @@ export default function SellerDashboardPage() {
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         packages={packages}
-        currentPackageId={currentPackageId}
+        currentPackageId={computed.subActiveNow ? currentPackageId : null}
         billing={billing}
         onBillingChange={setBilling}
         currency={currency}
