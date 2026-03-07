@@ -174,6 +174,54 @@ function statusColorClass(p: any) {
     if (s === "hidden") return "bg-gray-600";
     return "bg-emerald-600";
 }
+function tsToMs(v: any): number {
+    return v?.toMillis?.() ?? 0;
+}
+
+function isStorefrontActiveFromUser(user: any): boolean {
+    if (!user) return false;
+
+    const enabled = user?.storefrontEnabled === true;
+    const untilMs =
+        user?.storefrontUntil?.toMillis?.() ??
+        user?.premiumUntil?.toMillis?.() ??
+        0;
+
+    return enabled && untilMs > Date.now();
+}
+
+function getStorefrontState(user: any) {
+    if (!user) {
+        return {
+            active: false,
+            enabled: false,
+            expired: false,
+            untilMs: 0,
+        };
+    }
+
+    const enabled = user?.storefrontEnabled === true;
+    const untilMs =
+        user?.storefrontUntil?.toMillis?.() ??
+        user?.premiumUntil?.toMillis?.() ??
+        0;
+
+    const active = enabled && untilMs > Date.now();
+    const expired = enabled && untilMs > 0 && untilMs <= Date.now();
+
+    return { active, enabled, expired, untilMs };
+}
+
+function formatStorefrontUntil(v: any) {
+    const ms = tsToMs(v);
+    if (!ms) return null;
+
+    try {
+        return new Date(ms).toLocaleString();
+    } catch {
+        return null;
+    }
+}
 function StatChip({
     icon,
     label,
@@ -512,10 +560,15 @@ export function StoreCoverHero({
                                         </span>
                                     )}
 
-                                    {isPremiumStore && (
+                                    {isPremiumStore ? (
                                         <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black bg-amber-300/20 text-amber-100 border border-amber-200/25">
                                             <IoSparklesOutline size={14} />
-                                            Premium Store
+                                            Storefront Active
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black bg-white/10 text-white border border-white/20">
+                                            <IoLockClosedOutline size={14} />
+                                            Private
                                         </span>
                                     )}
                                 </div>
@@ -806,8 +859,7 @@ export function StorefrontHero({
                                     <IoShieldCheckmark size={14} /> Verified
                                 </span>
                             )}
-
-                            {isPremiumStore && (
+                            {isPremiumStore ? (
                                 <span
                                     className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black"
                                     style={{
@@ -816,9 +868,22 @@ export function StorefrontHero({
                                         border: "1px solid rgba(255,255,255,0.25)",
                                         backdropFilter: "blur(10px)",
                                     }}
-                                    title="Premium Storefront"
+                                    title="Storefront active"
                                 >
-                                    <IoSparklesOutline size={14} /> Premium Store
+                                    <IoSparklesOutline size={14} /> Storefront Active
+                                </span>
+                            ) : (
+                                <span
+                                    className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black"
+                                    style={{
+                                        background: "rgba(255,255,255,0.12)",
+                                        color: "white",
+                                        border: "1px solid rgba(255,255,255,0.25)",
+                                        backdropFilter: "blur(10px)",
+                                    }}
+                                    title="Private storefront"
+                                >
+                                    <IoLockClosedOutline size={14} /> Private
                                 </span>
                             )}
                         </div>
@@ -1833,6 +1898,14 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
     const followersCount = Number(userDoc?.followersCount ?? 0);
     const profileViews = Number(userDoc?.profileViews ?? 0);
     const likes = Number(userDoc?.likes ?? 0);
+    const storefrontState = useMemo(() => getStorefrontState(userDoc), [userDoc]);
+    const storefrontUntilText = useMemo(
+        () => formatStorefrontUntil((userDoc as any)?.storefrontUntil),
+        [userDoc]
+    );
+
+    const isStorePrivate = !storefrontState.active;
+    const isOwner = auth.currentUser?.uid === sellerId;
 
     async function fetchListingsPage(after?: QueryDocumentSnapshot<DocumentData> | null) {
         const base = query(
@@ -1846,7 +1919,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         const q = after ? query(base, startAfter(after)) : base;
         return await getDocs(q);
     }
-    const isOwner = auth.currentUser?.uid === sellerId;
+
     const updateListingStatus = async (p: any, status: "active" | "sold" | "reserved" | "hidden") => {
         if (!isOwner) return;
 
@@ -1954,18 +2027,17 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
                 if (!alive) return;
 
-                let storefrontEnabled = false;
-
                 if (uSnap.exists()) {
                     const u = uSnap.data() as any;
                     setUserDoc(u);
 
-                    storefrontEnabled = !!u.storefrontEnabled; // ✅ HERE
-                    setStorefrontAllowed(storefrontEnabled);
+                    const storefrontActive = isStorefrontActiveFromUser(u);
+
+                    setStorefrontAllowed(storefrontActive);
 
                     setEntitlements((prev) => ({
                         ...prev,
-                        storefront: storefrontEnabled,
+                        storefront: storefrontActive,
                     }));
                 } else {
                     setStorefrontAllowed(false);
@@ -2380,18 +2452,83 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
 
                 {/* Tabs */}
-                <div className="max-w-5xl mx-auto px-4 mt-2 md:mt-3 mb-5">
-                    <SegmentedTabs value={tab} onChange={setTab} counts={counts} />
-                </div>
+                {storefrontState.active && (
+                    <div className="max-w-5xl mx-auto px-4 mt-2 md:mt-3 mb-5">
+                        <SegmentedTabs value={tab} onChange={setTab} counts={counts} />
+                    </div>
+                )}
+                {isStorePrivate && (
+                    <div className="max-w-5xl mx-auto px-4 mb-5">
+                        <div
+                            className="rounded-3xl border bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
+                            style={{ borderColor: EKARI.hair }}
+                        >
+                            <div className="flex items-start gap-3">
+                                <div className="mt-0.5">
+                                    <IoLockClosedOutline size={20} style={{ color: EKARI.gold }} />
+                                </div>
 
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h3 className="text-base font-black" style={{ color: EKARI.text }}>
+                                            Private storefront
+                                        </h3>
+
+                                        <span
+                                            className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black"
+                                            style={{
+                                                background: "rgba(15,23,42,0.06)",
+                                                color: EKARI.dim,
+                                            }}
+                                        >
+                                            Not public
+                                        </span>
+                                    </div>
+
+                                    <p className="mt-1 text-sm" style={{ color: EKARI.dim }}>
+                                        {isOwner
+                                            ? storefrontState.expired
+                                                ? `Your storefront access has expired${storefrontUntilText ? ` on ${storefrontUntilText}` : ""}. Upgrade or promote your storefront to make it public again.`
+                                                : "Your storefront is currently disabled or not active. Upgrade or promote it to make it public."
+                                            : "This seller’s storefront is currently private and not publicly available."}
+                                    </p>
+
+                                    {isOwner && (
+                                        <div className="mt-4 flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => router.push("/seller/dashboard")}
+                                                className="h-11 px-4 rounded-2xl text-sm text-white inline-flex items-center gap-2"
+                                                style={{ backgroundColor: EKARI.gold }}
+                                            >
+                                                <IoRocket size={18} />
+                                                Promote your storefront
+                                            </button>
+
+
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </div>
 
             {/* Body */}
             <div className="max-w-5xl mx-auto px-4 py-5">
+
                 {loading ? (
                     <div className="text-sm" style={{ color: EKARI.dim }}>
                         Loading listings…
+                    </div>
+                ) : !storefrontState.active && !isOwner ? (
+                    <div
+                        className="rounded-2xl border bg-white p-5 text-sm"
+                        style={{ borderColor: EKARI.hair, color: EKARI.dim }}
+                    >
+                        This storefront is private and currently unavailable to the public.
                     </div>
                 ) : filteredItems.length === 0 ? (
                     <div className="text-sm" style={{ color: EKARI.dim }}>
@@ -2403,21 +2540,20 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                     </div>
                 ) : (
                     <>
-
-                        <CatalogHeader
-                            tab={tab}
-                            sort={sort}
-                            onSortChange={setSort}
-                            subtitle={
-                                tab === "all"
-                                    ? "All active items from this store."
-                                    : tab === "featured"
-                                        ? "Highlighted items with premium exposure."
-                                        : "Boosted items currently getting more reach."
-                            }
-                        />
-
-
+                        {storefrontState.active && (
+                            <CatalogHeader
+                                tab={tab}
+                                sort={sort}
+                                onSortChange={setSort}
+                                subtitle={
+                                    tab === "all"
+                                        ? "All active items from this store."
+                                        : tab === "featured"
+                                            ? "Highlighted items with premium exposure."
+                                            : "Boosted items currently getting more reach."
+                                }
+                            />
+                        )}
 
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-1">
                             {sortedFilteredItems.map((p: any) => {
@@ -2428,15 +2564,15 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                         <div className="relative">
                                             <ProductCard p={p} />
 
-                                            {/* optional status badge (owner + visitors can see) */}
                                             <div
-                                                className={`absolute left-2 top-2 ${statusColorClass(p)} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center`}
+                                                className={`absolute left-2 top-2 ${statusColorClass(
+                                                    p
+                                                )} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center`}
                                             >
                                                 {status.charAt(0).toUpperCase() + status.slice(1)}
                                             </div>
                                         </div>
 
-                                        {/* ✅ OWNER CONTROLS (only owner sees) */}
                                         {isOwner && (
                                             <div className="flex flex-wrap gap-2">
                                                 {status !== "active" && (
@@ -2488,30 +2624,33 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                             })}
                         </div>
 
-                        <div className="mt-6 flex justify-center">
-                            {hasMore && tab === "all" ? (
-                                <button
-                                    onClick={loadMore}
-                                    disabled={loadingMore}
-                                    className={clsx(
-                                        "h-11 px-5 rounded-xl font-black border transition",
-                                        loadingMore ? "opacity-60 cursor-not-allowed" : "hover:bg-black/[0.03]"
-                                    )}
-                                    style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
-                                >
-                                    {loadingMore ? "Loading…" : "Load more"}
-                                </button>
-                            ) : (
-                                <div className="text-xs" style={{ color: EKARI.dim }}>
-                                    {tab === "all" ? "End of listings." : "Tip: switch to All to load more."}
-                                </div>
-                            )}
-                        </div>
+                        {storefrontState.active && (
+                            <div className="mt-6 flex justify-center">
+                                {hasMore && tab === "all" ? (
+                                    <button
+                                        onClick={loadMore}
+                                        disabled={loadingMore}
+                                        className={clsx(
+                                            "h-11 px-5 rounded-xl font-black border transition",
+                                            loadingMore ? "opacity-60 cursor-not-allowed" : "hover:bg-black/[0.03]"
+                                        )}
+                                        style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
+                                    >
+                                        {loadingMore ? "Loading…" : "Load more"}
+                                    </button>
+                                ) : (
+                                    <div className="text-xs" style={{ color: EKARI.dim }}>
+                                        {tab === "all" ? "End of listings." : "Tip: switch to All to load more."}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
+
             </div>
 
-            {isOwner && (<> {/* ✅ Insights section */}
+            {isOwner && storefrontState.active && (<> {/* ✅ Insights section */}
                 <div className="max-w-5xl mx-auto px-4">
                     <StoreInsights
                         tier={insightsTier}
