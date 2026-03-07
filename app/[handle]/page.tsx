@@ -73,6 +73,7 @@ const EKARI = {
   subtext: "#6B7280",
   hair: "#E5E7EB",
   primary: "#C79257",
+  green: "#16A34A",
 };
 /* ---------- helpers (add near your other helpers) ---------- */
 function cleanPhone(p?: string | null) {
@@ -328,7 +329,8 @@ function ProfileHeroStorefront({
     (profile.verificationType as VerificationType) || "individual";
 
   const showVerified = verificationStatus === "approved";
-  const isPremium = !!profile.storefrontEnabled;
+  const isPremium =
+    profile.storefrontUntil && profile.storefrontUntil > Date.now();
   const router = useRouter();
 
   const phone = cleanPhone(profile.phone || null);
@@ -390,7 +392,12 @@ function ProfileHeroStorefront({
                   <IoSparklesOutline size={14} /> Premium
                 </span>
               )}
-
+              {profile.storefrontUntil &&
+                profile.storefrontUntil <= Date.now() && (
+                  <span className="badge-expired">
+                    Storefront expired
+                  </span>
+                )}
               {profile.isAdmin && (
                 <span
                   className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black border"
@@ -470,7 +477,7 @@ function ProfileHeroStorefront({
 
                 <button
                   onClick={onMessage}
-                  className="h-9 px-5 rounded-2xl font-black text-sm text-white inline-flex items-center gap-2 disabled:opacity-60"
+                  className="h-9 px-5 rounded-2xl text-sm text-white inline-flex items-center gap-2 disabled:opacity-60"
                   style={{ backgroundColor: EKARI.forest }}
                   disabled={isOwner}
                   type="button"
@@ -479,11 +486,11 @@ function ProfileHeroStorefront({
                   Message
                 </button>
                 {/* visit store */}
-                {profile.storefrontEnabled && (
+                {isPremium && (
                   <Link
                     href={`/store/${profile.id}?src=profile`}
-                    className="h-9 px-4 rounded-xl font-black text-white inline-flex items-center gap-2"
-                    style={{ backgroundColor: EKARI.primary }}
+                    className="h-9 px-4 rounded-xl text-white inline-flex items-center gap-2"
+                    style={{ backgroundColor: EKARI.green }}
                   >
                     <IoStorefrontOutline size={16} />
                     Visit Store
@@ -645,11 +652,11 @@ function ProfileHeroStorefront({
 
                 <Link
                   href={`/store/${profile.id}?src=mystore`}
-                  className="h-9 px-4 rounded-xl font-black text-white inline-flex items-center gap-2"
-                  style={{ backgroundColor: EKARI.primary }}
+                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]"
+                  style={{ color: EKARI.text }}
                 >
-                  <IoStorefrontOutline size={16} />
-                  My market store
+                  <IoListOutline size={16} />
+                  My Listings
                 </Link>
 
                 <Link
@@ -739,6 +746,7 @@ type Profile = {
   sellerReviewAvg?: number;
   sellerReviewCount?: number;
   storefrontEnabled?: boolean;   // 👈 add this
+  storefrontUntil?: number | null;
 };
 
 type MarketType =
@@ -1050,6 +1058,12 @@ function useProfileByUid(uid?: string) {
     }
     const unsub = onSnapshot(doc(db, "users", uid), (snap) => {
       const d = snap.exists() ? (snap.data() as any) : null;
+      const storefrontUntilMs =
+        d.storefrontUntil?.toMillis?.() ??
+        (d.storefrontUntil?.seconds ? d.storefrontUntil.seconds * 1000 : null);
+
+      const storefrontEnabled =
+        storefrontUntilMs && storefrontUntilMs > Date.now();
       setProfile(
         d
           ? {
@@ -1065,8 +1079,10 @@ function useProfileByUid(uid?: string) {
             followingCount: Number(d.followingCount ?? 0),
             likesTotal: Number(d.likesTotal ?? 0),
             isAdmin: !!d.isAdmin,      // 👈 mirror for UI
-            storefrontEnabled: !!d.storefrontEnabled,
+            storefrontEnabled: !!storefrontEnabled,
+            storefrontUntil: storefrontUntilMs,
             // 👇 NEW: pull verification info
+
             verificationStatus:
               (d.verification?.status as VerificationStatus) ?? "none",
             verificationRoleLabel:

@@ -2498,6 +2498,7 @@ export default function SellModal({
     // ✅ FINISH BUTTON: DRAFT -> (ACTIVE SUB? publish : go plan step)
     // ===========================
     const onFinish = useCallback(async () => {
+
         if (!canPublish) {
             ui.alert(
                 verificationStatus === "pending"
@@ -2508,6 +2509,7 @@ export default function SellModal({
         }
 
         setSaving(true);
+
         try {
             const { id, base } = await createDraftListing();
             setDraftListingId(id);
