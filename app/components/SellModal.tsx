@@ -221,7 +221,9 @@ type SellerSubscription = {
     boostCreditsRemaining?: number;
     featuredCreditsRemaining?: number;
 };
-
+function isCurrentActivePlan(sub: SellerSubscription | null, packageId: string) {
+    return isSubActive(sub) && sub?.packageId === packageId;
+}
 function isSubActive(sub: SellerSubscription | null) {
     if (!sub) return false;
 
@@ -270,7 +272,17 @@ function sanitizeDescription(raw: unknown): string | null {
 
     return text || null;
 }
+function getSubDisplayStatus(sub: SellerSubscription | null) {
+    if (!sub) return "inactive";
 
+    const status = String(sub.status || "").toLowerCase();
+    if (isSubActive(sub)) return status;
+
+    if (status === "canceled") return "canceled";
+    if (status === "expired") return "expired";
+
+    return "expired";
+}
 
 function useMarketCatalog(): UseMarketCatalogResult {
     const [types, setTypes] = useState<MarketTypeDoc[]>([]);
@@ -2539,6 +2551,7 @@ export default function SellModal({
     // ===========================
     // UI: PLAN STEP (PREMIUM)
     // ===========================
+
     const PlanStep = (
         <div className="space-y-5">
             {/* header card */}
@@ -2562,6 +2575,7 @@ export default function SellModal({
                             You’ve reached your current active listing limit.
                             Choose a package below and we’ll continue publishing your draft automatically after payment.
                         </div>
+
                     </div>
 
                     <div
@@ -2706,9 +2720,8 @@ export default function SellModal({
                     </div>
                 ) : (
                     packages.map((p) => {
-                        const priceUsd =
-                            billing === "yearly" ? Number(p.priceYearlyUsd || 0) : Number(p.priceMonthlyUsd || 0);
-                        const isCurrentPlan = sub?.packageId === p.id;
+
+                        const isCurrentPlan = isCurrentActivePlan(sub, p.id);
                         const subtitle =
                             p.activeListingsLimit == null ? "Unlimited listings" : `${p.activeListingsLimit} active listings`;
 
@@ -2757,7 +2770,7 @@ export default function SellModal({
                                                 >
                                                     {p.name}
                                                 </span>
-                                                {sub?.packageId === p.id && (
+                                                {isCurrentPlan && (
                                                     <span
                                                         className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold border"
                                                         style={{ background: a.soft, color: a.accent, borderColor: a.ring }}
