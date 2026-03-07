@@ -67,7 +67,7 @@ type SellerSubscription = {
   billingCycle: BillingCycle;
   status: "active" | "trialing" | "expired" | "canceled";
   currentPeriodEnd?: any;
-
+  packageName?: string;
   // ✅ new canonical
   credits?: {
     boostMonthKey?: string;
@@ -861,7 +861,7 @@ export default function SellerDashboardPage() {
     return {
       pkg,
       subActiveNow,
-      planName: subActiveNow ? (pkg?.name ?? "Paid plan") : "Free",
+      planName: subActiveNow ? (pkg?.name ?? "Paid plan") : (activePkg?.name ?? sub?.packageName ?? "Free"),
       planStatus: getDisplayPlanStatus(sub),
       billingCycle: sub?.billingCycle ?? "monthly",
       activeListings,

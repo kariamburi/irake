@@ -44,7 +44,6 @@ import clsx from "clsx";
 import { ConfirmModal } from "./ConfirmModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { app, db } from "@/lib/firebase";
-import { ListingLimitDialogSimple } from "./ListingLimitDialog";
 
 /* ================= Theme ================= */
 const EKARI = {
@@ -224,7 +223,18 @@ type SellerSubscription = {
 };
 
 function isSubActive(sub: SellerSubscription | null) {
-    return sub?.status === "active";
+    if (!sub) return false;
+
+    const status = String(sub.status || "").toLowerCase();
+    const statusOk = status === "active" || status === "trialing";
+
+    const endMs =
+        (sub as any)?.currentPeriodEnd?.toMillis?.() ??
+        (sub as any)?.current_period_end?.toMillis?.() ??
+        (sub as any)?.endAt?.toMillis?.() ??
+        0;
+
+    return statusOk && endMs > Date.now();
 }
 /* ===== Hook: fetch catalog from Firestore ===== */
 function sanitizeDescription(raw: unknown): string | null {
@@ -1755,8 +1765,7 @@ export default function SellModal({
     const [sheetVisible, setSheetVisible] = useState(false);
     const [requireVerifiedToPostProduct, setRequireVerifiedToPostProduct] = useState(true);
     const [billing, setBilling] = useState<BillingCycle>("monthly");
-    const [limitOpen, setLimitOpen] = React.useState(false);
-    const [limitMsg, setLimitMsg] = React.useState("");
+
     // subscription + packages
     const [checkingSub, setCheckingSub] = useState(true);
     const [sub, setSub] = useState<SellerSubscription | null>(null);
@@ -1903,26 +1912,30 @@ export default function SellModal({
         return () => unsub();
     }, []);
 
-    // -------- load packages ONLY if NO active subscription --------
+    // -------- load packages (for both free users and users upgrading from an existing plan) --------
     useEffect(() => {
         if (checkingSub) return;
 
-        if (isSubActive(sub)) {
-            setPackages([]);
-            return;
-        }
-
         (async () => {
-            const qy = query(
-                collection(db, "packages"),
-                where("status", "==", "active"),
-                orderBy("sortOrder", "asc")
-            );
-            const snap = await getDocs(qy);
-            const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as PackageDoc[];
-            setPackages(list);
+            try {
+                const qy = query(
+                    collection(db, "packages"),
+                    where("status", "==", "active"),
+                    orderBy("sortOrder", "asc")
+                );
+                const snap = await getDocs(qy);
+                const list = snap.docs.map((d) => ({
+                    id: d.id,
+                    ...(d.data() as any),
+                })) as PackageDoc[];
+
+                setPackages(list);
+            } catch (err) {
+                console.error("Failed to load packages", err);
+                setPackages([]);
+            }
         })();
-    }, [checkingSub, sub]);
+    }, [checkingSub]);
 
     // Build type options from Firestore with a fallback order
     const fallbackTypes: MarketType[] = ["product", "animal", "tree", "lease", "service"];
@@ -2494,26 +2507,30 @@ export default function SellModal({
                 return;
             }
 
-            // No active subscription -> show plan selection (includes Free)
+            // No active subscription -> show plan selection
             setModalStep("plan");
         } catch (e: any) {
             setPublishing(false);
-            const msg = e?.message || "Failed to publish.";
-            const code = e?.code || "";
 
-            // limit reached
-            if (code === "failed-precondition" && String(msg).toLowerCase().includes("limit")) {
-                // when you catch the error:
-                setLimitMsg(msg);
-                setLimitOpen(true);
+            const msg =
+                e?.message ||
+                e?.details ||
+                "Failed to publish.";
+
+            const code = e?.code || "";
+            const lowerMsg = String(msg).toLowerCase();
+
+            // listing limit reached -> show packages instead of popup
+            if (code === "failed-precondition" && lowerMsg.includes("limit")) {
+                setModalStep("plan");
                 return;
             }
-            ui.alert(e?.message || "Failed to save draft. Please try again.");
+
+            ui.alert(msg || "Failed to save draft. Please try again.");
         } finally {
             setSaving(false);
         }
     }, [canPublish, verificationStatus, ui, createDraftListing, sub, handlePublish]);
-
     if (!mounted || !open) return null;
 
     // ===========================
@@ -2539,11 +2556,11 @@ export default function SellModal({
                             Plan
                         </div>
                         <div className="mt-1 text-base font-black" style={{ color: EKARI.text }}>
-                            Choose a plan
+                            Upgrade to publish this listing
                         </div>
                         <div className="mt-1 text-xs leading-snug" style={{ color: EKARI.dim }}>
-                            Free plan allows up to <span className="font-extrabold" style={{ color: EKARI.text }}>3 active listings</span>.
-                            Paid plans unlock more listings + perks.
+                            You’ve reached your current active listing limit.
+                            Choose a package below and we’ll continue publishing your draft automatically after payment.
                         </div>
                     </div>
 
@@ -2691,7 +2708,7 @@ export default function SellModal({
                     packages.map((p) => {
                         const priceUsd =
                             billing === "yearly" ? Number(p.priceYearlyUsd || 0) : Number(p.priceMonthlyUsd || 0);
-
+                        const isCurrentPlan = sub?.packageId === p.id;
                         const subtitle =
                             p.activeListingsLimit == null ? "Unlimited listings" : `${p.activeListingsLimit} active listings`;
 
@@ -2740,7 +2757,14 @@ export default function SellModal({
                                                 >
                                                     {p.name}
                                                 </span>
-
+                                                {sub?.packageId === p.id && (
+                                                    <span
+                                                        className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold border"
+                                                        style={{ background: a.soft, color: a.accent, borderColor: a.ring }}
+                                                    >
+                                                        Current plan
+                                                    </span>
+                                                )}
                                                 {p.recommended && (
                                                     <span
                                                         className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold border"
@@ -2782,14 +2806,14 @@ export default function SellModal({
                                             <button
                                                 type="button"
                                                 onClick={() => handleChoosePaid(p.id)}
-                                                disabled={publishing || saving || !draftListingId}
+                                                disabled={publishing || saving || !draftListingId || isCurrentPlan}
                                                 className="mt-2 h-11 w-full rounded-2xl px-5 text-sm font-black text-white disabled:opacity-60"
                                                 style={{
                                                     background: a.accent,
                                                     boxShadow: "0 16px 35px rgba(15,23,42,0.10)",
                                                 }}
                                             >
-                                                {publishing ? "Opening checkout…" : "Choose plan"}
+                                                {isCurrentPlan ? "Current plan" : publishing ? "Opening checkout…" : "Choose plan"}
                                             </button>
                                         </div>
                                     </div>
@@ -3598,12 +3622,7 @@ export default function SellModal({
                 </div>
 
             </div>
-            <ListingLimitDialogSimple
-                open={limitOpen}
-                message={limitMsg}
-                onClose={() => setLimitOpen(false)}
-                onUpgrade={() => setModalStep("plan")}
-            />
+
             {/* Nested Location Picker */}
             {locModalOpen && (
                 <LocationPickerModal
