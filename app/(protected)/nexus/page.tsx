@@ -866,12 +866,90 @@ export default function NexusPage() {
     </div>
   );
 
+  /* ---------- Helpers ---------- */
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+  function getCountdownBadge(dateISO?: string) {
+    if (!dateISO) return null;
+
+    const target = new Date(dateISO);
+    if (Number.isNaN(target.getTime())) return null;
+
+    const now = new Date();
+
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const targetStart = new Date(
+      target.getFullYear(),
+      target.getMonth(),
+      target.getDate()
+    );
+
+    const diffDays = Math.floor(
+      (targetStart.getTime() - todayStart.getTime()) / MS_PER_DAY
+    );
+
+    if (diffDays < 0) {
+      return { text: "Ended", tone: "ended" as const };
+    }
+
+    if (diffDays === 0) {
+      return { text: "Today", tone: "today" as const };
+    }
+
+    if (diffDays === 1) {
+      return { text: "Tomorrow", tone: "tomorrow" as const };
+    }
+
+    if (diffDays < 7) {
+      return { text: `${diffDays} days left`, tone: "soon" as const };
+    }
+
+    if (diffDays < 30) {
+      return { text: `${diffDays} days left`, tone: "upcoming" as const };
+    }
+
+    const weeks = Math.ceil(diffDays / 7);
+    return {
+      text: `${weeks} week${weeks > 1 ? "s" : ""} left`,
+      tone: "upcoming" as const,
+    };
+  }
+
   /* ---------- Premium Cards ---------- */
   const EventCard = ({ e }: { e: EventItem }) => {
     const when =
       e.dateISO && !Number.isNaN(new Date(e.dateISO).getTime())
         ? new Date(e.dateISO).toLocaleDateString()
         : "";
+
+    const countdown = getCountdownBadge(e.dateISO);
+
+    const countdownStyles =
+      countdown?.tone === "ended"
+        ? {
+          background: "rgba(239,68,68,0.92)",
+          color: "#fff",
+          borderColor: "rgba(255,255,255,0.18)",
+        }
+        : countdown?.tone === "today"
+          ? {
+            background: "rgba(245,158,11,0.95)",
+            color: "#fff",
+            borderColor: "rgba(255,255,255,0.18)",
+          }
+          : countdown?.tone === "tomorrow"
+            ? {
+              background: "rgba(59,130,246,0.92)",
+              color: "#fff",
+              borderColor: "rgba(255,255,255,0.18)",
+            }
+            : countdown
+              ? {
+                background: "rgba(17,24,39,0.78)",
+                color: "#fff",
+                borderColor: "rgba(255,255,255,0.18)",
+              }
+              : null;
 
     return (
       <Link
@@ -886,7 +964,7 @@ export default function NexusPage() {
         )}
         style={{ borderColor: "rgba(199,146,87,0.20)" }}
       >
-        <div className="relative w-full aspect-[16/9] bg-black/95">
+        <div className="relative w-full aspect-[3/4] bg-black/95">
           {e.coverUrl ? (
             <>
               <Image
@@ -901,13 +979,23 @@ export default function NexusPage() {
                 className="absolute inset-0"
                 style={{
                   background:
-                    "linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.55))",
+                    "linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 40%, rgba(0,0,0,0.62) 100%)",
                 }}
               />
             </>
           ) : (
             <div className="absolute inset-0 grid place-items-center text-xs text-gray-300">
               No image
+            </div>
+          )}
+
+          {!!countdown && countdownStyles && (
+            <div
+              className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-extrabold border backdrop-blur-md shadow-lg"
+              style={countdownStyles}
+            >
+              <IoTimeOutline size={14} />
+              <span>{countdown.text}</span>
             </div>
           )}
 
@@ -951,7 +1039,10 @@ export default function NexusPage() {
 
         <div className="p-4">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-black text-[15px] leading-snug line-clamp-2" style={{ color: EKARI.text }}>
+            <h3
+              className="font-black text-[15px] leading-snug line-clamp-2"
+              style={{ color: EKARI.text }}
+            >
               {e.title}
             </h3>
             <span
