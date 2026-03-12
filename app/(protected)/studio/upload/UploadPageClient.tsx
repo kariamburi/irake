@@ -889,6 +889,7 @@ export default function UploadPage() {
 
   /* ---------- save (Create OR Edit) — VIDEO or IMAGE ---------- */
   const saveDeed = async () => {
+
     if (authLoading) return;
 
     if (!uid || !user) {
@@ -940,6 +941,15 @@ export default function UploadPage() {
 
     // resolve uploaded audio FIRST
     let resolvedMusicUrl: string | undefined = musicUrl || undefined;
+    console.log("saveDeed start", {
+      uid,
+      isEditing,
+      mediaKind,
+      durationSec,
+      needsServerMix,
+      musicTitle,
+      hasResolvedMusic: !!resolvedMusicUrl,
+    });
     try {
       if (!resolvedMusicUrl && musicSource === "uploaded" && localSoundFile) {
         const soundPath = `deeds/${uid}/${crypto.randomUUID()}/sound/${localSoundFile.name}`;
