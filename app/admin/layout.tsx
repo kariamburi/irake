@@ -30,6 +30,7 @@ const EKARI = {
 // 👉 Central place to define ALL admin menus
 const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/overview", label: "Overview" },
+    { href: "/admin/mapview", label: "Map view" },
     { href: "/admin/deeds", label: "Deeds" },
     { href: "/admin/market", label: "Market" },
     { href: "/admin/events", label: "Events" },
@@ -57,6 +58,7 @@ function getAdminTitle(pathname: string): string {
     if (!pathname.startsWith("/admin")) return "Admin";
 
     if (pathname.startsWith("/admin/overview")) return "Overview";
+    if (pathname.startsWith("/admin/mapview")) return "Map View";
     if (pathname.startsWith("/admin/deeds")) return "Deeds moderation";
     if (pathname.startsWith("/admin/market")) return "Market listings";
     if (pathname.startsWith("/admin/events")) return "Events";
@@ -68,6 +70,7 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/verification")) return "Verification";
     if (pathname.startsWith("/admin/support-tickets")) return "Support tickets";
     if (pathname.startsWith("/admin/sounds")) return "Sounds library";
+
     if (pathname.startsWith("/admin/usermanagement")) return "User management";
     if (pathname.startsWith("/admin/catalog")) return "Catalog management";
     if (pathname.startsWith("/admin/taxonomies")) return "Taxonomy";
@@ -377,7 +380,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     color: EKARI.sand,
                                 }}
                             >
-                                Ekari Admin
+                                ekari Admin
                             </span>
                         </div>
 
