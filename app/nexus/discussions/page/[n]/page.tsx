@@ -1,38 +1,29 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import DiscussionsArchivePage, {
-  generateDiscussionsArchiveMetadata,
-} from "../../DiscussionsArchivePage";
+import DiscussionsArchivePage, { generateDiscussionsArchiveMetadata } from "../../DiscussionsArchivePage";
+
+type Props = {
+  params: Promise<{ page: string }>;
+};
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ n: string }>;
-}): Promise<Metadata> {
-  const { n } = await params;
-  const page = Number(n);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { page } = await params;
+  const pageNum = Number(page);
 
-  if (!Number.isInteger(page) || page < 2) {
-    return {
-      title: "Discussions | ekarihub Nexus",
-      robots: { index: false, follow: false },
-    };
+  if (!Number.isInteger(pageNum) || pageNum < 1) {
+    return generateDiscussionsArchiveMetadata(1);
   }
 
-  return generateDiscussionsArchiveMetadata(page);
+  return generateDiscussionsArchiveMetadata(pageNum);
 }
 
-export default async function DiscussionsArchivePaginatedPage({
-  params,
-}: {
-  params: Promise<{ n: string }>;
-}) {
-  const { n } = await params;
-  const page = Number(n);
+export default async function NexusDiscussionsPaginatedPage({ params }: Props) {
+  const { page } = await params;
+  const pageNum = Number(page);
 
-  if (!Number.isInteger(page) || page < 2) notFound();
+  if (!Number.isInteger(pageNum) || pageNum < 1) notFound();
 
-  return <DiscussionsArchivePage page={page} />;
+  return <DiscussionsArchivePage page={pageNum} />;
 }
