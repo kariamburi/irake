@@ -1,21 +1,52 @@
-"use client";
+// app/dive/page.tsx
+import type { Metadata } from "next";
+import DiveClientPage from "./DiveClientPage";
 
-import dynamic from "next/dynamic";
-
-// Import the client component lazily, with SSR disabled
-const SuggestionsPageClient = dynamic(
-  () => import("./SuggestionsPageClient"),
-  {
-    ssr: false,
-    // optional: simple loading shell
-    loading: () => (
-      <div className="min-h-screen w-full bg-gray-100 flex items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-t-transparent border-gray-500" />
-      </div>
-    ),
-  }
-);
+export const metadata: Metadata = {
+  title: "Dive | ekarihub",
+  description:
+    "Discover personalised profiles, events, and discussions on ekarihub based on your activity and interests.",
+  keywords: [
+    "ekarihub dive",
+    "personalised suggestions",
+    "agribusiness discussions",
+    "agribusiness events",
+    "recommended profiles",
+    "ekarihub community",
+    "African agriculture network",
+  ],
+  alternates: {
+    canonical: "/dive",
+  },
+  openGraph: {
+    title: "Dive | ekarihub",
+    description:
+      "Discover personalised profiles, events, and discussions on ekarihub.",
+    url: "https://ekarihub.com/dive",
+    siteName: "ekarihub",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "dive on ekarihub",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Dive | ekarihub",
+    description:
+      "Discover personalised profiles, events, and discussions on ekarihub.",
+    images: ["/og-image.jpg"],
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function DivePage() {
-  return <SuggestionsPageClient />;
+  return <DiveClientPage />;
 }

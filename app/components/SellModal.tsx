@@ -142,6 +142,15 @@ function formatPriceForReview(raw: string, currency: CurrencyCode): string {
     if (!n) return "-";
     return currency === "USD" ? USD(n) : KES(n);
 }
+function slugify(input?: string | null) {
+    return String(input || "")
+        .toLowerCase()
+        .trim()
+        .replace(/['"]/g, "")
+        .replace(/&/g, " and ")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+}
 type MarketTypeDoc = {
     id: MarketType;
     label: string;
@@ -2343,11 +2352,18 @@ export default function SellModal({
 
         const badge = buildAuthorBadge ? buildAuthorBadge(profile) : undefined;
         const cleanDescription = sanitizeDescription(description);
+        const cleanName = name.trim();
+        const cleanCategory = category.trim();
+        const categorySlug = slugify(cleanCategory);
+        const nameSlug = slugify(cleanName);
+
         const base: any = {
             name: name.trim(),
+            nameSlug,
             price: nPrice,
             currency,
             category,
+            categorySlug,
             description: cleanDescription,
             imageUrl: urls[0],
             imageUrls: urls,

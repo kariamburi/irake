@@ -1,0 +1,1342 @@
+"use client";
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    getDocs,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    QueryDocumentSnapshot,
+    DocumentData,
+    serverTimestamp,
+    setDoc,
+    startAfter,
+    where,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import {
+    IoChevronUp,
+    IoChevronDown,
+    IoVolumeMute,
+    IoVolumeHigh,
+    IoBarChartOutline,
+    IoHeartOutline,
+    IoShareOutline,
+    IoHeart,
+    IoBookmark,
+    IoBookmarkOutline,
+    IoArrowBack,
+    IoMusicalNotesOutline,
+    IoChatbubbleOutline,
+    IoClose,
+} from "react-icons/io5";
+import {
+    resolveUidByHandle,
+    toPlayerItem,
+} from "@/lib/fire-queries";
+import RightRail from "@/app/components/RightRail";
+import { useAuth } from "@/app/hooks/useAuth";
+import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { cn } from "@/lib/utils";
+import OpenInAppBanner from "@/app/components/OpenInAppBanner";
+import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
+import { PhotoSliderPlayer } from "@/app/components/PhotoSliderPlayer";
+
+type Item = any;
+
+const PAGE_SIZE = 6;
+
+function nfmt(n?: number) {
+    const v = n ?? 0;
+    if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+    return String(v);
+}
+
+/* -------------------- responsive helpers -------------------- */
+
+function useMediaQuery(queryStr: string) {
+    const [matches, setMatches] = React.useState(false);
+    React.useEffect(() => {
+        const mq = window.matchMedia(queryStr);
+        const onChange = () => setMatches(mq.matches);
+        onChange();
+        mq.addEventListener?.("change", onChange);
+        return () => mq.removeEventListener?.("change", onChange);
+    }, [queryStr]);
+    return matches;
+}
+function useIsMobile() {
+    return useMediaQuery("(max-width: 1023px)");
+}
+
+/* -------------------- HLS + preload helpers -------------------- */
+
+function useHls(videoRef: React.RefObject<HTMLVideoElement | null>, src?: string | null) {
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video || !src) return;
+
+        const isHls = src.endsWith(".m3u8");
+        let hls: any;
+
+        if (isHls && !video.canPlayType("application/vnd.apple.mpegURL")) {
+            (async () => {
+                try {
+                    const mod = await import("hls.js");
+                    const Hls = mod.default;
+                    if (Hls?.isSupported()) {
+                        hls = new Hls({ enableWorker: true });
+                        hls.loadSource(src);
+                        hls.attachMedia(video);
+                    } else {
+                        (video as any).src = src;
+                        video.load?.();
+                    }
+                } catch {
+                    (video as any).src = src;
+                    video.load?.();
+                }
+            })();
+        } else {
+            (video as any).src = src;
+            video.load?.();
+        }
+
+        return () => {
+            hls?.destroy?.();
+        };
+    }, [videoRef, src]);
+}
+
+function VideoPreload({ src, poster }: { src: string; poster?: string | null }) {
+    const ref = useRef<HTMLVideoElement | null>(null);
+    useHls(ref, src);
+
+    return (
+        <video
+            ref={ref}
+            muted
+            playsInline
+            preload="metadata"
+            poster={poster || undefined}
+            style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                opacity: 0,
+                pointerEvents: "none",
+                top: -9999,
+                left: -9999,
+            }}
+        />
+    );
+}
+
+function AdjacentPreloadWeb({
+    siblings,
+    activeIndex,
+    neighborRange,
+}: {
+    siblings: Item[];
+    activeIndex: number;
+    neighborRange: number;
+}) {
+    if (neighborRange <= 0) return null;
+
+    const candidates: Item[] = [];
+    for (let offset = 1; offset <= neighborRange; offset++) {
+        const prev = siblings[activeIndex - offset];
+        const next = siblings[activeIndex + offset];
+        if (prev && prev.mediaType === "video" && prev.mediaUrl) candidates.push(prev);
+        if (next && next.mediaType === "video" && next.mediaUrl) candidates.push(next);
+    }
+    if (!candidates.length) return null;
+
+    return (
+        <div
+            aria-hidden
+            style={{
+                position: "fixed",
+                width: 1,
+                height: 1,
+                opacity: 0,
+                pointerEvents: "none",
+                top: -9999,
+                left: -9999,
+                zIndex: -1,
+            }}
+        >
+            {candidates.map((it) => (
+                <VideoPreload key={it.id} src={it.mediaUrl!} poster={it.posterUrl} />
+            ))}
+        </div>
+    );
+}
+
+/* -------------------- photo progressive loader -------------------- */
+
+function safeUrl(u?: string | null) {
+    const s = String(u || "").trim();
+    return s.length ? s : null;
+}
+
+function guessPreview(item: any): string | null {
+    return (
+        safeUrl(item?.thumbUrl) ||
+        safeUrl(item?.previewUrl) ||
+        safeUrl(item?.posterUrl) ||
+        null
+    );
+}
+
+function ProgressiveImg({
+    src,
+    previewSrc,
+    alt,
+    className,
+    onReady,
+}: {
+    src: string;
+    previewSrc?: string | null;
+    alt: string;
+    className?: string;
+    onReady?: () => void;
+}) {
+    const full = safeUrl(src);
+    const preview = previewSrc && previewSrc !== src ? safeUrl(previewSrc) : null;
+
+    const [fullReady, setFullReady] = useState(false);
+    const [previewReady, setPreviewReady] = useState(false);
+    const [failed, setFailed] = useState(false);
+    const [retryKey, setRetryKey] = useState(0);
+
+    useEffect(() => {
+        setFullReady(false);
+        setPreviewReady(false);
+        setFailed(false);
+    }, [full, preview, retryKey]);
+
+    useEffect(() => {
+        if (!preview) return;
+        const img = new Image();
+        img.decoding = "async";
+        img.loading = "eager";
+        img.src = preview;
+        img.onload = () => setPreviewReady(true);
+        img.onerror = () => setPreviewReady(false);
+        return () => {
+            img.onload = null;
+            img.onerror = null;
+        };
+    }, [preview, retryKey]);
+
+    useEffect(() => {
+        if (!full) return;
+        const img = new Image();
+        img.decoding = "async";
+        img.loading = "eager";
+        img.src = full;
+
+        img.onload = () => {
+            setFullReady(true);
+            setFailed(false);
+            onReady?.();
+        };
+        img.onerror = () => {
+            setFailed(true);
+        };
+
+        return () => {
+            img.onload = null;
+            img.onerror = null;
+        };
+    }, [full, retryKey, onReady]);
+
+    const showPreview = !!preview && (previewReady || !failed);
+    const showFull = !!full && fullReady && !failed;
+
+    return (
+        <div className="relative h-full w-full bg-black">
+            {showPreview && (
+                <img
+                    key={`p-${retryKey}`}
+                    src={preview!}
+                    alt={alt}
+                    className={cn(
+                        "absolute inset-0 h-full w-full object-contain",
+                        "scale-[1.02] blur-xl opacity-90",
+                        className
+                    )}
+                    draggable={false}
+                />
+            )}
+
+            {full && (
+                <img
+                    key={`f-${retryKey}`}
+                    src={full}
+                    alt={alt}
+                    className={cn(
+                        "absolute inset-0 h-full w-full object-contain transition-opacity duration-300",
+                        showFull ? "opacity-100" : "opacity-0",
+                        className
+                    )}
+                    draggable={false}
+                />
+            )}
+
+            {!showFull && !failed && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div className="rounded-full bg-black/40 p-4">
+                        <BouncingBallLoader />
+                    </div>
+                </div>
+            )}
+
+            {failed && (
+                <div className="absolute inset-0 grid place-items-center text-white/80">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="text-sm">Image failed to load</div>
+                        <button
+                            onClick={() => setRetryKey((k) => k + 1)}
+                            className="rounded-full bg-white px-4 py-2 text-xs font-bold text-black hover:bg-white/90"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function useFollowingCount(userId?: string) {
+    const [count, setCount] = useState(0);
+
+    useEffect(() => {
+        if (!userId) {
+            setCount(0);
+            return;
+        }
+        const qy = query(collection(db, "follows"), where("followerId", "==", userId));
+        const unsub = onSnapshot(
+            qy,
+            (snap) => setCount(snap.size),
+            () => setCount(0)
+        );
+        return () => unsub();
+    }, [userId]);
+
+    return count;
+}
+
+/* -------------------- time utils -------------------- */
+
+function toMillisSafe(v: any): number | null {
+    if (!v) return null;
+    if (typeof v?.toMillis === "function") return v.toMillis();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    if (typeof v === "number") return v > 10_000_000_000 ? v : v * 1000;
+
+    if (typeof v === "string") {
+        const ms = Date.parse(v);
+        return Number.isFinite(ms) ? ms : null;
+    }
+
+    if (v instanceof Date) return v.getTime();
+    return null;
+}
+
+function formatTimeAgoShort(ms: number): string {
+    const now = Date.now();
+    const diff = Math.max(0, now - ms);
+
+    const sec = Math.floor(diff / 1000);
+    if (sec < 10) return "now";
+    if (sec < 60) return `${sec}s`;
+
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+
+    const day = Math.floor(hr / 24);
+    if (day < 7) return `${day}d`;
+
+    const d = new Date(ms);
+    const yNow = new Date().getFullYear();
+    const sameYear = d.getFullYear() === yNow;
+
+    return d.toLocaleDateString(undefined, {
+        month: "short",
+        day: "2-digit",
+        ...(sameYear ? {} : { year: "numeric" }),
+    });
+}
+
+function formatAbsDateTime(ms: number): string {
+    return new Date(ms).toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
+/* -------------------- live author profile -------------------- */
+
+function useAuthorProfile(authorId?: string) {
+    const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
+
+    useEffect(() => {
+        if (!authorId) {
+            setProfile(null);
+            return;
+        }
+
+        const ref = doc(db, "users", authorId);
+        const unsub = onSnapshot(ref, (snap) => {
+            const data = snap.data() as any | undefined;
+            if (!data) return setProfile(null);
+            setProfile({ handle: data?.handle, photoURL: data?.photoURL });
+        });
+
+        return () => unsub();
+    }, [authorId]);
+
+    return profile;
+}
+
+/* -------------------- slide component -------------------- */
+
+type DeedSlideProps = {
+    item: Item;
+    isActive: boolean;
+    muted: boolean;
+    setMuted: React.Dispatch<React.SetStateAction<boolean>>;
+    uid?: string;
+    requireAuth: (fn: () => void) => void;
+    hasPrev: boolean;
+    hasNext: boolean;
+    onPrev: () => void;
+    onNext: () => void;
+    EKARI: { primary: string };
+    photoPaused: boolean;
+    audioAllowed: boolean;
+    fitMode: "contain" | "cover";
+};
+
+function DeedSlide({
+    item,
+    isActive,
+    muted,
+    setMuted,
+    uid,
+    requireAuth,
+    hasPrev,
+    hasNext,
+    onPrev,
+    onNext,
+    EKARI,
+    photoPaused,
+    audioAllowed,
+    fitMode,
+}: DeedSlideProps) {
+    const router = useRouter();
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const [ready, setReady] = useState(false);
+
+    useHls(videoRef, item.mediaType === "video" ? item.mediaUrl : undefined);
+
+    const authorProfile = useAuthorProfile(item.authorId);
+    const { liked, toggle: toggleLike } = useLiked(item.id, uid);
+    const { saved, toggle: toggleSave } = useSaved(item.id, uid);
+    const { following, toggle: toggleFollow } = useFollowAuthor(item.authorId, uid);
+
+    const isOwner = !!uid && item.authorId === uid;
+    const followingCount = useFollowingCount(item.authorId);
+
+    const avatar = authorProfile?.photoURL || item.authorPhotoURL || "/avatar-placeholder.png";
+
+    const music = item.music;
+    const isLibrarySound = music?.source === "library" && !!music?.coverUrl;
+
+    const soundLabel = isLibrarySound ? music?.title || "Library sound" : "Original sound";
+    const soundAvatar = isLibrarySound ? (music?.coverUrl as string) : avatar;
+
+    const createdAtMs =
+        toMillisSafe(item?.createdAt) ??
+        toMillisSafe(item?.createdAtMs) ??
+        toMillisSafe(item?.postedAt) ??
+        null;
+
+    const timeAgo = createdAtMs ? formatTimeAgoShort(createdAtMs) : "";
+    const timeTitle = createdAtMs ? formatAbsDateTime(createdAtMs) : "";
+
+    const handleToPath = (h?: string) =>
+        h ? `/${encodeURIComponent(h.startsWith("@") ? h : `@${h}`)}` : null;
+
+    const onViewProfileClick = (handle?: string) => {
+        const path = handleToPath(handle);
+        if (!path) return;
+        router.push(path);
+    };
+
+    useEffect(() => {
+        const v = videoRef.current;
+        if (!v || item.mediaType !== "video") return;
+        if (isActive) v.play().catch(() => { });
+        else v.pause();
+    }, [isActive, item.mediaType]);
+
+    const onShare = async () => {
+        const h =
+            (item.authorUsername as string | undefined) ||
+            (authorProfile?.handle as string | undefined) ||
+            "";
+        const handleWithAt = h ? (h.startsWith("@") ? h : `@${h}`) : "";
+        const url = `${location.origin}/${handleWithAt}/deed/${item.id}`;
+
+        try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: item.text || "ekarihub",
+                    text: item.text || "",
+                    url,
+                });
+            } else {
+                await navigator.clipboard.writeText(url);
+                alert("Link copied!");
+            }
+
+            const baseId = uid ?? getOrMakeDeviceId();
+            const sid = `${item.id}_${baseId}_${Date.now()}`;
+            const payload: any = { deedId: item.id, createdAt: serverTimestamp() };
+            if (uid) payload.userId = uid;
+            else payload.deviceId = baseId;
+            await setDoc(doc(db, "shares", sid), payload);
+        } catch { }
+    };
+
+    const preview = item.mediaType === "photo" ? guessPreview(item) : null;
+
+    return (
+        <div className="snap-start h-[100svh] flex items-center justify-center">
+            <div className="relative flex h-[100svh] w-[min(92vw,800px)] max-h-[100svh] max-w-[min(92vw,800px)] items-center justify-center">
+                {item.mediaType === "video" && item.mediaUrl ? (
+                    <video
+                        ref={videoRef}
+                        poster={item.posterUrl}
+                        preload="metadata"
+                        playsInline
+                        autoPlay
+                        muted={muted}
+                        loop
+                        controls={false}
+                        disablePictureInPicture
+                        controlsList="nodownload noremoteplayback"
+                        className="block h-full w-full bg-black object-contain"
+                        onLoadedMetadata={() => setReady(true)}
+                        onCanPlay={() => setReady(true)}
+                        onLoadedData={() => setReady(true)}
+                    />
+                ) : item.mediaType === "photo" && Array.isArray(item.media) ? (
+                    <PhotoSliderPlayer
+                        photos={(item.media || []).map((m: any) => ({
+                            url: m?.url || m,
+                            previewUrl: m?.previewUrl || m?.thumbUrl || null,
+                        }))}
+                        audioUrl={(item as any)?.music?.url || (item as any)?.musicUrl || undefined}
+                        intervalMs={3000}
+                        paused={photoPaused}
+                        muted={muted}
+                        audioAllowed={audioAllowed}
+                        fit={fitMode}
+                        onFirstLoad={() => {
+                            setReady(true);
+                        }}
+                        onLoadError={() => {
+                            setReady(true);
+                        }}
+                    />
+                ) : item.mediaType === "photo" && item.mediaUrl ? (
+                    <ProgressiveImg
+                        src={item.mediaUrl}
+                        previewSrc={preview}
+                        alt={item.text || "photo"}
+                        className="object-contain"
+                        onReady={() => setReady(true)}
+                    />
+                ) : (
+                    <div className="grid h-full w-full place-items-center text-white/70">
+                        No media
+                    </div>
+                )}
+
+                {!ready && item.mediaType === "video" && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <div className="rounded-full bg-black/40 p-4">
+                            <BouncingBallLoader />
+                        </div>
+                    </div>
+                )}
+
+                <button
+                    onClick={() => setMuted((m) => !m)}
+                    className="absolute left-3 top-10 rounded-full bg-white/10 p-2 hover:bg-black/80 z-30"
+                    aria-label={muted ? "Unmute" : "Mute"}
+                >
+                    {muted ? <IoVolumeMute /> : <IoVolumeHigh />}
+                </button>
+
+                {ready && item && !isOwner && (
+                    <div className="absolute right-3 top-1/2 z-20 -translate-y-1/2 pb-[env(safe-area-inset-bottom)] flex flex-col items-center gap-3">
+                        <button
+                            onClick={() => requireAuth(toggleLike)}
+                            className="grid place-items-center rounded-full bg-white/10 p-3 hover:bg-white/20"
+                            title={liked ? "Unlike" : "Like"}
+                            aria-pressed={liked}
+                        >
+                            {liked ? <IoHeart className="text-red-500" /> : <IoHeartOutline />}
+                            {!!item?.stats?.likes && (
+                                <span className="mt-1 text-[11px] text-white/80">{nfmt(item.stats.likes)}</span>
+                            )}
+                        </button>
+
+                        <button
+                            onClick={() => requireAuth(toggleSave)}
+                            className="grid place-items-center rounded-full bg-white/10 p-3 hover:bg-white/20"
+                            title={saved ? "Unsave" : "Save"}
+                            aria-pressed={saved}
+                        >
+                            {saved ? <IoBookmark /> : <IoBookmarkOutline />}
+                        </button>
+
+                        <button
+                            onClick={onShare}
+                            className="grid place-items-center rounded-full bg-white/10 p-3 hover:bg-white/20"
+                            title="Share"
+                        >
+                            <IoShareOutline />
+                        </button>
+                    </div>
+                )}
+
+                {isActive && (
+                    <div className="absolute right-3 top-20 -translate-y-1/2 flex flex-col gap-2 z-30">
+                        <button
+                            onClick={onPrev}
+                            disabled={!hasPrev}
+                            className="rounded-full bg-white/10 p-2 hover:bg-white/20 disabled:opacity-30"
+                            aria-label="Previous"
+                        >
+                            <IoChevronUp size={20} />
+                        </button>
+                        <button
+                            onClick={onNext}
+                            disabled={!hasNext}
+                            className="rounded-full bg-white/10 p-2 hover:bg-white/20 disabled:opacity-30"
+                            aria-label="Next"
+                        >
+                            <IoChevronDown size={20} />
+                        </button>
+                    </div>
+                )}
+
+                {isOwner && (
+                    <Link
+                        href={`/studio/analytics/${item.id}`}
+                        className="absolute right-3 bottom-2 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 font-bold text-black shadow-lg hover:bg-white/90"
+                        title="View analytics"
+                    >
+                        <IoBarChartOutline size={18} />
+                        Analytics
+                    </Link>
+                )}
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                    <div className="max-w-[90%]">
+                        <div className="flex items-center gap-2 mb-1">
+                            <div
+                                onClick={() => onViewProfileClick(item.authorUsername)}
+                                className={cn(
+                                    "h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0",
+                                    item.authorUsername ? "cursor-pointer" : "cursor-default"
+                                )}
+                            >
+                                <img
+                                    src={avatar}
+                                    alt={item.authorUsername || item.authorId || "author"}
+                                    className="h-full w-full object-cover"
+                                />
+                            </div>
+
+                            <div
+                                onClick={() => onViewProfileClick(item.authorUsername)}
+                                className="cursor-pointer min-w-0 flex flex-col"
+                            >
+                                <div className="text-white/95 font-bold text-sm truncate">
+                                    {item.authorUsername ? `${item.authorUsername}` : (item.authorId ?? "").slice(0, 6)}
+                                </div>
+
+                                <AuthorBadgePill badge={(item as any).authorBadge} />
+
+                                {(followingCount > 0 || timeAgo) && (
+                                    <div className="text-white/70 text-[11px] flex items-center gap-2">
+                                        <span title={`${followingCount} following`}>{nfmt(followingCount)} Following</span>
+
+                                        {timeAgo && (
+                                            <>
+                                                <span className="opacity-60">•</span>
+                                                <span title={timeTitle} className="opacity-90">
+                                                    {timeAgo}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {ready && item && !isOwner && (
+                                <button
+                                    onClick={() => requireAuth(toggleFollow)}
+                                    title={following ? "Following" : "Follow"}
+                                    className={[
+                                        "pointer-events-auto rounded-full px-3 py-1 text-xs font-bold transition",
+                                        following ? "bg-white border hover:bg-[rgba(199,146,87,0.08)]" : "text-white hover:opacity-90",
+                                    ].join(" ")}
+                                    style={
+                                        following ? { borderColor: EKARI.primary, color: EKARI.primary } : { backgroundColor: EKARI.primary }
+                                    }
+                                >
+                                    {following ? "Following" : "Follow"}
+                                </button>
+                            )}
+                        </div>
+
+                        {!!item.text && <p className="text-sm leading-5 text-white/95 line-clamp-3">{item.text}</p>}
+
+                        <div className="mt-1 flex items-center gap-2">
+                            {isLibrarySound && (
+                                <div className="h-5 w-5 rounded-full overflow-hidden bg-black/40 flex-shrink-0">
+                                    <img src={soundAvatar} alt={soundLabel} className="h-full w-full object-cover" />
+                                </div>
+                            )}
+                            <div className="flex items-center gap-1 text-[11px] text-white/85 min-w-0">
+                                <IoMusicalNotesOutline className="flex-shrink-0" size={14} />
+                                <span className="truncate max-w-[180px] sm:max-w-[220px]">{soundLabel}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* -------------------- main page -------------------- */
+
+export default function PlayerByHandlePage() {
+    const router = useRouter();
+    const isMobile = useIsMobile();
+
+    const params = useParams() as {
+        handle?: string;
+        deedid?: string;
+
+    };
+
+    const rawHandle = params?.handle ?? "";
+    const decoded = (() => {
+        try {
+            return decodeURIComponent(rawHandle);
+        } catch {
+            return rawHandle;
+        }
+    })();
+
+    const handleWithAt = decoded.startsWith("@") ? decoded : `@${decoded}`;
+    const deedId = params.deedid || "";
+
+    const [siblings, setSiblings] = useState<Item[]>([]);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [initialIndex, setInitialIndex] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [muted, setMuted] = useState(true);
+
+    const [showRail, setShowRail] = useState(false);
+    useEffect(() => {
+        setShowRail(isMobile ? false : true);
+    }, [isMobile]);
+
+    const scrollRef = useRef<HTMLDivElement | null>(null);
+    const scrollRaf = useRef<number | null>(null);
+
+    const { user } = useAuth();
+    const uid = user?.uid;
+    const profile = useUserProfile(uid);
+    const prefs = useUserPrefs(uid);
+
+    const EKARI = { primary: "#C79257" };
+    const [neighborPreloadRange, setNeighborPreloadRange] = useState(1);
+    const [audioAllowed, setAudioAllowed] = useState(false);
+    const [fitMode] = useState<"contain" | "cover">("contain");
+
+    const [authorId, setAuthorId] = useState<string | null>(null);
+    const [lastCursor, setLastCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+
+    useEffect(() => {
+        let base = 1;
+        try {
+            const navAny = navigator as any;
+            const conn = navAny?.connection || navAny?.mozConnection || navAny?.webkitConnection;
+            const type: string | undefined = conn?.type;
+            const effectiveType: string | undefined = conn?.effectiveType;
+            if (type === "wifi" || effectiveType === "4g") base = 2;
+            else base = 1;
+        } catch {
+            base = 1;
+        }
+        if (!uid) base = Math.min(base, 1);
+        if (prefs?.dataSaverVideos) base = Math.max(0, base - 1);
+        const clamped = Math.max(0, Math.min(3, base));
+        setNeighborPreloadRange(clamped);
+    }, [uid, prefs?.dataSaverVideos]);
+
+    const requireAuth = (fn: () => void) => {
+        if (!uid) {
+            router.push(`/getstarted?next=${encodeURIComponent(location.pathname)}`);
+            return;
+        }
+        fn();
+    };
+
+    const makeDeedsQuery = useCallback(
+        (authorUid: string, cursor?: QueryDocumentSnapshot<DocumentData> | null) => {
+            const base = [
+                where("authorId", "==", authorUid),
+                where("visibility", "==", "public"),
+                where("status", "==", "ready"),
+                orderBy("createdAt", "desc"),
+                limit(PAGE_SIZE),
+            ] as any[];
+
+            return cursor
+                ? query(collection(db, "deeds"), ...base.slice(0, -1), startAfter(cursor), limit(PAGE_SIZE))
+                : query(collection(db, "deeds"), ...base);
+        },
+        []
+    );
+
+    const loadMore = useCallback(async () => {
+        if (!authorId || !hasMore || loadingMore) return;
+
+        try {
+            setLoadingMore(true);
+
+            const qy = makeDeedsQuery(authorId, lastCursor);
+            const snap = await getDocs(qy);
+
+            const docs = snap.docs;
+            const items = docs.map((d) => toPlayerItem(d.data(), d.id));
+
+            setSiblings((prev) => {
+                const seen = new Set(prev.map((x) => x.id));
+                const merged = [...prev];
+                for (const it of items) {
+                    if (!seen.has(it.id)) merged.push(it);
+                }
+                return merged;
+            });
+
+            setLastCursor(docs.length ? docs[docs.length - 1] : lastCursor);
+            if (docs.length < PAGE_SIZE) setHasMore(false);
+        } catch (err) {
+            console.error("loadMore deeds error:", err);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [authorId, hasMore, lastCursor, loadingMore, makeDeedsQuery]);
+
+    useEffect(() => {
+        let active = true;
+
+        (async () => {
+            if (!handleWithAt || !deedId) return;
+
+            setLoading(true);
+            setSiblings([]);
+            setActiveIndex(0);
+            setInitialIndex(0);
+            setAuthorId(null);
+            setLastCursor(null);
+            setHasMore(true);
+            setLoadingMore(false);
+
+            try {
+                const snap = await getDoc(doc(db, "deeds", deedId));
+                if (!active) return;
+
+                if (!snap.exists()) {
+                    setSiblings([]);
+                    setLoading(false);
+                    return;
+                }
+
+                const current = toPlayerItem(snap.data(), snap.id);
+                const d = snap.data() as any;
+
+                const isOwner = uid && d?.authorId === uid;
+                const isPublic = d?.visibility === "public";
+                const isReady = d?.status === "ready";
+
+                if (!isOwner && (!isPublic || !isReady)) {
+                    setSiblings([]);
+                    setLoading(false);
+                    return;
+                }
+
+                const routeRes = await resolveUidByHandle(handleWithAt);
+                const routeUid = routeRes?.uid;
+
+                if (routeUid && current.authorId !== routeUid) {
+                    try {
+                        const u = await getDoc(doc(db, "users", current.authorId));
+                        const h = (u.data() as any)?.handle as string | undefined;
+                        if (h && h.length) {
+                            const authorHandle = h.startsWith("@") ? h : `@${h}`;
+                            router.replace(`/${encodeURIComponent(authorHandle)}/deed/${encodeURIComponent(deedId)}`);
+                            return;
+                        }
+                    } catch { }
+                }
+
+                setAuthorId(current.authorId);
+
+                const loaded: Item[] = [];
+                const seen = new Set<string>();
+                let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+                let foundIndex = -1;
+                let more = true;
+                let guard = 0;
+
+                while (active && more && foundIndex === -1 && guard < 20) {
+                    guard += 1;
+
+                    const qy = makeDeedsQuery(current.authorId, cursor);
+                    const pageSnap = await getDocs(qy);
+
+                    const docs = pageSnap.docs;
+                    const pageItems = docs.map((x) => toPlayerItem(x.data(), x.id));
+
+                    for (const it of pageItems) {
+                        if (!seen.has(it.id)) {
+                            seen.add(it.id);
+                            loaded.push(it);
+                        }
+                    }
+
+                    foundIndex = loaded.findIndex((x) => x.id === deedId);
+                    cursor = docs.length ? docs[docs.length - 1] : cursor;
+                    more = docs.length === PAGE_SIZE;
+                }
+
+                if (foundIndex === -1) {
+                    loaded.unshift(current);
+                    foundIndex = 0;
+                }
+
+                if (!active) return;
+
+                setSiblings(loaded);
+                setInitialIndex(foundIndex);
+                setActiveIndex(foundIndex);
+                setLastCursor(cursor);
+                setHasMore(more);
+                setLoading(false);
+            } catch (err) {
+                console.error("Error loading deed siblings:", err);
+                if (!active) return;
+                setSiblings([]);
+                setLoading(false);
+            }
+        })();
+
+        return () => {
+            active = false;
+        };
+    }, [handleWithAt, deedId, router, uid, makeDeedsQuery]);
+
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el || !siblings.length) return;
+        const h = el.clientHeight || window.innerHeight;
+        el.scrollTo({ top: initialIndex * h, behavior: "auto" });
+    }, [initialIndex, siblings.length]);
+
+    const maybeLoadMoreNearBottom = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el || !hasMore || loadingMore) return;
+
+        const remaining = el.scrollHeight - (el.scrollTop + el.clientHeight);
+        const threshold = el.clientHeight * 1.5;
+
+        if (remaining <= threshold) {
+            loadMore();
+        }
+    }, [hasMore, loadingMore, loadMore]);
+
+    const handleScroll = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el || !siblings.length) return;
+        const h = el.clientHeight || window.innerHeight;
+        if (!h) return;
+
+        const rawIndex = el.scrollTop / h;
+        const nextIdx = Math.round(rawIndex);
+
+        if (nextIdx !== activeIndex && nextIdx >= 0 && nextIdx < siblings.length) {
+            setActiveIndex(nextIdx);
+        }
+
+        maybeLoadMoreNearBottom();
+    }, [activeIndex, siblings.length, maybeLoadMoreNearBottom]);
+
+    const onScroll = useCallback(() => {
+        if (scrollRaf.current != null) cancelAnimationFrame(scrollRaf.current);
+        scrollRaf.current = window.requestAnimationFrame(handleScroll);
+    }, [handleScroll]);
+
+    useEffect(() => {
+        return () => {
+            if (scrollRaf.current != null) cancelAnimationFrame(scrollRaf.current);
+        };
+    }, []);
+
+    const scrollToIndex = useCallback((index: number) => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const h = el.clientHeight || window.innerHeight;
+        el.scrollTo({ top: index * h, behavior: "smooth" });
+    }, []);
+
+    const goPrev = useCallback(() => {
+        if (activeIndex > 0) scrollToIndex(activeIndex - 1);
+    }, [activeIndex, scrollToIndex]);
+
+    const goNext = useCallback(async () => {
+        if (activeIndex < siblings.length - 1) {
+            scrollToIndex(activeIndex + 1);
+            return;
+        }
+
+        if (hasMore && !loadingMore) {
+            await loadMore();
+
+            setTimeout(() => {
+                const nextIndex = activeIndex + 1;
+                if (nextIndex < (scrollRef.current?.children.length || 0)) {
+                    scrollToIndex(nextIndex);
+                }
+            }, 60);
+        }
+    }, [activeIndex, siblings.length, hasMore, loadingMore, loadMore, scrollToIndex]);
+
+    useEffect(() => {
+        if (isMobile) return;
+
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "ArrowUp") {
+                e.preventDefault();
+                goPrev();
+            } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                goNext();
+            } else if (e.key === "Escape") {
+                setShowRail((v) => {
+                    if (v) return false;
+                    router.back();
+                    return v;
+                });
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [goPrev, goNext, router, isMobile]);
+
+    const currentItem = siblings[activeIndex];
+
+    if (loading && !currentItem) {
+        return (
+            <div className="fixed inset-0 flex items-center justify-center bg-black text-white/80">
+                <BouncingBallLoader />
+            </div>
+        );
+    }
+
+    if (!currentItem) {
+        return (
+            <div className="fixed inset-0 flex items-center justify-center bg-black text-white/80">
+                Deed not found.
+            </div>
+        );
+    }
+
+    const h = String(handleWithAt ?? "").trim();
+    const normalized = h.startsWith("@") ? h : `@${h}`;
+    const webUrl =
+        typeof window !== "undefined"
+            ? window.location.href
+            : `https://ekarihub.com/${encodeURIComponent(normalized)}/deed/${encodeURIComponent(deedId)}`;
+
+    const appUrl = `ekarihub:///${encodeURIComponent(normalized)}/deed/${encodeURIComponent(deedId)}`;
+
+    return (
+        <div
+            className="fixed inset-0 bg-black text-white"
+            onPointerDown={() => setAudioAllowed(true)}
+            onTouchStart={() => setAudioAllowed(true)}
+            onClick={() => setAudioAllowed(true)}
+        >
+            <OpenInAppBanner
+                webUrl={webUrl}
+                appUrl={appUrl}
+                title="Open this deed in ekarihub"
+                subtitle="Faster loading, messaging, and full features."
+                playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+                appStoreUrl="https://apps.apple.com"
+            />
+
+            <div
+                className="absolute left-0 right-0 top-0 z-50 flex items-center justify-between px-3"
+                style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)" }}
+            >
+                <button
+                    onClick={() => router.back()}
+                    aria-label="Back"
+                    className="rounded-full p-2 hover:bg-white/20"
+                    title="Back"
+                >
+                    <IoArrowBack size={22} />
+                </button>
+
+                <button
+                    onClick={() => setShowRail((v) => !v)}
+                    aria-label={showRail ? "Hide activity panel" : "Show activity panel"}
+                    className="rounded-full p-2 hover:bg-white/20 mr-5"
+                    title={showRail ? "Hide" : "Comments"}
+                >
+                    {showRail ? <IoClose size={22} /> : <IoChatbubbleOutline size={22} />}
+                </button>
+            </div>
+
+            <div className={cn("grid h-full w-full", showRail ? "lg:grid-cols-[minmax(0,1fr)_420px]" : "lg:grid-cols-1")}>
+                <div
+                    ref={scrollRef}
+                    className="relative flex h-full min-h-0 flex-col items-stretch justify-start overflow-y-scroll snap-y snap-mandatory scroll-smooth"
+                    onScroll={onScroll}
+                    style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+                >
+                    {siblings.map((it, index) => (
+                        <DeedSlide
+                            key={it.id}
+                            item={it}
+                            isActive={index === activeIndex}
+                            muted={muted}
+                            setMuted={setMuted}
+                            uid={uid}
+                            requireAuth={requireAuth}
+                            hasPrev={activeIndex > 0}
+                            hasNext={activeIndex < siblings.length - 1 || hasMore}
+                            onPrev={goPrev}
+                            onNext={goNext}
+                            EKARI={EKARI}
+                            photoPaused={index !== activeIndex}
+                            audioAllowed={audioAllowed}
+                            fitMode={fitMode}
+                        />
+                    ))}
+
+                    {loadingMore && (
+                        <div className="snap-start h-[30vh] flex items-center justify-center">
+                            <BouncingBallLoader />
+                        </div>
+                    )}
+                </div>
+
+                {!isMobile && showRail && (
+                    <aside className="hidden lg:flex flex-col overflow-y-hidden border-l border-gray-200 bg-white text-gray-900">
+                        <RightRail
+                            open={true}
+                            mode="sidebar"
+                            deedId={currentItem.id}
+                            onClose={() => { setShowRail(false); }}
+                            currentUser={profile}
+                            className="!h-[100vh] !border-0 bg-white text-gray-900"
+                        />
+                    </aside>
+                )}
+
+                {isMobile && (
+                    <RightRail
+                        open={showRail}
+                        mode="sheet"
+                        deedId={currentItem.id}
+                        onClose={() => setShowRail(false)}
+                        currentUser={profile}
+                        className="bg-white text-gray-900"
+                    />
+                )}
+            </div>
+
+            <AdjacentPreloadWeb siblings={siblings} activeIndex={activeIndex} neighborRange={neighborPreloadRange} />
+        </div>
+    );
+}
+
+/* -------------------- helpers: device id + hooks -------------------- */
+
+function getOrMakeDeviceId(): string {
+    const k = "__ekari_device_id__";
+    try {
+        let v: any = localStorage.getItem(k);
+        if (!v || v.length < 16) {
+            v =
+                (typeof crypto !== "undefined" && (crypto as any)?.randomUUID?.()) ??
+                (Math.random().toString(36).slice(2) + Date.now().toString(36));
+            if (v.length < 16) v = v.padEnd(16, "x");
+            localStorage.setItem(k, v);
+        }
+        return v;
+    } catch {
+        return "anon_device_" + Math.random().toString(36).slice(2).padEnd(16, "x");
+    }
+}
+
+function useUserProfile(uid?: string) {
+    const [profile, setProfile] = useState<any | null>(null);
+
+    useEffect(() => {
+        if (!uid) {
+            setProfile(null);
+            return;
+        }
+        const ref = doc(db, "users", uid);
+        const unsub = onSnapshot(ref, (snap) => {
+            const data = snap.data() as any | undefined;
+            setProfile({
+                uid,
+                handle: data?.handle,
+                photoURL: data?.photoURL ?? null,
+            });
+        });
+        return () => unsub();
+    }, [uid]);
+
+    return profile;
+}
+
+function useUserPrefs(uid?: string) {
+    const [prefs, setPrefs] = useState<{ dataSaverVideos?: boolean } | null>(null);
+
+    useEffect(() => {
+        if (!uid) {
+            setPrefs(null);
+            return;
+        }
+        const ref = doc(db, "users", uid);
+        const unsub = onSnapshot(ref, (snap) => {
+            const data = snap.data() as any | undefined;
+            setPrefs({ dataSaverVideos: !!data?.dataSaverVideos });
+        });
+        return () => unsub();
+    }, [uid]);
+
+    return prefs;
+}
+
+function useLiked(deedId?: string, uid?: string) {
+    const likeId = uid && deedId ? `${deedId}_${uid}` : undefined;
+    const [liked, setLiked] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!likeId) {
+            setLiked(false);
+            return;
+        }
+        return onSnapshot(doc(db, "likes", likeId), (s) => setLiked(s.exists()));
+    }, [likeId]);
+
+    const toggle = async () => {
+        if (!uid || !deedId || !likeId) return;
+        const ref = doc(db, "likes", likeId);
+        const s = await getDoc(ref);
+        if (s.exists()) await deleteDoc(ref);
+        else await setDoc(ref, { deedId, userId: uid, createdAt: serverTimestamp() });
+    };
+
+    return { liked, toggle };
+}
+
+function useSaved(deedId?: string, uid?: string) {
+    const bookmarkId = uid && deedId ? `${deedId}_${uid}` : undefined;
+    const [saved, setSaved] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!bookmarkId) {
+            setSaved(false);
+            return;
+        }
+        return onSnapshot(doc(db, "bookmarks", bookmarkId), (s) => setSaved(s.exists()));
+    }, [bookmarkId]);
+
+    const toggle = async () => {
+        if (!uid || !deedId || !bookmarkId) return;
+        const ref = doc(db, "bookmarks", bookmarkId);
+        const s = await getDoc(ref);
+        if (s.exists()) await deleteDoc(ref);
+        else await setDoc(ref, { deedId, userId: uid, createdAt: serverTimestamp() });
+    };
+
+    return { saved, toggle };
+}
+
+function useFollowAuthor(authorId?: string, uid?: string) {
+    const docId = uid && authorId ? `${uid}_${authorId}` : undefined;
+    const [following, setFollowing] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!docId) {
+            setFollowing(false);
+            return;
+        }
+        return onSnapshot(doc(db, "follows", docId), (s) => setFollowing(s.exists()));
+    }, [docId]);
+
+    const toggle = async () => {
+        if (!uid || !authorId || !docId || uid === authorId) return;
+        const ref = doc(db, "follows", docId);
+        const s = await getDoc(ref);
+        if (s.exists()) await deleteDoc(ref);
+        else
+            await setDoc(ref, {
+                followerId: uid,
+                followingId: authorId,
+                createdAt: serverTimestamp(),
+            });
+    };
+
+    return { following, toggle };
+}

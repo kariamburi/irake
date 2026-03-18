@@ -83,8 +83,15 @@ export default function LoginPage() {
             const snap = await getDoc(doc(db, "users", uid));
 
             if (!snap.exists()) {
-                await auth.signOut();
-                setErrorMsg("User does not exist. Please sign up first.");
+                if (user) {
+
+                    router.replace("/onboarding");
+                } else {
+                    await auth.signOut();
+                    setErrorMsg("User does not exist. Please sign up first.");
+
+                }
+
                 return false;
             }
 

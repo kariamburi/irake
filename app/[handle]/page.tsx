@@ -660,7 +660,7 @@ function ProfileHeroStorefront({
                 </Link>
 
                 <Link
-                  href="/nexus/event/saved"
+                  href="/nexus/events/saved"
                   className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]"
                   style={{ color: EKARI.text, borderColor: EKARI.hair }}
                 >
@@ -2053,7 +2053,7 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
               >
                 <div className="flex items-start gap-3">
                   <button
-                    onClick={() => router.push(`/nexus/event/${e.id}`)}
+                    onClick={() => router.push(`/nexus/events/${e.id}`)}
                     className="flex-1 min-w-0 text-left"
                   >
                     <div className="flex items-start gap-3">
@@ -2334,7 +2334,7 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
                 className="border border-gray-200 rounded-xl bg-white shadow-sm p-4"
               >
                 <button
-                  onClick={() => router.push(`/nexus/discussion/${item.id}`)}
+                  onClick={() => router.push(`/nexus/discussions/${item.id}`)}
                   className="block w-full text-left"
                 >
                   <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">
