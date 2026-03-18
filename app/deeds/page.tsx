@@ -1,6 +1,15 @@
 // app/deeds/page.tsx
 import type { Metadata } from "next";
-import HomeFeedClientPage from "../HomeFeedClientPage";
+import dynamic from "next/dynamic";
+
+const HomeFeedClientPage = dynamic(() => import("../HomeFeedClientPage"), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-screen flex items-center justify-center">
+      Loading deeds...
+    </div>
+  ),
+});
 
 export const metadata: Metadata = {
   title: "Deeds | ekarihub",
