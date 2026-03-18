@@ -1,7 +1,7 @@
 // app/nexus/events/page/[n]/page.tsx
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import EventsArchivePage, { generateEventsArchiveMetadata } from "../../../EventsArchivePage";
+import EventsArchivePage, { generateEventsArchiveMetadata } from "../../EventsArchivePage";
 
 export const dynamic = "force-dynamic";
 
