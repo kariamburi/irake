@@ -83,21 +83,12 @@ export default function LoginPage() {
             const snap = await getDoc(doc(db, "users", uid));
 
             if (!snap.exists()) {
-                if (user) {
-
-                    router.replace("/onboarding");
-                } else {
-                    await auth.signOut();
-                    setErrorMsg("User does not exist. Please sign up first.");
-
-                }
-
+                router.replace("/onboarding");
                 return false;
             }
 
             return true;
-        } catch {
-            // safer to sign out if we can't verify existence
+        } catch (error) {
             await auth.signOut();
             setErrorMsg("Could not verify account. Please try again.");
             return false;
@@ -159,6 +150,14 @@ export default function LoginPage() {
         };
     }, [user, authLoading, postAuthChecking, router, safeNext]);
 
+    const checkUserDoc = async (uid: string) => {
+        try {
+            const snap = await getDoc(doc(db, "users", uid));
+            return snap.exists();
+        } catch {
+            return null; // verification failed
+        }
+    };
     const handleLoginEmail = async () => {
         if (!isValid || loadingEmail || authLoading || !authBundle) return;
         const { auth } = authBundle;
@@ -176,10 +175,21 @@ export default function LoginPage() {
                 return;
             }
 
-            const ok = await ensureUserDocOrSignOut(uid);
-            if (!ok) return;
+            const exists = await checkUserDoc(uid);
 
-            // ✅ user doc exists → allow redirect useEffect to run
+            if (exists === null) {
+                await auth.signOut();
+                setErrorMsg("Could not verify account. Please try again.");
+                return;
+            }
+
+            if (!exists) {
+                await auth.signOut();
+                setErrorMsg("User profile is missing. Please sign up again or contact support.");
+                return;
+            }
+
+            router.replace(safeNext || "/");
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));
         } finally {
@@ -187,7 +197,6 @@ export default function LoginPage() {
             setLoadingEmail(false);
         }
     };
-
     const continueWithPhone = () => router.push("/phone-login");
 
     const continueWithGoogle = async () => {
@@ -437,13 +446,23 @@ export default function LoginPage() {
 
                     <div className="mt-4 text-[11px] text-center text-slate-400">
                         By continuing, you agree to ekarihub&apos;s{" "}
-                        <span className="underline underline-offset-2 cursor-pointer">
+                        <Link
+                            href="/terms"
+                            className="underline underline-offset-2 cursor-pointer"
+                            style={{ color: EKARI.forest }}
+                        >
                             terms
-                        </span>{" "}
+                        </Link>{" "}
+
                         and{" "}
-                        <span className="underline underline-offset-2 cursor-pointer">
+                        <Link
+                            href="/privacy"
+                            className="underline underline-offset-2 cursor-pointer"
+                            style={{ color: EKARI.forest }}
+                        >
                             privacy policy
-                        </span>
+                        </Link>
+
                         .
                     </div>
                 </motion.div>
