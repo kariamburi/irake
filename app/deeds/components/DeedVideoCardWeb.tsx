@@ -496,8 +496,8 @@ export function DeedVideoCardWeb({
                     )}
                 </div>
 
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 hidden md:block">
-                    <div className="pointer-events-auto px-4 pb-0">
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
+                    <div className="pointer-events-auto px-4 pb-[50px] lg:pb-0">
                         <div className="rounded-2xl bg-transparent px-2 py-1">
                             <div className="flex items-center gap-2">
                                 {hasInDeedAudio ? (
@@ -505,7 +505,7 @@ export function DeedVideoCardWeb({
                                         <button
                                             type="button"
                                             onClick={toggleMute}
-                                            className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full bg-black/20 text-white backdrop-blur-sm transition hover:bg-black/30"
+                                            className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full text-white transition hover:bg-black/30"
                                             aria-label={muted ? "Unmute audio" : "Mute audio"}
                                             title={muted ? "Unmute" : "Mute"}
                                         >

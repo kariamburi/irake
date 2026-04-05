@@ -271,7 +271,7 @@ export function DeedOverlayWeb({
                             : "p-4 pb-20 pr-[58px] md:pb-10"
                     )}
                 >
-                    <div className="pointer-events-auto max-w-[min(560px,calc(100%-24px))] text-white">
+                    <div className="pointer-events-auto mb-2 lg:mb-0 max-w-[min(560px,calc(100%-24px))] text-white">
                         <div className="mb-2 flex items-center gap-2">
                             <div
                                 onClick={() => onViewProfileClick()}

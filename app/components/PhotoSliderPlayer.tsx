@@ -420,7 +420,7 @@ export function PhotoSliderPlayer({
 
             {/* progress bars */}
             {showProgress && count > 1 && (
-                <div className="absolute left-3 right-3 bottom-3 z-40 pointer-events-none">
+                <div className="absolute left-3 right-3 bottom-20 lg:bottom-3 z-40 pointer-events-none">
                     <div className="flex items-center gap-1.5">
                         {photos.map((_, i) => {
                             const done = i < index;

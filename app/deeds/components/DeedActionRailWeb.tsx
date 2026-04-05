@@ -89,10 +89,10 @@ function ActionButton({
                             boxShadow: "0 4px 14px rgba(17,24,39,0.06)",
                         }
                         : {
-                            background: "rgba(0,0,0,0.34)",
-                            backdropFilter: "blur(10px)",
-                            boxShadow:
-                                "0 10px 24px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.06)",
+                            // background: "rgba(0,0,0,0.34)",
+                            // backdropFilter: "blur(10px)",
+                            // boxShadow:
+                            //    "0 10px 24px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.06)",
                         }
                 }
             >
@@ -100,7 +100,7 @@ function ActionButton({
             </div>
 
             <span
-                className="select-none text-[10px] font-extrabold leading-none tracking-[0.01em] md:text-[13px]"
+                className="select-none text-[13px] font-extrabold leading-none tracking-[0.01em] md:text-[13px]"
                 style={
                     isDesktop
                         ? {
@@ -157,9 +157,9 @@ export function DeedActionRailWeb({
                 variant={variant}
                 icon={
                     liked ? (
-                        <IoHeart size={24} style={iconStyle(true)} />
+                        <IoHeart size={28} style={iconStyle(true)} />
                     ) : (
-                        <IoHeart size={24} style={iconStyle(false)} />
+                        <IoHeart size={28} style={iconStyle(false)} />
                     )
                 }
             />
@@ -170,7 +170,7 @@ export function DeedActionRailWeb({
                 onClick={onOpenComments}
                 title="Comments"
                 variant={variant}
-                icon={<IoChatbubble size={23} style={iconStyle(commented)} />}
+                icon={<IoChatbubble size={28} style={iconStyle(commented)} />}
             />
 
             <ActionButton
@@ -179,7 +179,7 @@ export function DeedActionRailWeb({
                 onClick={onShare}
                 title="Share"
                 variant={variant}
-                icon={<IoArrowRedo size={24} style={iconStyle(false)} />}
+                icon={<IoArrowRedo size={28} style={iconStyle(false)} />}
             />
 
             <ActionButton
@@ -190,9 +190,9 @@ export function DeedActionRailWeb({
                 variant={variant}
                 icon={
                     saved ? (
-                        <IoBookmark size={23} style={iconStyle(true)} />
+                        <IoBookmark size={28} style={iconStyle(true)} />
                     ) : (
-                        <IoBookmark size={23} style={iconStyle(false)} />
+                        <IoBookmark size={28} style={iconStyle(false)} />
                     )
                 }
             />
