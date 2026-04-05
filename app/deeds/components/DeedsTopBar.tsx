@@ -126,8 +126,18 @@ export function DeedsTopBar({
                     </div>
                 ) : (
                     <div className="flex h-[58px] items-center justify-between px-4">
-                        <div className="w-12" />
 
+                        <button
+                            type="button"
+                            onClick={onOpenDive}
+                            className="flex h-10 items-center gap-2 rounded-full bg-black/28 px-2 text-white backdrop-blur-md"
+                            aria-label="Dive"
+                        >
+                            <IoCompassOutline size={19} />
+                            <span className="text-[12px] font-bold tracking-[0.01em]">
+                                Dive
+                            </span>
+                        </button>
                         <div className="flex items-center gap-7">
                             {TABS.map((k) => {
                                 const isActive = activeTab === k;
