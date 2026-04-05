@@ -275,7 +275,11 @@ export function FeedShell({
     const desktopRailOpen = isDesktop && !!commentsId;
     const canGoPrev = activeIndex > 0;
     const canGoNext = activeIndex < currentFeed.items.length - 1;
+    const loadingMoreRef = useRef(false);
 
+    useEffect(() => {
+        loadingMoreRef.current = !!currentFeed.loadingMore;
+    }, [currentFeed.loadingMore]);
     return (
         <GlobalMuteProviderWeb initialMuted={true}>
             <div className="relative h-[100svh] w-full overflow-hidden text-white">
@@ -287,7 +291,7 @@ export function FeedShell({
                                 <section
                                     ref={scrollerRef}
                                     tabIndex={0}
-                                    className="h-[100svh] w-full overflow-y-scroll scroll-smooth outline-none no-scrollbar lg:w-[420px] xl:w-[460px]"
+                                    className="h-[100svh] w-full overflow-y-scroll outline-none no-scrollbar lg:w-[420px] xl:w-[460px]"
                                     style={{
                                         scrollSnapType: "y mandatory",
                                         overscrollBehaviorY: "contain",
@@ -349,7 +353,8 @@ export function FeedShell({
                                             loading={currentFeed.loading}
                                             onNeedMore={(index) => {
                                                 const remaining = currentFeed.items.length - 1 - index;
-                                                if (remaining <= 4) {
+
+                                                if (remaining <= 4 && !loadingMoreRef.current && currentFeed.hasMore) {
                                                     feed.loadMore(feed.activeTab);
                                                 }
                                             }}

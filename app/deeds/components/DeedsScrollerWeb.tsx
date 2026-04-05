@@ -66,11 +66,11 @@ export function DeedsScrollerWeb({
         if (!items.length) return;
         if (cardH <= 0) return;
 
+        // ONLY run on first mount OR when initialIndex changes
         const clamped = Math.max(0, Math.min(items.length - 1, initialIndex));
-        const key = `${items.map((x) => x.id).join("|")}::${clamped}::${cardH}`;
 
-        if (bootKeyRef.current === key) return;
-        bootKeyRef.current = key;
+        if (bootKeyRef.current === "mounted") return;
+        bootKeyRef.current = "mounted";
 
         requestAnimationFrame(() => {
             const root = rootRef.current;
@@ -86,7 +86,7 @@ export function DeedsScrollerWeb({
                 onActiveItemChange?.(item, clamped);
             }
         });
-    }, [items, initialIndex, cardH, onActiveItemChange, rootRef]);
+    }, [initialIndex, cardH]); // ❗ NOT items
 
     useEffect(() => {
         const node = rootRef.current;
