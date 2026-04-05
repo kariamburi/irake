@@ -147,17 +147,13 @@ function computePosition(anchorRect: DOMRect, popupW = 288, popupH = 240, gap = 
     return { top, left, placement: "top" };
 }
 
-function useGlobalClickAway(
-    refs: Array<React.RefObject<HTMLElement | null>>,
-    onAway: () => void
-) {
+function useGlobalClickAway(refs: Array<React.RefObject<HTMLElement | null>>, onAway: () => void) {
     useEffect(() => {
         const onDown = (e: MouseEvent) => {
             const t = e.target as Node;
             const inside = refs.some((r) => r.current && r.current.contains(t));
             if (!inside) onAway();
         };
-
         document.addEventListener("mousedown", onDown);
         return () => document.removeEventListener("mousedown", onDown);
     }, [refs, onAway]);
@@ -188,34 +184,27 @@ function EmojiPopup({
         if (!open) return;
         const anchor = anchorRef.current;
         if (!anchor) return;
-
         const update = () => setPos(computePosition(anchor.getBoundingClientRect()));
         update();
-
         window.addEventListener("resize", update);
         window.addEventListener("scroll", update, true);
-
         return () => {
             window.removeEventListener("resize", update);
             window.removeEventListener("scroll", update, true);
         };
     }, [open, anchorRef]);
 
-    useGlobalClickAway(
-        [popRef as React.RefObject<HTMLElement | null>, anchorRef],
-        () => open && onClose()
-    );
+    useGlobalClickAway([popRef as React.RefObject<HTMLElement | null>, anchorRef], () => open && onClose());
 
     if (!open || !pos) return null;
 
-    return ReactDOM.createPortal(
+    const popup = (
         <div
             ref={popRef}
             role="dialog"
             aria-label="Emoji picker"
-            className="fixed z-[10050] pointer-events-auto"
+            className="fixed z-[1000]"
             style={{ top: pos.top, left: pos.left, width: 288 }}
-            onMouseDown={(e) => e.stopPropagation()}
         >
             <div
                 className={[
@@ -231,7 +220,6 @@ function EmojiPopup({
                             key={e}
                             type="button"
                             className="h-8 w-8 grid place-items-center rounded hover:bg-gray-100 focus:outline-none"
-                            onMouseDown={(ev) => ev.preventDefault()}
                             onClick={() => onSelect(e)}
                             aria-label={`Insert ${e}`}
                         >
@@ -240,9 +228,10 @@ function EmojiPopup({
                     ))}
                 </div>
             </div>
-        </div>,
-        document.body
+        </div>
     );
+
+    return ReactDOM.createPortal(popup, document.body);
 }
 
 /* ------------------------------------------------------------------ */
@@ -614,58 +603,7 @@ type RightRailProps = {
     mode?: "sidebar" | "sheet";
     className?: string;
 };
-/* ------------------------------------------------------------------ */
-/* Grapheme-safe helpers                                               */
-/* ------------------------------------------------------------------ */
-function getGraphemeLength(input: string) {
-    try {
-        // @ts-ignore
-        if (typeof Intl !== "undefined" && (Intl as any).Segmenter) {
-            // @ts-ignore
-            const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-            let count = 0;
-            for (const _ of seg.segment(input)) count++;
-            return count;
-        }
-    } catch { }
-    return Array.from(input).length;
-}
 
-function sliceGraphemes(input: string, max: number) {
-    try {
-        // @ts-ignore
-        if (typeof Intl !== "undefined" && (Intl as any).Segmenter) {
-            // @ts-ignore
-            const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-            let out = "";
-            let n = 0;
-            for (const part of seg.segment(input)) {
-                if (n >= max) break;
-                out += part.segment;
-                n++;
-            }
-            return out;
-        }
-    } catch { }
-    return Array.from(input).slice(0, max).join("");
-}
-
-function insertTextAtSelection(
-    currentValue: string,
-    selectionStart: number,
-    selectionEnd: number,
-    insert: string,
-    limit = 400
-) {
-    const before = currentValue.slice(0, selectionStart);
-    const after = currentValue.slice(selectionEnd);
-    const nextValue = sliceGraphemes(before + insert + after, limit);
-
-    const wantedCursor = before.length + insert.length;
-    const nextCursor = Math.min(wantedCursor, nextValue.length);
-
-    return { nextValue, nextCursor };
-}
 export default function RightRail({
     open,
     deedId,
@@ -675,13 +613,15 @@ export default function RightRail({
     mode = "sidebar",
     className,
 }: RightRailProps) {
+    if (!open || !deedId) {
+        return <aside className="hidden lg:flex w-0 shrink-0" aria-hidden />;
+    }
+
     const outer = [
         mode === "sidebar" ? "hidden lg:flex h-screen w-[400px] border-l" : "flex lg:hidden",
         "h-full flex-col",
         className || "",
     ].join(" ");
-
-    const isReady = !!open && !!deedId;
 
     const [tab, setTab] = useState<Tab>("comments");
 
@@ -701,18 +641,12 @@ export default function RightRail({
     const [sending, setSending] = useState(false);
 
     const isGuest = !currentUser?.uid;
-    const normalizedText = text.replace(/\r\n/g, "\n");
-    const canSend =
-        tab === "comments" &&
-        !!currentUser?.uid &&
-        enabled &&
-        getGraphemeLength(normalizedText.trim()) > 0 &&
-        !sending;
+    const canSend = tab === "comments" && !!currentUser?.uid && enabled && text.trim().length > 0 && !sending;
+
     const [showEmoji, setShowEmoji] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const emojiBtnRef = useRef<HTMLButtonElement>(null);
-    const selectionStartRef = useRef(0);
-    const selectionEndRef = useRef(0);
+
     useEffect(() => {
         setTab("comments");
         setText("");
@@ -720,19 +654,13 @@ export default function RightRail({
         setSending(false);
         setShowEmoji(false);
     }, [deedId, open]);
-    const syncComposerSelection = useCallback(() => {
-        const el = textareaRef.current;
-        if (!el) return;
-        selectionStartRef.current = el.selectionStart ?? text.length;
-        selectionEndRef.current = el.selectionEnd ?? text.length;
-    }, [text]);
+
     const send = useCallback(async () => {
         if (!canSend || !deedId || !currentUser?.uid) return;
         setSending(true);
         try {
+            const trimmed = clipGraphemes(text.trim(), 400);
 
-            const trimmed = sliceGraphemes(text.trim(), 400);
-            if (!trimmed) return;
             await addDoc(collection(db, "comments"), {
                 deedId,
                 userId: currentUser.uid,
@@ -761,31 +689,16 @@ export default function RightRail({
         }
     }, [canSend, deedId, currentUser, text, replyTo]);
 
-    const onEmojiPick = useCallback((emoji: string) => {
-        const start = selectionStartRef.current ?? text.length;
-        const end = selectionEndRef.current ?? text.length;
-
-        const { nextValue, nextCursor } = insertTextAtSelection(
-            text,
-            start,
-            end,
-            emoji,
-            400
-        );
-
+    const onEmojiPick = (emoji: string) => {
+        if (!textareaRef.current) return;
+        const { nextValue, nextCursor } = insertAtCursor(textareaRef.current, emoji, 400);
         setText(nextValue);
-
         requestAnimationFrame(() => {
-            const el = textareaRef.current;
-            if (!el) return;
-            el.focus();
-            el.setSelectionRange(nextCursor, nextCursor);
-            selectionStartRef.current = nextCursor;
-            selectionEndRef.current = nextCursor;
+            textareaRef.current?.focus();
+            textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
         });
-
         setShowEmoji(false);
-    }, [text]);
+    };
 
     const TabButton = ({
         k,
@@ -816,14 +729,7 @@ export default function RightRail({
             </button>
         );
     };
-    if (!isReady) {
-        return (
-            <aside
-                className={`${outer} ${mode === "sidebar" ? "w-0 overflow-hidden" : "hidden"}`}
-                aria-hidden
-            />
-        );
-    }
+
     const activeActivity =
         tab === "likes" ? likesQ : tab === "views" ? viewsQ : tab === "shares" ? sharesQ : null;
 
@@ -837,17 +743,16 @@ export default function RightRail({
                 {/* Meta + Tabs header */}
                 <div className="border-b" style={{ borderColor: EKARI.hair }}>
                     <div className="px-4 pt-4 pb-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-between">
+                            <div className="text-xs text-gray-500">Posted {posted ? posted.toLocaleString() : "—"}</div>
                             <button
                                 onClick={onClose}
                                 type="button"
                                 aria-label="Close"
-                                className="relative z-40 text-black pointer-events-auto p-2 rounded-full hover:text-gray-400"
+                                className="relative z-40 pointer-events-auto p-2 rounded-full hover:bg-gray-100"
                             >
                                 <IoClose size={22} />
                             </button>
-                            <div className="text-xs text-gray-500">Posted {posted ? posted.toLocaleString() : "—"}</div>
-
                         </div>
 
                         <div className="mt-3 flex w-full border-b border-gray-200">
@@ -955,9 +860,12 @@ export default function RightRail({
                         )}
 
                         <div className="flex items-center items-end gap-2 relative">
-                            <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 shrink-0">
-
-                                <SmartAvatar src={currentUser?.photoURL || "/avatar-placeholder.png"} alt={"user"} size={30} />
+                            <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                                <img
+                                    src={currentUser?.photoURL || "/avatar-placeholder.png"}
+                                    alt="me"
+                                    className="h-8 w-8 object-cover"
+                                />
                             </div>
 
                             <div
@@ -968,16 +876,8 @@ export default function RightRail({
                                 <textarea
                                     ref={textareaRef}
                                     value={text}
-                                    onChange={(e) => {
-                                        setText(clipGraphemes(e.target.value, 400));
-                                        selectionStartRef.current = e.target.selectionStart ?? e.target.value.length;
-                                        selectionEndRef.current = e.target.selectionEnd ?? e.target.value.length;
-                                    }}
-                                    onClick={syncComposerSelection}
-                                    onKeyUp={syncComposerSelection}
-                                    onSelect={syncComposerSelection}
-                                    onFocus={syncComposerSelection}
-                                    className="flex-1 text-black bg-transparent outline-none text-sm resize-none max-h-28"
+                                    onChange={(e) => setText(clipGraphemes(e.target.value, 400))}
+                                    className="flex-1 bg-transparent outline-none text-sm resize-none max-h-28"
                                     placeholder={!enabled ? "Comments are off" : isGuest ? "Sign in to comment…" : "Add a comment…"}
                                     disabled={!enabled || isGuest || sending}
                                     rows={1}
@@ -986,20 +886,13 @@ export default function RightRail({
                                         if (e.key === "Enter" && !e.shiftKey) {
                                             e.preventDefault();
                                             if (!sending) send();
-                                            return;
                                         }
-
-                                        requestAnimationFrame(syncComposerSelection);
                                     }}
                                 />
 
                                 <button
                                     ref={emojiBtnRef}
                                     type="button"
-                                    onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        syncComposerSelection();
-                                    }}
                                     onClick={() => setShowEmoji((v) => !v)}
                                     disabled={!enabled || isGuest || sending}
                                     aria-haspopup="dialog"
@@ -1148,8 +1041,7 @@ function ActivityRow({
                 aria-label="Open profile"
                 disabled={!canOpen}
             >
-                <SmartAvatar src={photoURL} alt={handle ?? "user"} size={34} />
-
+                <img src={photoURL} alt={handle || "user"} className="h-full w-full object-cover" />
             </button>
 
             <div className="min-w-0 flex-1">
@@ -1194,7 +1086,7 @@ function CommentRow({
     onReply: (id: string, handle?: string | null) => void;
 }) {
     const [open, setOpen] = useState(false);
-    const { list: replies } = useReplies(deedId, comment.id, open);
+    useReplies(deedId, comment.id, open); // keep snapshot subscription behavior
     const canModify = currentUser?.uid === comment?.userId;
 
     const [isEditing, setIsEditing] = useState(false);
@@ -1214,7 +1106,6 @@ function CommentRow({
         if (!canModify) return;
         const text = clipGraphemes(editText.trim(), 400);
         if (!text) return;
-
         setSaving(true);
         try {
             await updateDoc(doc(db, "comments", comment.id), {
@@ -1241,231 +1132,180 @@ function CommentRow({
         }
     };
 
-    const onPickEditEmoji = useCallback((emoji: string) => {
-        const el = editTextareaRef.current;
-        if (!el) return;
-
-        const { nextValue, nextCursor } = insertTextAtSelection(
-            editText,
-            el.selectionStart ?? editText.length,
-            el.selectionEnd ?? editText.length,
-            emoji,
-            400
-        );
-
+    const onPickEditEmoji = (emoji: string) => {
+        if (!editTextareaRef.current) return;
+        const { nextValue, nextCursor } = insertAtCursor(editTextareaRef.current, emoji, 400);
         setEditText(nextValue);
-
         requestAnimationFrame(() => {
             editTextareaRef.current?.focus();
             editTextareaRef.current?.setSelectionRange(nextCursor, nextCursor);
         });
-
         setShowEditEmoji(false);
-    }, [editText]);
+    };
 
     const router = useRouter();
-
     const goToProfile = useCallback(
         (handle?: string | null) => {
             const h = (handle || "").trim();
             if (!h) return;
-            const clean = h.startsWith("@") ? h : `@${h}`;
+            const clean = h.startsWith("@") ? h : "@" + h;
             router.push(`/${clean}/`);
         },
         [router]
     );
 
-    const embeddedHandle = (
-        (comment?.user?.handle ?? comment?.userHandle ?? "") as string
-    ).trim() || null;
+    const embeddedHandle = ((comment?.user?.handle ?? comment?.userHandle ?? "") as string).trim() || null;
+    const embeddedPhoto = pickPhoto(comment);
 
-    const embeddedName = (
-        (comment?.user?.name ?? "") as string
-    ).trim() || embeddedHandle || "Someone";
-
-    const embeddedPhoto =
-        (comment?.user?.photoURL ?? comment?.userPhotoURL ?? null) || null;
-
-    const created = timeAgo(comment?.createdAt);
-    const replyCount =
-        typeof comment?.replies === "number"
-            ? comment.replies
-            : Array.isArray(replies)
-                ? replies.length
-                : 0;
+    const authorProfile = useAuthorProfile(comment.userId);
+    const avatar = embeddedPhoto || authorProfile?.photoURL || "/avatar-placeholder.png";
 
     return (
-        <li className="rounded-2xl">
-            <div className="flex items-start gap-2.5">
-                <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => goToProfile(embeddedHandle)}
-                        disabled={!embeddedHandle}
-                        className="mt-0.5 shrink-0 rounded-full disabled:opacity-100"
-                        aria-label="Open profile"
-                    >
-                        <SmartAvatar src={embeddedPhoto} alt={embeddedHandle ?? "user"} size={34} />
+        <li className="flex items-start gap-3">
+            <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                <button
+                    type="button"
+                    onClick={() => goToProfile(embeddedHandle)}
+                    className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0 cursor-pointer"
+                    aria-label="Open profile"
+                    disabled={!embeddedHandle}
+                >
+                    <SmartAvatar src={avatar} alt={embeddedHandle ?? "user"} size={34} />
+                </button>
+            </div>
 
-                    </button>
-                </div>
-                <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                    {!!embeddedHandle && (
                         <button
                             type="button"
                             onClick={() => goToProfile(embeddedHandle)}
-                            disabled={!embeddedHandle}
-                            className="truncate text-left text-[12px] font-semibold text-gray-900 hover:underline disabled:no-underline"
+                            className="text-sm font-bold text-gray-700 hover:underline"
                         >
-                            {embeddedName}
+                            {embeddedHandle}
                         </button>
+                    )}
 
-                        {embeddedHandle ? (
-                            <button
-                                type="button"
-                                onClick={() => goToProfile(embeddedHandle)}
-                                disabled={!embeddedHandle}
-                                className="truncate text-[11px] font-medium text-gray-500 hover:text-gray-700 disabled:hover:text-gray-500"
-                            >
-                                {embeddedHandle.startsWith("@") ? embeddedHandle : `@${embeddedHandle}`}
-                            </button>
-                        ) : null}
+                    <span className="text-xs text-gray-400">{timeAgo(comment.createdAt)}</span>
+                </div>
 
-                        {created ? (
-                            <span className="shrink-0 text-[11px] text-gray-400">{created}</span>
-                        ) : null}
-
-                        {comment?.edited ? (
-                            <span className="shrink-0 text-[10px] font-medium text-gray-400">
-                                edited
-                            </span>
-                        ) : null}
-                    </div>
-
-                    {!isEditing ? (
-                        <div className="mt-1.5 inline-block max-w-full rounded-2xl bg-gray-100 px-3 py-2">
-                            <p className="whitespace-pre-wrap break-words text-[13px] leading-[1.35] text-gray-900">
-                                {comment?.text || ""}
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="mt-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+                {!isEditing ? (
+                    <>
+                        {!!comment.text && (
+                            <div className="text-sm text-gray-900 whitespace-pre-wrap">
+                                {comment.text}
+                                {comment.edited && <span className="ml-2 text-[11px] text-gray-500">(edited)</span>}
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <div className="mt-1">
+                        <div className="flex items-end gap-2">
                             <textarea
                                 ref={editTextareaRef}
                                 value={editText}
                                 onChange={(e) => setEditText(clipGraphemes(e.target.value, 400))}
-                                className="min-h-[72px] w-full resize-none rounded-xl bg-gray-50 px-3 py-2 text-[13px] leading-[1.35] text-gray-900 outline-none"
+                                rows={2}
                                 disabled={saving}
+                                aria-busy={saving}
+                                className="w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-gray-900 disabled:opacity-70"
+                                maxLength={800}
                             />
-
-                            <div className="mt-2 flex items-center justify-between gap-2">
-                                <button
-                                    ref={editEmojiBtnRef}
-                                    type="button"
-                                    onClick={() => setShowEditEmoji((v) => !v)}
-                                    className="grid h-8 w-8 place-items-center rounded-full border border-gray-200 bg-white text-[16px] hover:bg-gray-50"
-                                    title="Add emoji"
-                                >
-                                    😊
-                                </button>
-
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => {
-                                            if (saving) return;
-                                            setIsEditing(false);
-                                            setEditText(comment?.text ?? "");
-                                        }}
-                                        className="rounded-full bg-gray-100 px-3 py-1.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-200"
-                                        type="button"
-                                    >
-                                        Cancel
-                                    </button>
-
-                                    <button
-                                        onClick={saveEdit}
-                                        disabled={saving || !editText.trim()}
-                                        className="rounded-full bg-gray-900 px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
-                                        type="button"
-                                    >
-                                        {saving ? "Saving" : "Save"}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <EmojiPopup
-                                anchorRef={editEmojiBtnRef as React.RefObject<HTMLElement | null>}
-                                open={showEditEmoji}
-                                onClose={() => setShowEditEmoji(false)}
-                                onSelect={onPickEditEmoji}
-                            />
+                            <button
+                                ref={editEmojiBtnRef}
+                                type="button"
+                                onClick={() => setShowEditEmoji((v) => !v)}
+                                disabled={saving}
+                                aria-haspopup="dialog"
+                                aria-expanded={showEditEmoji}
+                                title="Add emoji"
+                                className={[
+                                    "h-8 w-8 rounded-full bg-white text-lg grid place-items-center",
+                                    "shadow border hover:bg-gray-50 disabled:opacity-50",
+                                ].join(" ")}
+                            >
+                                😊
+                            </button>
                         </div>
+
+                        <div className="mt-2 flex gap-2">
+                            <button
+                                onClick={saveEdit}
+                                disabled={!editText.trim() || saving}
+                                aria-busy={saving}
+                                className={`px-3 py-1.5 rounded-full text-white text-sm font-bold inline-flex items-center gap-2 ${editText.trim() && !saving ? "bg-gray-900 hover:opacity-90" : "bg-gray-400 cursor-not-allowed"
+                                    }`}
+                                type="button"
+                            >
+                                {saving ? <Spinner size={14} /> : null}
+                                {saving ? "Saving" : "Save"}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (saving) return;
+                                    setIsEditing(false);
+                                    setEditText(comment?.text ?? "");
+                                }}
+                                className="px-3 py-1.5 rounded-full text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200"
+                                type="button"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+
+                        <EmojiPopup
+                            anchorRef={editEmojiBtnRef as React.RefObject<HTMLElement | null>}
+                            open={showEditEmoji}
+                            onClose={() => setShowEditEmoji(false)}
+                            onSelect={onPickEditEmoji}
+                        />
+                    </div>
+                )}
+
+                <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
+                    <button onClick={() => onReply(comment.id, embeddedHandle)} className="font-semibold hover:text-gray-900" type="button">
+                        Reply
+                    </button>
+                    <button onClick={() => setOpen((v) => !v)} className="hover:text-gray-900" type="button">
+                        {open ? "Hide replies" : `View replies${typeof comment.replies === "number" ? ` (${comment.replies})` : ""}`}
+                    </button>
+
+                    {canModify && !isEditing && (
+                        <button
+                            onClick={() => setIsEditing(true)}
+                            className="ml-auto inline-flex items-center gap-1 text-gray-600 hover:text-gray-900"
+                            title="Edit"
+                            type="button"
+                        >
+                            <IoPencil /> Edit
+                        </button>
                     )}
 
-                    <div className="mt-2 flex items-center gap-4 text-[11px] text-gray-500">
+                    {canModify && (
                         <button
-                            onClick={() => onReply(comment.id, embeddedHandle)}
-                            className="font-semibold hover:text-gray-900"
+                            onClick={deleteMine}
+                            disabled={deleting}
+                            aria-busy={deleting}
+                            className="inline-flex items-center gap-2 text-gray-500 hover:text-red-600 disabled:opacity-60"
+                            title="Delete"
                             type="button"
                         >
-                            Reply
+                            {deleting ? <Spinner size={12} className="border-gray-500 border-t-red-600" /> : <IoTrashOutline size={16} />}
+                            {deleting ? "Deleting" : "Delete"}
                         </button>
-
-                        <button
-                            onClick={() => setOpen((v) => !v)}
-                            className="hover:text-gray-900"
-                            type="button"
-                        >
-                            {open
-                                ? "Hide replies"
-                                : `View replies${replyCount > 0 ? ` (${replyCount})` : ""}`}
-                        </button>
-
-                        {canModify && !isEditing ? (
-                            <button
-                                onClick={() => setIsEditing(true)}
-                                className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-gray-900"
-                                title="Edit"
-                                type="button"
-                            >
-                                <IoPencil size={12} />
-                                Edit
-                            </button>
-                        ) : null}
-
-                        {canModify ? (
-                            <button
-                                onClick={deleteMine}
-                                disabled={deleting}
-                                aria-busy={deleting}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-red-600 disabled:opacity-60"
-                                title="Delete"
-                                type="button"
-                            >
-                                <IoTrashOutline size={12} />
-                                {deleting ? "Deleting" : "Delete"}
-                            </button>
-                        ) : null}
-                    </div>
-
-                    {open && replies.length > 0 ? (
-                        <div className="mt-3 space-y-3 border-l border-gray-200 pl-3">
-                            {replies.map((reply) => (
-                                <CommentRow
-                                    key={reply.id}
-                                    deedId={deedId}
-                                    comment={reply}
-                                    currentUser={currentUser}
-                                    onReply={onReply}
-                                />
-                            ))}
-                        </div>
-                    ) : null}
+                    )}
                 </div>
+
+                {open && (
+                    <div className="pl-3 mt-2 border-l border-gray-200">
+                        <RepliesList goToProfile={goToProfile} deedId={deedId} parentId={comment.id} currentUser={currentUser} />
+                    </div>
+                )}
             </div>
         </li>
     );
 }
+
 function useAuthorProfile(authorId?: string) {
     const [profile, setProfile] = useState<{ handle?: string; photoURL?: string } | null>(null);
 
@@ -1590,7 +1430,7 @@ function ReplyRow({
 
     return (
         <li className="flex items-start gap-3">
-            <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+            <div className="h-7 w-7 rounded-full overflow-hidden bg-gray-200 shrink-0">
                 <button
                     type="button"
                     onClick={() => (handle ? goToProfile(handle) : null)}

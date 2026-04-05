@@ -49,6 +49,7 @@ import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { useAuth } from "@/app/hooks/useAuth";
 import clsx from "clsx";
 import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
+import { MarketType } from "../shared/market_master_catalog";
 
 /* ---------------- utils ---------------- */
 type SortKey = "recent" | "priceAsc" | "priceDesc";
@@ -261,7 +262,77 @@ function useUserProfile(uid?: string) {
 
     return profile;
 }
+const DIRECT_NAME_TYPES: MarketType[] = [
+    "product",
+    "animal",
+    "lease",
+    "tree",
+    "service",
+    "arableLand",
+];
 
+const TYPE_LABEL: Record<MarketType, string> = {
+    product: "Products",
+    animal: "Animals",
+    lease: "Lease",
+    tree: "Trees",
+    service: "Services",
+    arableLand: "Land",
+};
+function CategoryRail({
+    activeType,
+    onSelect,
+}: {
+    activeType: MarketType | null;
+    onSelect: (type: MarketType | null) => void;
+}) {
+    const railData: Array<{ key: string; label: string; type: MarketType | null }> = [
+        { key: "all", label: "All", type: null },
+        ...DIRECT_NAME_TYPES.map((type) => ({
+            key: type,
+            label: TYPE_LABEL[type],
+            type,
+        })),
+    ];
+
+    return (
+        <div className="overflow-x-auto no-scrollbar">
+            <div className="flex min-w-max items-center gap-2 px-4 pb-1">
+                {railData.map((item) => {
+                    const active = activeType === item.type;
+
+                    return (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => onSelect(item.type)}
+                            className={[
+                                "h-9 shrink-0 rounded-full border px-4 text-[13px] font-extrabold transition-all",
+                                active ? "shadow-sm" : "bg-white hover:bg-[#fafafa]",
+                            ].join(" ")}
+                            style={
+                                active
+                                    ? {
+                                        background: "#fff",
+                                        borderColor: EKARI.gold,
+                                        color: EKARI.gold,
+                                    }
+                                    : {
+                                        background: "#fff",
+                                        borderColor: EKARI.hair,
+                                        color: EKARI.dim,
+                                    }
+                            }
+                            aria-pressed={active}
+                        >
+                            {item.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
 /* ---------------- page ---------------- */
 export default function MarketPage() {
 
@@ -369,7 +440,12 @@ export default function MarketPage() {
         },
         [debouncedSearch, filters.locationText, filters.center, filters.radiusKm]
     );
-
+    const handleSelectType = useCallback((type: MarketType | null) => {
+        setFilters((prev): Filters => ({
+            ...prev,
+            type,
+        }));
+    }, []);
     /* ================= Featured strip (snap + arrows + auto every 2.5s) ================= */
     const [featuredItems, setFeaturedItems] = useState<Product[]>([]);
     const featRef = useRef<HTMLDivElement | null>(null);
@@ -693,7 +769,7 @@ export default function MarketPage() {
 
     const activeChips = useMemo(() => {
         const chips: string[] = [];
-        if (filters.type) chips.push(filters.type);
+        if (filters.type) chips.push(TYPE_LABEL[filters.type as keyof typeof TYPE_LABEL] || filters.type);
         if (filters.category) chips.push(filters.category);
         if (typeof filters.minPrice === "number") chips.push(`≥ ${KES(filters.minPrice)}`);
         if (typeof filters.maxPrice === "number") chips.push(`≤ ${KES(filters.maxPrice)}`);
@@ -791,7 +867,9 @@ export default function MarketPage() {
                     )}
                 </button>
             </div>
-
+            <div className="pb-2">
+                <CategoryRail activeType={filters.type} onSelect={handleSelectType} />
+            </div>
             {!!activeChips.length && (
                 <div className="px-3 pb-3 overflow-x-auto no-scrollbar">
                     <div className="flex items-center gap-2">

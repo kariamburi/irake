@@ -18,7 +18,7 @@ const EKARI = {
     ink: "#111827",
     dim: "#6B7280",
     hair: "#E5E7EB",
-    bgSoft: "#F6F7F8",
+    bgSoft: "#F3F4F6",
 };
 
 type ProfileState = {
@@ -54,9 +54,7 @@ export default function AppShell({
                 setProfile(null);
                 return;
             }
-
             const h = (data?.handle as string | undefined) || undefined;
-
             setProfile({
                 handle: h && h.length ? h : undefined,
                 photoURL: (data?.photoURL as string | undefined) || undefined,
@@ -66,6 +64,7 @@ export default function AppShell({
         return () => unsub();
     }, [uid]);
 
+    // Prefer explicit prop, else derived from Firestore
     const effectiveHandle = handle ?? profile?.handle;
 
     return (
@@ -73,14 +72,13 @@ export default function AppShell({
             className={`min-h-screen ${className}`}
             style={{
                 background: `
-                    radial-gradient(circle at top left, rgba(35,63,57,0.05), transparent 28%),
-                    radial-gradient(circle at bottom right, rgba(199,146,87,0.08), transparent 24%),
-                    ${EKARI.bgSoft}
-                `,
+          radial-gradient(circle at top left, ${EKARI.forest}10, transparent 55%),
+          radial-gradient(circle at bottom right, ${EKARI.gold}14, ${EKARI.bgSoft})
+        `,
             }}
         >
-            {/* Top-right auth / profile action */}
-            <div className="fixed right-4 top-4 z-[70] hidden lg:block">
+            {/* 🔝 Global top-right user menu (visible on ALL pages using AppShell) */}
+            <div className="fixed top-0 right-0 py-3 z-40">
                 {uid ? (
                     <UserAvatarMenu
                         uid={uid}
@@ -92,38 +90,39 @@ export default function AppShell({
                 )}
             </div>
 
-            <div className="mx-auto flex min-h-screen w-full max-w-[1720px]">
+            <div className="w-full lg:mx-auto lg:max-w-[1400px] flex pb-0 pr-10">
                 <LeftRailCompact />
                 <LeftNavDesktop uid={uid} handle={effectiveHandle} />
 
-                {/* Center stage */}
-                <main className="min-w-0 flex-1">
-                    <div className="flex min-h-screen w-full items-stretch justify-center px-0 lg:px-6 xl:px-8">
-                        <motion.div
-                            className="flex w-full min-w-0 justify-center"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.22, ease: "easeOut" }}
-                        >
-                            {/* TikTok-like stage: no dashboard card shell */}
-                            <div className="flex w-full min-w-0 justify-center overflow-visible">
-                                {children}
-                            </div>
-                        </motion.div>
-                    </div>
+                {/* Center content */}
+                <main className="lg:pl-5 flex-1 flex items-center justify-center">
+                    <motion.div
+                        className="w-full lg:max-w-5xl flex items-center justify-center"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                    >
+                        <div className="w-full flex items-center justify-center rounded-3xl bg-white/80 backdrop-blur-md border border-gray-100 shadow-[0_18px_45px_rgba(0,0,0,0.06)] overflow-hidden">
+                            {children}
+                        </div>
+                    </motion.div>
                 </main>
 
-                {/* Optional right rail area */}
-                {rightRail ? (
-                    <motion.aside
-                        className="hidden xl:block shrink-0 pr-4 pt-4"
-                        initial={{ opacity: 0, x: 8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.22, delay: 0.04, ease: "easeOut" }}
+
+                {/* Right rail */}
+                {rightRail && (
+
+                    <motion.div
+
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: 0.05, ease: "easeOut" }}
+
                     >
                         {rightRail}
-                    </motion.aside>
-                ) : null}
+                    </motion.div>
+
+                )}
             </div>
         </div>
     );

@@ -1,27 +1,29 @@
+// app/page.tsx
 import type { Metadata } from "next";
-import DeedsClientShell from "./DeedsClientShell";
+import HomeFeedClientPage from "./HomeFeedClientPage";
 
 export const metadata: Metadata = {
-  title: "Deeds | ekarihub",
+  title: "ekarihub | Deeds, agribusiness community, market and opportunities",
   description:
-    "Browse public deeds on ekarihub including agribusiness stories, community updates, farming insights, opportunities, and shared experiences.",
+    "Discover public deeds, agribusiness stories, community updates, market opportunities, events, and discussions on ekarihub.",
   keywords: [
-    "ekarihub deeds",
-    "public deeds",
-    "agribusiness stories",
-    "farming updates",
-    "agriculture community",
-    "farm insights",
-    "Kenya agriculture platform",
+    "ekarihub",
+    "deeds",
+    "agribusiness community",
+    "farmers network",
+    "agriculture marketplace",
+    "agribusiness Kenya",
+    "farm discussions",
+    "agribusiness opportunities",
   ],
   alternates: {
-    canonical: "/deeds",
+    canonical: "/",
   },
   openGraph: {
-    title: "Deeds | ekarihub",
+    title: "ekarihub | Deeds, agribusiness community, market and opportunities",
     description:
-      "Browse public deeds on ekarihub including agribusiness stories, community updates, farming insights, opportunities, and shared experiences.",
-    url: "https://ekarihub.com/deeds",
+      "Discover public deeds, agribusiness stories, community updates, market opportunities, events, and discussions on ekarihub.",
+    url: "https://ekarihub.com",
     siteName: "ekarihub",
     type: "website",
     images: [
@@ -29,15 +31,15 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "ekarihub deeds",
+        alt: "ekarihub deeds feed",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Deeds | ekarihub",
+    title: "ekarihub | Deeds, agribusiness community, market and opportunities",
     description:
-      "Browse public deeds on ekarihub including agribusiness stories, community updates, farming insights, opportunities, and shared experiences.",
+      "Discover public deeds, agribusiness stories, community updates, market opportunities, events, and discussions on ekarihub.",
     images: ["/og-image.jpg"],
   },
   robots: {
@@ -46,6 +48,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function DeedsPage() {
-  return <DeedsClientShell />;
+export default function RootPage() {
+  return <HomeFeedClientPage />;
 }

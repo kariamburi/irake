@@ -21,7 +21,7 @@ const ROUNDED = {
     none: "",
 } as const;
 
-export default function SmartAvatar({
+export default function LargeAvatar({
     src,
     alt = "avatar",
     size = 46,
@@ -36,7 +36,7 @@ export default function SmartAvatar({
     return (
         <div
             className={clsx("relative bg-gray-100", className)}
-            style={{ width: 36, height: 36 }}
+            style={{ width: size, height: size }}
             aria-label={alt}
         >
             {loading && (

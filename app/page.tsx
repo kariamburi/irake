@@ -1,6 +1,7 @@
 // app/page.tsx
 import type { Metadata } from "next";
-import HomeFeedClientPage from "./HomeFeedClientPage";
+import HomeFeedClientPage from "./deeds/HomeFeedClientPage";
+
 
 export const metadata: Metadata = {
   title: "ekarihub | Deeds, agribusiness community, market and opportunities",

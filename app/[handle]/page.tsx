@@ -130,6 +130,7 @@ import {
   IoRocketOutline,
   IoSparklesOutline,
 } from "react-icons/io5";
+import LargeAvatar from "../components/LargeAvatar";
 
 function toWhatsAppLink(raw?: string | null) {
   const phone = cleanPhone(raw);
@@ -421,7 +422,7 @@ function ProfileHeroStorefront({
                 className="relative h-24 w-24 rounded-3xl overflow-hidden border bg-white shadow-[0_12px_30px_rgba(15,23,42,0.10)]"
                 style={{ borderColor: EKARI.hair }}
               >
-                <SmartAvatar
+                <LargeAvatar
                   src={profile.photoURL || "/avatar-placeholder.png"}
                   alt={profile.handle || "avatar"}
                   size={96}

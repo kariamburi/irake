@@ -864,7 +864,7 @@ export default function ProductDetailsClient({
 
                     <div className="mt-3">
 
-                        {!isOwner ? (
+                        {!isOwner ? (<>
                             <button
                                 onClick={handleMessageClick}
                                 disabled={msgLoading}
@@ -886,6 +886,16 @@ export default function ProductDetailsClient({
                                     </>
                                 )}
                             </button>
+                            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
+                                <div className="flex items-start gap-2">
+                                    <IoShieldCheckmark className="mt-0.5 text-red-600" size={16} />
+                                    <p className="text-[12px] leading-relaxed text-red-700 font-semibold">
+                                        ⚠️ Safety Warning: Do NOT send money in advance. Always meet the seller, verify the product,
+                                        and pay only after confirming quality. Ekarihub is a platform and is not liable for payments or delivery.
+                                    </p>
+                                </div>
+                            </div>
+                        </>
                         ) : (
                             <div className="space-y-2">
                                 <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
