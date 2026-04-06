@@ -366,19 +366,23 @@ function ProfileHeroStorefront({
             <div className="absolute inset-0 bg-black/0" />
 
             <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
-              {showVerified && (
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black border"
-                  style={{
-                    borderColor: "rgba(255,255,255,0.35)",
-                    background: "rgba(255,255,255,0.18)",
-                    color: "white",
-                    backdropFilter: "blur(10px)",
-                  }}
-                >
-                  <IoShieldCheckmarkOutline size={14} /> Verified
+
+              {showVerified ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] font-bold text-green-700 shadow-sm">
+                  <IoShieldCheckmarkOutline size={14} />
+                  Verified
                 </span>
-              )}
+              ) : (<>
+                {isOwner && (
+                  <Link
+                    href="/account/verification"
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700 shadow-sm transition hover:bg-amber-100"
+                  >
+                    <IoShieldCheckmarkOutline size={14} />
+                    Get verified
+                  </Link>
+                )}
+              </>)}
 
               {isPremium && (
                 <span
@@ -393,11 +397,17 @@ function ProfileHeroStorefront({
                   <IoSparklesOutline size={14} /> Premium
                 </span>
               )}
-              {profile.storefrontUntil &&
+              {profile.storefrontUntil && isOwner &&
                 profile.storefrontUntil <= Date.now() && (
-                  <span className="badge-expired">
+
+
+                  <Link
+                    href="/seller/dashboard?tab=packages"
+                    className="inline-flex items-center gap-2 rounded-full border border-red-200/80 bg-gradient-to-r from-red-50 to-rose-50 px-3.5 py-1.5 text-xs font-bold text-red-700 shadow-sm backdrop-blur-sm hover:scale-[1.03] hover:shadow-md active:scale-[0.97] transition-all duration-200 cursor-pointer"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-red-500 ring-2 ring-red-200" />
                     Storefront expired
-                  </span>
+                  </Link>
                 )}
               {profile.isAdmin && (
                 <span
