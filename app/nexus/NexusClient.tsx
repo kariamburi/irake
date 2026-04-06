@@ -57,6 +57,8 @@ import { cacheDiscussion } from "@/lib/discussionCache";
 import { DiscussionForm } from "@/app/components/DiscussionForm";
 import { EventForm } from "@/app/components/EventForm";
 import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
+import MobileBottomTabs from "../components/navigation/MobileBottomTabs";
+import { useRouter } from "next/navigation";
 
 /* ---------- Theme ---------- */
 const EKARI = {
@@ -289,59 +291,7 @@ const formatMoney = (n?: number, currency?: CurrencyCode) => {
 };
 
 /* ---------- Mobile Tabs ---------- */
-function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
-    const TabBtn = ({
-        label,
-        icon,
-        href,
-        active,
-    }: {
-        label: string;
-        icon: React.ReactNode;
-        href: string;
-        active?: boolean;
-    }) => (
-        <Link
-            href={href}
-            className={cn(
-                "flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition",
-                active ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"
-            )}
-            aria-current={active ? "page" : undefined}
-        >
-            <div style={{ color: active ? EKARI.forest : EKARI.text }}>{icon}</div>
-            <span className="text-[11px] font-semibold" style={{ color: active ? EKARI.forest : EKARI.text }}>
-                {label}
-            </span>
-        </Link>
-    );
 
-    return (
-        <div className="fixed left-0 right-0 z-[60]" style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
-            <div className="mx-auto w-full max-w-[520px] px-3 pb-3">
-                <div
-                    className="flex h-[68px] items-center justify-between rounded-[24px] border bg-white px-3 shadow-lg"
-                    style={{ borderColor: EKARI.hair }}
-                >
-                    <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} href="/" />
-                    <TabBtn label="Market" icon={<IoCartOutline size={20} />} href="/market" />
-
-                    <button
-                        onClick={onCreate}
-                        className="grid h-12 w-16 place-items-center rounded-2xl text-white shadow-sm"
-                        style={{ backgroundColor: EKARI.forest }}
-                        aria-label="Create"
-                    >
-                        <IoAdd size={26} />
-                    </button>
-
-                    <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} href="/nexus" active />
-                    <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} href="/bonga" />
-                </div>
-            </div>
-        </div>
-    );
-}
 
 /* ---------- Profile ---------- */
 function useUserProfile(uid?: string) {
@@ -417,7 +367,11 @@ export default function NexusPage() {
     const handle = (profile as any)?.handle ?? null;
     const profileHref =
         handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
-
+    const router = useRouter();
+    const goUpload = () => {
+        if (!user?.uid) router.push("/getstarted?next=/studio/upload");
+        else router.push("/studio/upload");
+    };
     const loadEvents = useCallback(() => {
         setLoadingEvents(true);
 
@@ -1111,7 +1065,7 @@ export default function NexusPage() {
     );
 
     const desktopHeader = (
-        <div className="sticky top-0 z-30 border-b bg-white/95 backdrop-blur" style={{ borderColor: EKARI.hair }}>
+        <div className="sticky top-0 z-30 border-b bg-gray-100" style={{ borderColor: EKARI.hair }}>
             <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-3 px-4 py-3">
                 <div>
                     <h1 className="text-[28px] font-black tracking-tight" style={{ color: EKARI.text }}>
@@ -1144,11 +1098,7 @@ export default function NexusPage() {
                         + Create Event
                     </button>
 
-                    <Link href={profileHref} className="relative h-11 w-11 overflow-hidden rounded-full border bg-slate-100" style={{ borderColor: EKARI.hair }}>
-                        {profile?.photoURL ? (
-                            <Image src={profile.photoURL} alt="Profile" fill className="object-cover" sizes="44px" />
-                        ) : null}
-                    </Link>
+
                 </div>
             </div>
         </div>
@@ -1182,7 +1132,7 @@ export default function NexusPage() {
     return (
         <>
             <AppShell>
-                <div className="min-h-screen bg-[#FAFAFA]">
+                <div className="min-h-screen w-full">
                     {isDesktop ? (
 
                         <main className="w-full">
@@ -1193,12 +1143,16 @@ export default function NexusPage() {
                         </main>
 
                     ) : (
-                        <main className="min-h-screen">
+                        <main className="min-h-screen w-full">
                             {mobileHeader}
                             {TopCards}
                             {Controls}
                             {Feed}
-                            <MobileBottomTabs onCreate={openCreateEvent} />
+                            <MobileBottomTabs
+                                onCreate={goUpload}
+                                theme="light"
+                                activeKey="nexus"
+                            />
                         </main>
                     )}
                 </div>

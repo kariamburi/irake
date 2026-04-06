@@ -1904,7 +1904,7 @@ export default function SearchPageClient() {
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-[15px] font-semibold" style={{ color: EKARI.text }}>
-                                                    Ask ekari AI
+                                                    Ask Ekari AI
                                                 </p>
                                                 <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
                                                     Try a smarter search experience

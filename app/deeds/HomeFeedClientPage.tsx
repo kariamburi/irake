@@ -1,20 +1,17 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 import AppShell from "@/app/components/AppShell";
-
-import BouncingBallLoader from "@/components/ui/TikBallsLoader";
-
 import { FeedShell } from "./components/FeedShell";
-
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { useAuth } from "../hooks/useAuth";
 import { useUserProfile } from "../providers/UserProfileProvider";
 import OpenInAppBanner from "../components/OpenInAppBanner";
 import { EkariSideMenuSheet } from "../components/EkariSideMenuSheet";
-import { IoAdd, IoCartOutline, IoChatbubblesOutline, IoCompassOutline, IoHome, IoHomeOutline } from "react-icons/io5";
+import MobileBottomTabs from "../components/navigation/MobileBottomTabs";
+
 const EKARI = {
   bg: "#ffffff",
   text: "#111827",
@@ -22,114 +19,13 @@ const EKARI = {
   hair: "#E5E7EB",
   primary: "#C79257",
 };
+
 function useWarmAuthorStub() {
   return React.useCallback((_authorId: string) => {
     // no-op for now
   }, []);
 }
-function MobileBottomTabs({ onUpload }: { onUpload: () => void }) {
-  const router = useRouter();
-  const pathname = usePathname() || "/";
 
-  const isActive = (href: string) => {
-    if (href === "/") return pathname === "/"; // ✅ only exact home
-    return pathname === href || pathname.startsWith(href + "/");
-  };
-
-  const activeClass = "text-white";
-  const inactiveClass = "text-white/70";
-
-  const activeIconStyle = { color: EKARI.primary };
-  const inactiveIconStyle = { color: "rgba(255,255,255,.70)" };
-
-  const homeActive = isActive("/");
-  const marketActive = isActive("/market");
-  const nexusActive = isActive("/nexus");
-  const bongaActive = isActive("/bonga");
-
-  return (
-    <div
-      className="fixed left-0 right-0 z-[60]"
-      style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}
-    >
-      <div
-        className="mx-auto w-full max-w-[520px] h-[64px] px-4 flex items-center justify-between"
-        style={{
-          backgroundColor: "#000000",
-          borderTop: "1px solid rgba(255,255,255,.10)",
-        }}
-      >
-        {/* Home / Deeds */}
-        <button
-          onClick={() => router.push("/")}
-          className={`flex flex-col items-center gap-1 ${homeActive ? activeClass : inactiveClass}`}
-          aria-current={homeActive ? "page" : undefined}
-        >
-          {homeActive ? (
-            <IoHome size={20} style={activeIconStyle} />
-          ) : (
-            <IoHomeOutline size={20} style={inactiveIconStyle} />
-          )}
-          <span className={`text-[11px] ${homeActive ? "font-black" : "font-semibold"}`}>
-            Deeds
-          </span>
-          {homeActive && (
-            <span
-              className="mt-0.5 h-[3px] w-6 rounded-full"
-              style={{ backgroundColor: EKARI.primary }}
-            />
-          )}
-        </button>
-
-        {/* Market */}
-        <button
-          onClick={() => router.push("/market")}
-          className={`flex flex-col items-center gap-1 ${marketActive ? activeClass : inactiveClass}`}
-          aria-current={marketActive ? "page" : undefined}
-        >
-          <IoCartOutline size={20} style={marketActive ? activeIconStyle : inactiveIconStyle} />
-          <span className={`text-[11px] ${marketActive ? "font-black" : "font-semibold"}`}>
-            ekariMarket
-          </span>
-        </button>
-
-        {/* Center + */}
-        <button
-          onClick={onUpload}
-          className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg"
-          style={{ backgroundColor: EKARI.primary }}
-          aria-label="Create"
-        >
-          <IoAdd size={26} color="#111827" />
-        </button>
-
-        {/* Nexus */}
-        <button
-          onClick={() => router.push("/nexus")}
-          className={`flex flex-col items-center gap-1 ${nexusActive ? activeClass : inactiveClass}`}
-          aria-current={nexusActive ? "page" : undefined}
-        >
-          <IoCompassOutline size={20} style={nexusActive ? activeIconStyle : inactiveIconStyle} />
-          <span className={`text-[11px] ${nexusActive ? "font-black" : "font-semibold"}`}>
-            Nexus
-          </span>
-        </button>
-
-        {/* Bonga */}
-        <button
-          onClick={() => router.push("/bonga")}
-          className={`flex flex-col items-center gap-1 ${bongaActive ? activeClass : inactiveClass}`}
-          aria-current={bongaActive ? "page" : undefined}
-        >
-          <IoChatbubblesOutline size={20} style={bongaActive ? activeIconStyle : inactiveIconStyle} />
-          <span className={`text-[11px] ${bongaActive ? "font-black" : "font-semibold"}`}>
-            Bonga
-          </span>
-        </button>
-      </div>
-    </div>
-  );
-}
 function useIsDesktop(breakpoint = 1024) {
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -149,24 +45,26 @@ type Props = {
   archiveMode?: "deeds" | null;
 };
 
+type TabKey = "deeds" | "market" | "nexus" | "bonga";
+
 export default function HomeFeedClientPage({
   archivePageNumber = 1,
   hasNextPage = false,
   archiveMode = null,
 }: Props) {
-  const router = useRouter();
   const isDesktop = useIsDesktop();
 
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOutUser } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
   const { unreadDM, notifTotal } = useInboxTotalsWeb(!!user?.uid, user?.uid);
-  const { signOutUser } = useAuth();
 
   const handle = (profile as any)?.handle ?? null;
   const profileHref =
     handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
 
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [refreshingTab, setRefreshingTab] = useState<TabKey | null>(null);
+  const [feedRefreshKey, setFeedRefreshKey] = useState(0);
 
   const warmAuthor = useWarmAuthorStub();
 
@@ -181,14 +79,28 @@ export default function HomeFeedClientPage({
       handle: profile?.handle ?? null,
       name: (profile as any)?.name ?? fallbackName,
     }),
-    [profile, user]
+    [profile, user, fallbackName]
   );
 
   const loading = authLoading || profileLoading;
+  const router = useRouter();
+
   const goUpload = () => {
     if (!user?.uid) router.push("/getstarted?next=/studio/upload");
     else router.push("/studio/upload");
   };
+
+  const triggerTabRefresh = useCallback((key: TabKey) => {
+    setRefreshingTab(key);
+
+    if (key === "deeds") {
+      setFeedRefreshKey((prev) => prev + 1);
+    }
+
+    window.setTimeout(() => {
+      setRefreshingTab((current) => (current === key ? null : current));
+    }, 900);
+  }, []);
 
   const contentArchive = (
     <div className="min-h-[100svh] text-white">
@@ -261,9 +173,19 @@ export default function HomeFeedClientPage({
         dataSaverOn={false}
         onOpenMenu={() => setMenuOpen(true)}
         loading={loading}
+        refreshKey={feedRefreshKey}
       />
-      {/* Bottom tabs like your app */}
-      {!isDesktop && (<MobileBottomTabs onUpload={goUpload} />)}
+
+      {!isDesktop && (
+        <MobileBottomTabs
+          onCreate={goUpload}
+          theme="dark"
+          activeKey="deeds"
+          refreshingKey={refreshingTab}
+          onActiveTabClick={triggerTabRefresh}
+        />
+      )}
+
       <EkariSideMenuSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
@@ -277,7 +199,6 @@ export default function HomeFeedClientPage({
       />
     </div>
   );
-
 
   if (archiveMode === "deeds") {
     return isDesktop ? <AppShell>{contentArchive}</AppShell> : <div>{contentArchive}</div>;

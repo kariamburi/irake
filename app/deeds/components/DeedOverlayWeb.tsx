@@ -374,7 +374,7 @@ export function DeedOverlayWeb({
                                                 type="button"
                                                 className="rounded-full border border-white/25 bg-black/25 px-2.5 py-1 text-[12px] font-semibold text-white transition-colors hover:bg-black/60"
                                                 onClick={() =>
-                                                    router.push(`/tag/${encodeURIComponent(tag)}`)
+                                                    router.push(`/search?q=${encodeURIComponent(tag)}`)
                                                 }
                                             >
                                                 #{tag}

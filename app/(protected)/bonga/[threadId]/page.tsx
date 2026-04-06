@@ -148,18 +148,38 @@ function formatListTime(ts: any) {
   return d.toLocaleDateString("en-KE", { day: "2-digit", month: "short" });
 }
 
-function lastSeenText(online?: boolean, lastActive?: any) {
+function lastSeenText(
+  online?: boolean,
+  lastActive?: any,
+  opts?: { preferFullDateAfterDays?: number }
+) {
   if (online) return "Online";
+
   const d = tsToDate(lastActive);
   if (!d) return "last seen recently";
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
+
+  const diffMs = Date.now() - d.getTime();
+
+  // guard bad/future timestamps
+  if (diffMs <= 0) return "last seen just now";
+
+  const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return "last seen just now";
   if (mins < 60) return `last seen ${mins}m ago`;
-  const h = Math.floor(mins / 60);
-  if (h < 24) return `last seen ${h}h ago`;
-  const days = Math.floor(h / 24);
-  return `last seen ${days}d ago`;
+
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `last seen ${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  const fullDateAfter = opts?.preferFullDateAfterDays ?? 7;
+
+  if (days < fullDateAfter) return `last seen ${days}d ago`;
+
+  return `last seen ${d.toLocaleDateString("en-KE", {
+    day: "numeric",
+    month: "short",
+    year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+  })}`;
 }
 
 function normalizeUser(uid: string, raw: any): UserLite {
@@ -226,7 +246,35 @@ function tsToMillis(ts: any): number {
   const d = tsToDate(ts);
   return d ? d.getTime() : 0;
 }
+function formatChatDate(ts: any) {
+  const d = tsToDate(ts);
+  if (!d) return "";
 
+  const now = new Date();
+  const today =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+
+  if (today) return "Today";
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  const isYesterday =
+    d.getFullYear() === yesterday.getFullYear() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getDate() === yesterday.getDate();
+
+  if (isYesterday) return "Yesterday";
+
+  return d.toLocaleDateString("en-KE", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 function agoShort(ms: number) {
   if (!ms) return "—";
   const diff = Date.now() - ms;
@@ -378,8 +426,9 @@ export default function BongaThreadPage() {
   const headerTitle =
     peer?.firstName || peerQs.peerName || peer?.handle || peerQs.peerHandle || "Message";
 
-  const onlineNow = !!peer?.online;
-  const lastActiveAny = peer?.lastActiveAt;
+  const onlineNow = peerActiveNow || !!peer?.online;
+  const lastActiveAny =
+    activeMapSnap.peerMs > 0 ? new Date(activeMapSnap.peerMs) : peer?.lastActiveAt;
 
   /* ================================================================
    *  LEFT SIDEBAR: load threads list (desktop)
@@ -840,35 +889,32 @@ export default function BongaThreadPage() {
 
     (async () => {
       try {
-        // ✅ quick local check first (last loaded messages)
         const existsLocal = items.some(
           (m) => m.type === "product" && String(m.listing?.id || "") === String(pending.id)
         );
+
         if (existsLocal) {
           if (!cancelled) {
             setPendingSent(true);
-            // keep preview visible if you want:
-            // setPending(null);
+            setPending(null);
           }
           return;
         }
 
-        // ✅ authoritative check (entire thread history)
         const existsRemote = await threadHasListing(threadId, pending.id);
         if (existsRemote) {
           if (!cancelled) {
             setPendingSent(true);
-            // keep preview visible if you want:
-            // setPending(null);
+            setPending(null);
           }
           return;
         }
 
-        // ✅ now safe to auto-send once
         await sendProduct(pending);
+
         if (!cancelled) {
           setPendingSent(true);
-          setPending(null); // or keep it if you want preview to remain
+          setPending(null);
           scrollToBottom("auto");
         }
       } catch (e) {
@@ -894,40 +940,20 @@ export default function BongaThreadPage() {
   const sendText = useCallback(
     async (text: string) => {
       if (!uid || !activePeerId || !threadId) return;
+
       const t = text.trim();
-      if (!t && !pending) return;
+      if (!t) return;
 
-      const hasListing = !!pending?.id;
       await addDoc(collection(db, "threads", threadId, "messages"), {
-        text: t || "",
-
+        text: t,
         from: uid,
         to: activePeerId,
-
-        // ✅ make it explicit in message type for rendering + mirrors
-        type: hasListing ? "product" : "text",
-
-        // ✅ attach listing payload (small + safe)
-        listing: hasListing
-          ? {
-            id: pending!.id,
-            name: pending!.name || "",
-            image: pending!.image || "",
-            price: typeof pending!.price === "number" ? pending!.price : null,
-            currency: pending!.currency || "KES",
-            type: pending!.type || "marketListing",
-            url: pending!.url || `/market/${encodeURIComponent(pending!.id)}`,
-          }
-          : null,
-
+        type: "text",
         createdAt: serverTimestamp(),
         readBy: { [uid]: true },
       });
-
-      // ✅ clear after sending so next msg is normal
-      if (hasListing) setPending(null);
     },
-    [uid, activePeerId, threadId, pending]
+    [uid, activePeerId, threadId]
   );
   const onSend = useCallback(async () => {
     const t = input.trim();
@@ -1422,127 +1448,139 @@ export default function BongaThreadPage() {
                   const bubbleBg = mine ? "rgba(35,63,57,0.10)" : "rgba(199,146,87,0.10)";
                   const bubbleBr = mine ? "rgba(35,63,57,0.35)" : "rgba(199,146,87,0.35)";
 
+                  const showDateDivider =
+                    !prev ||
+                    formatChatDate(prev.createdAt) !== formatChatDate(msg.createdAt);
                   return (
-                    <div
-                      key={msg.id}
-                      className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${isFirst ? "mt-3" : "mt-1"} ${isLast ? "mb-1" : "mb-0"}`}
-                    >
-                      {!mine && (
-                        <div className="w-7 flex justify-center">
-                          {showAvatar ? (
-                            <div className="relative  rounded-full overflow-hidden bg-gray-200">
-
-                              <SmartAvatar src={peer?.photoURL || peerQs.peerPhotoURL || "/avatar-placeholder.png"} alt={peer?.firstName || "User"} size={46} /> </div>
-                          ) : (
-                            <div className="w-7 h-7" />
-                          )}
+                    <React.Fragment key={msg.id}>
+                      {showDateDivider ? (
+                        <div className="my-4 flex justify-center">
+                          <div className="rounded-full bg-[#F3F4F6] px-3 py-1 text-[11px] font-medium text-gray-600">
+                            {formatChatDate(msg.createdAt)}
+                          </div>
                         </div>
-                      )}
+                      ) : null}
+                      <div
 
-                      <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[78%]`}>
-                        <div
-                          className={[
-                            "text-[15px] border shadow-sm px-3 py-2",
-                            "max-w-full break-words whitespace-pre-wrap leading-5",
-                            mine
-                              ? isFirst
-                                ? "rounded-2xl rounded-tr-md"
-                                : "rounded-2xl rounded-tr-md rounded-br-md"
-                              : isFirst
-                                ? "rounded-2xl rounded-tl-md"
-                                : "rounded-2xl rounded-tl-md rounded-bl-md",
-                          ].join(" ")}
-                          style={{ backgroundColor: bubbleBg, borderColor: bubbleBr }}
-                        >
-                          {msg.uploading ? (
-                            <div className="flex items-center gap-2 opacity-80">
-                              <span className="w-3 h-3 rounded-full animate-pulse bg-slate-400" />
-                              <span>Uploading…</span>
-                            </div>
-                          ) : msg.error ? (
-                            <span className="text-red-500">Failed to send</span>
-                          ) : msg.type === "image" && msg.imageUrl ? (
-                            <button type="button" onClick={() => setViewer({ open: true, url: msg.imageUrl! })} className="block" title="Open image">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={msg.imageUrl} alt="Sent image" className="rounded-xl bg-gray-100 max-w-full" style={{ width: 280, height: "auto", objectFit: "cover" }} />
-                            </button>
-                          ) : msg.type === "audio" && msg.audioUrl ? (
-                            <div className="w-[240px] max-w-full">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleAudio(msg.id, msg.audioUrl!)}
-                                  className="w-9 h-9 rounded-full border bg-white flex items-center justify-center hover:bg-black/5"
-                                  style={{ borderColor: EKARI.hair }}
-                                  title="Play/Pause"
-                                >
-                                  {audioState[msg.id]?.playing ? <IoPause size={18} color={EKARI.text} /> : <IoPlay size={18} color={EKARI.text} />}
-                                </button>
+                        className={`flex ${mine ? "justify-end" : "justify-start"} items-end gap-2 ${isFirst ? "mt-3" : "mt-1"} ${isLast ? "mb-1" : "mb-0"}`}
+                      >
 
-                                <div className="flex-1">
-                                  <div className="h-2 rounded-full bg-black/10 overflow-hidden">
-                                    <div
-                                      className="h-2 rounded-full"
-                                      style={{
-                                        width: `${Math.round((audioState[msg.id]?.pct ?? 0) * 100)}%`,
-                                        backgroundColor: EKARI.forest,
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
-                                    Voice message
+                        {!mine && (
+                          <div className="w-7 flex justify-center">
+                            {showAvatar ? (
+                              <div className="relative  rounded-full overflow-hidden bg-gray-200">
+
+                                <SmartAvatar src={peer?.photoURL || peerQs.peerPhotoURL || "/avatar-placeholder.png"} alt={peer?.firstName || "User"} size={46} /> </div>
+                            ) : (
+                              <div className="w-7 h-7" />
+                            )}
+                          </div>
+                        )}
+
+                        <div className={`flex flex-col ${mine ? "items-end" : "items-start"} max-w-[78%]`}>
+                          <div
+                            className={[
+                              "text-[15px] border shadow-sm px-3 py-2",
+                              "max-w-full break-words whitespace-pre-wrap leading-5",
+                              mine
+                                ? isFirst
+                                  ? "rounded-2xl rounded-tr-md"
+                                  : "rounded-2xl rounded-tr-md rounded-br-md"
+                                : isFirst
+                                  ? "rounded-2xl rounded-tl-md"
+                                  : "rounded-2xl rounded-tl-md rounded-bl-md",
+                            ].join(" ")}
+                            style={{ backgroundColor: bubbleBg, borderColor: bubbleBr }}
+                          >
+                            {msg.uploading ? (
+                              <div className="flex items-center gap-2 opacity-80">
+                                <span className="w-3 h-3 rounded-full animate-pulse bg-slate-400" />
+                                <span>Uploading…</span>
+                              </div>
+                            ) : msg.error ? (
+                              <span className="text-red-500">Failed to send</span>
+                            ) : msg.type === "image" && msg.imageUrl ? (
+                              <button type="button" onClick={() => setViewer({ open: true, url: msg.imageUrl! })} className="block" title="Open image">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={msg.imageUrl} alt="Sent image" className="rounded-xl bg-gray-100 max-w-full" style={{ width: 280, height: "auto", objectFit: "cover" }} />
+                              </button>
+                            ) : msg.type === "audio" && msg.audioUrl ? (
+                              <div className="w-[240px] max-w-full">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleAudio(msg.id, msg.audioUrl!)}
+                                    className="w-9 h-9 rounded-full border bg-white flex items-center justify-center hover:bg-black/5"
+                                    style={{ borderColor: EKARI.hair }}
+                                    title="Play/Pause"
+                                  >
+                                    {audioState[msg.id]?.playing ? <IoPause size={18} color={EKARI.text} /> : <IoPlay size={18} color={EKARI.text} />}
+                                  </button>
+
+                                  <div className="flex-1">
+                                    <div className="h-2 rounded-full bg-black/10 overflow-hidden">
+                                      <div
+                                        className="h-2 rounded-full"
+                                        style={{
+                                          width: `${Math.round((audioState[msg.id]?.pct ?? 0) * 100)}%`,
+                                          backgroundColor: EKARI.forest,
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                                      Voice message
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ) : msg.type === "product" && msg.listing?.id ? (
-                            <div className="space-y-2">
-                              {!!msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
+                            ) : msg.type === "product" && msg.listing?.id ? (
+                              <div className="space-y-2">
+                                {!!msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const url = msg.listing?.url || `/market/${encodeURIComponent(msg.listing!.id)}`;
-                                  router.push(url);
-                                }}
-                                className="w-full text-left rounded-xl border bg-white/70 hover:bg-white transition p-2 flex items-center gap-2"
-                                style={{ borderColor: EKARI.hair }}
-                                title="Open product"
-                              >
-                                <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                                  <Image
-                                    src={msg.listing.image || "/product-placeholder.jpg"}
-                                    alt={msg.listing.name || "Product"}
-                                    fill
-                                    className="object-cover"
-                                    sizes="48px"
-                                  />
-                                </div>
-
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-xs font-extrabold text-slate-900 truncate">
-                                    {msg.listing.name || "Product"}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const url = msg.listing?.url || `/market/${encodeURIComponent(msg.listing!.id)}`;
+                                    router.push(url);
+                                  }}
+                                  className="w-full text-left rounded-xl border bg-white/70 hover:bg-white transition p-2 flex items-center gap-2"
+                                  style={{ borderColor: EKARI.hair }}
+                                  title="Open product"
+                                >
+                                  <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                                    <Image
+                                      src={msg.listing.image || "/product-placeholder.jpg"}
+                                      alt={msg.listing.name || "Product"}
+                                      fill
+                                      className="object-cover"
+                                      sizes="48px"
+                                    />
                                   </div>
 
-                                  <div className="text-[11px] text-slate-600 truncate">
-                                    {msg.listing.currency === "USD"
-                                      ? `USD ${(Number(msg.listing.price || 0)).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
-                                      : `KSh ${(Number(msg.listing.price || 0)).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`}
-                                  </div>
-                                </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-extrabold text-slate-900 truncate">
+                                      {msg.listing.name || "Product"}
+                                    </div>
 
-                                <IoChevronForward size={16} style={{ color: EKARI.dim }} />
-                              </button>
-                            </div>
-                          ) : (
-                            !!msg.text && <span>{msg.text}</span>
-                          )}
+                                    <div className="text-[11px] text-slate-600 truncate">
+                                      {msg.listing.currency === "USD"
+                                        ? `USD ${(Number(msg.listing.price || 0)).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                                        : `KSh ${(Number(msg.listing.price || 0)).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`}
+                                    </div>
+                                  </div>
+
+                                  <IoChevronForward size={16} style={{ color: EKARI.dim }} />
+                                </button>
+                              </div>
+                            ) : (
+                              !!msg.text && <span>{msg.text}</span>
+                            )}
+                          </div>
+
+                          {isLast && <div className="mt-1 text-[11px] text-slate-500 px-1">{formatMsgTime(msg.createdAt)}</div>}
                         </div>
-
-                        {isLast && <div className="mt-1 text-[11px] text-slate-500 px-1">{formatMsgTime(msg.createdAt)}</div>}
                       </div>
-                    </div>
-                  );
+                    </React.Fragment>);
                 })}
 
                 {peerTyping && <TypingBubble />}

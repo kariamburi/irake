@@ -50,6 +50,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import clsx from "clsx";
 import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
 import { MarketType } from "../shared/market_master_catalog";
+import MobileBottomTabs from "../components/navigation/MobileBottomTabs";
 
 /* ---------------- utils ---------------- */
 type SortKey = "recent" | "priceAsc" | "priceDesc";
@@ -155,68 +156,6 @@ function hexToRgba(hex: string, alpha: number) {
     const b = parseInt(m[3], 16);
     return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
 }
-function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
-    const router = useRouter();
-
-    const TabBtn = ({
-        label,
-        icon,
-        onClick,
-        active,
-    }: {
-        label: string;
-        icon: React.ReactNode;
-        onClick: () => void;
-        active?: boolean;
-    }) => (
-        <button
-            onClick={onClick}
-            className={clsx(
-                "flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition",
-                active ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"
-            )}
-            aria-current={active ? "page" : undefined}
-        >
-            <div style={{ color: active ? EKARI.forest : EKARI.text }}>{icon}</div>
-            <span className="text-[11px] font-semibold" style={{ color: active ? EKARI.forest : EKARI.text }}>
-                {label}
-            </span>
-        </button>
-    );
-
-    const isBongaActive = true;
-
-    return (
-        <div className="fixed left-0 right-0 z-[60]" style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
-            <div
-                className="mx-auto w-full max-w-[520px] h-[72px] px-4 flex items-center justify-between"
-                style={{
-                    backgroundColor: "#FFFFFF",
-                    borderTop: `1px solid ${EKARI.hair}`,
-                }}
-            >
-                <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} onClick={() => router.push("/")} />
-                <TabBtn label="ekariMarket" icon={<IoCartOutline size={20} />} onClick={() => router.push("/market")} />
-
-                <button
-                    onClick={onCreate}
-                    className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg border"
-                    style={{
-                        background: `linear-gradient(135deg, ${EKARI.gold}, ${hexToRgba(EKARI.gold, 0.78)})`,
-                        borderColor: "rgba(0,0,0,0.06)",
-                    }}
-                    aria-label="New chat"
-                >
-                    <IoAdd size={26} color="#111827" />
-                </button>
-
-                <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} onClick={() => router.push("/nexus")} />
-                <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} onClick={() => router.push("/bonga")} active={isBongaActive} />
-            </div>
-        </div>
-    );
-}
-
 
 type MenuItem = {
     key: string;
@@ -766,7 +705,11 @@ export default function MarketPage() {
         if (!featuredItems.length) return items;
         return items.filter((p) => !featuredIdSet.has(p.id));
     }, [items, featuredItems, featuredIdSet]);
-
+    const router = useRouter();
+    const goUpload = () => {
+        if (!user?.uid) router.push("/getstarted?next=/studio/upload");
+        else router.push("/studio/upload");
+    };
     const activeChips = useMemo(() => {
         const chips: string[] = [];
         if (filters.type) chips.push(TYPE_LABEL[filters.type as keyof typeof TYPE_LABEL] || filters.type);
@@ -1055,7 +998,11 @@ export default function MarketPage() {
                         )}
                     </div>
 
-                    {!sellOpen && <MobileBottomTabs onCreate={() => setSellOpen(true)} />}
+                    {!sellOpen && <MobileBottomTabs
+                        onCreate={goUpload}
+                        theme="light"
+                        activeKey="market"
+                    />}
 
                     <EkariSideMenuSheet
                         open={menuOpen}

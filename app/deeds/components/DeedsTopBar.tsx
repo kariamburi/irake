@@ -78,7 +78,7 @@ export function DeedsTopBar({
                                 </button>
                             </div>
 
-                            <button
+                            {/**<button
                                 type="button"
                                 onClick={onOpenDive}
                                 className="flex h-12 items-center gap-2 rounded-full bg-black/28 px-4 text-white backdrop-blur-md"
@@ -88,7 +88,7 @@ export function DeedsTopBar({
                                 <span className="text-[15px] font-bold tracking-[0.01em]">
                                     Dive
                                 </span>
-                            </button>
+                            </button> */}
                         </div>
 
                         <div className="mt-2 flex items-center justify-center gap-8 px-2">
@@ -127,7 +127,7 @@ export function DeedsTopBar({
                 ) : (
                     <div className="flex h-[58px] items-center justify-between px-4">
 
-                        <button
+                        {/**<button
                             type="button"
                             onClick={onOpenDive}
                             className="flex h-10 items-center gap-2 rounded-full bg-black/28 px-2 text-white backdrop-blur-md"
@@ -136,8 +136,8 @@ export function DeedsTopBar({
                             <IoCompassOutline size={19} />
                             <span className="text-[12px] font-bold tracking-[0.01em]">
                                 Dive
-                            </span>
-                        </button>
+                            </span>  </button> */}
+                        <div className="h-12" />
                         <div className="flex items-center gap-7">
                             {TABS.map((k) => {
                                 const isActive = activeTab === k;
@@ -175,8 +175,11 @@ export function DeedsTopBar({
                             <button
                                 type="button"
                                 onClick={onOpenSearch}
-                                className="grid h-10 w-10 place-items-center rounded-full bg-black/28 text-white backdrop-blur-md"
+                                className="grid h-10 w-10 place-items-center rounded-full text-white transition-all duration-200 ease-out hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95"
                                 aria-label="Search"
+                                style={{
+                                    textShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                                }}
                             >
                                 <IoSearch size={20} />
                             </button>

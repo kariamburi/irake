@@ -262,9 +262,6 @@ type SearchBarProps = {
     onBack: () => void;
     onFocus: () => void;
     onArrowDown: () => void;
-    onArrowUp: () => void;
-    onEnterHighlighted: () => void;
-    onEscape: () => void;
 };
 
 const SearchBar = React.memo(function SearchBar({
@@ -275,9 +272,6 @@ const SearchBar = React.memo(function SearchBar({
     onBack,
     onFocus,
     onArrowDown,
-    onArrowUp,
-    onEnterHighlighted,
-    onEscape,
 }: SearchBarProps) {
     return (
         <form onSubmit={onSubmit} className="flex items-center gap-3 px-3 py-2">
@@ -301,26 +295,6 @@ const SearchBar = React.memo(function SearchBar({
                         if (e.key === "ArrowDown") {
                             e.preventDefault();
                             onArrowDown();
-                            return;
-                        }
-
-                        if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            onArrowUp();
-                            return;
-                        }
-
-                        if (e.key === "Enter") {
-                            if (q.trim()) {
-                                e.preventDefault();
-                                onEnterHighlighted();
-                            }
-                            return;
-                        }
-
-                        if (e.key === "Escape") {
-                            e.preventDefault();
-                            onEscape();
                         }
                     }}
                     placeholder="Search"
@@ -352,6 +326,7 @@ const SearchBar = React.memo(function SearchBar({
         </form>
     );
 });
+
 /* -------------------- Page -------------------- */
 
 export default function SearchPageClient() {
@@ -946,81 +921,9 @@ export default function SearchPageClient() {
     }, [active, topData, deedData, eventData, discData, accData, tagData]);
 
     const currentCount = listData?.length ?? 0;
-    const dropdownItems = useMemo(() => {
-        if (showHandleSuggestions) {
-            return handleSuggestions.map((acc) => ({ type: "account" as const, account: acc }));
-        }
 
-        if (showTagSuggestions) {
-            return tagSuggestions.map((tag) => ({ type: "tag" as const, tag }));
-        }
-
-        if (showMixedLiveSuggestions) {
-            return liveSuggestions;
-        }
-
-        return [];
-    }, [
-        showHandleSuggestions,
-        showTagSuggestions,
-        showMixedLiveSuggestions,
-        handleSuggestions,
-        tagSuggestions,
-        liveSuggestions,
-    ]);
-    useEffect(() => {
-        if (dropdownItems.length === 0) {
-            setHighlightedIndex(0);
-            return;
-        }
-
-        if (highlightedIndex > dropdownItems.length - 1) {
-            setHighlightedIndex(0);
-        }
-    }, [dropdownItems, highlightedIndex]);
     /* --------- UI pieces --------- */
-    const moveHighlightDown = useCallback(() => {
-        if (!dropdownItems.length) return;
-        setShowLiveDropdown(true);
-        setHighlightedIndex((prev) => (prev + 1) % dropdownItems.length);
-    }, [dropdownItems.length]);
 
-    const moveHighlightUp = useCallback(() => {
-        if (!dropdownItems.length) return;
-        setShowLiveDropdown(true);
-        setHighlightedIndex((prev) =>
-            prev <= 0 ? dropdownItems.length - 1 : prev - 1
-        );
-    }, [dropdownItems.length]);
-
-    const activateHighlightedItem = useCallback(() => {
-        if (!dropdownItems.length) return;
-
-        const item = dropdownItems[highlightedIndex];
-        if (!item) return;
-
-        if (item.type === "account") {
-            onSelectHandleSuggestion(item.account);
-            return;
-        }
-
-        if (item.type === "tag" && "tag" in item && !("query" in item)) {
-            onSelectTagSuggestion(item.tag);
-            return;
-        }
-
-        onSelectLiveSuggestion(item as LiveSuggestion);
-    }, [
-        dropdownItems,
-        highlightedIndex,
-        onSelectHandleSuggestion,
-        onSelectTagSuggestion,
-        onSelectLiveSuggestion,
-    ]);
-
-    const closeDropdown = useCallback(() => {
-        setShowLiveDropdown(false);
-    }, []);
     function StatMini({ label, value }: { label: string; value: string }) {
         return (
             <span
@@ -1406,7 +1309,7 @@ export default function SearchPageClient() {
                                             onClick={() => onSelectHandleSuggestion(acc)}
                                             className={cn(
                                                 "flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-black/[0.02]",
-                                                highlightedIndex === idx && "bg-[#F5F5F5]"
+                                                highlightedIndex === idx && "bg-black/[0.03]"
                                             )}
                                         >
                                             <div
@@ -1807,16 +1710,7 @@ export default function SearchPageClient() {
                                 resetAll={resetAll}
                                 onBack={goBack}
                                 onFocus={openDropdownNow}
-                                onArrowDown={moveHighlightDown}
-                                onArrowUp={moveHighlightUp}
-                                onEnterHighlighted={() => {
-                                    if (shouldShowDropdown && dropdownItems.length > 0) {
-                                        activateHighlightedItem();
-                                    } else {
-                                        onSubmit();
-                                    }
-                                }}
-                                onEscape={closeDropdown}
+                                onArrowDown={() => openDropdownNow()}
                             />
                         </div>
 
@@ -1904,7 +1798,7 @@ export default function SearchPageClient() {
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-[15px] font-semibold" style={{ color: EKARI.text }}>
-                                                    Ask ekari AI
+                                                    Ask Ekari AI
                                                 </p>
                                                 <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
                                                     Try a smarter search experience

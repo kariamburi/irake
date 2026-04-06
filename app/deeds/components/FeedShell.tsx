@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { IoMenu, IoSearch } from "react-icons/io5";
 import { useRouter } from "next/navigation";
 
 import { FeedTabKey, Deed } from "../data/deedsFeedWeb";
@@ -14,15 +13,7 @@ import { DeedsTopBar } from "./DeedsTopBar";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { DeedStageShell } from "./DeedStageShell";
 import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // adjust path to your firebase config
-
-const TABS: FeedTabKey[] = ["forYou", "following", "nearby"];
-
-const LABEL: Record<FeedTabKey, string> = {
-    forYou: "For You",
-    following: "Following",
-    nearby: "Nearby",
-};
+import { db } from "@/lib/firebase";
 
 type Props = {
     uid?: string | null;
@@ -37,6 +28,7 @@ type Props = {
     hlsMaxHeight?: number;
     onOpenMenu?: () => void;
     loading?: boolean;
+    refreshKey?: number;
 };
 
 function useIsDesktop(breakpoint = 1024) {
@@ -56,14 +48,36 @@ function isTypingTarget(target: EventTarget | null) {
     const el = target as HTMLElement | null;
     if (!el) return false;
     const tag = el.tagName?.toLowerCase();
+    return tag === "input" || tag === "textarea" || el.isContentEditable;
+}
+
+export function FeedShell(props: Props) {
+    const { refreshKey = 0 } = props;
+
+    const [persistedTab, setPersistedTab] = useState<FeedTabKey>("forYou");
+    const [instanceKey, setInstanceKey] = useState(0);
+
+    useEffect(() => {
+        if (!refreshKey) return;
+        setInstanceKey((prev) => prev + 1);
+    }, [refreshKey]);
+
     return (
-        tag === "input" ||
-        tag === "textarea" ||
-        el.isContentEditable
+        <FeedShellInner
+            key={`${persistedTab}-${instanceKey}`}
+            {...props}
+            initialTab={persistedTab}
+            onTabChangePersist={setPersistedTab}
+        />
     );
 }
 
-export function FeedShell({
+type FeedShellInnerProps = Props & {
+    initialTab: FeedTabKey;
+    onTabChangePersist: (tab: FeedTabKey) => void;
+};
+
+function FeedShellInner({
     uid,
     profile,
     warmAuthor,
@@ -72,7 +86,9 @@ export function FeedShell({
     hlsMaxHeight,
     onOpenMenu,
     loading,
-}: Props) {
+    initialTab,
+    onTabChangePersist,
+}: FeedShellInnerProps) {
     const router = useRouter();
     const scrollerRef = useRef<HTMLDivElement | null>(null);
 
@@ -82,19 +98,22 @@ export function FeedShell({
     const [activeDeed, setActiveDeed] = useState<Deed | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const [following, setFollowing] = useState<Set<string>>(new Set());
+
     const isDesktop = useIsDesktop();
 
     const feed = useDeedsFeedWeb({
         uid,
         warmAuthor,
-        initialTab: "forYou",
+        initialTab,
     });
 
     const currentFeed = feed.currentFeed;
 
     const pageHeight =
         cardH || (typeof window !== "undefined" ? window.innerHeight : 800);
+
     const showLoading = loading || (currentFeed.loading && !currentFeed.initialized);
+
     const emptyText = useMemo(() => {
         if (feed.activeTab === "following") {
             return uid
@@ -139,6 +158,7 @@ export function FeedShell({
 
         setCommentsId(activeDeedId);
     }, [activeDeedId, commentsId]);
+
     useEffect(() => {
         if (!uid) {
             setFollowing(new Set());
@@ -179,6 +199,7 @@ export function FeedShell({
             } catch { }
         };
     }, [uid]);
+
     const goToIndex = React.useCallback(
         (nextIndex: number) => {
             const root = scrollerRef.current;
@@ -220,10 +241,6 @@ export function FeedShell({
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [goNext, goPrev]);
-
-
-
-
 
     useEffect(() => {
         if (!uid) {
@@ -275,19 +292,31 @@ export function FeedShell({
     const desktopRailOpen = isDesktop && !!commentsId;
     const canGoPrev = activeIndex > 0;
     const canGoNext = activeIndex < currentFeed.items.length - 1;
+
     const loadingMoreRef = useRef(false);
 
     useEffect(() => {
         loadingMoreRef.current = !!currentFeed.loadingMore;
     }, [currentFeed.loadingMore]);
+
+    useEffect(() => {
+        setActiveIndex(0);
+        setActiveDeedId(currentFeed.items[0]?.id ?? null);
+        setActiveDeed(currentFeed.items[0] ?? null);
+
+        const root = scrollerRef.current;
+        if (root) {
+            root.scrollTo({ top: 0, behavior: "auto" });
+        }
+    }, [feed.activeTab]);
+
     return (
         <GlobalMuteProviderWeb initialMuted={true}>
             <div className="relative h-[100svh] w-full overflow-hidden text-white">
                 <div className="flex h-full w-full">
                     <div className="relative h-full min-w-0 flex-1 overflow-hidden">
                         <div className="mx-auto flex h-full w-full max-w-[980px] items-stretch justify-center gap-4 xl:gap-6">
-                            {/* Feed stage + external desktop rail */}
-                            <div className="relative flex h-full w-full lg:min-w-0 items-stretch justify-center gap-4 xl:gap-6">
+                            <div className="relative flex h-full w-full items-stretch justify-center gap-4 lg:min-w-0 xl:gap-6">
                                 <section
                                     ref={scrollerRef}
                                     tabIndex={0}
@@ -311,9 +340,11 @@ export function FeedShell({
                                         onChangeTab={(k) => {
                                             const locked = !uid && k !== "forYou";
                                             if (locked) {
-                                                router.push(`/getstarted?next=/deeds`);
+                                                router.push("/getstarted?next=/deeds");
                                                 return;
                                             }
+
+                                            onTabChangePersist(k);
                                             feed.setActiveTab(k);
                                         }}
                                         onOpenSearch={() => router.push("/search")}
@@ -335,6 +366,7 @@ export function FeedShell({
                                             </div>
                                         </DeedStageShell>
                                     )}
+
                                     {!currentFeed.loading && currentFeed.items.length === 0 ? (
                                         <DeedStageShell>
                                             <div className="text-sm text-white/80">
@@ -370,9 +402,8 @@ export function FeedShell({
                                     )}
                                 </section>
 
-                                {/* Desktop rail beside video */}
                                 {isDesktop ? (
-                                    <div className="hidden lg:flex w-[96px] xl:w-[108px] items-center justify-center">
+                                    <div className="hidden w-[96px] items-center justify-center lg:flex xl:w-[108px]">
                                         <DesktopDeedRailWeb
                                             item={activeDeed}
                                             uid={uid}
@@ -393,7 +424,7 @@ export function FeedShell({
                     {isDesktop ? (
                         <div
                             className={[
-                                "hidden lg:block bg-white h-full shrink-0 transition-all duration-300",
+                                "hidden h-full shrink-0 bg-white transition-all duration-300 lg:block",
                                 desktopRailOpen ? "w-[400px]" : "w-0",
                             ].join(" ")}
                         >

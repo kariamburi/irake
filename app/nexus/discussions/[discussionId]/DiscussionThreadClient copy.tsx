@@ -77,12 +77,6 @@ export default function DiscussionThreadClient({
     const [isMobile, setIsMobile] = useState(false);
 
     const sentinelRef = useRef<HTMLDivElement | null>(null);
-    const webUrl =
-        typeof window !== "undefined"
-            ? window.location.href
-            : `https://ekarihub.com/nexus/discussions/${encodeURIComponent(discussionId)}`;
-
-    const appUrl = `ekarihub:///nexus/discussion/${encodeURIComponent(discussionId)}`;
 
     useEffect(() => {
         const onResize = () => {
@@ -499,15 +493,7 @@ export default function DiscussionThreadClient({
                 isMobile={isMobile}
             />
 
-            <OpenInAppBanner
-                webUrl={webUrl}
-                appUrl={appUrl}
-                title="Open this discussion in ekarihub"
-                subtitle="Faster loading, messaging, and full features."
-                playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
-                appStoreUrl="https://apps.apple.com"
-            />
-
+            <OpenInAppBanner />
 
             <main className={cn("mx-auto w-full", THREAD_MAX_WIDTH, composerBottomSpace)}>
                 <DiscussionTopicCard discussion={discussion} />

@@ -42,6 +42,7 @@ import clsx from "clsx";
 import { cn } from "@/lib/utils";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
+import MobileBottomTabs from "@/app/components/navigation/MobileBottomTabs";
 
 const EKARI = {
   forest: "#233F39",
@@ -412,7 +413,10 @@ export default function MessagesPage() {
   const profileHref =
     handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
 
-
+  const goUpload = () => {
+    if (!user?.uid) router.push("/getstarted?next=/studio/upload");
+    else router.push("/studio/upload");
+  };
 
   function normalizeUser(raw: any): UserLite | null {
     if (!raw) return null;
@@ -777,67 +781,6 @@ export default function MessagesPage() {
   );
 
   /* -------------------- Mobile bottom tabs (keep logic) -------------------- */
-  function MobileBottomTabs({ onCreate }: { onCreate: () => void }) {
-    const router = useRouter();
-
-    const TabBtn = ({
-      label,
-      icon,
-      onClick,
-      active,
-    }: {
-      label: string;
-      icon: React.ReactNode;
-      onClick: () => void;
-      active?: boolean;
-    }) => (
-      <button
-        onClick={onClick}
-        className={clsx(
-          "flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition",
-          active ? "bg-black/[0.04]" : "hover:bg-black/[0.03]"
-        )}
-        aria-current={active ? "page" : undefined}
-      >
-        <div style={{ color: active ? EKARI.forest : EKARI.text }}>{icon}</div>
-        <span className="text-[11px] font-semibold" style={{ color: active ? EKARI.forest : EKARI.text }}>
-          {label}
-        </span>
-      </button>
-    );
-
-    const isBongaActive = true;
-
-    return (
-      <div className="fixed left-0 right-0 z-[60]" style={{ bottom: 0, paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div
-          className="mx-auto w-full max-w-[520px] h-[72px] px-4 flex items-center justify-between"
-          style={{
-            backgroundColor: "#FFFFFF",
-            borderTop: `1px solid ${EKARI.hair}`,
-          }}
-        >
-          <TabBtn label="Deeds" icon={<IoHomeOutline size={20} />} onClick={() => router.push("/")} />
-          <TabBtn label="ekariMarket" icon={<IoCartOutline size={20} />} onClick={() => router.push("/market")} />
-
-          <button
-            onClick={onCreate}
-            className="h-12 w-16 rounded-2xl grid place-items-center shadow-lg border"
-            style={{
-              background: `linear-gradient(135deg, ${EKARI.gold}, ${hexToRgba(EKARI.gold, 0.78)})`,
-              borderColor: "rgba(0,0,0,0.06)",
-            }}
-            aria-label="New chat"
-          >
-            <IoAdd size={26} color="#111827" />
-          </button>
-
-          <TabBtn label="Nexus" icon={<IoCompassOutline size={20} />} onClick={() => router.push("/nexus")} />
-          <TabBtn label="Bonga" icon={<IoChatbubblesOutline size={20} />} onClick={() => router.push("/bonga")} active={isBongaActive} />
-        </div>
-      </div>
-    );
-  }
 
   /* -------------------- Content list (premium cards) -------------------- */
   const Content = (
@@ -887,7 +830,7 @@ export default function MessagesPage() {
                   <motion.button
                     whileTap={{ scale: 0.985 }}
                     className={cn(
-                      "w-full group text-left",
+                      "w-full group mt-1 text-left",
                       "rounded-2xl border bg-white/95 shadow-sm",
                       "hover:shadow-md hover:-translate-y-[0.5px] transition",
                       "focus:outline-none focus:ring-2"
@@ -1008,7 +951,11 @@ export default function MessagesPage() {
           {Content}
         </div>
 
-        <MobileBottomTabs onCreate={() => router.push("/search")} />
+        <MobileBottomTabs
+          onCreate={goUpload}
+          theme="light"
+          activeKey="bonga"
+        />
 
         <EkariSideMenuSheet
           open={menuOpen}

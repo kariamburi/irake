@@ -863,39 +863,87 @@ export default function ProductDetailsClient({
                     </div>
 
                     <div className="mt-3">
+                        {!isOwner ? (
+                            <>
+                                <button
+                                    onClick={handleMessageClick}
+                                    disabled={msgLoading}
+                                    className={[
+                                        "w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white transition",
+                                        msgLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-95",
+                                    ].join(" ")}
+                                    style={{ backgroundColor: EKARI.gold }}
+                                >
+                                    {msgLoading ? (
+                                        <>
+                                            <span className="inline-block h-4 w-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
+                                            Opening…
+                                        </>
+                                    ) : (
+                                        <>
+                                            <IoChatbubbleEllipsesOutline size={18} />
+                                            Message seller
+                                        </>
+                                    )}
+                                </button>
 
-                        {!isOwner ? (<>
-                            <button
-                                onClick={handleMessageClick}
-                                disabled={msgLoading}
-                                className={[
-                                    "w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white transition",
-                                    msgLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-95",
-                                ].join(" ")}
-                                style={{ backgroundColor: EKARI.gold }}
-                            >
-                                {msgLoading ? (
-                                    <>
-                                        <span className="inline-block h-4 w-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
-                                        Opening…
-                                    </>
-                                ) : (
-                                    <>
-                                        <IoChatbubbleEllipsesOutline size={18} />
-                                        Message seller
-                                    </>
-                                )}
-                            </button>
-                            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3">
-                                <div className="flex items-start gap-2">
-                                    <IoShieldCheckmark className="mt-0.5 text-red-600" size={16} />
-                                    <p className="text-[12px] leading-relaxed text-red-700 font-semibold">
-                                        ⚠️ Safety Warning: Do NOT send money in advance. Always meet the seller, verify the product,
-                                        and pay only after confirming quality. Ekarihub is a platform and is not liable for payments or delivery.
-                                    </p>
+                                <div
+                                    className="mt-3 rounded-2xl border bg-gradient-to-br from-amber-50 via-white to-red-50 p-4 shadow-sm"
+                                    style={{ borderColor: "rgba(199,146,87,0.22)" }}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
+                                            <IoShieldCheckmark size={18} className="text-amber-700" />
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h3 className="text-[13px] font-extrabold tracking-[0.01em] text-slate-900">
+                                                    Buyer Safety Notice
+                                                </h3>
+
+                                                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-amber-800">
+                                                    Stay Safe
+                                                </span>
+                                            </div>
+
+                                            <p className="mt-2 text-[12px] leading-6 font-medium text-slate-700">
+                                                For your security, please follow these guidelines when transacting on ekariMarket:
+                                            </p>
+
+                                            <ul className="mt-2 space-y-2 text-[12px] leading-6 text-slate-700">
+                                                <li className="flex items-start gap-2">
+                                                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
+                                                    <span>Do not make advance payments.</span>
+                                                </li>
+
+                                                <li className="flex items-start gap-2">
+                                                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
+                                                    <span>Meet the seller in person where possible.</span>
+                                                </li>
+
+                                                <li className="flex items-start gap-2">
+                                                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
+                                                    <span>Inspect and verify the product or service before paying.</span>
+                                                </li>
+
+                                                <li className="flex items-start gap-2">
+                                                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
+                                                    <span>Only complete payment after confirming quality and satisfaction.</span>
+                                                </li>
+                                            </ul>
+
+                                            <div className="mt-3 rounded-xl border border-slate-200 bg-white/90 px-3 py-2">
+                                                <p className="text-[11px] leading-5 font-semibold italic text-slate-600">
+                                                    ekarihub provides the marketplace platform but does not handle payments
+                                                    or deliveries, and therefore cannot be held liable for transactions
+                                                    between users.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </>
+                            </>
                         ) : (
                             <div className="space-y-2">
                                 <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
