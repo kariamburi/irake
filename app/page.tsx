@@ -4,7 +4,7 @@ import HomeFeedClientPage from "./deeds/HomeFeedClientPage";
 
 
 export const metadata: Metadata = {
-  title: "ekarihub | Deeds, agribusiness community, market and opportunities",
+  title: "ekarihub | Connect. Trade. Thrive",
   description:
     "Discover public deeds, agribusiness stories, community updates, market opportunities, events, and discussions on ekarihub.",
   keywords: [
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "ekarihub | Deeds, agribusiness community, market and opportunities",
+    title: "ekarihub | Connect. Trade. Thrive",
     description:
       "Discover public deeds, agribusiness stories, community updates, market opportunities, events, and discussions on ekarihub.",
     url: "https://ekarihub.com",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ekarihub | Deeds, agribusiness community, market and opportunities",
+    title: "ekarihub | Connect. Trade. Thrive",
     description:
       "Discover public deeds, agribusiness stories, community updates, market opportunities, events, and discussions on ekarihub.",
     images: ["/og-image.jpg"],
