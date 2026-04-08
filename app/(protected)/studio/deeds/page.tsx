@@ -532,7 +532,7 @@ export default function PostsPage() {
                             style={{ borderBottom: "1px solid rgba(199,146,87,0.14)" }}
                         >
                             {/* md: hide Likes/Comments to save width; lg: show them */}
-                            <div className="grid w-full grid-cols-[24px_minmax(240px,1fr)_120px_80px_100px_140px] lg:grid-cols-[24px_minmax(260px,1fr)_120px_80px_80px_90px_100px_140px] items-center gap-1">
+                            <div className="grid w-full grid-cols-[24px_minmax(180px,1fr)_110px_70px_120px] xl:grid-cols-[24px_minmax(220px,1fr)_110px_70px_70px_80px_90px_120px] items-center gap-2">
                                 <div className="flex items-center justify-center">
                                     <input
                                         type="checkbox"
@@ -726,17 +726,17 @@ function PostRowPremium({
         >
             {/* DESKTOP layout (✅ responsive grid, no horizontal scroll) */}
             <div className="hidden md:block px-1">
-                <div className="grid w-full grid-cols-[24px_minmax(240px,1fr)_120px_80px_100px_140px] lg:grid-cols-[24px_minmax(260px,1fr)_120px_80px_80px_90px_100px_140px] items-center gap-1 px-3 py-3">
+                <div className="grid w-full grid-cols-[24px_minmax(180px,1fr)_110px_70px_120px] xl:grid-cols-[24px_minmax(220px,1fr)_110px_70px_70px_80px_90px_120px] items-center gap-2 px-3 py-3">
                     <div className="flex items-center justify-center">
                         <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label="Select row" />
                     </div>
 
                     <button
                         onClick={() => router.push(`/${row.authorUsername}/deed/${row.id}`)}
-                        className="flex min-w-0 items-center gap-3 text-left"
+                        className="flex min-w-0 items-center gap-3 text-left overflow-hidden"
                     >
                         <UniformThumbPremium src={poster} dateStr={dateStr} />
-                        <div className="min-w-0">
+                        <div className="min-w-0 overflow-hidden">
                             <div className="text-[12px] font-extrabold text-slate-700 truncate">
                                 {row.caption?.trim() ? row.caption : "—"}
                             </div>
@@ -747,7 +747,7 @@ function PostRowPremium({
                     <div className="relative flex items-center justify-center">
                         <button
                             onClick={() => setOpenMenu((v) => !v)}
-                            className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[12px] font-extrabold bg-white/70 hover:bg-white transition"
+                            className="inline-flex items-center justify-center gap-1 rounded-full border px-3 py-1 text-[12px] font-extrabold bg-white/70 hover:bg-white transition whitespace-nowrap"
                             style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
                         >
                             {cap(row.visibility || "public")}
@@ -756,7 +756,7 @@ function PostRowPremium({
 
                         {openMenu && (
                             <div
-                                className="absolute z-20 mt-14 w-40 overflow-hidden rounded-2xl border bg-white/90 backdrop-blur-xl shadow-lg"
+                                className="absolute right-0 z-20 mt-14 w-40 overflow-hidden rounded-2xl border bg-white/90 backdrop-blur-xl shadow-lg"
                                 style={{ borderColor: "rgba(199,146,87,0.22)" }}
                             >
                                 {(["public", "followers", "private"] as const).map((v) => (
@@ -779,19 +779,21 @@ function PostRowPremium({
 
                     <div className="text-center text-[12px] font-extrabold text-slate-700">{views}</div>
 
-                    {/* Likes + Comments only on lg */}
-                    <div className="hidden lg:block text-center text-[12px] font-extrabold text-slate-700">{likes}</div>
-                    <div className="hidden lg:block text-center text-[12px] font-extrabold text-slate-700">{comments}</div>
+                    <div className="hidden xl:block text-center text-[12px] font-extrabold text-slate-700">{likes}</div>
+                    <div className="hidden xl:block text-center text-[12px] font-extrabold text-slate-700">{comments}</div>
 
                     <div className="text-center">
                         <StatusBadge s={row.status} />
                     </div>
 
-                    <div className="flex items-center justify-center gap-1">
-                        {/*<IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} /> */}
+                    <div className="flex flex-wrap items-center justify-center gap-1 min-w-0">
                         <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
                         <IconBtn title="Comments" href={`/${row.authorUsername}/deed/${row.id}`} variant="ghost" />
-                        <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
+                        <button
+                            className="rounded-full p-2 hover:bg-black/5 shrink-0"
+                            title="Delete"
+                            onClick={onDelete}
+                        >
                             <IoTrashOutline />
                         </button>
                     </div>
