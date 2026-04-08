@@ -886,7 +886,86 @@ export default function UploadPage() {
     path: string,
     onProgress?: (pct: number) => void
   ) => uploadResumable(file, path, onProgress);
+  function buildDeedLocationWeb(params: {
+    useGeo: boolean;
+    geo?: { lat: number; lng: number };
+    countryName?: string;
+    countryCode?: string;
+    countyName?: string;
+    userProfile?: any | null;
+  }) {
+    const { useGeo, geo, countryName, countryCode, countyName, userProfile } = params;
 
+    const profileCountryName =
+      typeof userProfile?.country === "string" && userProfile.country.trim()
+        ? userProfile.country.trim()
+        : undefined;
+
+    const profileCountryCode =
+      typeof userProfile?.countryCode === "string" && userProfile.countryCode.trim()
+        ? userProfile.countryCode.trim()
+        : undefined;
+
+    const profileCountryTag =
+      typeof userProfile?.countryTag === "string" && userProfile.countryTag.trim()
+        ? userProfile.countryTag.trim().toLowerCase()
+        : undefined;
+
+    const profileCountyName =
+      typeof userProfile?.county === "string" && userProfile.county.trim()
+        ? userProfile.county.trim()
+        : undefined;
+
+    const profileCountyTag =
+      typeof userProfile?.countyTag === "string" && userProfile.countyTag.trim()
+        ? userProfile.countyTag.trim().toLowerCase()
+        : undefined;
+
+    const profileLat =
+      typeof userProfile?.location?.lat === "number" ? userProfile.location.lat : undefined;
+
+    const profileLng =
+      typeof userProfile?.location?.lng === "number" ? userProfile.location.lng : undefined;
+
+    const profilePlace =
+      typeof userProfile?.location?.place === "string" && userProfile.location.place.trim()
+        ? userProfile.location.place.trim()
+        : undefined;
+
+    const finalCountryName =
+      (typeof countryName === "string" && countryName.trim() ? countryName.trim() : undefined) ??
+      profileCountryName;
+
+    const finalCountryCode =
+      (typeof countryCode === "string" && countryCode.trim() ? countryCode.trim() : undefined) ??
+      profileCountryCode;
+
+    const finalCountyName =
+      (typeof countyName === "string" && countyName.trim() ? countyName.trim() : undefined) ??
+      profileCountyName;
+
+    const finalCountryTag = finalCountryName?.toLowerCase() ?? profileCountryTag;
+    const finalCountyTag = finalCountyName?.toLowerCase() ?? profileCountyTag;
+
+    const finalLat = useGeo ? geo?.lat ?? profileLat : undefined;
+    const finalLng = useGeo ? geo?.lng ?? profileLng : undefined;
+    const finalPlace = useGeo ? profilePlace : undefined;
+
+    return pruneUndefined({
+      countryName: finalCountryName,
+      countryCode: finalCountryCode,
+      countryTag: finalCountryTag,
+      countyName: finalCountyName,
+      countyTag: finalCountyTag,
+      geo:
+        typeof finalLat === "number" && typeof finalLng === "number"
+          ? { lat: finalLat, lng: finalLng }
+          : undefined,
+      lat: finalLat,
+      lng: finalLng,
+      place: finalPlace,
+    });
+  }
   /* ---------- save (Create OR Edit) — VIDEO or IMAGE ---------- */
   const saveDeed = async () => {
 
@@ -941,14 +1020,13 @@ export default function UploadPage() {
 
     // resolve uploaded audio FIRST
     let resolvedMusicUrl: string | undefined = musicUrl || undefined;
-    console.log("saveDeed start", {
-      uid,
-      isEditing,
-      mediaKind,
-      durationSec,
-      needsServerMix,
-      musicTitle,
-      hasResolvedMusic: !!resolvedMusicUrl,
+    const deedLocation = buildDeedLocationWeb({
+      useGeo,
+      geo,
+      countryName,
+      countryCode,
+      countyName,
+      userProfile,
     });
     try {
       if (!resolvedMusicUrl && musicSource === "uploaded" && localSoundFile) {
@@ -1055,16 +1133,11 @@ export default function UploadPage() {
           tags: mergedTags.length ? mergedTags : undefined,
           visibility,
           allowComments,
-          geo,
-          countryTag: countryName || undefined,
-          countryCode: countryCode || undefined,
-          countyTag: countyName || undefined,
-
+          ...deedLocation,
           mediaType: "video" as const,
           mediaThumbUrl: thumbUrl,
           text: caption?.trim() || undefined,
           createdAtMs: Date.now(),
-
           mix: pruneUndefined({
             mode: "video_mix",
             needsServerMix: true,

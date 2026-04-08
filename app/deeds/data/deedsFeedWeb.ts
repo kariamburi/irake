@@ -1,4 +1,3 @@
-// app/deeds/data/deedsFeedWeb.ts
 import {
     collection,
     documentId,
@@ -62,7 +61,7 @@ export type Deed = {
         verificationOrganizationName?: string | null;
     };
     media?: any[];
-    photoItems?: PhotoItem[]; // add this
+    photoItems?: PhotoItem[];
     type: "video" | "photo";
     aspectRatio?: string | null;
     videoWidth?: number | null;
@@ -70,9 +69,13 @@ export type Deed = {
     orientation?: "portrait" | "landscape" | "square" | null;
     countyTag?: string | null;
     countryTag?: string | null;
+    place?: string | null;
+    lat?: number | null;
+    lng?: number | null;
     status?: string | null;
     aspectRatioValue?: number | null;
 };
+
 export type FeedTabKey = "forYou" | "following" | "nearby";
 
 export type FeedCursor = {
@@ -115,7 +118,7 @@ function mapStats(raw: any): Deed["stats"] {
     return {
         views: Number(raw?.views ?? 0),
         likes: Number(raw?.likes ?? 0),
-        saves: Number(raw?.saves ?? 0),
+        saves: Number(raw?.saves ?? raw?.bookmarks ?? 0),
         completions: raw?.completions != null ? Number(raw.completions) : undefined,
         watchMs: raw?.watchMs != null ? Number(raw.watchMs) : undefined,
         comments: raw?.comments != null ? Number(raw.comments) : undefined,
@@ -222,11 +225,52 @@ function mapMusic(raw: any): Deed["music"] | undefined {
     };
 }
 
+function parseAspectRatioValue(
+    width?: number | null,
+    height?: number | null,
+    aspectRatio?: string | null
+): number | null {
+    if (
+        typeof width === "number" &&
+        typeof height === "number" &&
+        width > 0 &&
+        height > 0
+    ) {
+        return width / height;
+    }
+
+    if (typeof aspectRatio === "string" && aspectRatio.includes(":")) {
+        const [wRaw, hRaw] = aspectRatio.split(":");
+        const w = Number(wRaw);
+        const h = Number(hRaw);
+        if (!Number.isNaN(w) && !Number.isNaN(h) && w > 0 && h > 0) {
+            return w / h;
+        }
+    }
+
+    return null;
+}
+
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
 function mapDeedDoc(
-    doc: any,
+    docSnap: any,
     opts?: { includeDeleted?: boolean }
 ): Deed | null {
-    const d = typeof doc.data === "function" ? doc.data() : doc;
+    const d = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
     if (!d) return null;
 
     const status = d.status != null ? String(d.status).toLowerCase() : null;
@@ -234,30 +278,58 @@ function mapDeedDoc(
 
     const media = Array.isArray(d.media) ? d.media : [];
     const photoItems = mapPhotoItems(media);
-    const aspectRatioValue = parseAspectRatioValue(d.videoWidth, d.videoHeight, d.aspectRatio);
 
     const muxPlaybackId =
         normalizeString(d.muxPlaybackId) ??
         normalizeString(d.playbackId) ??
-        normalizeString(d?.mux?.playbackId);
+        normalizeString(d?.mux?.playbackId) ??
+        normalizeString(media[0]?.muxPlaybackId) ??
+        normalizeString(media[0]?.playbackId);
 
     const posterUrl =
         normalizeString(d.posterUrl) ??
+        normalizeString(d.mediaThumbUrl) ??
         normalizeString(d.thumbnailUrl) ??
         normalizeString(d.thumbUrl) ??
         normalizeString(d?.mux?.thumbnailUrl) ??
-        normalizeString(media[0]?.thumbUrl);
+        normalizeString(media[0]?.thumbUrl) ??
+        normalizeString(media[0]?.previewUrl);
 
     const mediaUrl =
         normalizeString(d.mediaUrl) ??
-        normalizeString(d.videoUrl);
+        normalizeString(d.videoUrl) ??
+        normalizeString(media[0]?.url);
 
     const videoWidth =
-        d.videoWidth != null ? Number(d.videoWidth) : null;
+        d.videoWidth != null
+            ? Number(d.videoWidth)
+            : media[0]?.width != null
+                ? Number(media[0].width)
+                : media[0]?.videoWidth != null
+                    ? Number(media[0].videoWidth)
+                    : null;
+
     const videoHeight =
-        d.videoHeight != null ? Number(d.videoHeight) : null;
+        d.videoHeight != null
+            ? Number(d.videoHeight)
+            : media[0]?.height != null
+                ? Number(media[0].height)
+                : media[0]?.videoHeight != null
+                    ? Number(media[0].videoHeight)
+                    : null;
+
     const aspectRatio =
-        d.aspectRatio != null ? String(d.aspectRatio) : null;
+        d.aspect_ratio != null
+            ? String(d.aspect_ratio)
+            : d.aspectRatio != null
+                ? String(d.aspectRatio)
+                : media[0]?.aspect_ratio != null
+                    ? String(media[0].aspect_ratio)
+                    : media[0]?.aspectRatio != null
+                        ? String(media[0].aspectRatio)
+                        : null;
+
+    const aspectRatioValue = parseAspectRatioValue(videoWidth, videoHeight, aspectRatio);
 
     const hasExplicitVideoMedia = media.some((m: any) => {
         const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
@@ -276,22 +348,53 @@ function mapDeedDoc(
                 ? "photo"
                 : "photo";
 
+    const lat =
+        typeof d.lat === "number"
+            ? d.lat
+            : typeof d.geo?.lat === "number"
+                ? d.geo.lat
+                : typeof d.location?.lat === "number"
+                    ? d.location.lat
+                    : null;
+
+    const lng =
+        typeof d.lng === "number"
+            ? d.lng
+            : typeof d.geo?.lng === "number"
+                ? d.geo.lng
+                : typeof d.location?.lng === "number"
+                    ? d.location.lng
+                    : null;
+
+    const place =
+        normalizeString(d.place) ??
+        normalizeString(d.location?.place) ??
+        null;
+
     return {
-        id: String(doc.id ?? d.id ?? ""),
+        id: String(docSnap.id ?? d.id ?? ""),
         authorId: String(d.authorId ?? ""),
         authorUsername: normalizeString(d.authorUsername),
         authorPhotoURL: normalizeString(d.authorPhotoURL),
         muxPlaybackId,
         posterUrl: posterUrl ?? null,
         mediaUrl: mediaUrl ?? null,
-        mediaType:
-            type === "video" ? "video" : photoItems.length ? "photo" : "none",
+        mediaType: type === "video" ? "video" : photoItems.length ? "photo" : "none",
         text: normalizeString(d.text ?? d.caption ?? d.description),
         createdAt: d.createdAt ?? null,
         visibility: normalizeVisibility(d.visibility),
         tags: mapTags(d.tags),
-        stats: mapStats(d.stats),
-        durationMs: d.durationMs != null ? Number(d.durationMs) : undefined,
+        stats: mapStats(d.stats ?? d),
+        durationMs:
+            d.durationMs != null
+                ? Number(d.durationMs)
+                : media[0]?.durationMs != null
+                    ? Number(media[0].durationMs)
+                    : media[0]?.durationSec != null
+                        ? Number(media[0].durationSec) * 1000
+                        : d.durationSec != null
+                            ? Number(d.durationSec) * 1000
+                            : undefined,
         music: mapMusic(d.music),
         authorBadge: mapAuthorBadge(d.authorBadge),
         media,
@@ -301,12 +404,16 @@ function mapDeedDoc(
         videoWidth,
         videoHeight,
         orientation: detectOrientation(videoWidth, videoHeight, aspectRatio),
-        countyTag: d.countyTag != null ? String(d.countyTag) : null,
-        countryTag: d.countryTag != null ? String(d.countryTag) : null,
+        countyTag: d.countyTag != null ? String(d.countyTag).trim().toLowerCase() : null,
+        countryTag: d.countryTag != null ? String(d.countryTag).trim().toLowerCase() : null,
+        place,
+        lat,
+        lng,
         status: status || null,
         aspectRatioValue,
     };
 }
+
 async function getFollowingIds(uid: string): Promise<string[]> {
     if (!uid) return [];
 
@@ -330,19 +437,21 @@ async function getFollowingIds(uid: string): Promise<string[]> {
     }
 }
 
-async function getUserLocationTags(
+async function getUserLocation(
     uid: string
-): Promise<{ countyTag: string | null; countryTag: string | null }> {
+): Promise<{
+    countyTag: string | null;
+    countryTag: string | null;
+    lat: number | null;
+    lng: number | null;
+}> {
     if (!uid) {
-        return { countyTag: null, countryTag: null };
+        return { countyTag: null, countryTag: null, lat: null, lng: null };
     }
 
     try {
-        const snap = await getDocs(
-            query(collection(db, "users"), where(documentId(), "==", uid), limit(1))
-        );
-
-        const data = snap.docs[0]?.data();
+        const snap = await getDoc(doc(db, "users", uid));
+        const data = snap.exists() ? snap.data() : null;
 
         const countyTag =
             data?.countyTag != null
@@ -358,13 +467,21 @@ async function getUserLocationTags(
                     ? String(data.country).trim().toLowerCase()
                     : null;
 
+        const lat =
+            typeof data?.location?.lat === "number" ? data.location.lat : null;
+
+        const lng =
+            typeof data?.location?.lng === "number" ? data.location.lng : null;
+
         return {
             countyTag: countyTag || null,
             countryTag: countryTag || null,
+            lat,
+            lng,
         };
     } catch (error) {
-        console.warn("getUserLocationTags error:", error);
-        return { countyTag: null, countryTag: null };
+        console.warn("getUserLocation error:", error);
+        return { countyTag: null, countryTag: null, lat: null, lng: null };
     }
 }
 
@@ -408,7 +525,7 @@ async function collectValidItems(params: {
         }
 
         const mapped = snap.docs
-            .map((doc) => mapDeedDoc(doc, { includeDeleted: !!params.includeDeleted }))
+            .map((docSnap) => mapDeedDoc(docSnap, { includeDeleted: !!params.includeDeleted }))
             .filter((x): x is Deed => x !== null);
 
         for (const item of mapped) {
@@ -507,7 +624,7 @@ async function fetchFollowingPage(
         const snap = await getDocs(query(collection(db, "deeds"), ...constraints));
 
         const mapped = snap.docs
-            .map((doc) => mapDeedDoc(doc))
+            .map((docSnap) => mapDeedDoc(docSnap))
             .filter((x): x is Deed => x !== null);
 
         allItems.push(...mapped);
@@ -543,37 +660,13 @@ async function fetchFollowingPage(
         hasMore: deduped.length >= limitCount,
     };
 }
-function parseAspectRatioValue(
-    width?: number | null,
-    height?: number | null,
-    aspectRatio?: string | null
-): number | null {
-    if (
-        typeof width === "number" &&
-        typeof height === "number" &&
-        width > 0 &&
-        height > 0
-    ) {
-        return width / height;
-    }
 
-    if (typeof aspectRatio === "string" && aspectRatio.includes(":")) {
-        const [wRaw, hRaw] = aspectRatio.split(":");
-        const w = Number(wRaw);
-        const h = Number(hRaw);
-        if (!Number.isNaN(w) && !Number.isNaN(h) && w > 0 && h > 0) {
-            return w / h;
-        }
-    }
-
-    return null;
-}
 async function fetchNearbyPage(
     uid: string,
     cursor: FeedCursor = null,
     limitCount = 10
 ): Promise<FeedPageResult<FeedCursor>> {
-    const { countyTag, countryTag } = await getUserLocationTags(uid);
+    const { countyTag, countryTag, lat, lng } = await getUserLocation(uid);
 
     if (!countyTag && !countryTag) {
         return { items: [], cursor: null, hasMore: false };
@@ -587,7 +680,7 @@ async function fetchNearbyPage(
             where(field, "==", value),
             orderBy("createdAt", "desc"),
             orderBy(documentId(), "desc"),
-            limit(Math.max(limitCount * 2, 20)),
+            limit(Math.max(limitCount * 3, 30)),
         ];
 
         if (cursor?.createdAtMs != null && cursor?.id) {
@@ -601,7 +694,7 @@ async function fetchNearbyPage(
         const snap = await getDocs(query(collection(db, "deeds"), ...constraints));
 
         const mapped = snap.docs
-            .map((doc) => mapDeedDoc(doc))
+            .map((docSnap) => mapDeedDoc(docSnap))
             .filter((x): x is Deed => x !== null);
 
         allItems.push(...mapped);
@@ -610,27 +703,51 @@ async function fetchNearbyPage(
     if (countyTag) await runQuery("countyTag", countyTag);
     if (countryTag) await runQuery("countryTag", countryTag);
 
-    allItems.sort((a, b) => {
-        const diff = tsToMs(b.createdAt) - tsToMs(a.createdAt);
-        if (diff !== 0) return diff;
-        return b.id.localeCompare(a.id);
+    const seen = new Set<string>();
+    let deduped = allItems.filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
     });
 
-    const deduped: Deed[] = [];
-    const seen = new Set<string>();
+    if (lat != null && lng != null) {
+        deduped = deduped
+            .map((item) => {
+                if (typeof item.lat === "number" && typeof item.lng === "number") {
+                    return {
+                        ...item,
+                        __distance: distanceKm(lat, lng, item.lat, item.lng),
+                    } as Deed & { __distance: number };
+                }
 
-    for (const item of allItems) {
-        if (!seen.has(item.id)) {
-            seen.add(item.id);
-            deduped.push(item);
-        }
-        if (deduped.length >= limitCount) break;
+                return {
+                    ...item,
+                    __distance: 999999,
+                } as Deed & { __distance: number };
+            })
+            .sort((a, b) => {
+                const distanceDiff = a.__distance - b.__distance;
+                if (distanceDiff !== 0) return distanceDiff;
+
+                const timeDiff = tsToMs(b.createdAt) - tsToMs(a.createdAt);
+                if (timeDiff !== 0) return timeDiff;
+
+                return b.id.localeCompare(a.id);
+            })
+            .map(({ __distance, ...rest }) => rest as Deed);
+    } else {
+        deduped.sort((a, b) => {
+            const diff = tsToMs(b.createdAt) - tsToMs(a.createdAt);
+            if (diff !== 0) return diff;
+            return b.id.localeCompare(a.id);
+        });
     }
 
-    const lastItem = deduped[deduped.length - 1] ?? null;
+    const finalItems = deduped.slice(0, limitCount);
+    const lastItem = finalItems[finalItems.length - 1] ?? null;
 
     return {
-        items: deduped,
+        items: finalItems,
         cursor: lastItem
             ? {
                 createdAtMs: tsToMs(lastItem.createdAt),
@@ -699,6 +816,7 @@ export async function fetchAuthorPage(
         includeDeleted: isOwner,
     });
 }
+
 export async function fetchSingleAuthorDeed(
     authorId: string,
     deedId: string,
@@ -749,12 +867,9 @@ export async function fetchAuthorPageExcluding(
 
     const filtered = page.items.filter((item) => !exclude.has(item.id)).slice(0, limitCount);
 
-    let nextCursor = page.cursor;
-    let hasMore = page.hasMore;
-
     return {
         items: filtered,
-        cursor: nextCursor,
-        hasMore,
+        cursor: page.cursor,
+        hasMore: page.hasMore,
     };
 }
