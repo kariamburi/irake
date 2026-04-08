@@ -14,6 +14,7 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { DeedStageShell } from "./DeedStageShell";
 import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { DonateDialogWeb } from "@/app/components/DonateDialogWeb";
 
 type Props = {
     uid?: string | null;
@@ -91,7 +92,8 @@ function FeedShellInner({
 }: FeedShellInnerProps) {
     const router = useRouter();
     const scrollerRef = useRef<HTMLDivElement | null>(null);
-
+    const [donateOpen, setDonateOpen] = useState(false);
+    const [donateDeed, setDonateDeed] = useState<Deed | null>(null);
     const [commentsId, setCommentsId] = useState<string | null>(null);
     const [commentedMap, setCommentedMap] = useState<Record<string, boolean>>({});
     const [activeDeedId, setActiveDeedId] = useState<string | null>(null);
@@ -144,7 +146,12 @@ function FeedShellInner({
             [deedId]: true,
         }));
     };
+    const handleSupportClick = (deed: Deed) => {
+        if (!deed) return;
 
+        setDonateDeed(deed);
+        setDonateOpen(true);
+    };
     const handleActiveItemChange = (item: Deed, index: number) => {
         setActiveDeedId(item.id);
         setActiveDeed(item);
@@ -392,6 +399,7 @@ function FeedShellInner({
                                             }}
                                             onOpenComments={openComments}
                                             onActiveItemChange={handleActiveItemChange}
+                                            onSupportClick={handleSupportClick}
                                         />
                                     )}
 
@@ -414,6 +422,7 @@ function FeedShellInner({
                                             onNext={goNext}
                                             canGoPrev={canGoPrev}
                                             canGoNext={canGoNext}
+                                            onSupportClick={handleSupportClick}
                                         />
                                     </div>
                                 ) : null}
@@ -493,6 +502,13 @@ function FeedShellInner({
                     </div>
                 ) : null}
             </div>
+            {donateDeed && (<DonateDialogWeb
+                open={donateOpen}
+                onClose={() => setDonateOpen(false)}
+                deedId={donateDeed.id}
+                creatorId={donateDeed.authorId}
+                creatorName={donateDeed.authorUsername}
+            />)}
         </GlobalMuteProviderWeb>
     );
 }

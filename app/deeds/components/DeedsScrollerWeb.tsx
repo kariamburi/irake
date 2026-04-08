@@ -19,6 +19,7 @@ type Props = {
     renderTopSpacer?: React.ReactNode;
     renderBottomSpacer?: React.ReactNode;
     initialIndex?: number;
+    onSupportClick?: (deedId: Deed) => void;
 };
 
 const WINDOW_BEFORE = 1;
@@ -38,6 +39,7 @@ export function DeedsScrollerWeb({
     onActiveItemChange,
     renderTopSpacer,
     renderBottomSpacer,
+    onSupportClick,
     initialIndex = 0,
 }: Props) {
     const internalRef = useRef<HTMLElement | null>(null);
@@ -61,22 +63,24 @@ export function DeedsScrollerWeb({
 
     // once DOM is rendered around selected item, scroll there
     useEffect(() => {
-        const node = rootRef.current;
-        if (!node) return;
+        const root = rootRef.current;
+        if (!root) return;
         if (!items.length) return;
         if (cardH <= 0) return;
 
-        // ONLY run on first mount OR when initialIndex changes
         const clamped = Math.max(0, Math.min(items.length - 1, initialIndex));
+        const firstId = items[clamped]?.id ?? "";
 
-        if (bootKeyRef.current === "mounted") return;
-        bootKeyRef.current = "mounted";
+        // run once for the current first ready dataset / selected item
+        const nextBootKey = `${firstId}_${clamped}_${cardH}`;
+        if (bootKeyRef.current === nextBootKey) return;
+        bootKeyRef.current = nextBootKey;
 
         requestAnimationFrame(() => {
-            const root = rootRef.current;
-            if (!root) return;
+            const node = rootRef.current;
+            if (!node) return;
 
-            root.scrollTop = clamped * cardH;
+            node.scrollTop = clamped * cardH;
 
             activeIndexRef.current = clamped;
             setActiveIndex(clamped);
@@ -86,7 +90,7 @@ export function DeedsScrollerWeb({
                 onActiveItemChange?.(item, clamped);
             }
         });
-    }, [initialIndex, cardH]); // ❗ NOT items
+    }, [items, initialIndex, cardH, onActiveItemChange, rootRef]);
 
     useEffect(() => {
         const node = rootRef.current;
@@ -186,6 +190,8 @@ export function DeedsScrollerWeb({
                             dataSaverOn={dataSaverOn}
                             hlsMaxHeight={hlsMaxHeight}
                             loading={loading}
+                            onSupportClick={onSupportClick}
+
                         />
                     </div>
                 );

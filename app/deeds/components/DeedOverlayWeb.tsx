@@ -32,6 +32,9 @@ type Props = {
     onToggleMute?: () => void;
     onOpenComments?: (deedId: string) => void;
 
+    canSupport?: boolean;
+    onSupportClick?: () => void;
+
     isMobile?: boolean;
     mediaReady?: boolean;
 
@@ -131,15 +134,14 @@ export function DeedOverlayWeb({
     onShare,
     onToggleMute,
     onOpenComments,
-
+    canSupport = false,
+    onSupportClick,
     isMobile = false,
     mediaReady = true,
-
     avatar,
     followersCount = 0,
     timeAgo,
     timeTitle,
-
     showFollow = false,
     onFollowClick,
     authorProfile = null,
@@ -251,6 +253,8 @@ export function DeedOverlayWeb({
                         onShare={onShare}
                         onToggleSave={onToggleSave}
                         onToggleMute={onToggleMute}
+                        canSupport={canSupport}
+                        onSupportClick={onSupportClick}
                     />
                 </div>
             </div>

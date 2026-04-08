@@ -14,6 +14,7 @@ import { useGlobalMuteWeb } from "../hooks/useGlobalMuteWeb";
 import { useDeedEngagementWeb } from "../hooks/useDeedEngagementWeb";
 import PhotoSliderPlayer from "@/app/components/PhotoSliderPlayer";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { DonateDialogWeb } from "@/app/components/DonateDialogWeb";
 
 type Props = {
     item: Deed;
@@ -23,6 +24,7 @@ type Props = {
     shouldPreload?: boolean;
     commented?: boolean;
     onOpenComments?: (deedId: string) => void;
+    onSupportClick?: (deedId: Deed) => void;
     dataSaverOn?: boolean;
     hlsMaxHeight?: number;
     loading?: boolean;
@@ -90,6 +92,7 @@ export function DeedVideoCardWeb({
     shouldPreload = false,
     commented = false,
     onOpenComments,
+    onSupportClick,
 }: Props) {
     const router = useRouter();
     const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -232,7 +235,16 @@ export function DeedVideoCardWeb({
         setShowCenterControl(false);
     };
 
+    const canSupport = !!uid && uid !== item.authorId;
 
+    const handleSupport = () => {
+        if (!canSupport) return;
+        if (!uid) {
+            router.push("/getstarted?next=/deeds");
+            return;
+        }
+        onSupportClick?.(item);
+    };
 
     const handlePause = () => {
         setIsPlaying(false);
@@ -412,7 +424,12 @@ export function DeedVideoCardWeb({
                         )}
                     </div>
 
-                    <DeedOverlayWeb {...commonOverlayProps} />
+                    <DeedOverlayWeb
+                        {...commonOverlayProps}
+                        canSupport={canSupport}
+                        onSupportClick={handleSupport}
+                    />
+
                 </div>
             </article>
         );
@@ -549,7 +566,12 @@ export function DeedVideoCardWeb({
                     </div>
                 </div>
 
-                <DeedOverlayWeb {...commonOverlayProps} />
+                <DeedOverlayWeb
+                    {...commonOverlayProps}
+                    canSupport={canSupport}
+                    onSupportClick={handleSupport}
+                />
+
             </div>
         </article>
     );

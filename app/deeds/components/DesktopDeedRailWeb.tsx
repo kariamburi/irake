@@ -19,6 +19,7 @@ type Props = {
     onNext?: () => void;
     canGoPrev?: boolean;
     canGoNext?: boolean;
+    onSupportClick?: (deed: Deed) => void;
 };
 
 function cleanId(value: unknown): string {
@@ -35,6 +36,7 @@ export function DesktopDeedRailWeb({
     onNext,
     canGoPrev = false,
     canGoNext = false,
+    onSupportClick,
 }: Props) {
     const router = useRouter();
     const { muted, toggleMute } = useGlobalMuteWeb();
@@ -71,6 +73,11 @@ export function DesktopDeedRailWeb({
 
     const showFollowBadge = canFollow && !isFollowing && !justFollowed;
 
+    const canSupport =
+        !!cleanUid &&
+        !!cleanAuthorId &&
+        cleanAuthorId !== cleanUid;
+
     const requireAuth = (nextAction: () => void) => {
         if (!cleanUid) {
             router.push("/getstarted?next=/deeds");
@@ -87,6 +94,15 @@ export function DesktopDeedRailWeb({
             authorHandle: item.authorUsername ?? null,
             caption: item.text ?? null,
         });
+    };
+
+    const handleSupport = () => {
+        if (!canSupport) return;
+        if (!cleanUid) {
+            router.push("/getstarted?next=/deeds");
+            return;
+        }
+        onSupportClick?.(item);
     };
 
     return (
@@ -177,6 +193,8 @@ export function DesktopDeedRailWeb({
                     onShare={onShareClick}
                     onToggleSave={onSaveClick}
                     onToggleMute={toggleMute}
+                    canSupport={canSupport}
+                    onSupportClick={handleSupport}
                 />
             </div>
 

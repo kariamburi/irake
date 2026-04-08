@@ -4,10 +4,8 @@ import React from "react";
 import {
     IoArrowRedo,
     IoBookmark,
-    IoBookmarkOutline,
     IoChatbubble,
     IoHeart,
-    IoHeartOutline,
     IoVolumeHigh,
     IoVolumeMute,
 } from "react-icons/io5";
@@ -27,6 +25,10 @@ type Props = {
     onShare: () => void;
     onToggleSave: () => void;
     onToggleMute?: () => void;
+
+    canSupport?: boolean;
+    onSupportClick?: () => void;
+
     variant?: "overlay" | "desktop";
 };
 
@@ -88,12 +90,7 @@ function ActionButton({
                             border: `1px solid ${EKARI_THEME.border}`,
                             boxShadow: "0 4px 14px rgba(17,24,39,0.06)",
                         }
-                        : {
-                            // background: "rgba(0,0,0,0.34)",
-                            // backdropFilter: "blur(10px)",
-                            // boxShadow:
-                            //    "0 10px 24px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.06)",
-                        }
+                        : undefined
                 }
             >
                 {icon}
@@ -103,9 +100,7 @@ function ActionButton({
                 className="select-none text-[13px] font-extrabold leading-none tracking-[0.01em] md:text-[13px]"
                 style={
                     isDesktop
-                        ? {
-                            color: EKARI_THEME.forest,
-                        }
+                        ? { color: EKARI_THEME.forest }
                         : {
                             color: EKARI_THEME.white,
                             textShadow: "0 2px 4px rgba(0,0,0,0.55)",
@@ -133,6 +128,8 @@ export function DeedActionRailWeb({
     onShare,
     onToggleSave,
     onToggleMute,
+    canSupport = false,
+    onSupportClick,
     variant = "overlay",
 }: Props) {
     const inactiveColor = EKARI_THEME.gold;
@@ -149,19 +146,38 @@ export function DeedActionRailWeb({
 
     return (
         <div className="pointer-events-auto flex flex-col items-center gap-3 pb-1 md:gap-4 md:pb-2">
+            {canSupport ? (
+                <ActionButton
+                    active={false}
+                    label="Uplift"
+                    onClick={onSupportClick}
+                    title="Uplift this deed"
+                    variant={variant}
+                    icon={
+                        <span
+                            style={
+                                isDesktop
+                                    ? { fontSize: 24, lineHeight: 1 }
+                                    : {
+                                        fontSize: 24,
+                                        lineHeight: 1,
+                                        filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.6))",
+                                    }
+                            }
+                        >
+                            💰
+                        </span>
+                    }
+                />
+            ) : null}
+
             <ActionButton
                 active={liked}
                 label={formatCount(likeCount)}
                 onClick={onToggleLike}
                 title={liked ? "Unlike" : "Like"}
                 variant={variant}
-                icon={
-                    liked ? (
-                        <IoHeart size={28} style={iconStyle(true)} />
-                    ) : (
-                        <IoHeart size={28} style={iconStyle(false)} />
-                    )
-                }
+                icon={<IoHeart size={28} style={iconStyle(liked)} />}
             />
 
             <ActionButton
@@ -188,13 +204,7 @@ export function DeedActionRailWeb({
                 onClick={onToggleSave}
                 title={saved ? "Unsave" : "Save"}
                 variant={variant}
-                icon={
-                    saved ? (
-                        <IoBookmark size={28} style={iconStyle(true)} />
-                    ) : (
-                        <IoBookmark size={28} style={iconStyle(false)} />
-                    )
-                }
+                icon={<IoBookmark size={28} style={iconStyle(saved)} />}
             />
 
 
