@@ -155,8 +155,8 @@ function detectOrientation(
 function mapPhotoItems(media: any[]): PhotoItem[] {
     return media
         .filter((m) => {
-            const mediaType = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
-            return mediaType === "photo" || mediaType === "image" || !!m?.sources || !!m?.url;
+            const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+            return kind === "photo" || kind === "image";
         })
         .map((m) => ({
             url: m?.sources?.full ?? m?.url ?? "",
@@ -278,13 +278,30 @@ function mapDeedDoc(
 
     const media = Array.isArray(d.media) ? d.media : [];
     const photoItems = mapPhotoItems(media);
+    const firstVideoMedia = media.find((m: any) => {
+        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+        return kind === "video";
+    });
+
+    const firstPhotoMedia = media.find((m: any) => {
+        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+        return kind === "photo" || kind === "image";
+    });
 
     const muxPlaybackId =
         normalizeString(d.muxPlaybackId) ??
-        normalizeString(d.playbackId) ??
-        normalizeString(d?.mux?.playbackId) ??
-        normalizeString(media[0]?.muxPlaybackId) ??
-        normalizeString(media[0]?.playbackId);
+            normalizeString(d.playbackId) ??
+            normalizeString(d?.mux?.playbackId) ??
+            normalizeString(firstVideoMedia?.muxPlaybackId) ??
+            normalizeString(firstVideoMedia?.playbackId) ??
+            normalizeString(d.type) === "video"
+            ? normalizeString(d?.muxPlaybackId)
+            : undefined;
+
+    const mediaUrl =
+        normalizeString(d.mediaUrl) ??
+        normalizeString(d.videoUrl) ??
+        normalizeString(firstVideoMedia?.url);
 
     const posterUrl =
         normalizeString(d.posterUrl) ??
@@ -292,13 +309,35 @@ function mapDeedDoc(
         normalizeString(d.thumbnailUrl) ??
         normalizeString(d.thumbUrl) ??
         normalizeString(d?.mux?.thumbnailUrl) ??
-        normalizeString(media[0]?.thumbUrl) ??
-        normalizeString(media[0]?.previewUrl);
+        normalizeString(firstVideoMedia?.thumbUrl) ??
+        normalizeString(firstVideoMedia?.previewUrl) ??
+        normalizeString(firstPhotoMedia?.thumbUrl) ??
+        normalizeString(firstPhotoMedia?.sources?.small);
 
-    const mediaUrl =
-        normalizeString(d.mediaUrl) ??
-        normalizeString(d.videoUrl) ??
-        normalizeString(media[0]?.url);
+    const hasExplicitVideoMedia = media.some((m: any) => {
+        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+        return kind === "video";
+    });
+
+    const hasExplicitPhotoMedia = media.some((m: any) => {
+        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+        return kind === "photo" || kind === "image";
+    });
+
+    const explicitDocType = String(d.type ?? d.mediaType ?? "").toLowerCase();
+
+    const type: "video" | "photo" =
+        explicitDocType === "photo" || explicitDocType === "image"
+            ? "photo"
+            : explicitDocType === "video"
+                ? "video"
+                : hasExplicitVideoMedia || !!muxPlaybackId || !!mediaUrl
+                    ? "video"
+                    : hasExplicitPhotoMedia || photoItems.length > 0
+                        ? "photo"
+                        : "photo";
+
+
 
     const videoWidth =
         d.videoWidth != null
@@ -330,23 +369,6 @@ function mapDeedDoc(
                         : null;
 
     const aspectRatioValue = parseAspectRatioValue(videoWidth, videoHeight, aspectRatio);
-
-    const hasExplicitVideoMedia = media.some((m: any) => {
-        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
-        return kind === "video";
-    });
-
-    const hasExplicitPhotoMedia = media.some((m: any) => {
-        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
-        return kind === "photo" || kind === "image";
-    });
-
-    const type: "video" | "photo" =
-        muxPlaybackId || mediaUrl || hasExplicitVideoMedia
-            ? "video"
-            : hasExplicitPhotoMedia || photoItems.length > 0
-                ? "photo"
-                : "photo";
 
     const lat =
         typeof d.lat === "number"
