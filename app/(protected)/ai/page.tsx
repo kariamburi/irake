@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Image as ImageIcon, Menu, X, ArrowLeft } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import AppShell from "@/app/components/AppShell";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useRouter } from "next/navigation";
@@ -23,19 +25,21 @@ const hexToRgba = (hex: string, a = 1) => {
   const h = hex.replace("#", "");
   const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
   const n = parseInt(full, 16);
-  const r = (n >> 16) & 255,
-    g = (n >> 8) & 255,
-    b = n & 255;
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 };
 
 type Role = "user" | "assistant";
+
 type Msg = {
   id: string;
   role: Role;
   text?: string;
   imageUrl?: string | null;
   createdAt: number;
+  renderAsMarkdown?: boolean;
 };
 
 type Conv = {
@@ -47,7 +51,7 @@ type Conv = {
   updatedAt?: any;
   messageCount?: number;
 };
-// Add near top (helpers)
+
 const MAX_IMAGE_MB = 6;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
@@ -56,7 +60,6 @@ function fileToMb(n: number) {
 }
 
 async function uploadImageAndGetUrl(file: File, uid: string | null) {
-  // Basic client validation (fast fail)
   if (!ALLOWED.includes(file.type)) {
     throw new Error(`Unsupported image type: ${file.type || "unknown"}`);
   }
@@ -68,18 +71,15 @@ async function uploadImageAndGetUrl(file: File, uid: string | null) {
   const key = `ekariAi/${uid || "anon"}/${Date.now()}_${safeName}`;
   const ref = sRef(storage, key);
 
-  // ✅ upload
   const snap = await uploadBytes(ref, file, {
     contentType: file.type || "image/jpeg",
     cacheControl: "public,max-age=31536000",
   });
 
-  // ✅ verify it really exists (optional but useful)
   if (!snap?.metadata?.fullPath) {
     throw new Error("Upload failed (no metadata returned).");
   }
 
-  // ✅ get URL
   const url = await getDownloadURL(ref);
   if (!url || !/^https?:\/\//.test(url)) {
     throw new Error("Upload succeeded but could not get download URL.");
@@ -94,6 +94,7 @@ const WELCOME: Msg = {
   text:
     "Hi! I’m ekari AI 🌿— your smart assistant on ekarihub here to help you diagnose crops and livestock, explore markets, understand local regulations and guide you through the entire agribusiness and green-living ecosystem with instant answers, smart insights, and photo analysis.",
   createdAt: Date.now(),
+  renderAsMarkdown: true,
 };
 
 function safeTsToMs(ts: any): number {
@@ -107,6 +108,7 @@ function safeTsToMs(ts: any): number {
 /* ---------------- responsive helpers ---------------- */
 function useMediaQuery(queryStr: string) {
   const [matches, setMatches] = useState(false);
+
   useEffect(() => {
     const mq = window.matchMedia(queryStr);
     const onChange = () => setMatches(mq.matches);
@@ -114,20 +116,94 @@ function useMediaQuery(queryStr: string) {
     mq.addEventListener?.("change", onChange);
     return () => mq.removeEventListener?.("change", onChange);
   }, [queryStr]);
+
   return matches;
 }
+
 function useIsDesktop() {
   return useMediaQuery("(min-width: 1024px)");
 }
+
 function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
+}
+
+/* ---------------- markdown styling ---------------- */
+const markdownComponents = {
+  h1: ({ children }: any) => (
+    <h1 className="text-[24px] font-extrabold leading-tight text-slate-900 mt-2 mb-3">{children}</h1>
+  ),
+  h2: ({ children }: any) => (
+    <h2 className="text-[21px] font-extrabold leading-tight text-slate-900 mt-2 mb-3">{children}</h2>
+  ),
+  h3: ({ children }: any) => (
+    <h3 className="text-[18px] font-bold leading-tight text-slate-900 mt-2 mb-2">{children}</h3>
+  ),
+  h4: ({ children }: any) => (
+    <h4 className="text-[16px] font-bold leading-tight text-slate-900 mt-2 mb-2">{children}</h4>
+  ),
+  p: ({ children }: any) => (
+    <p className="whitespace-pre-wrap text-slate-900 text-[15px] leading-7 mb-3 last:mb-0">{children}</p>
+  ),
+  ul: ({ children }: any) => (
+    <ul className="list-disc pl-5 space-y-1 mb-3 text-slate-900 text-[15px] leading-7">{children}</ul>
+  ),
+  ol: ({ children }: any) => (
+    <ol className="list-decimal pl-5 space-y-1 mb-3 text-slate-900 text-[15px] leading-7">{children}</ol>
+  ),
+  li: ({ children }: any) => <li className="leading-7">{children}</li>,
+  strong: ({ children }: any) => <strong className="font-extrabold text-slate-900">{children}</strong>,
+  em: ({ children }: any) => <em className="italic">{children}</em>,
+  blockquote: ({ children }: any) => (
+    <blockquote className="border-l-4 border-[rgba(199,146,87,0.9)] pl-3 py-1 my-3 text-slate-700">
+      {children}
+    </blockquote>
+  ),
+  code: ({ inline, children }: any) =>
+    inline ? (
+      <code className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[13px] text-[#233F39]">{children}</code>
+    ) : (
+      <code className="block rounded-xl bg-slate-100 p-3 text-[13px] leading-6 text-slate-900 overflow-x-auto">
+        {children}
+      </code>
+    ),
+  pre: ({ children }: any) => <pre className="my-3 overflow-x-auto">{children}</pre>,
+  a: ({ href, children }: any) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-[rgb(35,63,57)] underline underline-offset-2"
+    >
+      {children}
+    </a>
+  ),
+  table: ({ children }: any) => (
+    <div className="my-3 overflow-x-auto">
+      <table className="min-w-full border-collapse border border-slate-200 text-[14px]">{children}</table>
+    </div>
+  ),
+  thead: ({ children }: any) => <thead className="bg-slate-50">{children}</thead>,
+  th: ({ children }: any) => (
+    <th className="border border-slate-200 px-3 py-2 text-left font-bold text-slate-900">{children}</th>
+  ),
+  td: ({ children }: any) => <td className="border border-slate-200 px-3 py-2 text-slate-800">{children}</td>,
+};
+
+function AssistantMarkdown({ text }: { text: string }) {
+  return (
+    <div className="[&_>*:first-child]:mt-0 [&_>*:last-child]:mb-0">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 export default function Page() {
   const router = useRouter();
   const isDesktop = useIsDesktop();
   const isMobile = useIsMobile();
-
   const { user } = useAuth();
 
   const aiEndpoint =
@@ -150,12 +226,13 @@ export default function Page() {
 
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
 
-  // ✅ Web-safe timer type (no NodeJS.Timeout)
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingMsgIdRef = useRef<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const scrollToEnd = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
   useEffect(scrollToEnd, [messages]);
 
   const stopTyping = useCallback(() => {
@@ -169,7 +246,6 @@ export default function Page() {
 
   useEffect(() => () => stopTyping(), [stopTyping]);
 
-  // Close mobile drawer on desktop resize
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 768) setMobileHistoryOpen(false);
@@ -178,7 +254,6 @@ export default function Page() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ---------------------------- HISTORY: FETCH CONVERSATIONS ----------------------------
   const fetchConversations = useCallback(async () => {
     if (!user?.uid) {
       setConvs([]);
@@ -203,7 +278,6 @@ export default function Page() {
     fetchConversations();
   }, [fetchConversations]);
 
-  // ---------------------------- HISTORY: LOAD MESSAGES ----------------------------
   const loadConversation = useCallback(
     async (convId: string) => {
       if (!user?.uid) return;
@@ -217,6 +291,7 @@ export default function Page() {
           limit(200)
         );
         const snap = await getDocs(qy);
+
         const loaded: Msg[] = snap.docs.map((d) => {
           const m = d.data() as any;
           return {
@@ -225,6 +300,7 @@ export default function Page() {
             text: m.text || undefined,
             imageUrl: m.imageUrl || null,
             createdAt: safeTsToMs(m.createdAt),
+            renderAsMarkdown: m.role === "assistant",
           };
         });
 
@@ -247,20 +323,14 @@ export default function Page() {
     setMobileHistoryOpen(false);
   }, [stopTyping]);
 
-  // ---------------------------- SEND TO AI ----------------------------
   const sendToAI = useCallback(
     async (prompt: string, file?: File | null): Promise<string> => {
       let imageUrl: string | null = null;
 
       try {
         if (file) {
-          // ✅ show user we are uploading (optional)
-          // setSending(true) is already done by onSend, so fine.
-
           const up = await uploadImageAndGetUrl(file, user?.uid || null);
           imageUrl = up.url;
-
-          // Optional debug (remove later)
           console.log("✅ Image uploaded:", { path: up.path, imageUrl });
         }
 
@@ -278,8 +348,6 @@ export default function Page() {
         if (!res.ok) {
           const body = await res.text().catch(() => "");
           console.error("Ekari AI HTTP error:", res.status, body);
-
-          // ✅ expose a better message in UI
           return `Sorry — the AI server returned an error (${res.status}). Please try again.`;
         }
 
@@ -290,7 +358,6 @@ export default function Page() {
 
         return data.reply || "Sorry — I couldn't generate a response. Please try again.";
       } catch (err: any) {
-        // ✅ show real cause
         console.error("sendToAI failed:", {
           message: err?.message,
           code: err?.code,
@@ -298,7 +365,6 @@ export default function Page() {
           stack: err?.stack,
         });
 
-        // If upload failed, tell user clearly
         if (String(err?.message || "").toLowerCase().includes("upload")) {
           return `Image upload failed: ${err?.message || "Unknown error"}`;
         }
@@ -311,8 +377,6 @@ export default function Page() {
     [aiEndpoint, user?.uid, conversationId, fetchConversations]
   );
 
-
-  /* ------------------- ChatGPT-like typing (word streaming) ------------------- */
   const animateAssistantReply = useCallback(
     (fullText: string) => {
       if (!fullText) return;
@@ -322,7 +386,16 @@ export default function Page() {
       const id = `ai_${Date.now()}`;
       typingMsgIdRef.current = id;
 
-      setMessages((prev) => [...prev, { id, role: "assistant", text: "", createdAt: Date.now() }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          role: "assistant",
+          text: "",
+          createdAt: Date.now(),
+          renderAsMarkdown: true, // ✅ markdown immediately
+        },
+      ]);
       setIsTyping(true);
 
       let index = 0;
@@ -353,7 +426,18 @@ export default function Page() {
 
         const slice = fullText.slice(0, nextIndex);
 
-        setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, text: slice } : m)));
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? {
+                ...m,
+                text: slice,
+                renderAsMarkdown: true, // ✅ keep markdown on every tick
+              }
+              : m
+          )
+        );
+
         index = nextIndex;
 
         if (index >= total) {
@@ -393,6 +477,7 @@ export default function Page() {
       text,
       imageUrl: pendingImage,
       createdAt: now,
+      renderAsMarkdown: false,
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -417,6 +502,7 @@ export default function Page() {
           role: "assistant",
           text: "⚠️ Sorry—something went wrong. Please try again.",
           createdAt: Date.now(),
+          renderAsMarkdown: true,
         },
       ]);
     }
@@ -440,7 +526,6 @@ export default function Page() {
   }, [convs, conversationId]);
 
   const goBack = useCallback(() => {
-    // Nice UX: close drawer first if open
     if (mobileHistoryOpen) {
       setMobileHistoryOpen(false);
       return;
@@ -448,6 +533,16 @@ export default function Page() {
     if (window.history.length > 1) router.back();
     else router.push("/");
   }, [mobileHistoryOpen, router]);
+
+  const renderMessageBody = (msg: Msg, mine: boolean) => {
+    if (!msg.text) return null;
+
+    if (mine) {
+      return <p className="whitespace-pre-wrap text-slate-900">{msg.text}</p>;
+    }
+
+    return <AssistantMarkdown text={msg.text} />;
+  };
 
   const HistoryList = (
     <div className="h-full flex flex-col overflow-hidden">
@@ -504,11 +599,9 @@ export default function Page() {
     </div>
   );
 
-  /* ---------------- MOBILE shell (fixed inset + sticky header like MarketPage) ---------------- */
   if (isMobile) {
     return (
       <div className="fixed inset-0 bg-white">
-        {/* Sticky header */}
         <div className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
           <div className="h-14 px-3 flex items-center justify-between gap-2">
             <button
@@ -551,9 +644,7 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Content: messages + composer (reserve space for composer + safe area) */}
         <div className="h-[calc(100dvh-100px)] flex flex-col">
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto overscroll-contain bg-[#F6F7F9]">
             <div className="px-3 py-3 space-y-3">
               {loadingMsgs ? <div className="text-sm text-slate-500">Loading conversation…</div> : null}
@@ -583,7 +674,7 @@ export default function Page() {
                           />
                         </div>
                       )}
-                      {!!msg.text && <p className="whitespace-pre-wrap text-slate-900">{msg.text}</p>}
+                      {renderMessageBody(msg, mine)}
                     </div>
                   </div>
                 );
@@ -608,12 +699,10 @@ export default function Page() {
                 ekari AI provides guidance only and is not a substitute for a certified agronomist or legal advisor.
               </p>
 
-              {/* spacer so last message isn't hidden behind composer */}
               <div style={{ height: "calc(88px + env(safe-area-inset-bottom))" }} />
             </div>
           </div>
 
-          {/* Pending image preview (above composer) */}
           <AnimatePresence>
             {pendingImage && (
               <motion.div
@@ -638,11 +727,7 @@ export default function Page() {
             )}
           </AnimatePresence>
 
-          {/* Composer pinned to bottom with safe area */}
-          <div
-            className="border-t border-slate-200 bg-white"
-            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          >
+          <div className="border-t border-slate-200 bg-white" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
             <div className="px-3 py-3 flex flex-col gap-1">
               <div className="flex items-end gap-2">
                 <label
@@ -657,9 +742,7 @@ export default function Page() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask about crop issues, inputs, or rules…"
-                  className="flex-1 resize-none bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm
-                             placeholder-slate-400 focus:outline-none focus:ring-2
-                             focus:ring-[rgba(199,146,87,0.45)] max-h-32 min-h-[42px]"
+                  className="flex-1 resize-none bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[rgba(199,146,87,0.45)] max-h-32 min-h-[42px]"
                   rows={1}
                   onInput={(e) => {
                     const ta = e.currentTarget;
@@ -697,7 +780,6 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Mobile History Drawer */}
         <AnimatePresence>
           {mobileHistoryOpen && (
             <motion.div
@@ -733,20 +815,16 @@ export default function Page() {
     );
   }
 
-  /* ---------------- DESKTOP shell (AppShell + sidebar + go back in header) ---------------- */
   return (
     <AppShell>
       <div className="w-full min-h-[100dvh]">
         <div className="mx-auto w-full max-w-6xl px-2 sm:px-3 md:px-4 py-2">
           <div className="h-[calc(100dvh-2.5rem)] flex gap-3">
-            {/* Sidebar */}
             <aside className="hidden md:flex w-72 flex-col rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl overflow-hidden">
               {HistoryList}
             </aside>
 
-            {/* Main */}
             <div className="relative flex h-full w-full flex-col rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white">
-              {/* Header */}
               <div className="border-b flex-shrink-0 bg-white">
                 <div className="px-4 py-3 flex items-center justify-between gap-2">
                   <button
@@ -768,7 +846,6 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto overscroll-contain bg-[#F6F7F9]">
                 <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
                   {loadingMsgs ? <div className="text-sm text-slate-500">Loading conversation…</div> : null}
@@ -795,7 +872,7 @@ export default function Page() {
                               />
                             </div>
                           )}
-                          {!!msg.text && <p className="whitespace-pre-wrap text-slate-900">{msg.text}</p>}
+                          {renderMessageBody(msg, mine)}
                         </div>
                       </div>
                     );
@@ -822,7 +899,6 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* Pending image preview overlay */}
               <AnimatePresence>
                 {pendingImage && (
                   <motion.div
@@ -847,7 +923,6 @@ export default function Page() {
                 )}
               </AnimatePresence>
 
-              {/* Composer */}
               <div className="border-t border-slate-200 bg-white flex-shrink-0">
                 <div className="max-w-3xl mx-auto px-4 py-3 flex flex-col gap-1">
                   <div className="flex items-end gap-2">
@@ -863,9 +938,7 @@ export default function Page() {
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       placeholder="Ask about crop issues, inputs, or rules…"
-                      className="flex-1 resize-none bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm
-                                 placeholder-slate-400 focus:outline-none focus:ring-2
-                                 focus:ring-[rgba(199,146,87,0.45)] max-h-32 min-h-[42px]"
+                      className="flex-1 resize-none bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[rgba(199,146,87,0.45)] max-h-32 min-h-[42px]"
                       rows={1}
                       onInput={(e) => {
                         const ta = e.currentTarget;
@@ -902,7 +975,6 @@ export default function Page() {
                 </div>
               </div>
             </div>
-            {/* end main */}
           </div>
         </div>
       </div>
