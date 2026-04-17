@@ -8,6 +8,7 @@ import { Deed } from "../data/deedsFeedWeb";
 import { DeedActionRailWeb } from "./DeedActionRailWeb";
 import { useGlobalMuteWeb } from "../hooks/useGlobalMuteWeb";
 import { useDeedEngagementWeb } from "../hooks/useDeedEngagementWeb";
+import EkariAvatar from "@/app/components/EkariAvatar";
 
 type Props = {
     item?: Deed | null;
@@ -135,19 +136,13 @@ export function DesktopDeedRailWeb({
                         className="group"
                         aria-label="Open author profile"
                     >
-                        <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-white bg-white shadow-md ring-1 ring-black/5">
-                            {item.authorPhotoURL ? (
-                                <img
-                                    src={item.authorPhotoURL}
-                                    alt={item.authorUsername || "Author"}
-                                    className="h-full w-full object-cover"
-                                />
-                            ) : (
-                                <div className="grid h-full w-full place-items-center text-sm font-bold text-[#233F39]">
-                                    {(item.authorUsername || "U").slice(0, 1).toUpperCase()}
-                                </div>
-                            )}
-                        </div>
+
+                        <EkariAvatar
+                            src={item.authorPhotoURL}
+                            alt={item.authorUsername || "Author"}
+                            handle={item.authorUsername}
+                            size={56}
+                        />
                     </button>
 
                     {showFollowBadge ? (

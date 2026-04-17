@@ -14,6 +14,7 @@ import { Deed } from "../data/deedsFeedWeb";
 import { DeedActionRailWeb } from "./DeedActionRailWeb";
 import SmartAvatar from "@/app/components/SmartAvatar";
 import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
+import EkariAvatar from "@/app/components/EkariAvatar";
 
 type Props = {
     item: Deed;
@@ -209,19 +210,12 @@ export function DeedOverlayWeb({
                             className="group"
                             aria-label="Open author profile"
                         >
-                            <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-white bg-white shadow-md ring-1 ring-black/5">
-                                {displayAvatar ? (
-                                    <img
-                                        src={displayAvatar}
-                                        alt={authorHandle || "Author"}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="grid h-full w-full place-items-center text-sm font-bold text-[#233F39]">
-                                        {authorHandle.replace("@", "").slice(0, 1).toUpperCase()}
-                                    </div>
-                                )}
-                            </div>
+                            <EkariAvatar
+                                src={displayAvatar}
+                                alt={authorHandle || "Author"}
+                                handle={authorHandle}
+                                size={56}
+                            />
                         </button>
 
                         {showFollow ? (

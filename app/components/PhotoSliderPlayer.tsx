@@ -1,15 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { IoPause, IoPlay, IoMusicalNotes } from "react-icons/io5";
+import { IoPause, IoMusicalNotes } from "react-icons/io5";
 
 export type PhotoItem = {
     url: string;
     previewUrl?: string | null;
 };
 
-/** ✅ Exclusive audio (TikTok-like) */
 let CURRENT_AUDIO: HTMLAudioElement | null = null;
 
 function clamp(n: number, min: number, max: number) {
@@ -24,6 +22,7 @@ async function playExclusiveAudio(audio: HTMLAudioElement) {
                 CURRENT_AUDIO.currentTime = 0;
             } catch { }
         }
+
         CURRENT_AUDIO = audio;
         await audio.play().catch(() => { });
     } catch { }
@@ -35,12 +34,24 @@ function pauseIfCurrentAudio(audio: HTMLAudioElement) {
         audio.pause();
     } catch { }
 }
+function useIsDesktop(breakpoint = 1024) {
+    const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
 
+    useEffect(() => {
+        const update = () => setIsDesktop(window.innerWidth >= breakpoint);
+        update();
+        window.addEventListener("resize", update);
+        return () => window.removeEventListener("resize", update);
+    }, [breakpoint]);
+
+    return isDesktop;
+}
 export function PhotoSliderPlayer({
     photos,
     audioUrl,
-    intervalMs = 3000,
-    paused = false, // external pause
+    intervalMs = 5000,
+    autoStartDelayMs = 1500,
+    paused = false,
     muted = false,
     audioAllowed = true,
     showProgress = true,
@@ -50,10 +61,14 @@ export function PhotoSliderPlayer({
     onLoadError,
     className,
     fit = "cover",
+    progressPosition = "bottom",
+    progressTopOffset = 0,
+    progressBottomOffset = 20,
 }: {
     photos: PhotoItem[];
     audioUrl?: string;
     intervalMs?: number;
+    autoStartDelayMs?: number;
     paused?: boolean;
     muted?: boolean;
     audioAllowed?: boolean;
@@ -64,31 +79,32 @@ export function PhotoSliderPlayer({
     onLoadError?: (errIndex: number, url?: string) => void;
     className?: string;
     fit?: "cover" | "contain";
+    progressPosition?: "top" | "bottom";
+    progressTopOffset?: number;
+    progressBottomOffset?: number;
 }) {
     const [index, setIndex] = useState(0);
-    const [fullLoaded, setFullLoaded] = useState(false);
     const [manualPaused, setManualPaused] = useState(false);
-
-    /** ✅ prevents black flash: keep previous frame behind until current loads */
-    const [prevUrl, setPrevUrl] = useState<string | null>(null);
-
-    /** progress 0..1 */
+    const [loadedMap, setLoadedMap] = useState<Record<number, boolean>>({});
     const [progress, setProgress] = useState(0);
-
-    const rafRef = useRef<number | null>(null);
-    const lastTRef = useRef<number>(0);
-
-    const firstLoadedRef = useRef(false);
-
-    /** audio */
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-    const lastAudioUrlRef = useRef<string | null>(null);
+    const [prevUrl, setPrevUrl] = useState<string | null>(null);
+    const isDesktop = useIsDesktop();
+    /** measured natural image sizes from browser */
+    const [measuredSizes, setMeasuredSizes] = useState<
+        Record<string, { width: number; height: number }>
+    >({});
 
     const count = photos.length;
+    const isPaused = paused || manualPaused;
     const signature = useMemo(() => photos.map((p) => p.url).join("|"), [photos]);
 
-    /** ✅ only these pauses now */
-    const isPaused = paused || manualPaused;
+    const firstLoadedRef = useRef(false);
+    const rafRef = useRef<number | null>(null);
+    const lastTRef = useRef<number>(0);
+    const autoDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const lastAudioUrlRef = useRef<string | null>(null);
 
     const clearRaf = useCallback(() => {
         if (rafRef.current) {
@@ -97,15 +113,30 @@ export function PhotoSliderPlayer({
         }
     }, []);
 
+    const clearAutoDelay = useCallback(() => {
+        if (autoDelayRef.current) {
+            clearTimeout(autoDelayRef.current);
+            autoDelayRef.current = null;
+        }
+    }, []);
+
+    const clearAllAuto = useCallback(() => {
+        clearRaf();
+        clearAutoDelay();
+        lastTRef.current = 0;
+    }, [clearRaf, clearAutoDelay]);
+
     const goNext = useCallback(() => {
-        setIndex((i) => (count ? (i + 1) % count : 0));
+        if (!count) return;
+        setIndex((i) => (i + 1) % count);
     }, [count]);
 
     const goPrev = useCallback(() => {
-        setIndex((i) => (count ? (i - 1 + count) % count : 0));
+        if (!count) return;
+        setIndex((i) => (i - 1 + count) % count);
     }, [count]);
 
-    const startProgressLoop = useCallback(
+    const startProgressFrom = useCallback(
         (from: number) => {
             clearRaf();
             setProgress(from);
@@ -113,17 +144,11 @@ export function PhotoSliderPlayer({
 
             if (count <= 1) return;
             if (isPaused) return;
-            if (!firstLoadedRef.current) return;
 
             const tick = (t: number) => {
                 rafRef.current = requestAnimationFrame(tick);
 
                 if (isPaused) {
-                    lastTRef.current = t;
-                    return;
-                }
-
-                if (!firstLoadedRef.current) {
                     lastTRef.current = t;
                     return;
                 }
@@ -138,10 +163,13 @@ export function PhotoSliderPlayer({
 
                 setProgress((p) => {
                     const next = p + dt / intervalMs;
+
                     if (next >= 1) {
+                        clearRaf();
                         goNext();
                         return 0;
                     }
+
                     return next;
                 });
             };
@@ -151,65 +179,79 @@ export function PhotoSliderPlayer({
         [clearRaf, count, goNext, intervalMs, isPaused]
     );
 
-    /** reset on photos change */
+    const scheduleAutoplay = useCallback(() => {
+        if (count <= 1) return;
+        if (isPaused) return;
+
+        clearAllAuto();
+        setProgress(0);
+
+        autoDelayRef.current = setTimeout(() => {
+            if (isPaused) return;
+            startProgressFrom(0);
+        }, autoStartDelayMs);
+    }, [count, isPaused, clearAllAuto, autoStartDelayMs, startProgressFrom]);
+
     useEffect(() => {
         setIndex(0);
-        setFullLoaded(false);
         setManualPaused(false);
-        setPrevUrl(null);
+        setLoadedMap({});
         setProgress(0);
+        setPrevUrl(null);
+        setMeasuredSizes({});
         firstLoadedRef.current = false;
-        lastTRef.current = 0;
-        clearRaf();
-    }, [signature, clearRaf]);
+        clearAllAuto();
+    }, [signature, clearAllAuto]);
 
-    /** notify parent */
     useEffect(() => {
         onIndexChange?.(index);
     }, [index, onIndexChange]);
 
-    /** index changes => restart segment */
-    useEffect(() => {
-        setFullLoaded(false);
-        setProgress(0);
-        lastTRef.current = 0;
-
-        if (!isPaused && count > 1) {
-            startProgressLoop(0);
-        }
-    }, [index, isPaused, count, startProgressLoop]);
-
-    /** pause/resume => freeze + resume */
-    useEffect(() => {
-        if (count <= 1) return;
-
-        if (isPaused) {
-            clearRaf();
-            return;
-        }
-
-        startProgressLoop(progress);
-    }, [isPaused, count, progress, startProgressLoop, clearRaf]);
-
-    /** ✅ track previous url to prevent black flash */
     useEffect(() => {
         if (!count) return;
+
         const prevIndex = clamp(index - 1, 0, count - 1);
         const prev = photos[prevIndex]?.url;
         setPrevUrl(prev || null);
     }, [index, count, photos]);
 
-    /** ✅ prefetch next image for smoother transitions */
     useEffect(() => {
         if (!count) return;
-        const next = photos[(index + 1) % count]?.url;
-        if (!next) return;
 
-        const img = new window.Image();
-        img.src = next;
+        const next = photos[(index + 1) % count]?.url;
+        const prev = photos[(index - 1 + count) % count]?.url;
+
+        if (next) {
+            const img = new window.Image();
+            img.src = next;
+        }
+
+        if (prev) {
+            const img = new window.Image();
+            img.src = prev;
+        }
     }, [index, count, photos]);
 
-    /** audio behavior */
+    useEffect(() => {
+        clearAllAuto();
+        setProgress(0);
+
+        if (count > 1 && !isPaused) {
+            scheduleAutoplay();
+        }
+    }, [index, count, isPaused, scheduleAutoplay, clearAllAuto]);
+
+    useEffect(() => {
+        if (count <= 1) return;
+
+        if (isPaused) {
+            clearAllAuto();
+            return;
+        }
+
+        scheduleAutoplay();
+    }, [isPaused, count, scheduleAutoplay, clearAllAuto]);
+
     useEffect(() => {
         let cancelled = false;
 
@@ -222,6 +264,9 @@ export function PhotoSliderPlayer({
             if (!audioRef.current || lastAudioUrlRef.current !== audioUrl) {
                 if (audioRef.current) {
                     pauseIfCurrentAudio(audioRef.current);
+                    try {
+                        audioRef.current.src = "";
+                    } catch { }
                 }
 
                 const a = new Audio(audioUrl);
@@ -254,10 +299,9 @@ export function PhotoSliderPlayer({
         };
     }, [audioUrl, isPaused, muted, audioAllowed]);
 
-    /** cleanup */
     useEffect(() => {
         return () => {
-            clearRaf();
+            clearAllAuto();
 
             const a = audioRef.current;
             audioRef.current = null;
@@ -270,92 +314,135 @@ export function PhotoSliderPlayer({
                 } catch { }
             }
         };
-    }, [clearRaf]);
+    }, [clearAllAuto]);
 
-    if (!count) return null;
+    const onSlideLoaded = useCallback(
+        (i: number) => {
+            setLoadedMap((prev) => {
+                if (prev[i]) return prev;
+                return { ...prev, [i]: true };
+            });
 
-    const current = photos[clamp(index, 0, count - 1)];
-    const objectClass = fit === "contain" ? "object-contain" : "object-cover";
+            if (!firstLoadedRef.current) {
+                firstLoadedRef.current = true;
+                onFirstLoad?.();
+            }
+        },
+        [onFirstLoad]
+    );
 
     const toggleManualPause = useCallback(() => {
         if (paused) return;
         setManualPaused((p) => !p);
     }, [paused]);
 
+    const getPhotoFit = useCallback(
+        (url?: string): "cover" | "contain" => {
+            if (!url) return fit;
+
+            const size = measuredSizes[url];
+            if (!size?.width || !size?.height) return fit;
+
+            const ratio = size.width / size.height;
+
+            /** Landscape */
+            if (ratio > 1.1) return "contain";
+
+            /** Square / near-square */
+            if (ratio >= 0.85 && ratio <= 1.1) return "contain";
+
+            /** Extremely tall images from random sources */
+            if (ratio < 0.7) return "contain";
+
+            /** Normal portrait phone photos */
+            return "cover";
+        },
+        [fit, measuredSizes]
+    );
+
+    if (!count) return null;
+
+    const current = photos[clamp(index, 0, count - 1)];
+    const currentFit = getPhotoFit(current?.url);
+    const objectClass = currentFit === "contain" ? "object-contain" : "object-cover";
+
+    const progressStyle =
+        progressPosition === "top"
+            ? { top: `${progressTopOffset}px` }
+            : { bottom: `${isDesktop ? progressBottomOffset : 60}px` };
+
     return (
         <div
             className={`relative h-full w-full overflow-hidden bg-black select-none ${className ?? ""}`}
             onContextMenu={(e) => e.preventDefault()}
         >
-            {/* ✅ Optional blurred preview behind */}
-            {!!current.previewUrl && !fullLoaded && (
+            {!!current.previewUrl && !loadedMap[index] && (
                 <img
                     src={current.previewUrl}
                     alt=""
                     aria-hidden
-                    className={`absolute inset-0 h-full w-full ${objectClass} blur-[14px] scale-[1.03] opacity-90`}
+                    className={`absolute inset-0 h-full w-full ${objectClass} object-center scale-[1.03] blur-[14px] opacity-90`}
                     draggable={false}
                     decoding="async"
                 />
             )}
 
-            {/* ✅ Previous stays behind (prevents black flash) */}
             {!!prevUrl && prevUrl !== current.url && (
                 <img
                     key={`prev:${prevUrl}`}
                     src={prevUrl}
                     alt=""
                     aria-hidden
-                    className={`absolute inset-0 h-full w-full ${objectClass}`}
+                    className={`absolute inset-0 h-full w-full ${objectClass} object-center`}
                     draggable={false}
                     decoding="async"
                 />
             )}
 
-            {/* ✅ Current fades in smoothly */}
-            <AnimatePresence initial={false}>
-                <motion.img
-                    key={`${index}:${current.url}`}
-                    src={current.url}
-                    alt=""
-                    className={`absolute inset-0 h-full w-full ${objectClass}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.35 }}
-                    draggable={false}
-                    decoding="async"
-                    loading="eager"
-                    fetchPriority="high"
-                    onLoad={() => {
-                        setFullLoaded(true);
+            <img
+                key={`${index}:${current.url}`}
+                src={current.url}
+                alt=""
+                className={`absolute inset-0 h-full w-full ${objectClass} object-center transition-opacity duration-300`}
+                draggable={false}
+                decoding="async"
+                loading="eager"
+                fetchPriority="high"
+                onLoad={(e) => {
+                    const img = e.currentTarget;
+                    const naturalWidth = img.naturalWidth;
+                    const naturalHeight = img.naturalHeight;
 
-                        if (!firstLoadedRef.current) {
-                            firstLoadedRef.current = true;
-                            onFirstLoad?.();
-
-                            if (!isPaused && count > 1) {
-                                startProgressLoop(progress);
+                    if (naturalWidth && naturalHeight) {
+                        setMeasuredSizes((prev) => {
+                            const existing = prev[current.url];
+                            if (
+                                existing &&
+                                existing.width === naturalWidth &&
+                                existing.height === naturalHeight
+                            ) {
+                                return prev;
                             }
-                        }
-                    }}
-                    onError={() => {
-                        onLoadError?.(index, current.url);
 
-                        if (!firstLoadedRef.current) {
-                            firstLoadedRef.current = true;
-                            onFirstLoad?.();
+                            return {
+                                ...prev,
+                                [current.url]: {
+                                    width: naturalWidth,
+                                    height: naturalHeight,
+                                },
+                            };
+                        });
+                    }
 
-                            if (!isPaused && count > 1) {
-                                startProgressLoop(progress);
-                            }
-                        }
-                    }}
-                />
-            </AnimatePresence>
+                    onSlideLoaded(index);
+                }}
+                onError={() => {
+                    onLoadError?.(index, current.url);
+                    onSlideLoaded(index);
+                }}
+            />
 
-            {/* ✅ Invisible 3-zone tap overlay (Prev / Play-Pause / Next) */}
-            <div className="absolute inset-0 z-20 flex mb-[180px] mr-16">
+            <div className="absolute inset-0 z-20 flex">
                 <button
                     type="button"
                     aria-label="Previous photo"
@@ -377,39 +464,14 @@ export function PhotoSliderPlayer({
                 />
             </div>
 
-            {/* paused hint */}
-            <AnimatePresence>
-                {isPaused && (
-                    <motion.div
-                        className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                    >
-                        <div className="rounded-full bg-black/35 px-4 py-3 backdrop-blur">
-                            <IoPause className="text-white" size={18} />
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {isPaused && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+                    <div className="rounded-full bg-black/35 px-4 py-3 backdrop-blur">
+                        <IoPause className="text-white" size={18} />
+                    </div>
+                </div>
+            )}
 
-            {/* optional small play hint when not paused and center zone is used */}
-            <AnimatePresence>
-                {!isPaused && manualPaused === false && false && (
-                    <motion.div
-                        className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 0 }}
-                        exit={{ opacity: 0 }}
-                    >
-                        <div className="rounded-full bg-black/35 px-4 py-3 backdrop-blur">
-                            <IoPlay className="text-white" size={18} />
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Audio indicator */}
             {showAudioIndicator && !!audioUrl && !muted && (
                 <div className="absolute right-3 top-3 z-40">
                     <div className="rounded-full bg-black/35 px-2.5 py-1 backdrop-blur">
@@ -418,31 +480,34 @@ export function PhotoSliderPlayer({
                 </div>
             )}
 
-            {/* progress bars */}
             {showProgress && count > 1 && (
-                <div className="absolute left-3 right-3 bottom-20 lg:bottom-3 z-40 pointer-events-none">
-                    <div className="flex items-center gap-1.5">
-                        {photos.map((_, i) => {
-                            const done = i < index;
-                            const active = i === index;
-                            const fill = done ? 1 : active ? progress : 0;
+                <div
+                    className="absolute left-3 right-3 z-40 pointer-events-none"
+                    style={progressStyle}
+                >
+                    <div className="rounded-full px-2 py-2">
+                        <div className="flex items-center gap-1.5">
+                            {photos.map((_, i) => {
+                                const done = i < index;
+                                const active = i === index;
+                                const fill = done ? 1 : active ? progress : 0;
 
-                            return (
-                                <div
-                                    key={i}
-                                    className="relative h-[3px] flex-1 overflow-hidden rounded-full bg-white/25"
-                                >
+                                return (
                                     <div
-                                        className="absolute inset-0 bg-white"
-                                        style={{
-                                            transformOrigin: "left",
-                                            transform: `scaleX(${fill})`,
-                                            transition: active ? "none" : "transform 120ms linear",
-                                        }}
-                                    />
-                                </div>
-                            );
-                        })}
+                                        key={i}
+                                        className="relative h-[4px] flex-1 overflow-hidden rounded-full bg-white/25"
+                                    >
+                                        <div
+                                            className="absolute inset-y-0 left-0 bg-white"
+                                            style={{
+                                                width: `${fill * 100}%`,
+                                                transition: active ? "none" : "width 120ms linear",
+                                            }}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}

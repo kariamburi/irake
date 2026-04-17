@@ -74,7 +74,7 @@ export default function HomeFeedClientPage({
   const warmAuthor = useWarmAuthorStub();
 
   const fallbackName =
-    [((profile as any)?.firstName), ((profile as any)?.surname)]
+    [profile?.firstName as any, profile?.surname as any]
       .filter(Boolean)
       .join(" ") || null;
 
