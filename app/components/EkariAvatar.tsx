@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 
@@ -28,6 +28,11 @@ export default function EkariAvatar({
     const [loading, setLoading] = useState(!!src);
     const [err, setErr] = useState(false);
 
+    useEffect(() => {
+        setErr(false);
+        setLoading(!!src);
+    }, [src]);
+
     const displaySrc = !err && src ? src : null;
 
     const fallbackLetter = useMemo(() => {
@@ -47,7 +52,7 @@ export default function EkariAvatar({
             {displaySrc ? (
                 <>
                     {loading && (
-                        <div className="absolute inset-0 grid place-items-center bg-white">
+                        <div className="absolute inset-0 z-10 grid place-items-center bg-white">
                             <div
                                 className="h-5 w-5 animate-spin rounded-full border-2"
                                 style={{
@@ -59,6 +64,7 @@ export default function EkariAvatar({
                     )}
 
                     <Image
+                        key={displaySrc}
                         src={displaySrc}
                         alt={alt}
                         fill
