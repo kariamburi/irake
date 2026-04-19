@@ -29,31 +29,24 @@ const SECTIONS: Section[] = [
                 <p>Last Updated: November 2024</p>
 
                 <p>
-                    Welcome to ekarihub (the Hub), your agribusiness’ new innovative favorite hangout! ekarihub is a
+                    Welcome to ekarihub (the Hub), your agribusiness&amp; new innovative favorite hangout! ekarihub is a
                     product of EKABEL LIMITED, a limited liability company registered in the Republic of Kenya, with
                     its address at P.O. Box 10812-00100, Nairobi, Kenya.
                 </p>
 
                 <p>
-                    The primary purpose of ekarihub is to create an avenue for you to have fun online as you connect with
-                    farmers and other agribusiness value chain actors such as agronomists, veterinarians, agricultural
-                    products exporters, show off your farms, plants, animals etc., showcase your work, share your
-                    agribusiness challenges, get expert agribusiness advice, lease tools and machinery , advertise,
-                    market and sell produce with confidence. We are your one stop hub for everything you need to do
-                    agribusiness like a superstar!
+                    The primary purpose of ekarihub is to create a vibrant and engaging digital space where you can connect, learn, and thrive within the agribusiness ecosystem while promoting green living and wildlife conservation. Whether you are a farmer, agronomist, veterinarian, exporter, conservationist, or sustainability enthusiast, ekarihub empowers you to showcase your farms, plants, animals, and eco-friendly practices, share experiences, highlight challenges, access expert advice, lease tools and machinery, and confidently market and sell your products.
                 </p>
 
                 <p>
-                    As part of the ekarihub community, you will have the opportunity to upload and showcase various types
-                    of content, including articles, deeds, photos, videos, and other materials related to agriculture.
-                    These user-generated materials will be featured on the platform, allowing others to access, view, and
-                    engage with the content shared. Please read this policy carefully to understand how we collect, use,
-                    store, and protect your personal data and content.
+                    Beyond agribusiness, ekarihub champions responsible stewardship of the environment by encouraging sustainable practices, protecting biodiversity, and fostering harmony between agriculture, green living, and wildlife. It is your all-in-one platform to grow, connect, and succeed — responsibly and sustainably.
                 </p>
 
                 <p>
-                    By accessing or using ekarihub, you agree to comply with these Terms and Conditions (T&amp;Cs). If you
-                    do not agree with any part of these T&amp;Cs, please discontinue using the Hub.
+                    As part of the ekarihub community, you will have the opportunity to upload and showcase various types of content, including articles, deeds, photos, videos, and other materials related to agriculture, sustainability, and conservation. These user-generated materials will be featured on the platform, allowing others to access, view, and engage with your content within a trusted and collaborative ecosystem. Please read this policy carefully to understand how we collect, use, store, and protect your personal data and content.
+                </p>
+                <p>
+                    By accessing or using ekarihub, you agree to comply with these Terms and Conditions (T&Cs). If you do not agree with any part of these T&Cs, please discontinue using the platform.
                 </p>
             </div>
         ),
@@ -136,7 +129,7 @@ const SECTIONS: Section[] = [
                     activity and preferences.
                 </p>
                 <p>
-                    Users may be allowed to post advertisements for their goods and services in accordance with the Hub’s
+                    Users may be allowed to post advertisements for their goods and services in accordance with the Hub&amp;s
                     advertising guidelines. All ads must comply with relevant laws and cannot contain offensive,
                     misleading, or unlawful content. ekarihub reserves the right to reject or remove any user
                     advertisement that violates these guidelines.
@@ -201,7 +194,7 @@ const SECTIONS: Section[] = [
                 </p>
                 <p>
                     Users are prohibited from listing items or services that are illegal, hazardous, or otherwise
-                    restricted by law or the Hub’s policies.
+                    restricted by law or the Hub&amp;s policies.
                 </p>
                 <p>
                     All prices must be clearly stated in Kenya Shillings (KES) or United States Dollars (USD), inclusive
@@ -230,7 +223,7 @@ const SECTIONS: Section[] = [
                     credit or debit card payments.
                 </p>
                 <p>
-                    Users agree to pay any fees or charges associated with the use of the Hub’s services, as shall be
+                    Users agree to pay any fees or charges associated with the use of the Hub&amp;s services, as shall be
                     specified on the Hub from time to time.
                 </p>
                 <p>
@@ -251,7 +244,7 @@ const SECTIONS: Section[] = [
                     conducted on the Hub.
                 </p>
                 <p>
-                    Refunds or returns must comply with the Seller’s stated policies. Ekarihub is not responsible for
+                    Refunds or returns must comply with the Seller&amp;s stated policies. Ekarihub is not responsible for
                     enforcing or processing refunds or returns unless explicitly stated.
                 </p>
 
@@ -283,12 +276,12 @@ const SECTIONS: Section[] = [
                 <p>(i) Termination of Trading Privileges</p>
 
                 <p>
-                    ekarihub reserves the right to suspend or terminate any User’s trading privileges without notice if
+                    ekarihub reserves the right to suspend or terminate any User&amp;s trading privileges without notice if
                     they violate these T&amp;Cs, engage in fraudulent activities, or misuse the Hub.
                 </p>
                 <p>
-                    Upon termination, the User’s access to trading features will be revoked, and any pending transactions
-                    may be canceled at ekarihub’s discretion.
+                    Upon termination, the User&amp;s access to trading features will be revoked, and any pending transactions
+                    may be canceled at ekarihub&amp;s discretion.
                 </p>
             </div>
         ),
@@ -453,13 +446,13 @@ const SECTIONS: Section[] = [
         body: (
             <div className="space-y-4">
                 <p>
-                    EKABEL LIMITED reserves the right to suspend or terminate any User’s access to the Hub at any time,
+                    EKABEL LIMITED reserves the right to suspend or terminate any User&amp;s access to the Hub at any time,
                     without notice, for any reason, including but not limited to violation of these T&amp;Cs, fraudulent
                     activity, or misuse of the Hub.
                 </p>
                 <p>
-                    Upon termination, the User’s right to use the Hub will cease immediately, and EKABEL LIMITED retains
-                    ownership of all data, IP, and content generated through the User’s activities on the Hub.
+                    Upon termination, the User&amp;s right to use the Hub will cease immediately, and EKABEL LIMITED retains
+                    ownership of all data, IP, and content generated through the User&amp;s activities on the Hub.
                 </p>
             </div>
         ),

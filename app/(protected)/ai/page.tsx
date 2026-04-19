@@ -817,8 +817,8 @@ export default function Page() {
 
   return (
     <AppShell>
-      <div className="w-full min-h-[100dvh]">
-        <div className="mx-auto w-full max-w-6xl px-2 sm:px-3 md:px-4 py-2">
+      <div className="w-full bg-white min-h-[100dvh]">
+        <div className="w-full sm:px-3 md:px-4 py-2">
           <div className="h-[calc(100dvh-2.5rem)] flex gap-3">
             <aside className="hidden md:flex w-72 flex-col rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-xl overflow-hidden">
               {HistoryList}

@@ -72,11 +72,10 @@ export default function AppShell({
         <div
             className={`min-h-screen ${className}`}
             style={{
-                background: `
-                    radial-gradient(circle at top left, rgba(35,63,57,0.05), transparent 28%),
-                    radial-gradient(circle at bottom right, rgba(199,146,87,0.08), transparent 24%),
-                    ${EKARI.bgSoft}
-                `,
+                background:
+                    "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.82))",
+                backdropFilter: "blur(14px)",
+                borderBottom: "1px solid rgba(199,146,87,0.18)",
             }}
         >
             {/* Top-right auth / profile action */}
@@ -98,7 +97,7 @@ export default function AppShell({
 
                 {/* Center stage */}
                 <main className="min-w-0 flex-1">
-                    <div className="flex min-h-screen w-full items-stretch justify-center px-0 lg:px-6 xl:px-8">
+                    <div className="flex min-h-screen w-full items-stretch justify-center">
                         <motion.div
                             className="flex w-full min-w-0 justify-center"
                             initial={{ opacity: 0, y: 8 }}

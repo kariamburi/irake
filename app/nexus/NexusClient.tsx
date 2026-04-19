@@ -1066,7 +1066,7 @@ export default function NexusPage() {
 
     const desktopHeader = (
         <div className="sticky top-0 z-30 border-b bg-gray-100" style={{ borderColor: EKARI.hair }}>
-            <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-3 px-4 py-3">
+            <div className="mx-auto flex max-w-[1180px] lg:mr-10 items-center justify-between gap-3 px-4 py-3">
                 <div>
                     <h1 className="text-[28px] font-black tracking-tight" style={{ color: EKARI.text }}>
                         Nexus
@@ -1091,11 +1091,11 @@ export default function NexusPage() {
                     </Link>
 
                     <button
-                        onClick={openCreateEvent}
+                        onClick={active === "events" ? openCreateEvent : openCreateDiscussion}
                         className="rounded-full px-5 py-3 text-[14px] font-extrabold text-white"
                         style={{ backgroundColor: EKARI.forest }}
                     >
-                        + Create Event
+                        {active === "events" ? "+ Create Event" : "+ Create Discussion"}
                     </button>
 
 

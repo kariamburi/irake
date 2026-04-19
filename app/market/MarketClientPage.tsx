@@ -1044,7 +1044,7 @@ export default function MarketPage() {
                         borderBottom: "1px solid rgba(199,146,87,0.18)",
                     }}
                 >
-                    <div className="h-[72px] px-4 max-w-[1180px] mx-auto flex items-center justify-between">
+                    <div className="h-[72px] lg:mr-10 px-4 max-w-[1180px] mx-auto flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <span
                                 className="h-11 w-11 rounded-3xl grid place-items-center border shadow-sm"

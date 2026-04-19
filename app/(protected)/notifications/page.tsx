@@ -302,7 +302,7 @@ export default function NotificationsPage() {
         borderBottom: "1px solid rgba(199,146,87,0.18)",
       }}
     >
-      <div className={clsx(isDesktop ? "px-4 max-w-[1180px] mx-auto" : "px-3")}>
+      <div className={clsx(isDesktop ? "px-4 max-w-[1180px] mx-auto lg:mr-10" : "px-3")}>
         <div className="h-[72px] flex items-center justify-between gap-3">
           <button
             onClick={goBack}

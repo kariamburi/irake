@@ -308,15 +308,18 @@ export default function AboutPage() {
                                 variants={item}
                                 className="mt-3 text-sm sm:text-[15px] text-emerald-100 leading-relaxed"
                             >
-                                ekarihub is a digital agribusiness hub built to{" "}
+                                ekarihub is a digital agribusiness ecosystem built to{" "}
                                 <span className="font-semibold text-white">
                                     Collaborate, Innovate, and Cultivate
-                                </span>{" "}
-                                value across the agribusiness ecosystem. Powered by data, artificial
-                                intelligence (AI), and social media, we connect farmers, agronomists,
-                                agro-vets, suppliers, buyers, exporters, and other stakeholders —
-                                empowering them to share insights, build partnerships, and grow within a
-                                trusted, intelligent network.
+                                </span>{" "}value across agribusiness, green living, and wildlife conservation. Powered by data, artificial intelligence (AI), and social connectivity, we bring together farmers, agronomists, agro-vets, suppliers, buyers, exporters, conservationists, and sustainability advocates into one intelligent network.
+
+
+                            </motion.p>
+                            <motion.p
+                                variants={item}
+                                className="mt-3 text-sm sm:text-[15px] text-emerald-100 leading-relaxed"
+                            >
+                                Our platform enables users to share knowledge, build meaningful partnerships, access markets, and adopt sustainable practices that protect natural ecosystems while driving economic growth. From farm to forest, and from soil to wildlife, ekarihub is shaping a future where agribusiness, environmental stewardship, and community prosperity thrive together.
                             </motion.p>
 
                             <motion.div variants={item} className="mt-6 grid gap-3">

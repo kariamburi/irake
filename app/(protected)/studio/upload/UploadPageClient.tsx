@@ -769,7 +769,7 @@ export default function UploadPage() {
         style={{
           borderRadius: UI.radius,
           border: `1.5px dashed ${hover ? EKARI.gold : UI.border}`,
-          background: "rgba(255,255,255,0.65)",
+          // background: "rgba(255,255,255,0.65)",
           boxShadow: hover ? UI.glow : "none",
         }}
         onDragOver={(e) => {

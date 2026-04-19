@@ -51,10 +51,10 @@ export default function StudioShell({
         pathname === href || pathname.startsWith(href + "/");
 
     return (
-        <div className="min-h-screen w-full bg-white">
+        <div className="min-h-screen w-full">
             {/* Top bar (desktop & tablet) */}
             <header
-                className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/75"
+                className="sticky top-0 z-40 border-b"
                 style={{ borderColor: EKARI.hair }}
             >
                 <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-3">
