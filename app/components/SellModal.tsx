@@ -2514,7 +2514,6 @@ export default function SellModal({
     // ✅ FINISH BUTTON: DRAFT -> (ACTIVE SUB? publish : go plan step)
     // ===========================
     const onFinish = useCallback(async () => {
-
         if (!canPublish) {
             ui.alert(
                 verificationStatus === "pending"
@@ -2531,17 +2530,13 @@ export default function SellModal({
             setDraftListingId(id);
             setDraftBase(base);
 
-            // If user already has active subscription -> publish immediately
-            if (isSubActive(sub)) {
-                await handlePublish(id, base);
+            if (isSubActive(sub) || !slots.reached) {
+                await handlePublish(id);
                 return;
             }
 
-            // No active subscription -> show plan selection
             setModalStep("plan");
         } catch (e: any) {
-            setPublishing(false);
-
             const msg =
                 e?.message ||
                 e?.details ||
@@ -2550,7 +2545,6 @@ export default function SellModal({
             const code = e?.code || "";
             const lowerMsg = String(msg).toLowerCase();
 
-            // listing limit reached -> show packages instead of popup
             if (code === "failed-precondition" && lowerMsg.includes("limit")) {
                 setModalStep("plan");
                 return;
@@ -2560,7 +2554,15 @@ export default function SellModal({
         } finally {
             setSaving(false);
         }
-    }, [canPublish, verificationStatus, ui, createDraftListing, sub, handlePublish]);
+    }, [
+        canPublish,
+        verificationStatus,
+        ui,
+        createDraftListing,
+        sub,
+        slots.reached,
+        handlePublish,
+    ]);
     if (!mounted || !open) return null;
 
     // ===========================
