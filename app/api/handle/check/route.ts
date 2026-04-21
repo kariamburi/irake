@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
-
+export const dynamic = "force-dynamic";
 const RESERVED = new Set(["admin", "administrator", "root", "ekari", "ekarihub", "support", "help", "api", "system", "moderator", "mod"]);
 const HANDLE_REGEX = /^[a-z0-9._]{3,24}$/;
 

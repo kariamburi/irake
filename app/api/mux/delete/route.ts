@@ -1,7 +1,7 @@
 // app/api/mux/delete/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Mux from "@mux/mux-node";
-
+export const dynamic = "force-dynamic";
 const muxTokenId = process.env.MUX_TOKEN_ID!;
 const muxTokenSecret = process.env.MUX_TOKEN_SECRET!;
 const mux = new Mux({ tokenId: muxTokenId, tokenSecret: muxTokenSecret });

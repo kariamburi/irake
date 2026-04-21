@@ -1,6 +1,6 @@
 // app/api/revgeo/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
+export const dynamic = "force-dynamic";
 /**
  * Reverse geocode lat,lng -> { country, countryCode, county }
  * Uses OpenStreetMap Nominatim. For production, consider Google/Mapbox for stronger SLAs.
