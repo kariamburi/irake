@@ -6,6 +6,7 @@ const withPWA = require('next-pwa')({
 
 module.exports = withPWA({
   reactStrictMode: true,
+  output: "standalone",
   images: {
     domains: [
       'lh3.googleusercontent.com',       // Google OAuth avatars
