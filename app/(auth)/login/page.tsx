@@ -1,4 +1,3 @@
-// app/login/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -51,8 +50,8 @@ export default function LoginPage() {
         }
     }, []);
 
-    // Load Firebase auth safely (client-only)
     const [authBundle, setAuthBundle] = useState<{ auth: any; googleProvider: any } | null>(null);
+
     useEffect(() => {
         (async () => {
             const bundle = await getAuthSafe();
@@ -60,40 +59,24 @@ export default function LoginPage() {
         })();
     }, []);
 
-    // UI state
     const [emailOpen, setEmailOpen] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+
     const [loadingEmail, setLoadingEmail] = useState(false);
     const [loadingGoogle, setLoadingGoogle] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [postAuthChecking, setPostAuthChecking] = useState(false);
+
     const disableAll =
         authLoading || loadingEmail || loadingGoogle || postAuthChecking || !authBundle;
+
     const isValid = useMemo(
         () => /\S+@\S+\.\S+/.test(email.trim()) && password.length >= 6,
         [email, password]
     );
-    const ensureUserDocOrSignOut = async (uid: string) => {
-        if (!authBundle) return false;
-        const { auth } = authBundle;
 
-        try {
-            const snap = await getDoc(doc(db, "users", uid));
-
-            if (!snap.exists()) {
-                router.replace("/onboarding");
-                return false;
-            }
-
-            return true;
-        } catch (error) {
-            await auth.signOut();
-            setErrorMsg("Could not verify account. Please try again.");
-            return false;
-        }
-    };
     const mapAuthError = (err: any) => {
         switch (err?.code) {
             case "auth/invalid-credential":
@@ -106,58 +89,43 @@ export default function LoginPage() {
                 return "Too many attempts. Try again later.";
             case "auth/popup-closed-by-user":
                 return "Popup closed before completing sign in.";
+            case "auth/account-exists-with-different-credential":
+                return "An account already exists with a different sign-in method.";
             default:
                 return err?.message || "Something went wrong.";
         }
     };
 
-    // Post-login routing based on Firestore user doc + ?next=
+    const resolveDestination = async (uid: string) => {
+        try {
+            const snap = await getDoc(doc(db, "users", uid));
+
+            if (!snap.exists()) {
+                return "/onboarding";
+            }
+
+            return safeNext || "/";
+        } catch {
+            return "/onboarding";
+        }
+    };
+
     useEffect(() => {
         if (authLoading || postAuthChecking || !user) return;
+
         let alive = true;
 
         (async () => {
-            try {
-                const snap = await getDoc(doc(db, "users", user.uid));
-                if (!alive) return;
-
-                if (!snap.exists()) {
-                    // New user → getstarted
-                    if (user) {
-
-                        router.replace("/onboarding");
-                    } else {
-                        router.replace("/login");
-                    }
-                    // 
-                    return;
-                }
-
-                // Existing user: respect ?next= if present, else go home
-                if (safeNext) {
-                    router.replace(safeNext);
-                } else {
-                    router.replace("/");
-                }
-            } catch {
-                if (!alive) return;
-                router.replace("/getstarted");
-            }
+            const dest = await resolveDestination(user.uid);
+            if (!alive) return;
+            router.replace(dest);
         })();
 
         return () => {
             alive = false;
         };
-    }, [user, authLoading, postAuthChecking, router, safeNext]);
+    }, [user, authLoading, postAuthChecking, safeNext]);
 
-    const checkUserDoc = async (uid: string) => {
-        try {
-            const snap = await getDoc(doc(db, "users", uid));
-            return snap.exists();
-        } catch {
-            return null; // verification failed
-        }
-    };
     const handleLoginEmail = async () => {
         if (!isValid || loadingEmail || authLoading || !authBundle) return;
         const { auth } = authBundle;
@@ -175,21 +143,8 @@ export default function LoginPage() {
                 return;
             }
 
-            const exists = await checkUserDoc(uid);
-
-            if (exists === null) {
-                await auth.signOut();
-                setErrorMsg("Could not verify account. Please try again.");
-                return;
-            }
-
-            if (!exists) {
-                await auth.signOut();
-                setErrorMsg("User profile is missing. Please sign up again or contact support.");
-                return;
-            }
-
-            router.replace(safeNext || "/");
+            const dest = await resolveDestination(uid);
+            router.replace(dest);
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));
         } finally {
@@ -197,6 +152,7 @@ export default function LoginPage() {
             setLoadingEmail(false);
         }
     };
+
     const continueWithPhone = () => router.push("/phone-login");
 
     const continueWithGoogle = async () => {
@@ -216,10 +172,8 @@ export default function LoginPage() {
                 return;
             }
 
-            const ok = await ensureUserDocOrSignOut(uid);
-            if (!ok) return;
-
-            // ✅ user doc exists → allow redirect useEffect to run
+            const dest = await resolveDestination(uid);
+            router.replace(dest);
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));
         } finally {
@@ -227,8 +181,8 @@ export default function LoginPage() {
             setLoadingGoogle(false);
         }
     };
-    const onForgotPassword = () => router.push("/forgot-password");
 
+    const onForgotPassword = () => router.push("/forgot-password");
 
     return (
         <main
@@ -244,7 +198,6 @@ export default function LoginPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
             >
-                {/* Top logo + small link back to get started */}
                 <div className="mb-6 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Image
@@ -264,14 +217,12 @@ export default function LoginPage() {
                     </Link>
                 </div>
 
-                {/* Card: login form */}
                 <motion.div
                     className="rounded-3xl bg-white/85 backdrop-blur-xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.25)] px-6 py-7 md:px-8 md:py-8"
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.28, ease: "easeOut" }}
                 >
-                    {/* Heading */}
                     <div className="mb-5 text-center md:text-left">
                         <h1 className="text-xl md:text-2xl font-semibold tracking-tight" style={{ color: EKARI.text }}>
                             Log in to ekarihub
@@ -279,11 +230,10 @@ export default function LoginPage() {
                         <p className="mt-1.5 text-xs md:text-sm leading-5" style={{ color: EKARI.subtext }}>
                             {authLoading
                                 ? "Checking your session..."
-                                : "Welcome back. Choose how you’d like to sign in."}
+                                : "Welcome back. Choose how you’d like to continue."}
                         </p>
                     </div>
 
-                    {/* Phone login */}
                     <button
                         onClick={continueWithPhone}
                         disabled={disableAll}
@@ -292,11 +242,9 @@ export default function LoginPage() {
                             background: "linear-gradient(135deg, #C79257, #fbbf77)",
                         }}
                     >
-
                         <span>Continue with phone number</span>
                     </button>
 
-                    {/* Google login */}
                     <div className="mt-3">
                         <button
                             onClick={continueWithGoogle}
@@ -311,12 +259,11 @@ export default function LoginPage() {
                                 alt="Google"
                             />
                             <span className="text-[14px] text-[#3c4043] font-medium">
-                                {loadingGoogle ? "Signing in..." : "Sign in with Google"}
+                                {loadingGoogle ? "Continuing..." : "Continue with Google"}
                             </span>
                         </button>
                     </div>
 
-                    {/* Divider */}
                     <div className="flex items-center my-4">
                         <div className="flex-1 h-px" style={{ backgroundColor: EKARI.hair }} />
                         <span
@@ -328,7 +275,6 @@ export default function LoginPage() {
                         <div className="flex-1 h-px" style={{ backgroundColor: EKARI.hair }} />
                     </div>
 
-                    {/* Email toggle */}
                     <button
                         onClick={() => setEmailOpen((s) => !s)}
                         disabled={disableAll}
@@ -341,7 +287,6 @@ export default function LoginPage() {
 
                     {emailOpen && (
                         <div className="mt-3">
-                            {/* Email */}
                             <div
                                 className="mt-2 flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
                                 style={{ borderColor: EKARI.hair }}
@@ -364,7 +309,6 @@ export default function LoginPage() {
                                 />
                             </div>
 
-                            {/* Password */}
                             <div
                                 className="mt-3 flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
                                 style={{ borderColor: EKARI.hair }}
@@ -432,7 +376,14 @@ export default function LoginPage() {
                         </div>
                     )}
 
-                    {/* Signup hint */}
+                    {!emailOpen && !!errorMsg && (
+                        <div className="mt-3 flex justify-center">
+                            <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
+                                {errorMsg}
+                            </p>
+                        </div>
+                    )}
+
                     <div className="mt-6 flex justify-center items-center text-sm">
                         <span style={{ color: EKARI.dim }}>New here?&nbsp;</span>
                         <Link
@@ -453,7 +404,6 @@ export default function LoginPage() {
                         >
                             terms
                         </Link>{" "}
-
                         and{" "}
                         <Link
                             href="/privacy"
@@ -462,7 +412,6 @@ export default function LoginPage() {
                         >
                             privacy policy
                         </Link>
-
                         .
                     </div>
                 </motion.div>

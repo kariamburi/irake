@@ -1,4 +1,3 @@
-// app/signup/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -13,7 +12,7 @@ import {
     IoEyeOffOutline,
     IoShieldCheckmarkOutline,
 } from "react-icons/io5";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { db, getAuthSafe } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -34,13 +33,17 @@ export default function SignupPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
 
-    // Load Firebase auth safely (client-only)
-    const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
+    const [authBundle, setAuthBundle] = useState<{ auth: any; googleProvider: any } | null>(null);
+
     useEffect(() => {
         (async () => {
             const bundle = await getAuthSafe();
-            // getAuthSafe returns null on server; on client we expect { auth, googleProvider? }
-            if (bundle) setAuthBundle({ auth: bundle.auth });
+            if (bundle) {
+                setAuthBundle({
+                    auth: bundle.auth,
+                    googleProvider: bundle.googleProvider,
+                });
+            }
         })();
     }, []);
 
@@ -49,13 +52,16 @@ export default function SignupPage() {
     const [password, setPassword] = useState("");
     const [confirm, setConfirm] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+
     const [loading, setLoading] = useState(false);
+    const [loadingGoogle, setLoadingGoogle] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
     const isValidEmail = useMemo(
         () => /\S+@\S+\.\S+/.test(email.trim()),
         [email]
     );
+
     const isValid = useMemo(
         () =>
             isValidEmail &&
@@ -64,6 +70,8 @@ export default function SignupPage() {
             consent,
         [isValidEmail, password, confirm, consent]
     );
+
+    const disableAll = loading || loadingGoogle || authLoading || !authBundle;
 
     const mapAuthError = (err: any) => {
         switch (err?.code) {
@@ -75,35 +83,38 @@ export default function SignupPage() {
                 return "Password is too weak.";
             case "auth/network-request-failed":
                 return "Network error. Please check your connection.";
+            case "auth/popup-closed-by-user":
+                return "Popup closed before completing sign up.";
+            case "auth/account-exists-with-different-credential":
+                return "An account already exists with a different sign-in method.";
             default:
                 return err?.message || "Something went wrong.";
         }
     };
 
-    // After auth state resolves:
-    // if user doc exists → home, else → getstarted (just like login new user)
+    const resolveDestination = async (uid: string) => {
+        try {
+            const snap = await getDoc(doc(db, "users", uid));
+
+            if (!snap.exists()) {
+                return "/onboarding";
+            }
+
+            return "/";
+        } catch {
+            return "/onboarding";
+        }
+    };
+
     useEffect(() => {
-        // Wait until auth is done and we actually have a signed-in user
         if (authLoading || !user) return;
 
         let alive = true;
 
         (async () => {
-            try {
-                const snap = await getDoc(doc(db, "users", user.uid));
-                if (!alive) return;
-
-                // If user exists in "users" collection → go to /getstarted
-                // If user does NOT exist → go to onboarding
-                if (snap.exists()) {
-                    router.replace("/getstarted");
-                } else {
-                    router.replace("/onboarding");
-                }
-            } catch {
-                // On error, treat as not-onboarded and send to onboarding
-                if (alive) router.replace("/getstarted");
-            }
+            const dest = await resolveDestination(user.uid);
+            if (!alive) return;
+            router.replace(dest);
         })();
 
         return () => {
@@ -111,15 +122,24 @@ export default function SignupPage() {
         };
     }, [user, authLoading, router]);
 
-
     const handleSignup = async () => {
         if (!isValid || loading || !authBundle) return;
         const { auth } = authBundle;
+
         setLoading(true);
         setErrorMsg("");
+
         try {
-            await createUserWithEmailAndPassword(auth, email.trim(), password);
-            // Redirect handled by the useEffect above when { user } becomes non-null
+            const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+            const uid = cred.user?.uid;
+
+            if (!uid) {
+                setErrorMsg("Could not create account. Please try again.");
+                return;
+            }
+
+            const dest = await resolveDestination(uid);
+            router.replace(dest);
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));
         } finally {
@@ -127,7 +147,30 @@ export default function SignupPage() {
         }
     };
 
-    const disableAll = loading || authLoading || !authBundle;
+    const continueWithGoogle = async () => {
+        if (!consent || loadingGoogle || authLoading || !authBundle) return;
+        const { auth, googleProvider } = authBundle;
+
+        setLoadingGoogle(true);
+        setErrorMsg("");
+
+        try {
+            const cred = await signInWithPopup(auth, googleProvider);
+            const uid = cred.user?.uid;
+
+            if (!uid) {
+                setErrorMsg("Something went wrong. Please try again.");
+                return;
+            }
+
+            const dest = await resolveDestination(uid);
+            router.replace(dest);
+        } catch (err: any) {
+            setErrorMsg(mapAuthError(err));
+        } finally {
+            setLoadingGoogle(false);
+        }
+    };
 
     return (
         <main
@@ -143,7 +186,6 @@ export default function SignupPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
             >
-                {/* Top: logo + link back */}
                 <div className="mb-6 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Image
@@ -163,14 +205,12 @@ export default function SignupPage() {
                     </Link>
                 </div>
 
-                {/* Card */}
                 <motion.div
                     className="rounded-3xl bg-white/90 backdrop-blur-xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.25)] px-6 py-7 md:px-8 md:py-8"
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.28, ease: "easeOut" }}
                 >
-                    {/* Heading */}
                     <div className="mb-5 text-center md:text-left">
                         <h1
                             className="text-xl md:text-2xl font-semibold tracking-tight"
@@ -186,7 +226,69 @@ export default function SignupPage() {
                         </p>
                     </div>
 
-                    {/* Email */}
+                    <div className="mt-1 mb-3 flex items-start gap-2 px-1">
+                        <input
+                            id="consent"
+                            type="checkbox"
+                            checked={consent}
+                            onChange={(e) => setConsent(e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border"
+                            style={{ accentColor: EKARI.gold }}
+                            disabled={disableAll}
+                        />
+                        <label
+                            htmlFor="consent"
+                            className="text-xs md:text-sm leading-5"
+                            style={{ color: EKARI.text }}
+                        >
+                            By crafting an account, you agree to our{" "}
+                            <Link
+                                href="/terms"
+                                className="underline font-semibold"
+                                style={{ color: EKARI.forest }}
+                            >
+                                Terms
+                            </Link>{" "}
+                            and{" "}
+                            <Link
+                                href="/privacy"
+                                className="underline font-semibold"
+                                style={{ color: EKARI.forest }}
+                            >
+                                Privacy Policy
+                            </Link>
+                            .
+                        </label>
+                    </div>
+
+                    <button
+                        onClick={continueWithGoogle}
+                        disabled={!consent || disableAll}
+                        className="w-full flex items-center justify-center gap-3 rounded-xl border bg-white py-3.5 active:scale-[0.98] transition disabled:opacity-60 shadow-sm"
+                        style={{ borderColor: "#dadce0" }}
+                    >
+                        <Image
+                            src="/google-logo.png"
+                            width={18}
+                            height={18}
+                            alt="Google"
+                        />
+                        <span className="text-[14px] text-[#3c4043] font-medium">
+                            {loadingGoogle ? "Continuing..." : "Continue with Google"}
+                        </span>
+                    </button>
+
+                    <div className="flex items-center my-4">
+                        <div className="flex-1 h-px" style={{ backgroundColor: EKARI.hair }} />
+                        <span
+                            className="mx-3 text-[11px] font-semibold uppercase tracking-[0.16em]"
+                            style={{ color: EKARI.dim }}
+                        >
+                            Or use email
+                        </span>
+                        <div className="flex-1 h-px" style={{ backgroundColor: EKARI.hair }} />
+                    </div>
+
                     <label className="block">
                         <div
                             className="mt-1 flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
@@ -211,7 +313,6 @@ export default function SignupPage() {
                         </div>
                     </label>
 
-                    {/* Password */}
                     <label className="block">
                         <div
                             className="mt-3 flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
@@ -248,7 +349,6 @@ export default function SignupPage() {
                         </div>
                     </label>
 
-                    {/* Confirm Password */}
                     <label className="block">
                         <div
                             className="mt-3 flex items-center rounded-xl border px-3 h-11 bg-[#F6F7FB] focus-within:border-[rgba(35,63,57,0.7)] focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)] transition"
@@ -275,7 +375,6 @@ export default function SignupPage() {
                         </div>
                     </label>
 
-                    {/* Inline validation helper */}
                     <div className="mt-2 space-y-1 text-[11px]">
                         {!isValidEmail && email.length > 0 && (
                             <p style={{ color: EKARI.dim }}>Enter a valid email address.</p>
@@ -288,6 +387,9 @@ export default function SignupPage() {
                         {confirm.length > 0 && confirm !== password && (
                             <p style={{ color: EKARI.dim }}>Passwords must match.</p>
                         )}
+                        {!consent && (
+                            <p style={{ color: EKARI.dim }}>Please accept the terms to continue.</p>
+                        )}
                     </div>
 
                     {!!errorMsg && (
@@ -298,43 +400,6 @@ export default function SignupPage() {
                         </div>
                     )}
 
-                    {/* Consent */}
-                    <div className="mt-4 mb-2 flex items-start gap-2 px-1">
-                        <input
-                            id="consent"
-                            type="checkbox"
-                            checked={consent}
-                            onChange={(e) => setConsent(e.target.checked)}
-                            className="mt-1 h-4 w-4 rounded border"
-                            style={{ accentColor: EKARI.gold }}
-                            disabled={disableAll}
-                        />
-                        <label
-                            htmlFor="consent"
-                            className="text-xs md:text-sm leading-5"
-                            style={{ color: EKARI.text }}
-                        >
-                            By crafting an account, you agree to our{" "}
-                            <Link
-                                href="/terms"
-                                className="underline font-semibold"
-                                style={{ color: EKARI.forest }}
-                            >
-                                Terms
-                            </Link>{" "}
-                            and{" "}
-                            <Link
-                                href="/privacy"
-                                className="underline font-semibold"
-                                style={{ color: EKARI.forest }}
-                            >
-                                Privacy Policy
-                            </Link>
-                            .
-                        </label>
-                    </div>
-
-                    {/* CTA */}
                     <button
                         onClick={handleSignup}
                         disabled={!isValid || disableAll}
@@ -358,7 +423,6 @@ export default function SignupPage() {
                         </div>
                     </button>
 
-                    {/* Login link */}
                     <div className="mt-5 flex justify-center items-center text-sm">
                         <span style={{ color: EKARI.dim }}>Already a member?&nbsp;</span>
                         <Link
@@ -371,12 +435,10 @@ export default function SignupPage() {
                     </div>
                 </motion.div>
 
-                {/* Footer mini-links (optional, kept but softer) */}
                 <div className="mt-5 flex flex-wrap justify-center gap-3 text-[11px] text-gray-500">
                     <Link href="/about">About</Link>
                     <Link href="/terms">T&amp;Cs</Link>
                     <Link href="/privacy">Privacy Policy</Link>
-
                 </div>
             </motion.div>
         </main>
