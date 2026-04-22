@@ -14,7 +14,7 @@ import {
 } from "react-icons/io5";
 import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { getAuthSafe, getDbSafe } from "@/lib/firebase";
+import { db, getAuthSafe } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 
 const EKARI = {
@@ -94,9 +94,6 @@ export default function SignupPage() {
 
     const resolveDestination = async (uid: string) => {
         try {
-            const db = getDbSafe();
-            if (!db) return "/onboarding";
-
             const snap = await getDoc(doc(db, "users", uid));
 
             if (!snap.exists()) {
