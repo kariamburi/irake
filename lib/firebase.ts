@@ -13,6 +13,7 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// ✅ DO NOT throw — just warn
 function getFirebaseApp() {
   if (
     !firebaseConfig.apiKey ||
@@ -22,29 +23,33 @@ function getFirebaseApp() {
     !firebaseConfig.messagingSenderId ||
     !firebaseConfig.appId
   ) {
-    throw new Error("Missing NEXT_PUBLIC Firebase config");
+    console.warn("⚠️ Missing NEXT_PUBLIC Firebase config");
+    return null;
   }
 
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
 const app = getFirebaseApp();
-const db = getFirestore(app);
-const storage = getStorage(app);
-const auth = getAuth(app);
 
+export const db = app ? getFirestore(app) : null;
+export const storage = app ? getStorage(app) : null;
+export const auth = app ? getAuth(app) : null;
+
+// safe helpers
 export const getAuthSafe = async () => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || !auth) return null;
   const { GoogleAuthProvider } = await import("firebase/auth");
   const googleProvider = new GoogleAuthProvider();
   return { auth, googleProvider };
 };
 
 export const getMessagingSafe = async () => {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
+  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !app)
+    return null;
   const { getMessaging, getToken } = await import("firebase/messaging");
   const messaging = getMessaging(app);
   return { messaging, getToken };
 };
 
-export { app, db, storage, auth };
+export { app };
