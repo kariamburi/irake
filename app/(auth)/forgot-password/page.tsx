@@ -1,4 +1,3 @@
-// app/forgot-password/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -30,12 +29,17 @@ const EKARI = {
 export default function ForgotPasswordPage() {
     const router = useRouter();
 
-    // Load Firebase auth safely (client-only)
     const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
+    const [firebaseReady, setFirebaseReady] = useState(true);
+
     useEffect(() => {
         (async () => {
             const bundle = await getAuthSafe();
-            if (bundle) setAuthBundle({ auth: bundle.auth });
+            if (bundle) {
+                setAuthBundle({ auth: bundle.auth });
+            } else {
+                setFirebaseReady(false);
+            }
         })();
     }, []);
 
@@ -48,6 +52,7 @@ export default function ForgotPasswordPage() {
         () => /\S+@\S+\.\S+/.test(email.trim()),
         [email]
     );
+
     const disableAll = loading || !authBundle;
 
     const mapAuthError = (err: any) => {
@@ -55,7 +60,6 @@ export default function ForgotPasswordPage() {
             case "auth/invalid-email":
                 return "Invalid email.";
             case "auth/user-not-found":
-                // Keep it vague to avoid user enumeration
                 return "If this email exists, we'll send a reset link.";
             case "auth/network-request-failed":
                 return "Network error. Check your connection.";
@@ -66,14 +70,15 @@ export default function ForgotPasswordPage() {
 
     const handleSend = async () => {
         if (!isValidEmail || disableAll) return;
+
         setLoading(true);
         setErrorMsg("");
+
         try {
             await sendPasswordResetEmail(authBundle!.auth, email.trim(), {
                 url: "https://ekarihub.com/reset-password",
                 handleCodeInApp: false,
             });
-
             setSent(true);
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));
@@ -91,7 +96,6 @@ export default function ForgotPasswordPage() {
             }}
         >
             <div className="w-full max-w-xl flex flex-col items-center gap-4">
-                {/* Brand header */}
                 <motion.div
                     className="flex flex-col items-center gap-2 text-center"
                     initial={{ opacity: 0, scale: 0.96 }}
@@ -119,14 +123,12 @@ export default function ForgotPasswordPage() {
                     </p>
                 </motion.div>
 
-                {/* Card */}
                 <motion.div
                     className="w-full rounded-3xl bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_rgba(15,23,42,0.26)] border border-white/70 px-4 py-5 md:px-6 md:py-6 mt-2"
                     initial={{ opacity: 0, y: 12, scale: 0.99 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}
                 >
-                    {/* Title + helper text */}
                     <div className="flex flex-col gap-1 mb-3">
                         <h1
                             className="font-black text-lg md:text-xl"
@@ -143,10 +145,16 @@ export default function ForgotPasswordPage() {
                         </p>
                     </div>
 
-                    {/* Email input */}
+                    {!firebaseReady && (
+                        <p className="mb-3 text-sm font-semibold" style={{ color: EKARI.danger }}>
+                            Firebase is not configured yet.
+                        </p>
+                    )}
+
                     <label className="block text-xs font-semibold mb-1.5">
                         <span style={{ color: EKARI.dim }}>Email address</span>
                     </label>
+
                     <div
                         className="flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
                         style={{ borderColor: EKARI.hair }}
@@ -171,12 +179,8 @@ export default function ForgotPasswordPage() {
                         />
                     </div>
 
-                    {/* Small inline validation helper */}
                     {!isValidEmail && email.length > 0 && (
-                        <p
-                            className="mt-2 text-xs"
-                            style={{ color: EKARI.dim }}
-                        >
+                        <p className="mt-2 text-xs" style={{ color: EKARI.dim }}>
                             Enter a valid email like <span className="font-semibold">you@example.com</span>.
                         </p>
                     )}
@@ -199,10 +203,7 @@ export default function ForgotPasswordPage() {
                         >
                             <IoCheckmarkCircle size={18} color="#10B981" />
                             <div className="text-xs md:text-sm">
-                                <p
-                                    className="font-semibold"
-                                    style={{ color: "#065F46" }}
-                                >
+                                <p className="font-semibold" style={{ color: "#065F46" }}>
                                     Check your inbox.
                                 </p>
                                 <p className="mt-0.5" style={{ color: "#047857" }}>
@@ -213,21 +214,18 @@ export default function ForgotPasswordPage() {
                         </motion.div>
                     )}
 
-                    {/* Primary CTA */}
                     <button
                         onClick={handleSend}
                         disabled={!isValidEmail || disableAll}
                         className="mt-4 w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
                         style={{
-                            background:
-                                "linear-gradient(135deg, #C79257, #fbbf77)",
+                            background: "linear-gradient(135deg, #C79257, #fbbf77)",
                             opacity: !isValidEmail || disableAll ? 0.6 : 1,
                         }}
                     >
                         {loading ? "Sending..." : sent ? "Send again" : "Send reset link"}
                     </button>
 
-                    {/* Back to login */}
                     <button
                         onClick={() => router.back()}
                         className="mx-auto mt-4 flex items-center gap-1 text-sm font-bold"
@@ -237,7 +235,6 @@ export default function ForgotPasswordPage() {
                         Back to login
                     </button>
 
-                    {/* Terms / Privacy */}
                     <div className="mt-5 border-t pt-3 border-dashed" style={{ borderColor: EKARI.hair }}>
                         <p
                             className="text-[11px] md:text-xs leading-5 text-center"

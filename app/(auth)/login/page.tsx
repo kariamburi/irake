@@ -15,7 +15,7 @@ import {
 } from "react-icons/io5";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { db, getAuthSafe } from "@/lib/firebase";
+import { getDbSafe, getAuthSafe } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 
 const EKARI = {
@@ -36,6 +36,8 @@ export default function LoginPage() {
     const { user, loading: authLoading } = useAuth();
 
     const [safeNext, setSafeNext] = useState<string | null>(null);
+    const [firebaseReady, setFirebaseReady] = useState(true);
+    const [authBundle, setAuthBundle] = useState<{ auth: any; googleProvider: any } | null>(null);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -50,12 +52,14 @@ export default function LoginPage() {
         }
     }, []);
 
-    const [authBundle, setAuthBundle] = useState<{ auth: any; googleProvider: any } | null>(null);
-
     useEffect(() => {
         (async () => {
             const bundle = await getAuthSafe();
-            setAuthBundle(bundle);
+            if (bundle) {
+                setAuthBundle(bundle);
+            } else {
+                setFirebaseReady(false);
+            }
         })();
     }, []);
 
@@ -98,6 +102,9 @@ export default function LoginPage() {
 
     const resolveDestination = async (uid: string) => {
         try {
+            const db = getDbSafe();
+            if (!db) return "/onboarding";
+
             const snap = await getDoc(doc(db, "users", uid));
 
             if (!snap.exists()) {
@@ -124,7 +131,7 @@ export default function LoginPage() {
         return () => {
             alive = false;
         };
-    }, [user, authLoading, postAuthChecking, safeNext]);
+    }, [user, authLoading, postAuthChecking, safeNext, router]);
 
     const handleLoginEmail = async () => {
         if (!isValid || loadingEmail || authLoading || !authBundle) return;
@@ -233,6 +240,14 @@ export default function LoginPage() {
                                 : "Welcome back. Choose how you’d like to continue."}
                         </p>
                     </div>
+
+                    {!firebaseReady && (
+                        <div className="mb-4 flex justify-center">
+                            <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
+                                Firebase is not configured yet.
+                            </p>
+                        </div>
+                    )}
 
                     <button
                         onClick={continueWithPhone}
