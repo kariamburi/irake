@@ -1,8 +1,8 @@
 // lib/firebase.ts
-import { getApps, initializeApp, getApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAuth } from "firebase/auth";
+import { getAuth } from "firebase/auth";   // ✅ add this
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,43 +13,28 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// ✅ DO NOT throw — just warn
-function getFirebaseApp() {
-  if (
-    !firebaseConfig.apiKey ||
-    !firebaseConfig.authDomain ||
-    !firebaseConfig.projectId ||
-    !firebaseConfig.storageBucket ||
-    !firebaseConfig.messagingSenderId ||
-    !firebaseConfig.appId
-  ) {
-    console.warn("⚠️ Missing NEXT_PUBLIC Firebase config");
-    return null;
-  }
+// ✅ Initialize Firebase safely (only once)
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-  return getApps().length ? getApp() : initializeApp(firebaseConfig);
-}
+// ✅ Services safe on server + client
+const db = getFirestore(app);
+const storage = getStorage(app);
 
-const app = getFirebaseApp();
+// ✅ auth (ok to export; page.tsx is "use client")
+const auth = getAuth(app);
 
-export const db = app ? getFirestore(app) : null;
-export const storage = app ? getStorage(app) : null;
-export const auth = app ? getAuth(app) : null;
-
-// safe helpers
 export const getAuthSafe = async () => {
-  if (typeof window === "undefined" || !auth) return null;
+  if (typeof window === "undefined") return null;
   const { GoogleAuthProvider } = await import("firebase/auth");
   const googleProvider = new GoogleAuthProvider();
   return { auth, googleProvider };
 };
 
 export const getMessagingSafe = async () => {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !app)
-    return null;
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
   const { getMessaging, getToken } = await import("firebase/messaging");
   const messaging = getMessaging(app);
   return { messaging, getToken };
 };
 
-export { app };
+export { app, db, storage, auth }; // ✅ export auth
