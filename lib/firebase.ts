@@ -1,8 +1,8 @@
 // lib/firebase.ts
-import { initializeApp, getApps } from "firebase/app";
+import { getApps, initializeApp, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAuth } from "firebase/auth";   // ✅ add this
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,14 +13,24 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// ✅ Initialize Firebase safely (only once)
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+function getFirebaseApp() {
+  if (
+    !firebaseConfig.apiKey ||
+    !firebaseConfig.authDomain ||
+    !firebaseConfig.projectId ||
+    !firebaseConfig.storageBucket ||
+    !firebaseConfig.messagingSenderId ||
+    !firebaseConfig.appId
+  ) {
+    throw new Error("Missing NEXT_PUBLIC Firebase config");
+  }
 
-// ✅ Services safe on server + client
+  return getApps().length ? getApp() : initializeApp(firebaseConfig);
+}
+
+const app = getFirebaseApp();
 const db = getFirestore(app);
 const storage = getStorage(app);
-
-// ✅ auth (ok to export; page.tsx is "use client")
 const auth = getAuth(app);
 
 export const getAuthSafe = async () => {
@@ -37,4 +47,4 @@ export const getMessagingSafe = async () => {
   return { messaging, getToken };
 };
 
-export { app, db, storage, auth }; // ✅ export auth
+export { app, db, storage, auth };

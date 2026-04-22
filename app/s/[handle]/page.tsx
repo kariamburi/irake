@@ -1,12 +1,10 @@
 // app/s/[handle]/page.tsx
 import { redirect } from "next/navigation";
-import { collection, getDocs, limit, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getAdminDb } from "@/lib/firebaseAdmin";
 
-/**
- * /s/[handle] -> redirects to /store/[sellerId]
- * Uses users.handleLower (or handle) to resolve sellerId.
- */
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export default async function StoreAliasPage({
   params,
 }: {
@@ -19,17 +17,21 @@ export default async function StoreAliasPage({
 
   if (!handleLower) redirect("/market");
 
-  // If your field is actually "handleLower", use that instead of "handle"
-  const q = query(
-    collection(db, "users"),
-    where("handle", "==", handleLower),
-    limit(1)
-  );
+  try {
+    const adminDb = getAdminDb();
 
-  const snap = await getDocs(q);
+    const snap = await adminDb
+      .collection("users")
+      .where("handle", "==", handleLower)
+      .limit(1)
+      .get();
 
-  if (snap.empty) redirect("/market");
+    if (snap.empty) redirect("/market");
 
-  const sellerId = snap.docs[0].id;
-  redirect(`/store/${encodeURIComponent(sellerId)}`);
+    const sellerId = snap.docs[0].id;
+    redirect(`/store/${encodeURIComponent(sellerId)}`);
+  } catch (e) {
+    console.error("Store alias resolution failed:", e);
+    redirect("/market");
+  }
 }
