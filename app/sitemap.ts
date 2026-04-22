@@ -3,6 +3,8 @@ import type { MetadataRoute } from "next";
 import { getApps, initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
+export const dynamic = "force-dynamic";
+
 const baseUrl = "https://ekarihub.com";
 const TAG_PAGE_SIZE = 24;
 const EVENT_PAGE_SIZE = 24;
@@ -22,7 +24,8 @@ function initAdmin() {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
 
     if (!projectId || !clientEmail || !privateKey) {
-        throw new Error("Missing Firebase Admin environment variables");
+        console.warn("⚠️ Missing Firebase Admin env vars (sitemap fallback)");
+        return null;
     }
 
     return initializeApp({
@@ -369,167 +372,262 @@ async function getPublicMarketTypes(
     }));
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-    const app = initAdmin();
-    const db = getFirestore(app);
+function getFallbackSitemap(): MetadataRoute.Sitemap {
+    const now = new Date();
 
-    const [
-        publicHandles,
-        publicDeeds,
-        publicTags,
-        publicEvents,
-        publicDiscussions,
-        publicMarketListings,
-        publicMarketCategories,
-        publicMarketTypes,
-    ] = await Promise.all([
-        getPublicHandles(db),
-        getPublicDeeds(db),
-        getPublicTags(db),
-        getPublicEvents(db),
-        getPublicDiscussions(db),
-        getPublicMarketListings(db),
-        getPublicMarketCategories(db),
-        getPublicMarketTypes(db),
-    ]);
-
-    const totalEventPages = Math.max(
-        1,
-        Math.ceil(publicEvents.length / EVENT_PAGE_SIZE)
-    );
-
-    const totalDiscussionPages = Math.max(
-        1,
-        Math.ceil(publicDiscussions.length / DISCUSSION_PAGE_SIZE)
-    );
-
-    const totalMarketPages = Math.max(
-        1,
-        Math.ceil(publicMarketListings.length / MARKET_PAGE_SIZE)
-    );
-
-    const latestEventModified =
-        publicEvents.length > 0
-            ? publicEvents.reduce<Date>((latest, item) => {
-                const current = safeDate(item.updatedAt);
-                return current > latest ? current : latest;
-            }, new Date(0))
-            : new Date();
-
-    const latestDiscussionModified =
-        publicDiscussions.length > 0
-            ? publicDiscussions.reduce<Date>((latest, item) => {
-                const current = safeDate(item.updatedAt);
-                return current > latest ? current : latest;
-            }, new Date(0))
-            : new Date();
-
-    const latestMarketModified =
-        publicMarketListings.length > 0
-            ? publicMarketListings.reduce<Date>((latest, item) => {
-                const current = safeDate(item.updatedAt);
-                return current > latest ? current : latest;
-            }, new Date(0))
-            : new Date();
-
-    const staticPages: MetadataRoute.Sitemap = [
+    return [
         {
             url: `${baseUrl}`,
-            lastModified: new Date(),
+            lastModified: now,
             changeFrequency: "daily",
             priority: 1,
         },
         {
             url: `${baseUrl}/deeds`,
-            lastModified: new Date(),
+            lastModified: now,
             changeFrequency: "daily",
             priority: 0.95,
         },
         {
             url: `${baseUrl}/market`,
-            lastModified: latestMarketModified,
+            lastModified: now,
             changeFrequency: "daily",
             priority: 0.95,
         },
         {
             url: `${baseUrl}/about`,
-            lastModified: new Date(),
+            lastModified: now,
             changeFrequency: "monthly",
             priority: 0.8,
         },
         {
             url: `${baseUrl}/careers`,
-            lastModified: new Date(),
+            lastModified: now,
             changeFrequency: "monthly",
             priority: 0.6,
         },
         {
             url: `${baseUrl}/leadership`,
-            lastModified: new Date(),
+            lastModified: now,
             changeFrequency: "monthly",
             priority: 0.7,
         },
         {
             url: `${baseUrl}/policy`,
-            lastModified: new Date(),
+            lastModified: now,
             changeFrequency: "yearly",
             priority: 0.4,
         },
         {
             url: `${baseUrl}/terms`,
-            lastModified: new Date(),
+            lastModified: now,
             changeFrequency: "yearly",
             priority: 0.4,
         },
         {
             url: `${baseUrl}/nexus/events`,
-            lastModified: latestEventModified,
+            lastModified: now,
             changeFrequency: "daily",
             priority: 0.9,
         },
         {
             url: `${baseUrl}/nexus/discussions`,
-            lastModified: latestDiscussionModified,
+            lastModified: now,
             changeFrequency: "daily",
             priority: 0.9,
         },
     ];
+}
 
-    const handlePages: MetadataRoute.Sitemap = publicHandles.map((item) => ({
-        url: `${baseUrl}/${encodeURIComponent(item.handle)}`,
-        lastModified: safeDate(item.updatedAt),
-        changeFrequency: "weekly",
-        priority: 0.8,
-    }));
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+    const adminApp = initAdmin();
 
-    const deedPages: MetadataRoute.Sitemap = publicDeeds.map((item) => ({
-        url: `${baseUrl}/${encodeURIComponent(item.handle)}/deed/${encodeURIComponent(item.id)}`,
-        lastModified: safeDate(item.updatedAt),
-        changeFrequency: "weekly",
-        priority: 0.9,
-    }));
+    if (!adminApp) {
+        return getFallbackSitemap();
+    }
 
-    const marketPages: MetadataRoute.Sitemap = publicMarketListings.map((item) => ({
-        url: `${baseUrl}/market/${encodeURIComponent(item.id)}`,
-        lastModified: safeDate(item.updatedAt),
-        changeFrequency: "weekly",
-        priority: 0.85,
-    }));
+    try {
+        const db = getFirestore(adminApp);
 
-    const paginatedMarketPages: MetadataRoute.Sitemap = Array.from(
-        { length: Math.max(0, totalMarketPages - 1) },
-        (_, i) => ({
-            url: `${baseUrl}/market/page/${i + 2}`,
-            lastModified: latestMarketModified,
-            changeFrequency: "daily",
+        const [
+            publicHandles,
+            publicDeeds,
+            publicTags,
+            publicEvents,
+            publicDiscussions,
+            publicMarketListings,
+            publicMarketCategories,
+            publicMarketTypes,
+        ] = await Promise.all([
+            getPublicHandles(db),
+            getPublicDeeds(db),
+            getPublicTags(db),
+            getPublicEvents(db),
+            getPublicDiscussions(db),
+            getPublicMarketListings(db),
+            getPublicMarketCategories(db),
+            getPublicMarketTypes(db),
+        ]);
+
+        const totalEventPages = Math.max(
+            1,
+            Math.ceil(publicEvents.length / EVENT_PAGE_SIZE)
+        );
+
+        const totalDiscussionPages = Math.max(
+            1,
+            Math.ceil(publicDiscussions.length / DISCUSSION_PAGE_SIZE)
+        );
+
+        const totalMarketPages = Math.max(
+            1,
+            Math.ceil(publicMarketListings.length / MARKET_PAGE_SIZE)
+        );
+
+        const latestEventModified =
+            publicEvents.length > 0
+                ? publicEvents.reduce<Date>((latest, item) => {
+                    const current = safeDate(item.updatedAt);
+                    return current > latest ? current : latest;
+                }, new Date(0))
+                : new Date();
+
+        const latestDiscussionModified =
+            publicDiscussions.length > 0
+                ? publicDiscussions.reduce<Date>((latest, item) => {
+                    const current = safeDate(item.updatedAt);
+                    return current > latest ? current : latest;
+                }, new Date(0))
+                : new Date();
+
+        const latestMarketModified =
+            publicMarketListings.length > 0
+                ? publicMarketListings.reduce<Date>((latest, item) => {
+                    const current = safeDate(item.updatedAt);
+                    return current > latest ? current : latest;
+                }, new Date(0))
+                : new Date();
+
+        const staticPages: MetadataRoute.Sitemap = [
+            {
+                url: `${baseUrl}`,
+                lastModified: new Date(),
+                changeFrequency: "daily",
+                priority: 1,
+            },
+            {
+                url: `${baseUrl}/deeds`,
+                lastModified: new Date(),
+                changeFrequency: "daily",
+                priority: 0.95,
+            },
+            {
+                url: `${baseUrl}/market`,
+                lastModified: latestMarketModified,
+                changeFrequency: "daily",
+                priority: 0.95,
+            },
+            {
+                url: `${baseUrl}/about`,
+                lastModified: new Date(),
+                changeFrequency: "monthly",
+                priority: 0.8,
+            },
+            {
+                url: `${baseUrl}/careers`,
+                lastModified: new Date(),
+                changeFrequency: "monthly",
+                priority: 0.6,
+            },
+            {
+                url: `${baseUrl}/leadership`,
+                lastModified: new Date(),
+                changeFrequency: "monthly",
+                priority: 0.7,
+            },
+            {
+                url: `${baseUrl}/policy`,
+                lastModified: new Date(),
+                changeFrequency: "yearly",
+                priority: 0.4,
+            },
+            {
+                url: `${baseUrl}/terms`,
+                lastModified: new Date(),
+                changeFrequency: "yearly",
+                priority: 0.4,
+            },
+            {
+                url: `${baseUrl}/nexus/events`,
+                lastModified: latestEventModified,
+                changeFrequency: "daily",
+                priority: 0.9,
+            },
+            {
+                url: `${baseUrl}/nexus/discussions`,
+                lastModified: latestDiscussionModified,
+                changeFrequency: "daily",
+                priority: 0.9,
+            },
+        ];
+
+        const handlePages: MetadataRoute.Sitemap = publicHandles.map((item) => ({
+            url: `${baseUrl}/${encodeURIComponent(item.handle)}`,
+            lastModified: safeDate(item.updatedAt),
+            changeFrequency: "weekly",
             priority: 0.8,
-        })
-    );
+        }));
 
-    const marketCategoryPages: MetadataRoute.Sitemap = publicMarketCategories.flatMap(
-        (item) => {
+        const deedPages: MetadataRoute.Sitemap = publicDeeds.map((item) => ({
+            url: `${baseUrl}/${encodeURIComponent(item.handle)}/deed/${encodeURIComponent(item.id)}`,
+            lastModified: safeDate(item.updatedAt),
+            changeFrequency: "weekly",
+            priority: 0.9,
+        }));
+
+        const marketPages: MetadataRoute.Sitemap = publicMarketListings.map((item) => ({
+            url: `${baseUrl}/market/${encodeURIComponent(item.id)}`,
+            lastModified: safeDate(item.updatedAt),
+            changeFrequency: "weekly",
+            priority: 0.85,
+        }));
+
+        const paginatedMarketPages: MetadataRoute.Sitemap = Array.from(
+            { length: Math.max(0, totalMarketPages - 1) },
+            (_, i) => ({
+                url: `${baseUrl}/market/page/${i + 2}`,
+                lastModified: latestMarketModified,
+                changeFrequency: "daily",
+                priority: 0.8,
+            })
+        );
+
+        const marketCategoryPages: MetadataRoute.Sitemap = publicMarketCategories.flatMap(
+            (item) => {
+                const firstPage = {
+                    url: `${baseUrl}/market/category/${encodeURIComponent(item.slug)}`,
+                    lastModified: safeDate(item.updatedAt),
+                    changeFrequency: "daily" as const,
+                    priority: 0.85,
+                };
+
+                const paginated = Array.from(
+                    { length: Math.max(0, item.totalPages - 1) },
+                    (_, i) => ({
+                        url: `${baseUrl}/market/category/${encodeURIComponent(item.slug)}/page/${i + 2}`,
+                        lastModified: safeDate(item.updatedAt),
+                        changeFrequency: "daily" as const,
+                        priority: 0.75,
+                    })
+                );
+
+                return [firstPage, ...paginated];
+            }
+        );
+
+        const marketTypePages: MetadataRoute.Sitemap = publicMarketTypes.flatMap((item) => {
             const firstPage = {
-                url: `${baseUrl}/market/category/${encodeURIComponent(item.slug)}`,
+                url: `${baseUrl}/market/type/${encodeURIComponent(item.type)}`,
                 lastModified: safeDate(item.updatedAt),
                 changeFrequency: "daily" as const,
                 priority: 0.85,
@@ -538,7 +636,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             const paginated = Array.from(
                 { length: Math.max(0, item.totalPages - 1) },
                 (_, i) => ({
-                    url: `${baseUrl}/market/category/${encodeURIComponent(item.slug)}/page/${i + 2}`,
+                    url: `${baseUrl}/market/type/${encodeURIComponent(item.type)}/page/${i + 2}`,
                     lastModified: safeDate(item.updatedAt),
                     changeFrequency: "daily" as const,
                     priority: 0.75,
@@ -546,97 +644,79 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             );
 
             return [firstPage, ...paginated];
-        }
-    );
+        });
 
-    const marketTypePages: MetadataRoute.Sitemap = publicMarketTypes.flatMap((item) => {
-        const firstPage = {
-            url: `${baseUrl}/market/type/${encodeURIComponent(item.type)}`,
+        const eventPages: MetadataRoute.Sitemap = publicEvents.map((item) => ({
+            url: `${baseUrl}/nexus/event/${encodeURIComponent(item.id)}`,
             lastModified: safeDate(item.updatedAt),
-            changeFrequency: "daily" as const,
-            priority: 0.85,
-        };
+            changeFrequency: "weekly",
+            priority: 0.8,
+        }));
 
-        const paginated = Array.from(
-            { length: Math.max(0, item.totalPages - 1) },
+        const paginatedEventPages: MetadataRoute.Sitemap = Array.from(
+            { length: Math.max(0, totalEventPages - 1) },
             (_, i) => ({
-                url: `${baseUrl}/market/type/${encodeURIComponent(item.type)}/page/${i + 2}`,
-                lastModified: safeDate(item.updatedAt),
-                changeFrequency: "daily" as const,
+                url: `${baseUrl}/nexus/events/page/${i + 2}`,
+                lastModified: latestEventModified,
+                changeFrequency: "daily",
                 priority: 0.75,
             })
         );
 
-        return [firstPage, ...paginated];
-    });
-
-    const eventPages: MetadataRoute.Sitemap = publicEvents.map((item) => ({
-        url: `${baseUrl}/nexus/event/${encodeURIComponent(item.id)}`,
-        lastModified: safeDate(item.updatedAt),
-        changeFrequency: "weekly",
-        priority: 0.8,
-    }));
-
-    const paginatedEventPages: MetadataRoute.Sitemap = Array.from(
-        { length: Math.max(0, totalEventPages - 1) },
-        (_, i) => ({
-            url: `${baseUrl}/nexus/events/page/${i + 2}`,
-            lastModified: latestEventModified,
-            changeFrequency: "daily",
-            priority: 0.75,
-        })
-    );
-
-    const discussionPages: MetadataRoute.Sitemap = publicDiscussions.map((item) => ({
-        url: `${baseUrl}/nexus/discussions/${encodeURIComponent(item.id)}`,
-        lastModified: safeDate(item.updatedAt),
-        changeFrequency: "weekly",
-        priority: 0.8,
-    }));
-
-    const paginatedDiscussionPages: MetadataRoute.Sitemap = Array.from(
-        { length: Math.max(0, totalDiscussionPages - 1) },
-        (_, i) => ({
-            url: `${baseUrl}/nexus/discussions/page/${i + 2}`,
-            lastModified: latestDiscussionModified,
-            changeFrequency: "daily",
-            priority: 0.75,
-        })
-    );
-
-    const tagPages: MetadataRoute.Sitemap = publicTags.flatMap((item) => {
-        const firstPage = {
-            url: `${baseUrl}/tag/${encodeURIComponent(item.tag)}`,
+        const discussionPages: MetadataRoute.Sitemap = publicDiscussions.map((item) => ({
+            url: `${baseUrl}/nexus/discussions/${encodeURIComponent(item.id)}`,
             lastModified: safeDate(item.updatedAt),
-            changeFrequency: "daily" as const,
-            priority: 0.85,
-        };
+            changeFrequency: "weekly",
+            priority: 0.8,
+        }));
 
-        const paginated = Array.from(
-            { length: Math.max(0, item.totalPages - 1) },
+        const paginatedDiscussionPages: MetadataRoute.Sitemap = Array.from(
+            { length: Math.max(0, totalDiscussionPages - 1) },
             (_, i) => ({
-                url: `${baseUrl}/tag/${encodeURIComponent(item.tag)}/page/${i + 2}`,
-                lastModified: safeDate(item.updatedAt),
-                changeFrequency: "daily" as const,
+                url: `${baseUrl}/nexus/discussions/page/${i + 2}`,
+                lastModified: latestDiscussionModified,
+                changeFrequency: "daily",
                 priority: 0.75,
             })
         );
 
-        return [firstPage, ...paginated];
-    });
+        const tagPages: MetadataRoute.Sitemap = publicTags.flatMap((item) => {
+            const firstPage = {
+                url: `${baseUrl}/tag/${encodeURIComponent(item.tag)}`,
+                lastModified: safeDate(item.updatedAt),
+                changeFrequency: "daily" as const,
+                priority: 0.85,
+            };
 
-    return [
-        ...staticPages,
-        ...handlePages,
-        ...deedPages,
-        ...marketPages,
-        ...paginatedMarketPages,
-        ...marketCategoryPages,
-        ...marketTypePages,
-        ...eventPages,
-        ...paginatedEventPages,
-        ...discussionPages,
-        ...paginatedDiscussionPages,
-        ...tagPages,
-    ];
+            const paginated = Array.from(
+                { length: Math.max(0, item.totalPages - 1) },
+                (_, i) => ({
+                    url: `${baseUrl}/tag/${encodeURIComponent(item.tag)}/page/${i + 2}`,
+                    lastModified: safeDate(item.updatedAt),
+                    changeFrequency: "daily" as const,
+                    priority: 0.75,
+                })
+            );
+
+            return [firstPage, ...paginated];
+        });
+
+        return [
+            ...staticPages,
+            ...handlePages,
+            ...deedPages,
+            ...marketPages,
+            ...paginatedMarketPages,
+            ...marketCategoryPages,
+            ...marketTypePages,
+            ...eventPages,
+            ...paginatedEventPages,
+            ...discussionPages,
+            ...paginatedDiscussionPages,
+            ...tagPages,
+        ];
+    } catch (error) {
+        console.error("Sitemap generation failed, using fallback:", error);
+        return getFallbackSitemap();
+    }
 }
