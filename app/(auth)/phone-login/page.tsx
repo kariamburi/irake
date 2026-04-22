@@ -1,4 +1,3 @@
-// app/phone-login/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -8,12 +7,11 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { IoCallOutline, IoChevronBack } from "react-icons/io5";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { db, getAuthSafe } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 
 /** ✅ Country list (flags + dial codes) */
 const COUNTRIES = [
-    // 🌍 Africa
     { code: "KE", dial: "+254", flag: "🇰🇪", name: "Kenya" },
     { code: "UG", dial: "+256", flag: "🇺🇬", name: "Uganda" },
     { code: "TZ", dial: "+255", flag: "🇹🇿", name: "Tanzania" },
@@ -39,7 +37,6 @@ const COUNTRIES = [
     { code: "MW", dial: "+265", flag: "🇲🇼", name: "Malawi" },
     { code: "MZ", dial: "+258", flag: "🇲🇿", name: "Mozambique" },
 
-    // 🌎 Americas
     { code: "US", dial: "+1", flag: "🇺🇸", name: "United States" },
     { code: "CA", dial: "+1", flag: "🇨🇦", name: "Canada" },
     { code: "MX", dial: "+52", flag: "🇲🇽", name: "Mexico" },
@@ -48,7 +45,6 @@ const COUNTRIES = [
     { code: "CL", dial: "+56", flag: "🇨🇱", name: "Chile" },
     { code: "CO", dial: "+57", flag: "🇨🇴", name: "Colombia" },
 
-    // 🌍 Europe
     { code: "GB", dial: "+44", flag: "🇬🇧", name: "United Kingdom" },
     { code: "DE", dial: "+49", flag: "🇩🇪", name: "Germany" },
     { code: "FR", dial: "+33", flag: "🇫🇷", name: "France" },
@@ -58,7 +54,6 @@ const COUNTRIES = [
     { code: "SE", dial: "+46", flag: "🇸🇪", name: "Sweden" },
     { code: "NO", dial: "+47", flag: "🇳🇴", name: "Norway" },
 
-    // 🌏 Asia
     { code: "IN", dial: "+91", flag: "🇮🇳", name: "India" },
     { code: "PK", dial: "+92", flag: "🇵🇰", name: "Pakistan" },
     { code: "BD", dial: "+880", flag: "🇧🇩", name: "Bangladesh" },
@@ -69,10 +64,10 @@ const COUNTRIES = [
     { code: "AE", dial: "+971", flag: "🇦🇪", name: "United Arab Emirates" },
     { code: "SA", dial: "+966", flag: "🇸🇦", name: "Saudi Arabia" },
 
-    // 🌏 Oceania
     { code: "AU", dial: "+61", flag: "🇦🇺", name: "Australia" },
     { code: "NZ", dial: "+64", flag: "🇳🇿", name: "New Zealand" },
 ] as const;
+
 type Country = typeof COUNTRIES[number];
 
 const flagUrl = (code: string) =>
@@ -82,9 +77,9 @@ const POPULAR = ["KE", "UG", "TZ", "RW", "US", "GB"] as const;
 
 const SORTED_COUNTRIES = [
     ...COUNTRIES.filter((c) => (POPULAR as readonly string[]).includes(c.code)),
-    ...COUNTRIES.filter((c) => !(POPULAR as readonly string[]).includes(c.code)).sort((a, b) =>
-        a.name.localeCompare(b.name)
-    ),
+    ...COUNTRIES
+        .filter((c) => !(POPULAR as readonly string[]).includes(c.code))
+        .sort((a, b) => a.name.localeCompare(b.name)),
 ];
 
 const EKARI = {
@@ -100,7 +95,7 @@ const EKARI = {
 
 declare global {
     interface Window {
-        _ekariRecaptcha?: any; // RecaptchaVerifier instance
+        _ekariRecaptcha?: any;
     }
 }
 
@@ -127,7 +122,6 @@ function CountryPicker({
         );
     }, [q]);
 
-    // close on outside click
     React.useEffect(() => {
         if (!open) return;
         const onDown = (e: MouseEvent) => {
@@ -144,8 +138,7 @@ function CountryPicker({
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen((s) => !s)}
-                className="h-9 px-2 rounded-lg hover:bg-black/5 disabled:opacity-60
-                   inline-flex items-center gap-2 text-sm font-semibold"
+                className="h-9 px-2 rounded-lg hover:bg-black/5 disabled:opacity-60 inline-flex items-center gap-2 text-sm font-semibold"
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
@@ -190,8 +183,7 @@ function CountryPicker({
                                         setOpen(false);
                                         setQ("");
                                     }}
-                                    className={`w-full px-3 py-2 flex items-center gap-2 text-left text-sm
-                    hover:bg-black/5 ${active ? "bg-black/5" : ""}`}
+                                    className={`w-full px-3 py-2 flex items-center gap-2 text-left text-sm hover:bg-black/5 ${active ? "bg-black/5" : ""}`}
                                     role="option"
                                     aria-selected={active}
                                 >
@@ -220,24 +212,27 @@ export default function PhoneLoginPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
 
+    const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
+    const [firebaseReady, setFirebaseReady] = useState(true);
+
     const [captchaReady, setCaptchaReady] = useState(false);
     const [postAuthChecking, setPostAuthChecking] = useState(false);
     const [safeNext, setSafeNext] = useState<string>("/");
 
-    // ✅ Professional phone input state
     const [country, setCountry] = useState(() => {
         const def = SORTED_COUNTRIES.find((c) => c.code === "KE") ?? SORTED_COUNTRIES[0];
         return def;
     });
     const [localPhone, setLocalPhone] = useState("");
 
-    // OTP state
     const [code, setCode] = useState("");
     const [sending, setSending] = useState(false);
     const [verifying, setVerifying] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [confirmation, setConfirmation] =
         useState<import("firebase/auth").ConfirmationResult | null>(null);
+
+    const [countdown, setCountdown] = useState(0);
 
     const otpInputsRef = useRef<Array<HTMLInputElement | null>>([]);
     const verifyingOnceRef = useRef(false);
@@ -256,20 +251,27 @@ export default function PhoneLoginPage() {
     };
 
     useEffect(() => {
+        (async () => {
+            const bundle = await getAuthSafe();
+            if (bundle) {
+                setAuthBundle({ auth: bundle.auth });
+            } else {
+                setFirebaseReady(false);
+            }
+        })();
+    }, []);
+
+    useEffect(() => {
         if (typeof window === "undefined") return;
         const sp = new URLSearchParams(window.location.search);
         const nextParam = sp.get("next");
 
-        // allow only internal routes
         if (nextParam && nextParam.startsWith("/")) setSafeNext(nextParam);
         else setSafeNext("/");
     }, []);
 
-
-    // Prepare invisible reCAPTCHA (once)
     useEffect(() => {
-        if (typeof window === "undefined") return;
-
+        if (!authBundle?.auth) return;
         if (window._ekariRecaptcha) {
             setCaptchaReady(true);
             return;
@@ -278,34 +280,34 @@ export default function PhoneLoginPage() {
         (async () => {
             try {
                 const { RecaptchaVerifier } = await import("firebase/auth");
-                window._ekariRecaptcha = new RecaptchaVerifier(auth, "recaptcha-container", {
-                    size: "invisible",
-                    callback: () => { },
-                    "expired-callback": () => { },
-                });
+                window._ekariRecaptcha = new RecaptchaVerifier(
+                    authBundle.auth,
+                    "recaptcha-container",
+                    {
+                        size: "invisible",
+                        callback: () => { },
+                        "expired-callback": () => { },
+                    }
+                );
                 setCaptchaReady(true);
             } catch {
                 setCaptchaReady(false);
             }
         })();
-    }, []);
+    }, [authBundle]);
 
     useEffect(() => {
         if (!confirmation) return;
         verifyingOnceRef.current = false;
         focusOtpIndex(0);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [confirmation]);
 
-    // Resend timer
-    const [countdown, setCountdown] = useState(0);
     useEffect(() => {
         if (countdown <= 0) return;
         const id = setInterval(() => setCountdown((c) => c - 1), 1000);
         return () => clearInterval(id);
     }, [countdown]);
 
-    // ✅ Build E.164 from country + local phone
     const e164 = useMemo(() => {
         if (!localPhone) return "";
         return `${country.dial}${localPhone.replace(/\D/g, "")}`;
@@ -314,7 +316,9 @@ export default function PhoneLoginPage() {
     const validPhone = useMemo(() => /^\+\d{8,15}$/.test(e164), [e164]);
     const validCode = useMemo(() => /^\d{6}$/.test(code), [code]);
 
-    const disableAll = authLoading || !captchaReady || postAuthChecking;
+    const disableAll =
+        authLoading || !authBundle?.auth || !captchaReady || postAuthChecking || !firebaseReady;
+
     const firebaseAuthErrorMessage = (err: any) => {
         const code = String(err?.code || "");
 
@@ -338,34 +342,34 @@ export default function PhoneLoginPage() {
 
         if (map[code]) return map[code];
 
-        // Optional: clean fallback (avoid showing raw "Firebase: Error (...)")
         const raw = String(err?.message || "");
         if (raw.includes("Firebase: Error")) return "Something went wrong. Please try again.";
 
         return raw || "Something went wrong. Please try again.";
     };
 
-    // ✅ Strict check: must exist in Firestore users/{uid}, else sign out
     const ensureUserDocOrSignOut = async (uid: string) => {
         try {
             const snap = await getDoc(doc(db, "users", uid));
 
             if (!snap.exists()) {
-                await auth.signOut();
+                if (authBundle?.auth) {
+                    await authBundle.auth.signOut();
+                }
                 setErrorMsg("User does not exist. Please sign up first.");
                 return false;
             }
 
             return true;
         } catch {
-            await auth.signOut();
+            if (authBundle?.auth) {
+                await authBundle.auth.signOut();
+            }
             setErrorMsg("Could not verify account. Please try again.");
             return false;
         }
     };
 
-    // ✅ Post-login route (ONLY after Firestore check passes)
-    // IMPORTANT: avoid loop by not depending on postAuthChecking
     useEffect(() => {
         if (authLoading || !user) return;
 
@@ -386,11 +390,10 @@ export default function PhoneLoginPage() {
         return () => {
             alive = false;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, authLoading, router, safeNext]);
+    }, [user, authLoading, router, safeNext, authBundle]);
 
     const sendCode = async () => {
-        if (!captchaReady || !validPhone || sending || disableAll) return;
+        if (!authBundle?.auth || !captchaReady || !validPhone || sending || disableAll) return;
 
         setErrorMsg("");
         setSending(true);
@@ -398,7 +401,7 @@ export default function PhoneLoginPage() {
         try {
             const { signInWithPhoneNumber } = await import("firebase/auth");
             const verifier = window._ekariRecaptcha!;
-            const conf = await signInWithPhoneNumber(auth, e164, verifier);
+            const conf = await signInWithPhoneNumber(authBundle.auth, e164, verifier);
 
             setConfirmation(conf);
             setCountdown(60);
@@ -410,6 +413,7 @@ export default function PhoneLoginPage() {
             try {
                 window._ekariRecaptcha?.clear();
             } catch { }
+
             window._ekariRecaptcha = undefined;
             setCaptchaReady(false);
         } finally {
@@ -419,7 +423,7 @@ export default function PhoneLoginPage() {
 
     const verifyCode = async () => {
         if (!confirmation || !validCode || verifying || disableAll) return;
-        if (verifyingOnceRef.current) return; // ✅ prevent double-trigger
+        if (verifyingOnceRef.current) return;
         verifyingOnceRef.current = true;
 
         setErrorMsg("");
@@ -436,20 +440,17 @@ export default function PhoneLoginPage() {
                 return;
             }
 
-            // ✅ must exist in Firestore users collection
             const ok = await ensureUserDocOrSignOut(uid);
             if (!ok) {
                 verifyingOnceRef.current = false;
                 return;
             }
 
-            // ✅ clean up recaptcha (optional)
             try {
                 window._ekariRecaptcha?.clear();
             } catch { }
-            window._ekariRecaptcha = undefined;
 
-            // ✅ navigate
+            window._ekariRecaptcha = undefined;
             router.replace(safeNext);
         } catch (err: any) {
             verifyingOnceRef.current = false;
@@ -467,15 +468,12 @@ export default function PhoneLoginPage() {
         }
     };
 
-    // ✅ Auto-submit when OTP reaches 6 digits
     useEffect(() => {
         if (!confirmation) return;
         if (!validCode) return;
         if (disableAll) return;
         if (verifying) return;
-        // auto verify
         verifyCode();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [code, confirmation, validCode]);
 
     const backToNumber = () => {
@@ -505,10 +503,8 @@ export default function PhoneLoginPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
             >
-                {/* Invisible reCAPTCHA anchor */}
                 <div id="recaptcha-container" />
 
-                {/* Top: logo + switch to email login */}
                 <div className="mb-6 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Image src="/ekarihub-logo.png" alt="ekarihub" width={180} height={54} priority />
@@ -522,14 +518,12 @@ export default function PhoneLoginPage() {
                     </Link>
                 </div>
 
-                {/* Card */}
                 <motion.div
                     className="rounded-3xl bg-white/90 backdrop-blur-xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.25)] px-6 py-7 md:px-7 md:py-8 relative"
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.28, ease: "easeOut" }}
                 >
-                    {/* Heading */}
                     <div className="mb-4">
                         <p className="inline-flex items-center gap-2 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1 text-[11px] font-medium mb-2">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -548,18 +542,22 @@ export default function PhoneLoginPage() {
                         </p>
                     </div>
 
-                    {/* STEP 1: Enter phone */}
+                    {!firebaseReady && (
+                        <p className="mb-3 text-sm font-semibold" style={{ color: EKARI.danger }}>
+                            Firebase is not configured yet.
+                        </p>
+                    )}
+
                     {!confirmation ? (
                         <>
                             <label className="block text-xs font-semibold mb-1.5">
                                 <span style={{ color: EKARI.text }}>Phone number</span>
                             </label>
 
-                            {/* ✅ Professional phone input */}
                             <div
                                 className="flex items-center h-11 rounded-xl border bg-[#F6F7FB] px-2 gap-2
-                           focus-within:border-[rgba(35,63,57,0.7)]
-                           focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)]"
+                                focus-within:border-[rgba(35,63,57,0.7)]
+                                focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)]"
                                 style={{ borderColor: EKARI.hair }}
                             >
                                 <IoCallOutline className="ml-1 flex-shrink-0" size={18} color={EKARI.dim} />
@@ -569,7 +567,6 @@ export default function PhoneLoginPage() {
                                     onChange={setCountry}
                                     disabled={disableAll || sending}
                                 />
-
 
                                 <div className="h-6 w-px bg-gray-300" />
 
@@ -598,7 +595,6 @@ export default function PhoneLoginPage() {
                                         {errorMsg}
                                     </p>
 
-                                    {/* ✅ Signup link when user doesn't exist */}
                                     {showSignupLink && (
                                         <a
                                             href="https://www.ekarihub.com/signup"
@@ -644,7 +640,6 @@ export default function PhoneLoginPage() {
                             </button>
                         </>
                     ) : (
-                        /* STEP 2: Enter code */
                         <>
                             <label className="block text-xs font-semibold mb-1.5">
                                 <span style={{ color: EKARI.text }}>Verification code</span>
@@ -769,7 +764,7 @@ export default function PhoneLoginPage() {
                                             className="text-[12px] font-semibold underline underline-offset-4"
                                             style={{ color: EKARI.forest }}
                                         >
-                                            Craft an account
+                                            Create an account
                                         </a>
                                     )}
                                 </div>
@@ -828,11 +823,7 @@ export default function PhoneLoginPage() {
                             Terms
                         </Link>{" "}
                         and{" "}
-                        <Link
-                            href="/privacy"
-                            className="underline font-semibold"
-                            style={{ color: EKARI.forest }}
-                        >
+                        <Link href="/privacy" className="underline font-semibold" style={{ color: EKARI.forest }}>
                             Privacy Policy
                         </Link>
                         .
