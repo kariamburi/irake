@@ -45,7 +45,7 @@ type Ticket = {
   status: "open" | "in_progress" | "resolved" | "closed";
   createdAt?: any;
   updatedAt?: any;
-  createdBy: string; // uid
+  createdBy: string;
   email?: string;
   name?: string;
   attachments?: { name: string; url: string }[];
@@ -103,12 +103,14 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
     resolved: "bg-blue-50 text-blue-700 border-blue-200",
     closed: "bg-slate-50 text-slate-600 border-slate-200",
   };
+
   const text: Record<Ticket["status"], string> = {
     open: "Open",
     in_progress: "In progress",
     resolved: "Resolved",
     closed: "Closed",
   };
+
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${map[status]}`}
@@ -118,7 +120,6 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
   );
 }
 
-/** Small UI helpers */
 function Card({
   title,
   children,
@@ -143,7 +144,9 @@ function Card({
           {title}
         </div>
       ) : null}
+
       <div className="px-5 py-4">{children}</div>
+
       {footer ? <div className="px-5 pb-5">{footer}</div> : null}
     </div>
   );
@@ -177,24 +180,93 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   );
 }
 
+function ContactCard() {
+  return (
+    <Card title="Contact us">
+      <div className="space-y-3">
+        <a
+          href="mailto:support@ekarihub.com"
+          className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
+          style={{ borderColor: EKARI.hair }}
+        >
+          <div className="w-9 h-9 rounded-full bg-[#C79257] text-white grid place-items-center">
+            <IoMailOutline />
+          </div>
+
+          <div className="flex-1">
+            <div className="font-bold" style={{ color: EKARI.text }}>
+              Email
+            </div>
+            <div className="text-sm" style={{ color: EKARI.dim }}>
+              support@ekarihub.com
+            </div>
+          </div>
+
+          <IoChevronForward className="text-slate-400" />
+        </a>
+
+        <div className="mt-4 text-sm">
+          <div className="font-bold mb-2" style={{ color: EKARI.text }}>
+            We help with:
+          </div>
+
+          <ul className="list-disc pl-5 space-y-1" style={{ color: EKARI.dim }}>
+            <li>Account issues</li>
+            <li>Account deletion</li>
+            <li>Reporting objectionable content</li>
+            <li>Blocking abusive users</li>
+            <li>Payments and billing</li>
+            <li>Technical support</li>
+          </ul>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ResponseTimeCard() {
+  return (
+    <Card title="Typical response times">
+      <div className="grid grid-cols-1 gap-3">
+        <div
+          className="rounded-xl border p-3 bg-white/70"
+          style={{ borderColor: EKARI.hair }}
+        >
+          <div className="text-xs" style={{ color: EKARI.dim }}>
+            Email and support tickets
+          </div>
+          <div className="mt-1 text-lg font-black" style={{ color: EKARI.text }}>
+            Within 24 hours
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function SupportPage() {
   const auth = getAuth();
   const router = useRouter();
   const user = auth.currentUser || undefined;
 
-  // Prefill profile basics if available
   const [profile, setProfile] = useState<{ name?: string; email?: string } | null>(
     null
   );
+
   useEffect(() => {
     (async () => {
       if (!user?.uid) {
-        setProfile({ name: user?.displayName || "", email: user?.email || "" });
+        setProfile({
+          name: user?.displayName || "",
+          email: user?.email || "",
+        });
         return;
       }
+
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
         const d = snap.exists() ? (snap.data() as any) : {};
+
         setProfile({
           name: d?.firstName
             ? `${d.firstName} ${d.surname || ""}`.trim()
@@ -202,12 +274,14 @@ export default function SupportPage() {
           email: d?.email || user.email || "",
         });
       } catch {
-        setProfile({ name: user?.displayName || "", email: user?.email || "" });
+        setProfile({
+          name: user?.displayName || "",
+          email: user?.email || "",
+        });
       }
     })();
   }, [user?.uid]);
 
-  // Form state
   const [subject, setSubject] = useState("");
   const [topic, setTopic] = useState<(typeof TOPICS)[number]["key"]>("technical");
   const [priority, setPriority] = useState<Ticket["priority"]>("normal");
@@ -216,44 +290,48 @@ export default function SupportPage() {
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string>("");
 
-  // Ticket list
   const [tickets, setTickets] = useState<Ticket[]>([]);
+
   useEffect(() => {
     if (!user?.uid) return;
+
     const qy = query(
       collection(db, "support_tickets"),
       where("createdBy", "==", user.uid),
       orderBy("createdAt", "desc"),
       limit(10)
     );
+
     const unsub = onSnapshot(qy, (snap) => {
       const arr: Ticket[] = snap.docs.map((d) => ({
         id: d.id,
         ...(d.data() as any),
       }));
+
       setTickets(arr);
     });
+
     return () => unsub();
   }, [user?.uid]);
 
-  // File pick
   const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files || []);
-    setFiles(list.slice(0, 3)); // cap at 3
+    setFiles(list.slice(0, 3));
   };
 
   const canSubmit = subject.trim().length >= 4 && message.trim().length >= 10;
 
-  // Submit ticket
   const submitTicket = async () => {
     if (!user?.uid) {
       router.push("/login?next=/support");
       return;
     }
+
     if (!canSubmit) return;
 
     setSubmitting(true);
     setSuccessMsg("");
+
     try {
       const base = {
         subject: subject.trim(),
@@ -271,21 +349,31 @@ export default function SupportPage() {
 
       const docRef = await addDoc(collection(db, "support_tickets"), base);
 
-      // friendly number
       const ticketNo = "EK-" + docRef.id.slice(0, 6).toUpperCase();
-      await updateDoc(doc(db, "support_tickets", docRef.id), { ticketNo });
+
+      await updateDoc(doc(db, "support_tickets", docRef.id), {
+        ticketNo,
+      });
 
       if (files.length) {
         const uploaded: { name: string; url: string }[] = [];
+
         for (const f of files) {
-          const ref = sRef(
+          const fileRef = sRef(
             storage,
             `support_attachments/${user.uid}/${docRef.id}/${Date.now()}-${f.name}`
           );
-          await uploadBytes(ref, f);
-          const url = await getDownloadURL(ref);
-          uploaded.push({ name: f.name, url });
+
+          await uploadBytes(fileRef, f);
+
+          const url = await getDownloadURL(fileRef);
+
+          uploaded.push({
+            name: f.name,
+            url,
+          });
         }
+
         await updateDoc(doc(db, "support_tickets", docRef.id), {
           attachments: uploaded,
           updatedAt: serverTimestamp(),
@@ -299,7 +387,9 @@ export default function SupportPage() {
       setPriority("normal");
       setSuccessMsg(`Ticket submitted! Reference: ${ticketNo}`);
     } catch (err: any) {
-      setSuccessMsg(err?.message || "Could not submit your ticket. Please try again.");
+      setSuccessMsg(
+        err?.message || "Could not submit your ticket. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -317,7 +407,6 @@ export default function SupportPage() {
     <main className="min-h-screen bg-white scroll-smooth">
       <Topbar />
 
-      {/* Mobile helper header (nice on small screens) */}
       <div className="md:hidden mx-auto max-w-6xl px-5 pt-4">
         <button
           onClick={() => router.back()}
@@ -329,7 +418,6 @@ export default function SupportPage() {
         </button>
       </div>
 
-      {/* Hero */}
       <section className="relative" style={{ background: heroBg }}>
         <div className="mx-auto max-w-6xl px-5 py-6 md:py-12">
           <div className="flex items-center gap-3">
@@ -345,6 +433,11 @@ export default function SupportPage() {
             How can we help?
           </h1>
 
+          <p className="mt-3 max-w-2xl text-sm md:text-base" style={{ color: EKARI.dim }}>
+            Get help with your ekarihub account, payments, content reports,
+            blocking users, account deletion, and technical issues.
+          </p>
+
           <div className="mt-4 flex items-center gap-2 rounded-2xl border h-12 max-w-2xl bg-white/80 backdrop-blur-sm px-3 shadow-sm">
             <IoSearch className="text-slate-500" />
             <input
@@ -353,7 +446,6 @@ export default function SupportPage() {
             />
           </div>
 
-          {/* Quick tiles */}
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {TOPICS.map(({ key, label, icon: Icon, color }) => (
               <Link
@@ -369,6 +461,7 @@ export default function SupportPage() {
                   >
                     <Icon className="text-slate-700" />
                   </div>
+
                   <div
                     className="font-extrabold text-[15px]"
                     style={{ color: EKARI.text }}
@@ -376,9 +469,11 @@ export default function SupportPage() {
                     {label}
                   </div>
                 </div>
+
                 <div className="mt-2 text-sm" style={{ color: EKARI.dim }}>
                   Guides & troubleshooting
                 </div>
+
                 <div className="mt-2 text-xs inline-flex items-center gap-1 text-slate-400 group-hover:text-slate-600">
                   Browse <IoChevronForward />
                 </div>
@@ -386,78 +481,55 @@ export default function SupportPage() {
             ))}
           </div>
         </div>
-        <div className="absolute inset-x-0 bottom-0 h-px" style={{ background: EKARI.hair }} />
+
+        <div
+          className="absolute inset-x-0 bottom-0 h-px"
+          style={{ background: EKARI.hair }}
+        />
       </section>
 
-      {/* Main content (adapted order for mobile) */}
       <section className="mx-auto max-w-6xl px-5 py-8 md:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8">
-          {/* ✅ MOBILE: show Contact first */}
           <aside className="space-y-6 lg:hidden">
-            <Card title="Contact us">
-              <div className="space-y-3">
-                <a
-                  href="mailto:support@ekarihub.com"
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <div className="w-9 h-9 rounded-full bg-[#C79257] text-white grid place-items-center">
-                    <IoMailOutline />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold" style={{ color: EKARI.text }}>
-                      Email
-                    </div>
-                    <div className="text-sm" style={{ color: EKARI.dim }}>
-                      support@ekarihub.com
-                    </div>
-                  </div>
-                  <IoChevronForward className="text-slate-400" />
-                </a>
-              </div>
-            </Card>
-
-            <Card title="Typical response times">
-              <div className="grid grid-cols-2 gap-3">
-                <div
-                  className="rounded-xl border p-3 bg-white/70"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <div className="text-xs" style={{ color: EKARI.dim }}>
-                    Email
-                  </div>
-                  <div className="mt-1 text-lg font-black" style={{ color: EKARI.text }}>
-                    ~4–8 hrs
-                  </div>
-                </div>
-              </div>
-            </Card>
+            <ContactCard />
+            <ResponseTimeCard />
           </aside>
 
-          {/* Left: Ticket form + tickets */}
           <div className="space-y-6">
             <Card
               title={
                 <div className="flex items-center justify-between gap-3">
                   <span>Submit a ticket</span>
+
                   <span
                     className="hidden sm:flex text-xs font-normal items-center gap-2"
                     style={{ color: EKARI.dim }}
                   >
-                    <IoDocumentTextOutline /> Include screenshots/logs if possible
+                    <IoDocumentTextOutline />
+                    Include screenshots/logs if possible
                   </span>
                 </div>
               }
               footer={
                 <div className="mt-1 flex flex-col sm:flex-row sm:justify-end gap-2">
+                  {!user?.uid && (
+                    <div className="text-sm sm:mr-auto" style={{ color: EKARI.dim }}>
+                      You must be logged in to submit a ticket.
+                    </div>
+                  )}
+
                   <button
                     onClick={submitTicket}
-                    disabled={!canSubmit || submitting}
+                    disabled={submitting || (!!user?.uid && !canSubmit)}
                     className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl font-extrabold text-white disabled:opacity-60"
                     style={{ background: EKARI.gold }}
                   >
                     <IoSend />
-                    {submitting ? "Submitting…" : "Submit ticket"}
+                    {submitting
+                      ? "Submitting…"
+                      : user?.uid
+                        ? "Submit ticket"
+                        : "Login to submit ticket"}
                   </button>
                 </div>
               }
@@ -474,6 +546,7 @@ export default function SupportPage() {
 
                 <div>
                   <FieldLabel>Topic</FieldLabel>
+
                   <div
                     className="mt-1 h-11 w-full rounded-xl border bg-gray-50/70 px-2 flex items-center focus-within:bg-white transition"
                     style={{ borderColor: EKARI.hair }}
@@ -494,9 +567,11 @@ export default function SupportPage() {
 
                 <div className="md:col-span-2">
                   <FieldLabel>Priority</FieldLabel>
+
                   <div className="mt-2 flex flex-wrap gap-2">
                     {PRIORITIES.map((p) => {
                       const active = priority === p;
+
                       return (
                         <button
                           key={p}
@@ -518,19 +593,22 @@ export default function SupportPage() {
 
                 <div className="md:col-span-2">
                   <FieldLabel>Message</FieldLabel>
+
                   <TextArea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Describe the issue in detail…"
                   />
+
                   <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                    Tip: What happened, what you expected, steps to reproduce, device/browser,
-                    screenshots/logs.
+                    Tip: What happened, what you expected, steps to reproduce,
+                    device/browser, screenshots/logs.
                   </div>
                 </div>
 
                 <div className="md:col-span-2">
                   <FieldLabel>Attachments</FieldLabel>
+
                   <input
                     type="file"
                     multiple
@@ -539,6 +617,7 @@ export default function SupportPage() {
                     className="mt-1 h-11 w-full rounded-xl border px-3 bg-gray-50/70 outline-none focus:bg-white focus:border-gray-300 transition"
                     style={{ borderColor: EKARI.hair }}
                   />
+
                   {files.length > 0 && (
                     <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
                       {files.length} file(s) selected (max 3)
@@ -558,11 +637,13 @@ export default function SupportPage() {
               title={
                 <div className="flex items-center justify-between">
                   <span>My recent tickets</span>
+
                   <span
                     className="text-xs font-normal flex items-center gap-1"
                     style={{ color: EKARI.dim }}
                   >
-                    <IoCalendarOutline /> last 10
+                    <IoCalendarOutline />
+                    last 10
                   </span>
                 </div>
               }
@@ -578,19 +659,28 @@ export default function SupportPage() {
                       <li key={t.id} className="py-3">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="font-semibold truncate" style={{ color: EKARI.text }}>
+                            <div
+                              className="font-semibold truncate"
+                              style={{ color: EKARI.text }}
+                            >
                               {t.subject}
                             </div>
+
                             <div className="text-xs mt-0.5" style={{ color: EKARI.dim }}>
-                              {TOPICS.find((x) => x.key === (t as any).topic)?.label ||
-                                "General"}{" "}
+                              {TOPICS.find((x) => x.key === (t as any).topic)
+                                ?.label || "General"}{" "}
                               · {prettyDate(t.createdAt)}
                             </div>
                           </div>
+
                           <div className="flex items-center gap-3 flex-shrink-0">
                             <StatusBadge status={t.status || "open"} />
+
                             {t.ticketNo && (
-                              <span className="hidden sm:inline text-xs font-bold" style={{ color: EKARI.dim }}>
+                              <span
+                                className="hidden sm:inline text-xs font-bold"
+                                style={{ color: EKARI.dim }}
+                              >
                                 {t.ticketNo}
                               </span>
                             )}
@@ -619,9 +709,11 @@ export default function SupportPage() {
                           </div>
                         )}
 
-                        {/* mobile ticket number */}
                         {t.ticketNo && (
-                          <div className="sm:hidden mt-2 text-xs font-bold" style={{ color: EKARI.dim }}>
+                          <div
+                            className="sm:hidden mt-2 text-xs font-bold"
+                            style={{ color: EKARI.dim }}
+                          >
                             {t.ticketNo}
                           </div>
                         )}
@@ -631,52 +723,15 @@ export default function SupportPage() {
                 )
               ) : (
                 <div className="p-4 text-sm" style={{ color: EKARI.dim }}>
-                  Sign in to view your tickets.
+                  Sign in to view and submit your support tickets.
                 </div>
               )}
             </Card>
           </div>
 
-          {/* ✅ DESKTOP: Contact on the right */}
           <aside className="space-y-6 hidden lg:block">
-            <Card title="Contact us">
-              <div className="space-y-3">
-                <a
-                  href="mailto:support@ekarihub.com"
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <div className="w-9 h-9 rounded-full bg-[#C79257] text-white grid place-items-center">
-                    <IoMailOutline />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold" style={{ color: EKARI.text }}>
-                      Email
-                    </div>
-                    <div className="text-sm" style={{ color: EKARI.dim }}>
-                      support@ekarihub.com
-                    </div>
-                  </div>
-                  <IoChevronForward className="text-slate-400" />
-                </a>
-              </div>
-            </Card>
-
-            <Card title="Typical response times">
-              <div className="grid grid-cols-2 gap-3">
-                <div
-                  className="rounded-xl border p-3 bg-white/70"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <div className="text-xs" style={{ color: EKARI.dim }}>
-                    Email
-                  </div>
-                  <div className="mt-1 text-lg font-black" style={{ color: EKARI.text }}>
-                    ~4–8 hrs
-                  </div>
-                </div>
-              </div>
-            </Card>
+            <ContactCard />
+            <ResponseTimeCard />
           </aside>
         </div>
       </section>

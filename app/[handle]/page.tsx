@@ -458,18 +458,33 @@ function ProfileHeroStorefront({
               {/* Desktop actions */}
               <div className="hidden md:flex items-center gap-2  pb-1">
                 {isOwner ? (
-                  <Link
-                    href={`/${(profile.handle || "@user").replace(/^@/, "")}/edit`}
-                    className="h-9 px-5 rounded-2xl font-black text-sm border hover:bg-black/[0.02] inline-flex items-center gap-2"
-                    style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
-                  >
-                    <IoPencilOutline size={16} />
-                    Edit
-                  </Link>
+                  <> {profile.isSuspended ? (
+                    <Link
+                      href={``}
+                      className="h-9 px-5 rounded-2xl font-black text-sm border hover:bg-black/[0.02] inline-flex items-center gap-2"
+                      style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
+                    >
+                      <IoPencilOutline size={16} />
+                      Edit
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/${(profile.handle || "@user").replace(/^@/, "")}/edit`}
+                      className="h-9 px-5 rounded-2xl font-black text-sm border hover:bg-black/[0.02] inline-flex items-center gap-2"
+                      style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
+                    >
+                      <IoPencilOutline size={16} />
+                      Edit
+                    </Link>
+                  )}</>
+
                 ) : (
                   <button
                     type="button"
-                    onClick={() => (hasUser ? followState.toggle() : onRequireAuth())}
+                    onClick={() => {
+                      if (profile.isSuspended) return;
+                      hasUser ? followState.toggle() : onRequireAuth();
+                    }}
                     className={cn(
                       "h-9 px-5 rounded-2xl font-black text-sm transition",
                       followState.isFollowing ? "border bg-white hover:bg-black/[0.02]" : "text-white"
@@ -490,7 +505,7 @@ function ProfileHeroStorefront({
                   onClick={onMessage}
                   className="h-9 px-5 rounded-2xl text-sm text-white inline-flex items-center gap-2 disabled:opacity-60"
                   style={{ backgroundColor: EKARI.forest }}
-                  disabled={isOwner}
+                  disabled={isOwner || profile.isSuspended}
                   type="button"
                 >
                   <IoChatbubbleEllipsesOutline size={18} />
@@ -498,18 +513,39 @@ function ProfileHeroStorefront({
                 </button>
                 {/* visit store */}
                 {isPremium && (
-                  <Link
-                    href={`/store/${profile.id}?src=profile`}
-                    className="h-9 px-4 rounded-xl text-white inline-flex items-center gap-2"
-                    style={{ backgroundColor: EKARI.green }}
-                  >
-                    <IoStorefrontOutline size={16} />
-                    Visit Store
-                  </Link>
+                  profile.isSuspended ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="h-9 px-4 rounded-xl text-white/70 inline-flex items-center gap-2 cursor-not-allowed"
+                      style={{ backgroundColor: "#9CA3AF" }}
+                      title="Store disabled because account is suspended"
+                    >
+                      <IoStorefrontOutline size={16} />
+                      Store unavailable
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/store/${profile.id}?src=profile`}
+                      className="h-9 px-4 rounded-xl text-white inline-flex items-center gap-2"
+                      style={{ backgroundColor: EKARI.green }}
+                    >
+                      <IoStorefrontOutline size={16} />
+                      Visit Store
+                    </Link>
+                  )
                 )}
-                <IconBtn onClick={onShare} icon={<IoShareSocialOutline size={16} />} label="Share" />
+                <IconBtn onClick={() => profile.isSuspended ? null : onShare()} icon={<IoShareSocialOutline size={16} />} label="Share" />
               </div>
             </div>
+            {profile.isSuspended && (
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <div className="font-black">Account suspended</div>
+                <div className="mt-1">
+                  This profile has been suspended for violating ekarihub community guidelines.
+                </div>
+              </div>
+            )}
             <div className="mt-3">
               {profile.bio ? (
                 <div
@@ -540,25 +576,25 @@ function ProfileHeroStorefront({
                   icon={<IoPeopleOutline size={13} />}
                   label="Followers"
                   value={nfmt(Number(profile.followersCount || 0))}
-                  onClick={() => openConnections("followers")}
+                  onClick={() => profile.isSuspended ? null : openConnections("followers")}
                 />
                 <StatPill
                   icon={<IoListOutline size={13} />}
                   label="Following"
                   value={nfmt(Number(profile.followingCount || 0))}
-                  onClick={() => openConnections("following")}
+                  onClick={() => profile.isSuspended ? null : openConnections("following")}
                 />
                 <StatPill
                   icon={<IoChatbubbleEllipsesOutline size={13} />}
                   label="Partners"
                   value={nfmt(partners || 0)}
-                  onClick={() => openConnections("partners")}
+                  onClick={() => profile.isSuspended ? null : openConnections("partners")}
                 />
                 <StatPill
                   icon={<IoChatbubblesOutline size={13} />}
                   label="Mutual"
                   value={nfmt(mutualPartners || 0)}
-                  onClick={() => openConnections("mutual")}
+                  onClick={() => profile.isSuspended ? null : openConnections("mutual")}
                 />
                 <StatPill
                   icon={<IoHeartOutline size={13} />}
@@ -584,6 +620,7 @@ function ProfileHeroStorefront({
             </div>
 
             {/* Mobile action bar */}
+
             <div className="mt-4 md:hidden">
               <div
                 className="rounded-3xl border p-3 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]"
@@ -601,7 +638,10 @@ function ProfileHeroStorefront({
                     </Link>
                   ) : (
                     <button
-                      onClick={() => (hasUser ? followState.toggle() : onRequireAuth())}
+                      onClick={() => {
+                        if (profile.isSuspended) return;
+                        hasUser ? followState.toggle() : onRequireAuth();
+                      }}
                       className={cn(
                         "col-span-2 h-11 rounded-2xl font-black text-sm transition",
                         followState.isFollowing ? "border bg-white hover:bg-black/[0.02]" : "text-white"
@@ -619,7 +659,7 @@ function ProfileHeroStorefront({
                   )}
 
                   <button
-                    onClick={onShare}
+                    onClick={() => profile.isSuspended ? null : onShare()}
                     className="h-11 rounded-2xl border grid place-items-center hover:bg-black/[0.02]"
                     style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
                     aria-label="Share"
@@ -630,10 +670,10 @@ function ProfileHeroStorefront({
                   </button>
 
                   <button
-                    onClick={onMessage}
+                    onClick={() => profile.isSuspended ? null : onMessage()}
                     className="h-11 rounded-2xl font-black text-sm text-white inline-flex items-center justify-center gap-2 disabled:opacity-60"
                     style={{ backgroundColor: EKARI.forest }}
-                    disabled={isOwner}
+                    disabled={isOwner || profile.isSuspended}
                     type="button"
                   >
                     <IoChatbubbleEllipsesOutline size={18} />
@@ -642,6 +682,8 @@ function ProfileHeroStorefront({
                 </div>
               </div>
             </div>
+
+
 
             {/* tiny footer */}
             <div className="mt-4 flex items-center justify-between text-[11px]" style={{ color: EKARI.subtext }}>
@@ -758,6 +800,9 @@ type Profile = {
   sellerReviewCount?: number;
   storefrontEnabled?: boolean;   // 👈 add this
   storefrontUntil?: number | null;
+  isSuspended?: boolean;
+  suspendedReason?: string | null;
+  suspendedAt?: any;
 };
 
 type MarketType =
@@ -1117,6 +1162,10 @@ function useProfileByUid(uid?: string) {
               typeof d.sellerReviewStats?.reviewsCount === "number"
                 ? d.sellerReviewStats.reviewsCount
                 : undefined,
+            isSuspended: d?.isSuspended === true,
+            suspendedReason: d?.suspendedReason ?? null,
+            suspendedAt: d?.suspendedAt ?? null,
+
           }
           : null
 
@@ -1351,6 +1400,7 @@ function VideosGrid({
   return (
     <div className="px-3 md:px-6 pb-12">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
+
         {items.map((d, idx) => (
           <VideoTile
             key={d.id}
@@ -2530,7 +2580,10 @@ export default function HandleProfilePage() {
 
   const isOwner = !!user?.uid && !!uid && user.uid === uid;
   const { profile, loading: loadingProfile } = useProfileByUid(uid ?? undefined);
-  const { items, likesFallback, loading: loadingDeeds } = useDeedsByAuthor(
+
+  const shouldHidePublicContent = profile?.isSuspended === true && !isOwner;
+
+  const { items, likesFallback, loading: loadingDeeds } = useDeedsByAuthor(shouldHidePublicContent ? undefined :
     uid ?? undefined,
     isOwner
   );
@@ -2652,7 +2705,14 @@ export default function HandleProfilePage() {
             />
 
             <div className="max-w-5xl mx-auto px-4 -mt-2 md:-mt-3 mb-5">
-              <SegmentedTabs value={tab} onChange={setTab} />
+              {profile?.isSuspended && !isOwner ? (
+                <div className="py-16 text-center text-sm text-slate-500">
+                  This account is currently suspended. Content is not available.
+                </div>
+              ) : (
+                <SegmentedTabs value={tab} onChange={setTab} />
+              )}
+
             </div>
 
             <SectionHeader tab={tab} />
@@ -2676,13 +2736,22 @@ export default function HandleProfilePage() {
               ))}
             </div>
           ) : (
-            <VideosGrid
-              items={items}
-              handle={handleWithAt}
-              isOwner={isOwner}
-              loading={loadingDeeds}
-              showEmpty={showDeedsEmpty} // ✅ NEW
-            />
+
+            <>
+              {profile?.isSuspended && !isOwner ? (
+                <div className="px-3 md:px-6 py-16 text-center text-sm text-slate-500">
+                  This account is currently suspended. Deeds are not available.
+                </div>
+              ) : (
+                <VideosGrid
+                  items={items}
+                  handle={handleWithAt}
+                  isOwner={isOwner}
+                  loading={loadingDeeds}
+                  showEmpty={showDeedsEmpty} // ✅ NEW
+                />
+              )}
+            </>
           ))}
 
 

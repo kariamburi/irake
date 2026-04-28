@@ -20,6 +20,10 @@ type Props = {
     renderBottomSpacer?: React.ReactNode;
     initialIndex?: number;
     onSupportClick?: (deedId: Deed) => void;
+    onUserBlocked?: (authorId: string) => void;
+    isSuspended?: boolean;
+    suspendedReason?: string | null;
+
 };
 
 const WINDOW_BEFORE = 1;
@@ -40,6 +44,9 @@ export function DeedsScrollerWeb({
     renderTopSpacer,
     renderBottomSpacer,
     onSupportClick,
+    onUserBlocked,
+    isSuspended,
+    suspendedReason,
     initialIndex = 0,
 }: Props) {
     const internalRef = useRef<HTMLElement | null>(null);
@@ -191,6 +198,9 @@ export function DeedsScrollerWeb({
                             hlsMaxHeight={hlsMaxHeight}
                             loading={loading}
                             onSupportClick={onSupportClick}
+                            onUserBlocked={onUserBlocked}
+                            isSuspended={isSuspended}
+                            suspendedReason={suspendedReason}
 
                         />
                     </div>

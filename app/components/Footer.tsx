@@ -37,7 +37,7 @@ export function Footer() {
                     </div>
                     <div className="flex gap-3">
                         <Link
-                            href="#"
+                            href="https://play.google.com/store/apps/details?id=com.ekarihub.app"
                             className="rounded-xl border px-3 py-2 text-sm font-bold hover:shadow-sm inline-flex items-center gap-2"
                             style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#fff" }}
                             aria-label="Get it on Google Play"

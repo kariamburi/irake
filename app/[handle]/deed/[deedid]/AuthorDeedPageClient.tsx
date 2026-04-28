@@ -715,6 +715,7 @@ export default function AuthorDeedPageClient({
                                                 onNext={goNext}
                                                 canGoPrev={canGoPrev}
                                                 canGoNext={canGoNext}
+                                                authordeeds={true}
                                             />
                                         </div>
                                     ) : null}

@@ -14,8 +14,10 @@ import {
     QueryDocumentSnapshot,
     QuerySnapshot,
     doc,
+    getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import {
     IoCartOutline,
@@ -167,7 +169,19 @@ type MenuItem = {
     badgeCount?: number;
 };
 
+async function assertNotSuspended(uid: string) {
+    const snap = await getDoc(doc(db, "users", uid));
+    const data = snap.exists() ? (snap.data() as any) : null;
 
+    if (data?.isSuspended === true) {
+        throw new Error(
+            data?.suspendedReason ||
+            "Your account has been suspended due to community guideline violations."
+        );
+    }
+
+    return data;
+}
 /* ---------- Profiles ---------- */
 function useUserProfile(uid?: string) {
     const [profile, setProfile] = useState<{
@@ -272,6 +286,7 @@ function CategoryRail({
         </div>
     );
 }
+
 /* ---------------- page ---------------- */
 export default function MarketPage() {
 
@@ -308,44 +323,41 @@ export default function MarketPage() {
     const handle = (profile as any)?.handle ?? null;
     const profileHref = handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
 
-    const fullMenu: MenuItem[] = useMemo(
-        () => [
-            { key: "deeds", label: "Deeds", href: "/", icon: <IoHomeOutline /> },
-            { key: "market", label: "ekariMarket", href: "/market", icon: <IoCartOutline />, alsoMatch: ["/market"] },
-            { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
-            { key: "studio", label: "Deed studio", href: "/studio/upload", icon: <IoAdd />, requiresAuth: true },
-            {
-                key: "notifications",
-                label: "Notifications",
-                href: "/notifications",
-                icon: <IoNotificationsOutline />,
-                requiresAuth: true,
-                badgeCount: uid ? notifTotal ?? 0 : 0,
-            },
-            {
-                key: "bonga",
-                label: "Bonga",
-                href: "/bonga",
-                icon: <IoChatbubblesOutline />,
-                requiresAuth: true,
-                badgeCount: uid ? unreadDM ?? 0 : 0,
-            },
-            { key: "ai", label: "ekari AI", href: "/ai", icon: <IoSparklesOutline /> },
-            { key: "profile", label: "Profile", href: profileHref, icon: <IoPersonCircleOutline />, requiresAuth: true },
-            { key: "about", label: "About ekarihub", href: "/about", icon: <IoInformationCircleOutline /> },
-        ],
-        [uid, notifTotal, unreadDM, profileHref]
-    );
+    const [noticeOpen, setNoticeOpen] = useState(false);
+    const [noticeTitle, setNoticeTitle] = useState("");
+    const [noticeMessage, setNoticeMessage] = useState("");
 
-    const navigateFromMenu = (href: string, requiresAuth?: boolean) => {
-        setMenuOpen(false);
-        if (requiresAuth && !uid) {
-            window.location.href = `/getstarted?next=${encodeURIComponent(href)}`;
-            return;
-        }
-        window.location.href = href;
+    const showNotice = (title: string, message: string) => {
+        setNoticeTitle(title);
+        setNoticeMessage(message);
+        setNoticeOpen(true);
     };
+    const NoticeModal = noticeOpen
+        ? createPortal(
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 px-4">
+                <div className="w-full max-w-[380px] rounded-3xl bg-white p-6 text-center text-slate-900 shadow-2xl">
+                    <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-red-100 text-red-700">
+                        !
+                    </div>
 
+                    <h3 className="mt-4 text-lg font-black">{noticeTitle}</h3>
+
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                        {noticeMessage}
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() => setNoticeOpen(false)}
+                        className="mt-5 w-full rounded-2xl bg-[#233F39] px-4 py-3 font-black text-white"
+                    >
+                        OK
+                    </button>
+                </div>
+            </div>,
+            document.body
+        )
+        : null;
     const applyClientFilters = useCallback(
         (docs: Product[]) => {
             const visible = docs.filter((p) => computeStatus(p) !== "hidden");
@@ -415,6 +427,22 @@ export default function MarketPage() {
 
         return () => unsub();
     }, [applyClientFilters]);
+    const openSellModal = async () => {
+        if (!uid) {
+            router.push("/getstarted?next=/market");
+            return;
+        }
+
+        try {
+            await assertNotSuspended(uid);
+            setSellOpen(true);
+        } catch (e: any) {
+            showNotice(
+                "Account suspended",
+                e?.message || "Your account is suspended and cannot sell on ekariMarket."
+            );
+        }
+    };
 
     const scrollFeaturedByCards = useCallback((dir: -1 | 1) => {
         const el = featRef.current;
@@ -549,10 +577,6 @@ export default function MarketPage() {
         </div>
     ) : null;
 
-    function debugLog(...args: any[]) {
-        console.log("[MarketPage]", ...args);
-    }
-
     /* ================= Main list query ================= */
     const buildQuery = useCallback(
         (after?: QueryDocumentSnapshot<DocumentData> | null) => {
@@ -586,7 +610,7 @@ export default function MarketPage() {
         const startedAt = Date.now();
 
         try {
-            debugLog("runInitialLoad:start", { sort, filters, search: debouncedSearch });
+            //   debugLog("runInitialLoad:start", { sort, filters, search: debouncedSearch });
 
             unsubRef.current?.();
             if (!hasLoadedOnce.current) setInitialLoading(true);
@@ -599,18 +623,12 @@ export default function MarketPage() {
                 const unsub = onSnapshot(
                     q,
                     (snap: QuerySnapshot<DocumentData>) => {
-                        debugLog("onSnapshot:success", {
-                            size: snap.size,
-                            empty: snap.empty,
-                            tookMs: Date.now() - startedAt,
-                            lastId: snap.docs[snap.docs.length - 1]?.id ?? null,
-                        });
+
 
                         const docs = snap.docs.map((d: any) => ({ id: d.id, ...(d.data() as any) })) as Product[];
                         lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
 
                         const filtered = applyClientFilters(docs);
-                        debugLog("applyClientFilters", { before: docs.length, after: filtered.length });
 
                         setItems(filtered);
 
@@ -621,7 +639,6 @@ export default function MarketPage() {
                         }
                     },
                     (err: any) => {
-                        debugLog("onSnapshot:error", { message: err?.message, code: err?.code, name: err?.name, stack: err?.stack });
 
                         setItems([]);
                         lastDocRef.current = null;
@@ -632,28 +649,20 @@ export default function MarketPage() {
 
                 unsubRef.current = unsub;
             } else {
-                debugLog("getDocs:start");
+
                 const snap: QuerySnapshot<DocumentData> = await getDocs(q);
 
-                debugLog("getDocs:success", {
-                    size: snap.size,
-                    empty: snap.empty,
-                    tookMs: Date.now() - startedAt,
-                    lastId: snap.docs[snap.docs.length - 1]?.id ?? null,
-                });
 
                 const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Product[];
                 lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
 
                 const filtered = applyClientFilters(docs);
-                debugLog("applyClientFilters", { before: docs.length, after: filtered.length });
 
                 setItems(filtered);
                 hasLoadedOnce.current = true;
                 setInitialLoading(false);
             }
         } catch (err: any) {
-            debugLog("runInitialLoad:catch", { message: err?.message, code: err?.code, name: err?.name, stack: err?.stack });
 
             setItems([]);
             lastDocRef.current = null;
@@ -897,7 +906,7 @@ export default function MarketPage() {
                             </div>
 
                             <PremiumPillButton
-                                onClick={() => setSellOpen(true)}
+                                onClick={openSellModal}
                                 style={{
                                     background: "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",
                                     color: "white",
@@ -1027,6 +1036,9 @@ export default function MarketPage() {
                     }}
                 />
                 <SellModal open={sellOpen} onClose={() => setSellOpen(false)} onCreated={onCreated} />
+
+                {NoticeModal}
+
             </>
         );
     }
@@ -1066,7 +1078,7 @@ export default function MarketPage() {
                         </div>
 
                         <PremiumPillButton
-                            onClick={() => setSellOpen(true)}
+                            onClick={openSellModal}
                             style={{
                                 background: "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",
                                 color: "white",
@@ -1166,6 +1178,7 @@ export default function MarketPage() {
                         </div>
                     )}
                 </div>
+
             </div>
 
             <FilterModal
@@ -1178,6 +1191,9 @@ export default function MarketPage() {
                 }}
             />
             <SellModal open={sellOpen} onClose={() => setSellOpen(false)} onCreated={onCreated} />
+
+            {NoticeModal}
+
         </AppShell>
     );
 }

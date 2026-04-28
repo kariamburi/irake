@@ -25,9 +25,12 @@ type Props = {
     commented?: boolean;
     onOpenComments?: (deedId: string) => void;
     onSupportClick?: (deedId: Deed) => void;
+    onUserBlocked?: (authorId: string) => void;
     dataSaverOn?: boolean;
     hlsMaxHeight?: number;
     loading?: boolean;
+    isSuspended?: boolean;
+    suspendedReason?: string | null;
 };
 
 function getMuxSrc(playbackId?: string) {
@@ -93,6 +96,10 @@ export function DeedVideoCardWeb({
     commented = false,
     onOpenComments,
     onSupportClick,
+    onUserBlocked,
+    isSuspended,
+    suspendedReason,
+
 }: Props) {
     const router = useRouter();
     const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -290,6 +297,7 @@ export function DeedVideoCardWeb({
     };
 
     const commonOverlayProps = {
+        uid,
         item,
         commented,
         liked,
@@ -428,6 +436,9 @@ export function DeedVideoCardWeb({
                         {...commonOverlayProps}
                         canSupport={canSupport}
                         onSupportClick={handleSupport}
+                        onUserBlocked={onUserBlocked}
+                        isSuspended={isSuspended}
+                        suspendedReason={suspendedReason}
                     />
 
                 </div>
@@ -570,6 +581,9 @@ export function DeedVideoCardWeb({
                     {...commonOverlayProps}
                     canSupport={canSupport}
                     onSupportClick={handleSupport}
+                    onUserBlocked={onUserBlocked}
+                    isSuspended={isSuspended}
+                    suspendedReason={suspendedReason}
                 />
 
             </div>

@@ -458,7 +458,26 @@ async function getFollowingIds(uid: string): Promise<string[]> {
         return [];
     }
 }
+async function getBlockedUserIds(uid?: string | null): Promise<Set<string>> {
+    const cleanUid = String(uid ?? "").trim();
+    if (!cleanUid) return new Set();
 
+    try {
+
+        const snap = await getDocs(
+            query(collection(db, "blocks"), where("blockerId", "==", cleanUid))
+        );
+
+        return new Set(
+            snap.docs
+                .map((d) => String((d.data() as any)?.blockedUserId ?? "").trim())
+                .filter(Boolean)
+        );
+    } catch (error) {
+        console.warn("getBlockedUserIds error:", error);
+        return new Set();
+    }
+}
 async function getUserLocation(
     uid: string
 ): Promise<{
@@ -512,6 +531,7 @@ async function collectValidItems(params: {
     cursor?: FeedCursor;
     limitCount?: number;
     includeDeleted?: boolean;
+    blockedUserIds?: Set<string>;
 }): Promise<FeedPageResult<FeedCursor>> {
     const target = Math.max(1, params.limitCount ?? 10);
     const batchSize = Math.max(target * 3, 20);
@@ -551,10 +571,14 @@ async function collectValidItems(params: {
             .filter((x): x is Deed => x !== null);
 
         for (const item of mapped) {
+
+            if (params.blockedUserIds?.has(item.authorId)) continue;
+
             if (!seen.has(item.id)) {
                 seen.add(item.id);
                 items.push(item);
             }
+
             if (items.length >= target) break;
         }
 
@@ -594,8 +618,11 @@ async function collectValidItems(params: {
 
 async function fetchForYouPage(
     cursor: FeedCursor = null,
-    limitCount = 10
+    limitCount = 10,
+    uid?: string | null
 ): Promise<FeedPageResult<FeedCursor>> {
+    const blockedUserIds = await getBlockedUserIds(uid);
+
     const baseQuery = query(
         collection(db, "deeds"),
         where("visibility", "==", "public")
@@ -605,6 +632,7 @@ async function fetchForYouPage(
         baseQuery,
         cursor,
         limitCount,
+        blockedUserIds,
     });
 }
 
@@ -614,14 +642,15 @@ async function fetchFollowingPage(
     limitCount = 10
 ): Promise<FeedPageResult<FeedCursor>> {
     const followingIds = await getFollowingIds(uid);
-
-    if (!followingIds.length) {
+    const blockedUserIds = await getBlockedUserIds(uid);
+    const visibleFollowingIds = followingIds.filter((id) => !blockedUserIds.has(id));
+    if (!visibleFollowingIds.length) {
         return { items: [], cursor: null, hasMore: false };
     }
 
     const chunks: string[][] = [];
-    for (let i = 0; i < followingIds.length; i += 10) {
-        chunks.push(followingIds.slice(i, i + 10));
+    for (let i = 0; i < visibleFollowingIds.length; i += 10) {
+        chunks.push(visibleFollowingIds.slice(i, i + 10));
     }
 
     const allItems: Deed[] = [];
@@ -689,7 +718,7 @@ async function fetchNearbyPage(
     limitCount = 10
 ): Promise<FeedPageResult<FeedCursor>> {
     const { countyTag, countryTag, lat, lng } = await getUserLocation(uid);
-
+    const blockedUserIds = await getBlockedUserIds(uid);
     if (!countyTag && !countryTag) {
         return { items: [], cursor: null, hasMore: false };
     }
@@ -727,7 +756,9 @@ async function fetchNearbyPage(
 
     const seen = new Set<string>();
     let deduped = allItems.filter((item) => {
+        if (blockedUserIds.has(item.authorId)) return false;
         if (seen.has(item.id)) return false;
+
         seen.add(item.id);
         return true;
     });
@@ -785,9 +816,10 @@ export async function fetchChannelPage({
     cursor = null,
     limitCount = 10,
     uid = null,
-}: FetchChannelPageParams): Promise<FeedPageResult<FeedCursor>> {
+}: FetchChannelPageParams): Promise<FeedPageResult<any>> {
+
     if (tab === "forYou") {
-        return fetchForYouPage(cursor, limitCount);
+        return fetchForYouPage(cursor, limitCount, uid);
     }
 
     if (!uid) {

@@ -22,6 +22,7 @@ import {
     DocumentData,
     QueryDocumentSnapshot,
     doc,
+    getDoc,
 } from "firebase/firestore";
 import Image from "next/image";
 import Link from "next/link";
@@ -329,7 +330,20 @@ function useUserProfile(uid?: string) {
 
     return profile;
 }
+async function assertNotSuspended(uid: string) {
+    const snap = await getDoc(doc(db, "users", uid));
+    const data = snap.exists() ? (snap.data() as any) : null;
 
+    if (data?.isSuspended === true) {
+
+        throw new Error(
+            data?.suspendedReason ||
+            "Your account has been suspended due to community guideline violations."
+        );
+    }
+    alert("ALLOW")
+    return data;
+}
 /* ---------- Main ---------- */
 export default function NexusPage() {
     useInitEkariTags();
@@ -341,7 +355,14 @@ export default function NexusPage() {
     const [q, setQ] = useState("");
     const [eventFilter, setEventFilter] = useState<EventCategory | "All">("All");
     const [discFilter, setDiscFilter] = useState<DiscCategory | "All">("All");
-
+    const [noticeOpen, setNoticeOpen] = useState(false);
+    const [noticeTitle, setNoticeTitle] = useState("");
+    const [noticeMessage, setNoticeMessage] = useState("");
+    const showNotice = (title: string, message: string) => {
+        setNoticeTitle(title);
+        setNoticeMessage(message);
+        setNoticeOpen(true);
+    };
     useEffect(() => {
         const t = setTimeout(() => setQ(queryInput.trim().toLowerCase()), 250);
         return () => clearTimeout(t);
@@ -503,14 +524,43 @@ export default function NexusPage() {
 
     const provideFooter = useCallback((node: ReactNode) => setSheetFooter(node), []);
 
-    const openCreateEvent = () => {
-        setSheetType("event");
-        setSheetOpen(true);
+    const openCreateEvent = async () => {
+        if (!uid) {
+            router.push("/getstarted?next=/nexus");
+            return;
+        }
+
+        try {
+
+            await assertNotSuspended(uid);
+
+            setSheetType("event");
+            setSheetOpen(true);
+        } catch (e: any) {
+            showNotice(
+                "Account suspended",
+                e?.message || "Your account is suspended and cannot create events."
+            );
+        }
     };
 
-    const openCreateDiscussion = () => {
-        setSheetType("discussion");
-        setSheetOpen(true);
+    const openCreateDiscussion = async () => {
+        if (!uid) {
+            router.push("/getstarted?next=/nexus");
+            return;
+        }
+
+        try {
+            await assertNotSuspended(uid);
+
+            setSheetType("discussion");
+            setSheetOpen(true);
+        } catch (e: any) {
+            showNotice(
+                "Account suspended",
+                e?.message || "Your account is suspended and cannot start discussions."
+            );
+        }
     };
 
     /* ---------- UI blocks ---------- */
@@ -1197,6 +1247,29 @@ export default function NexusPage() {
                 notifTotal={uid ? notifTotal ?? 0 : 0}
                 onLogout={signOutUser}
             />
+            {noticeOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 px-4">
+                    <div className="w-full max-w-[380px] rounded-3xl bg-white p-6 text-center text-slate-900 shadow-2xl">
+                        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-red-100 text-red-700">
+                            !
+                        </div>
+
+                        <h3 className="mt-4 text-lg font-black">{noticeTitle}</h3>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-500">
+                            {noticeMessage}
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={() => setNoticeOpen(false)}
+                            className="mt-5 w-full rounded-2xl bg-[#233F39] px-4 py-3 font-black text-white"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

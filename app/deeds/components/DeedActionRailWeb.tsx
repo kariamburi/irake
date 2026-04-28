@@ -5,6 +5,7 @@ import {
     IoArrowRedo,
     IoBookmark,
     IoChatbubble,
+    IoEllipsisHorizontalCircle,
     IoHeart,
     IoVolumeHigh,
     IoVolumeMute,
@@ -25,10 +26,10 @@ type Props = {
     onShare: () => void;
     onToggleSave: () => void;
     onToggleMute?: () => void;
-
+    onMoreClick?: () => void;
     canSupport?: boolean;
     onSupportClick?: () => void;
-
+    authordeeds?: boolean;
     variant?: "overlay" | "desktop";
 };
 
@@ -57,12 +58,14 @@ function ActionButton({
     onClick,
     active = false,
     title,
+    authordeeds = false,
     variant = "overlay",
 }: {
     icon: React.ReactNode;
     label: string;
     onClick?: () => void;
     active?: boolean;
+    authordeeds?: boolean;
     title?: string;
     variant?: "overlay" | "desktop";
 }) {
@@ -74,17 +77,17 @@ function ActionButton({
             onClick={onClick}
             aria-pressed={active}
             title={title}
-            className="group flex flex-col items-center gap-1.5 md:gap-2"
+            className="group flex flex-col items-center gap-1 md:gap-1"
         >
             <div
                 className={[
                     "grid place-items-center rounded-full transition will-change-transform",
                     "active:scale-95 md:hover:scale-[1.04]",
-                    "h-10 w-10 md:h-12 md:w-12",
-                    isDesktop ? "" : "ring-1 ring-white/10",
+                    "h-9 w-9 md:h-11 md:w-11",
+                    isDesktop && !authordeeds ? "" : "ring-1 ring-white/10",
                 ].join(" ")}
                 style={
-                    isDesktop
+                    isDesktop && !authordeeds
                         ? {
                             background: EKARI_THEME.white,
                             border: `1px solid ${EKARI_THEME.border}`,
@@ -99,7 +102,7 @@ function ActionButton({
             <span
                 className="select-none text-[13px] font-extrabold leading-none tracking-[0.01em] md:text-[13px]"
                 style={
-                    isDesktop
+                    isDesktop && !authordeeds
                         ? { color: EKARI_THEME.forest }
                         : {
                             color: EKARI_THEME.white,
@@ -130,6 +133,8 @@ export function DeedActionRailWeb({
     onToggleMute,
     canSupport = false,
     onSupportClick,
+    onMoreClick,
+    authordeeds,
     variant = "overlay",
 }: Props) {
     const inactiveColor = EKARI_THEME.gold;
@@ -145,11 +150,12 @@ export function DeedActionRailWeb({
             };
 
     return (
-        <div className="pointer-events-auto flex flex-col items-center gap-3 pb-1 md:gap-4 md:pb-2">
+        <div className="pointer-events-auto flex flex-col items-center gap-2 pb-0 md:gap-2 md:pb-0">
             {canSupport ? (
                 <ActionButton
                     active={false}
                     label="Uplift"
+                    authordeeds={authordeeds}
                     onClick={onSupportClick}
                     title="Uplift this deed"
                     variant={variant}
@@ -173,6 +179,7 @@ export function DeedActionRailWeb({
 
             <ActionButton
                 active={liked}
+                authordeeds={authordeeds}
                 label={formatCount(likeCount)}
                 onClick={onToggleLike}
                 title={liked ? "Unlike" : "Like"}
@@ -182,6 +189,7 @@ export function DeedActionRailWeb({
 
             <ActionButton
                 active={commented}
+                authordeeds={authordeeds}
                 label={formatCount(commentCount)}
                 onClick={onOpenComments}
                 title="Comments"
@@ -191,6 +199,7 @@ export function DeedActionRailWeb({
 
             <ActionButton
                 active={false}
+                authordeeds={authordeeds}
                 label={formatCount(shareCount)}
                 onClick={onShare}
                 title="Share"
@@ -200,13 +209,22 @@ export function DeedActionRailWeb({
 
             <ActionButton
                 active={saved}
+                authordeeds={authordeeds}
                 label={formatCount(saveCount)}
                 onClick={onToggleSave}
                 title={saved ? "Unsave" : "Save"}
                 variant={variant}
                 icon={<IoBookmark size={28} style={iconStyle(saved)} />}
             />
-
+            <ActionButton
+                active={false}
+                authordeeds={authordeeds}
+                label="More"
+                onClick={onMoreClick}
+                title="More options"
+                variant={variant}
+                icon={<IoEllipsisHorizontalCircle size={28} style={iconStyle(false)} />}
+            />
 
         </div>
     );

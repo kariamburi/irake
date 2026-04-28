@@ -77,7 +77,19 @@ function useIsDesktop() {
 function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
 }
+async function assertNotSuspended(uid: string) {
+  const snap = await getDoc(doc(db, "users", uid));
+  const data = snap.exists() ? (snap.data() as any) : null;
 
+  if (data?.isSuspended === true) {
+    throw new Error(
+      data?.suspendedReason ||
+      "Your account has been suspended due to community guideline violations."
+    );
+  }
+
+  return data;
+}
 /* ---------- EkariHub brand ---------- */
 const EKARI = {
   forest: "#233F39",
@@ -973,6 +985,15 @@ export default function UploadPage() {
 
     if (!uid || !user) {
       setErrorMsg("Please sign in to post.");
+      return;
+    }
+    try {
+      await assertNotSuspended(uid);
+    } catch (e: any) {
+      showInfoModal(
+        "Account suspended",
+        e?.message || "Your account is suspended and cannot create or edit posts."
+      );
       return;
     }
     const authorBadge = buildAuthorBadge(userProfile);

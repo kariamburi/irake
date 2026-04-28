@@ -61,6 +61,10 @@ export default function HomeFeedClientPage({
 
   const { user, loading: authLoading, signOutUser } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
+  const isSuspended = profile?.isSuspended === true;
+  const suspendedReason =
+    (profile as any)?.suspendedReason ||
+    "Your account has been suspended due to community guideline violations.";
   const { unreadDM, notifTotal } = useInboxTotalsWeb(!!user?.uid, user?.uid);
 
   const handle = (profile as any)?.handle ?? null;
@@ -179,6 +183,8 @@ export default function HomeFeedClientPage({
         onOpenMenu={() => setMenuOpen(true)}
         loading={loading}
         refreshKey={feedRefreshKey}
+        isSuspended={isSuspended}
+        suspendedReason={suspendedReason}
       />
 
       {isDesktop === false && (

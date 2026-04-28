@@ -13,7 +13,7 @@ import {
     IoShieldCheckmarkOutline,
 } from "react-icons/io5";
 import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db, getAuthSafe } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 
@@ -28,7 +28,58 @@ const EKARI = {
     subtext: "#5C6B66",
     danger: "#B42318",
 };
+const splitName = (name?: string | null) => {
+    const clean = String(name || "").trim();
+    if (!clean) return { firstName: "", surname: "" };
 
+    const parts = clean.split(/\s+/);
+    return {
+        firstName: parts[0] || "",
+        surname: parts.slice(1).join(" ") || "",
+    };
+};
+
+async function saveAuthProviderProfile({
+    uid,
+    email,
+    displayName,
+    photoURL,
+    provider,
+}: {
+    uid: string;
+    email?: string | null;
+    displayName?: string | null;
+    photoURL?: string | null;
+    provider: "google" | "email";
+}) {
+    const { firstName, surname } = splitName(displayName);
+
+    const ref = doc(db, "users", uid);
+    const snap = await getDoc(ref);
+    const existing = snap.exists() ? (snap.data() as any) : {};
+
+    await setDoc(
+        ref,
+        {
+            email: email || existing.email || null,
+            authProvider: provider,
+            providerDisplayName: displayName || existing.providerDisplayName || null,
+            providerPhotoURL: photoURL || existing.providerPhotoURL || null,
+
+            ...(firstName && !existing.firstName ? { firstName } : {}),
+            ...(surname && !existing.surname ? { surname } : {}),
+            ...(photoURL && !existing.photoURL ? { photoURL } : {}),
+
+            createdFromAuth: true,
+            onboarded: existing.onboarded === true,
+            isSuspended: existing.isSuspended === true,
+            isDeactivated: existing.isDeactivated === true,
+            updatedAt: serverTimestamp(),
+            ...(!snap.exists() ? { createdAt: serverTimestamp() } : {}),
+        },
+        { merge: true }
+    );
+}
 export default function SignupPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -156,14 +207,20 @@ export default function SignupPage() {
 
         try {
             const cred = await signInWithPopup(auth, googleProvider);
-            const uid = cred.user?.uid;
 
-            if (!uid) {
+            const u = cred.user;
+            if (!u) {
                 setErrorMsg("Something went wrong. Please try again.");
                 return;
             }
-
-            const dest = await resolveDestination(uid);
+            await saveAuthProviderProfile({
+                uid: u.uid,
+                email: u.email,
+                displayName: u.displayName,
+                photoURL: u.photoURL,
+                provider: "google",
+            });
+            const dest = await resolveDestination(u.uid);
             router.replace(dest);
         } catch (err: any) {
             setErrorMsg(mapAuthError(err));

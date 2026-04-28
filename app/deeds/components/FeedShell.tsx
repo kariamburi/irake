@@ -30,6 +30,8 @@ type Props = {
     onOpenMenu?: () => void;
     loading?: boolean;
     refreshKey?: number;
+    isSuspended?: boolean;
+    suspendedReason?: string | null;
 };
 
 function useIsDesktop(breakpoint = 1024) {
@@ -89,6 +91,8 @@ function FeedShellInner({
     loading,
     initialTab,
     onTabChangePersist,
+    isSuspended,
+    suspendedReason,
 }: FeedShellInnerProps) {
     const router = useRouter();
     const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -100,7 +104,7 @@ function FeedShellInner({
     const [activeDeed, setActiveDeed] = useState<Deed | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const [following, setFollowing] = useState<Set<string>>(new Set());
-
+    const [blockedAuthorIds, setBlockedAuthorIds] = useState<Set<string>>(new Set());
     const isDesktop = useIsDesktop();
 
     const feed = useDeedsFeedWeb({
@@ -157,7 +161,17 @@ function FeedShellInner({
         setActiveDeed(item);
         setActiveIndex(index);
     };
+    const visibleItems = useMemo(() => {
+        return currentFeed.items.filter((item) => !blockedAuthorIds.has(item.authorId));
+    }, [currentFeed.items, blockedAuthorIds]);
 
+    const handleUserBlocked = (authorId: string) => {
+        setBlockedAuthorIds((prev) => {
+            const next = new Set(prev);
+            next.add(authorId);
+            return next;
+        });
+    };
     useEffect(() => {
         if (!commentsId) return;
         if (!activeDeedId) return;
@@ -211,14 +225,14 @@ function FeedShellInner({
         (nextIndex: number) => {
             const root = scrollerRef.current;
             if (!root) return;
-            const maxIndex = Math.max(0, currentFeed.items.length - 1);
+            const maxIndex = Math.max(0, visibleItems.length - 1);
             const clamped = Math.max(0, Math.min(maxIndex, nextIndex));
             root.scrollTo({
                 top: clamped * pageHeight,
                 behavior: "smooth",
             });
         },
-        [currentFeed.items.length, pageHeight]
+        [visibleItems.length, pageHeight]
     );
 
     const goPrev = React.useCallback(() => {
@@ -255,8 +269,8 @@ function FeedShellInner({
             return;
         }
 
-        const visibleIds = currentFeed.items
-            .slice(Math.max(0, activeIndex - 2), Math.min(currentFeed.items.length, activeIndex + 5))
+        const visibleIds = visibleItems
+            .slice(Math.max(0, activeIndex - 2), Math.min(visibleItems.length, activeIndex + 5))
             .map((d) => d.id)
             .filter(Boolean);
 
@@ -294,11 +308,11 @@ function FeedShellInner({
                 } catch { }
             });
         };
-    }, [uid, activeIndex, currentFeed.items]);
+    }, [uid, activeIndex, visibleItems]);
 
     const desktopRailOpen = isDesktop && !!commentsId;
     const canGoPrev = activeIndex > 0;
-    const canGoNext = activeIndex < currentFeed.items.length - 1;
+    const canGoNext = activeIndex < visibleItems.length - 1;
 
     const loadingMoreRef = useRef(false);
 
@@ -308,8 +322,8 @@ function FeedShellInner({
 
     useEffect(() => {
         setActiveIndex(0);
-        setActiveDeedId(currentFeed.items[0]?.id ?? null);
-        setActiveDeed(currentFeed.items[0] ?? null);
+        setActiveDeedId(visibleItems[0]?.id ?? null);
+        setActiveDeed(visibleItems[0] ?? null);
 
         const root = scrollerRef.current;
         if (root) {
@@ -332,7 +346,7 @@ function FeedShellInner({
                                         scrollSnapType: "y mandatory",
                                         overscrollBehaviorY: "contain",
                                         paddingBottom:
-                                            showLoading || (!currentFeed.loading && currentFeed.items.length === 0)
+                                            showLoading || (!currentFeed.loading && visibleItems.length === 0)
                                                 ? "0px"
                                                 : isDesktop
                                                     ? "0px"
@@ -374,7 +388,7 @@ function FeedShellInner({
                                         </DeedStageShell>
                                     )}
 
-                                    {!currentFeed.loading && currentFeed.items.length === 0 ? (
+                                    {!currentFeed.loading && visibleItems.length === 0 ? (
                                         <DeedStageShell>
                                             <div className="text-sm text-white/80">
                                                 {emptyText}
@@ -382,7 +396,7 @@ function FeedShellInner({
                                         </DeedStageShell>
                                     ) : (
                                         <DeedsScrollerWeb
-                                            items={currentFeed.items}
+                                            items={visibleItems}
                                             uid={uid}
                                             cardH={pageHeight}
                                             scrollerRef={scrollerRef}
@@ -391,7 +405,7 @@ function FeedShellInner({
                                             hlsMaxHeight={hlsMaxHeight}
                                             loading={currentFeed.loading}
                                             onNeedMore={(index) => {
-                                                const remaining = currentFeed.items.length - 1 - index;
+                                                const remaining = visibleItems.length - 1 - index;
 
                                                 if (remaining <= 4 && !loadingMoreRef.current && currentFeed.hasMore) {
                                                     feed.loadMore(feed.activeTab);
@@ -400,10 +414,13 @@ function FeedShellInner({
                                             onOpenComments={openComments}
                                             onActiveItemChange={handleActiveItemChange}
                                             onSupportClick={handleSupportClick}
+                                            onUserBlocked={handleUserBlocked}
+                                            isSuspended={isSuspended}
+                                            suspendedReason={suspendedReason}
                                         />
                                     )}
 
-                                    {currentFeed.loadingMore && currentFeed.items.length > 0 && (
+                                    {currentFeed.loadingMore && visibleItems.length > 0 && (
                                         <div className="pointer-events-none fixed bottom-24 left-1/2 z-40 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 backdrop-blur-md">
                                             Loading more.
                                         </div>
@@ -423,6 +440,9 @@ function FeedShellInner({
                                             canGoPrev={canGoPrev}
                                             canGoNext={canGoNext}
                                             onSupportClick={handleSupportClick}
+                                            onUserBlocked={handleUserBlocked}
+                                            isSuspended={isSuspended}
+                                            suspendedReason={suspendedReason}
                                         />
                                     </div>
                                 ) : null}
@@ -509,6 +529,7 @@ function FeedShellInner({
                 creatorId={donateDeed.authorId}
                 creatorName={donateDeed.authorUsername}
             />)}
+
         </GlobalMuteProviderWeb>
     );
 }

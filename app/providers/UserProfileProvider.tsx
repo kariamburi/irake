@@ -10,6 +10,10 @@ export type UserProfile = {
   handle?: string;
   photoURL?: string;
   dataSaverVideos?: boolean;
+
+  isSuspended?: boolean;
+  suspendedReason?: string | null;
+  suspendedAt?: any;
 };
 
 type Ctx = {
@@ -55,19 +59,31 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
       ref,
       (snap) => {
         const data = (snap.data() as any) || null;
+
+        console.log("[UserProfile] raw:", data?.isSuspended, data?.suspendedReason);
+
         if (!data) {
           setProfile(null);
         } else {
-          setProfile({
+          const mapped = {
             uid,
             handle: data?.handle,
             photoURL: data?.photoURL,
             dataSaverVideos: !!data?.dataSaverVideos,
-          });
+            isSuspended: data?.isSuspended === true,
+            suspendedReason: data?.suspendedReason ?? null,
+            suspendedAt: data?.suspendedAt ?? null,
+          };
+
+          console.log("[UserProfile] mapped:", mapped.isSuspended, mapped.suspendedReason);
+
+          setProfile(mapped);
         }
+
         setLoading(false);
       },
-      () => {
+      (err) => {
+        console.error("[UserProfile] snapshot error:", err);
         setProfile(null);
         setLoading(false);
       }

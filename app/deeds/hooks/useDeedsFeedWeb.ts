@@ -76,7 +76,14 @@ export function useDeedsFeedWeb(params: {
             setActiveTab("forYou");
         }
     }, [uid, activeTab]);
+    useEffect(() => {
+        if (!uid) return;
 
+        setFeeds(createFeedsState());
+
+        // force reload using reload() instead of loadInitial
+        reload(activeTab);
+    }, [uid]);
     const setFeedState = useCallback(
         (tab: FeedTabKey, updater: (prev: FeedState) => FeedState) => {
             setFeeds((prev) => ({

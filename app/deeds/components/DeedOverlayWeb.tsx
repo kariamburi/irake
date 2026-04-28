@@ -15,6 +15,8 @@ import { DeedActionRailWeb } from "./DeedActionRailWeb";
 import SmartAvatar from "@/app/components/SmartAvatar";
 import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
 import EkariAvatar from "@/app/components/EkariAvatar";
+import { addDoc, collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 type Props = {
     item: Deed;
@@ -27,12 +29,13 @@ type Props = {
     commentCount: number;
     shareCount: number;
     saveCount: number;
+    uid?: string | null;
     onToggleLike: () => void;
     onToggleSave: () => void;
     onShare: () => void;
     onToggleMute?: () => void;
     onOpenComments?: (deedId: string) => void;
-
+    onUserBlocked?: (authorId: string) => void;
     canSupport?: boolean;
     onSupportClick?: () => void;
 
@@ -46,7 +49,8 @@ type Props = {
 
     showFollow?: boolean;
     onFollowClick?: () => void;
-
+    isSuspended?: boolean;
+    suspendedReason?: string | null;
     authorProfile?: {
         handle?: string | null;
     } | null;
@@ -145,7 +149,11 @@ export function DeedOverlayWeb({
     timeTitle,
     showFollow = false,
     onFollowClick,
+    onUserBlocked,
+    isSuspended,
+    suspendedReason,
     authorProfile = null,
+    uid = null,
 }: Props) {
     const router = useRouter();
     const [captionExpanded, setCaptionExpanded] = useState(false);
@@ -163,7 +171,23 @@ export function DeedOverlayWeb({
 
     const shouldShowSoundRow = !isPhotoDeed || deedHasMusic;
     const shouldShowPhotoMetaRow = isPhotoDeed && !deedHasMusic;
-
+    const [actionsOpen, setActionsOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
+    const [reportReason, setReportReason] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [hiddenBecauseBlocked, setHiddenBecauseBlocked] = useState(false);
+    const [successOpen, setSuccessOpen] = useState(false);
+    const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+    const isOwnPost = !!uid && uid === item.authorId;
+    const [suspendedOpen, setSuspendedOpen] = useState(false);
+    const reportReasons = [
+        "Spam",
+        "Fraud / Scam",
+        "Abuse / Harassment",
+        "Inappropriate content",
+        "Illegal goods or services",
+        "Other",
+    ];
     const tags = useMemo(() => {
         const raw = (item as any)?.tags;
         if (!Array.isArray(raw)) return [];
@@ -187,6 +211,100 @@ export function DeedOverlayWeb({
         router.push(`/${clean}`);
 
     };
+    const requireLogin = () => {
+        if (!uid) {
+            router.push("/getstarted?next=/deeds");
+            return false;
+        }
+        return true;
+    };
+    const requireActiveAccount = (nextAction: () => void) => {
+        if (!requireLogin()) return;
+
+        if (isSuspended) {
+            setSuspendedOpen(true);
+            return;
+        }
+
+        nextAction();
+    };
+    const submitReport = async () => {
+        if (!requireLogin()) return;
+        if (!reportReason) return;
+
+        setBusy(true);
+
+        try {
+            await addDoc(collection(db, "reports"), {
+                type: "deed",
+                deedId: item.id,
+                reportedUserId: item.authorId,
+                reportedBy: uid,
+                reason: reportReason,
+                status: "open",
+                source: "web_app",
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                deedSnapshot: {
+                    text: item.text || "",
+                    authorUsername: item.authorUsername || null,
+                    mediaType: item.mediaType || item.type || null,
+                },
+            });
+
+            setReportOpen(false);
+            setActionsOpen(false);
+            setReportReason("");
+            setSuccessOpen(true);
+
+        } finally {
+            setBusy(false);
+        }
+    };
+    const blockUser = async () => {
+        if (!requireLogin()) return;
+        if (!item.authorId || isOwnPost) return;
+
+        setBusy(true);
+
+        try {
+            const blockId = `${uid}_${item.authorId}`;
+
+            await setDoc(
+                doc(db, "blocks", blockId),
+                {
+                    blockerId: uid,
+                    blockedUserId: item.authorId,
+                    blockedUserHandle: item.authorUsername || null,
+                    source: "web_app",
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                },
+                { merge: true }
+            );
+
+            await addDoc(collection(db, "reports"), {
+                type: "user_block",
+                deedId: item.id,
+                reportedUserId: item.authorId,
+                reportedBy: uid,
+                reason: "Blocked user from deed menu",
+                status: "open",
+                source: "web_app",
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
+            setHiddenBecauseBlocked(true);
+            setActionsOpen(false);
+            onUserBlocked?.(item.authorId);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+
+
     return (
         <>
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/82 via-black/18 to-black/8 md:from-black/72 md:via-black/10 md:to-transparent" />
@@ -221,7 +339,7 @@ export function DeedOverlayWeb({
                         {showFollow ? (
                             <button
                                 type="button"
-                                onClick={onFollowClick}
+                                onClick={() => requireActiveAccount(() => onFollowClick?.())}
                                 aria-label="Follow creator"
                                 title="Follow"
                                 className="absolute left-1/2 top-full z-10 mt-[-10px] grid h-6 w-6 -translate-x-1/2 -translate-y-[30%] place-items-center rounded-full border-2 border-white bg-[#C79257] text-white shadow-md transition hover:scale-105 active:scale-95"
@@ -242,13 +360,14 @@ export function DeedOverlayWeb({
                         commentCount={commentCount}
                         shareCount={shareCount}
                         saveCount={saveCount}
-                        onToggleLike={onToggleLike}
-                        onOpenComments={() => onOpenComments?.(item.id)}
-                        onShare={onShare}
-                        onToggleSave={onToggleSave}
                         onToggleMute={onToggleMute}
                         canSupport={canSupport}
-                        onSupportClick={onSupportClick}
+                        onToggleLike={() => requireActiveAccount(onToggleLike)}
+                        onOpenComments={() => requireActiveAccount(() => onOpenComments?.(item.id))}
+                        onShare={() => requireActiveAccount(onShare)}
+                        onToggleSave={() => requireActiveAccount(onToggleSave)}
+                        onSupportClick={() => requireActiveAccount(() => onSupportClick?.())}
+                        onMoreClick={() => { setActionsOpen(true); }}
                     />
                 </div>
             </div>
@@ -422,9 +541,198 @@ export function DeedOverlayWeb({
                                 </span>
                             </div>
                         ) : null}
+
                     </div>
                 </div>
+
             </div>
+            {actionsOpen && (
+                <div className="fixed inset-0 z-[9999] bg-black/50" onClick={() => setActionsOpen(false)}>
+                    <div
+                        className="absolute z-[9999] bottom-0 left-0 right-0 rounded-t-2xl bg-white p-5 text-slate-900 md:left-1/2 md:right-auto md:w-[420px] md:-translate-x-1/2"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-black">Post options</h3>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActionsOpen(false);
+                                setReportOpen(true);
+                            }}
+                            className="mt-4 w-full rounded-xl border px-4 py-3 text-left font-bold text-red-700"
+                        >
+                            Report post
+                            <div className="text-xs font-normal text-slate-500">
+                                Report objectionable or abusive content
+                            </div>
+                        </button>
+
+                        {!isOwnPost && (
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setBlockConfirmOpen(true)}
+                                className="mt-3 w-full rounded-xl border px-4 py-3 text-left font-bold text-red-700"
+                            >
+                                Block user
+                                <div className="text-xs font-normal text-slate-500">
+                                    Hide this user’s content immediately
+                                </div>
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={() => setActionsOpen(false)}
+                            className="mt-4 w-full rounded-xl bg-slate-100 px-4 py-3 font-bold"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {reportOpen && (
+                <div className="fixed inset-0 z-[9999] bg-black/50" onClick={() => setReportOpen(false)}>
+                    <div
+                        className="absolute z-[9999] bottom-0 left-0 right-0 rounded-t-2xl bg-white p-5 text-slate-900 md:left-1/2 md:right-auto md:w-[420px] md:-translate-x-1/2"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-black">Report post</h3>
+                        <p className="mt-1 text-sm text-slate-500">
+                            Tell us what is wrong. We review reports within 24 hours.
+                        </p>
+
+                        <div className="mt-4 space-y-2">
+                            {reportReasons.map((reason) => (
+                                <button
+                                    key={reason}
+                                    type="button"
+                                    onClick={() => setReportReason(reason)}
+                                    className={[
+                                        "w-full rounded-xl border px-4 py-3 text-left text-sm font-bold",
+                                        reportReason === reason
+                                            ? "border-[#C79257] bg-orange-50"
+                                            : "border-slate-200 bg-white",
+                                    ].join(" ")}
+                                >
+                                    {reason}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="mt-5 flex gap-3">
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                    setReportOpen(false);
+                                    setReportReason("");
+                                }}
+                                className="flex-1 rounded-xl bg-slate-100 px-4 py-3 font-bold"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={!reportReason || busy}
+                                onClick={submitReport}
+                                className="flex-1 rounded-xl bg-[#C79257] px-4 py-3 font-black text-white disabled:opacity-60"
+                            >
+                                {busy ? "Submitting..." : "Submit report"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {successOpen && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4">
+                    <div className="w-full max-w-[380px] rounded-3xl bg-white p-6 text-center text-slate-900 shadow-2xl">
+                        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+                            ✓
+                        </div>
+
+                        <h3 className="mt-4 text-lg font-black">Report submitted</h3>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-500">
+                            Thank you. Our team will review this report within 24 hours.
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={() => setSuccessOpen(false)}
+                            className="mt-5 w-full rounded-2xl bg-[#233F39] px-4 py-3 font-black text-white"
+                        >
+                            Done
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {blockConfirmOpen && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4">
+                    <div className="w-full max-w-[380px] rounded-3xl bg-white p-6 text-center text-slate-900 shadow-2xl">
+                        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-red-100 text-red-700">
+                            !
+                        </div>
+
+                        <h3 className="mt-4 text-lg font-black">Block this user?</h3>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-500">
+                            This user’s content will be removed from your feed immediately.
+                        </p>
+
+                        <div className="mt-5 flex gap-3">
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setBlockConfirmOpen(false)}
+                                className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 font-black text-slate-800"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={async () => {
+                                    setBlockConfirmOpen(false);
+                                    await blockUser();
+                                }}
+                                className="flex-1 rounded-2xl bg-red-600 px-4 py-3 font-black text-white disabled:opacity-60"
+                            >
+                                {busy ? "Blocking..." : "Block"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {suspendedOpen && (
+                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4">
+                    <div className="w-full max-w-[380px] rounded-3xl bg-white p-6 text-center text-slate-900 shadow-2xl">
+                        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-red-100 text-red-700">
+                            !
+                        </div>
+
+                        <h3 className="mt-4 text-lg font-black">Account suspended</h3>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-500">
+                            {suspendedReason ||
+                                "Your account has been suspended due to community guideline violations."}
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={() => setSuspendedOpen(false)}
+                            className="mt-5 w-full rounded-2xl bg-[#233F39] px-4 py-3 font-black text-white"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

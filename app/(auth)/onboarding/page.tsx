@@ -35,6 +35,7 @@ import {
     getDocs,
     query,
     orderBy,
+    getDoc,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -379,7 +380,10 @@ export default function OnboardingWizardPage() {
     const router = useRouter();
     const { user, loading: authLoading, signOutUser } = useAuth();
     // User must have a profile image before finishing onboarding
-
+    const [authEmail, setAuthEmail] = useState<string | null>(null);
+    const [existingPhotoURL, setExistingPhotoURL] = useState<string | null>(null);
+    const [loadingAuthProfile, setLoadingAuthProfile] = useState(true);
+    const [nameFromProvider, setNameFromProvider] = useState(false);
 
     // Guard: if auth resolved and no user → go to login
     useEffect(() => {
@@ -387,7 +391,47 @@ export default function OnboardingWizardPage() {
             router.replace("/login");
         }
     }, [authLoading, user, router]);
+    useEffect(() => {
+        let cancelled = false;
 
+        async function loadAuthProfile() {
+            if (!user?.uid) {
+                setLoadingAuthProfile(false);
+                return;
+            }
+
+            try {
+                const snap = await getDoc(doc(db, "users", user.uid));
+                const data = snap.exists() ? (snap.data() as any) : {};
+
+                if (cancelled) return;
+
+                const providerName = data.providerDisplayName || user.displayName || "";
+                const parts = String(providerName).trim().split(/\s+/);
+
+                const providerFirstName = data.firstName || parts[0] || "";
+                const providerSurname = data.surname || parts.slice(1).join(" ") || "";
+
+                if (providerFirstName) setFirstName(providerFirstName);
+                if (providerSurname) setSurname(providerSurname);
+
+                setNameFromProvider(Boolean(providerFirstName || providerSurname));
+                setAuthEmail(data.email || user.email || null);
+
+                if (data.photoURL || data.providerPhotoURL || user.photoURL) {
+                    setExistingPhotoURL(data.photoURL || data.providerPhotoURL || user.photoURL);
+                }
+            } finally {
+                if (!cancelled) setLoadingAuthProfile(false);
+            }
+        }
+
+        loadAuthProfile();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.uid]);
     // Align steps with mobile: 1..5
     const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
@@ -530,7 +574,7 @@ export default function OnboardingWizardPage() {
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
-    const hasProfilePhoto = Boolean(file || user?.photoURL);
+    const hasProfilePhoto = Boolean(file || existingPhotoURL || user?.photoURL);
     const [saving, setSaving] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
@@ -625,6 +669,7 @@ export default function OnboardingWizardPage() {
     const canNext1 = useMemo(() => {
         const core = stripAt(handle.trim());
         return (
+            !loadingAuthProfile &&
             firstName.trim().length >= 2 &&
             surname.trim().length >= 2 &&
             gender !== null &&
@@ -656,8 +701,20 @@ export default function OnboardingWizardPage() {
     }
 
     /* ---------- Flow ---------- */
-    const onBack = () =>
-        setStep((s) => (s === 1 ? 1 : ((s - 1) as 1 | 2 | 3 | 4 | 5)));
+    const onBack = async () => {
+        if (step === 1) {
+            try {
+                await signOutUser(); // logout
+            } catch (e) {
+                console.log("Logout error:", e);
+            }
+
+            router.replace("/login");
+            return;
+        }
+
+        setStep((s) => ((s - 1) as 1 | 2 | 3 | 4 | 5));
+    };
     const handleNext = () => {
         if (step === 5) {
             void saveProfile();
@@ -819,8 +876,7 @@ export default function OnboardingWizardPage() {
                 ? [areaOfInterest]
                 : [];
 
-        let photoURL: string | null =
-            (user.photoURL as string | null) || null;
+        let photoURL = existingPhotoURL || user.photoURL || "";
         try {
             if (file) {
                 photoURL = await uploadProfilePhoto(file);
@@ -1132,29 +1188,41 @@ export default function OnboardingWizardPage() {
                                 }}
                             >
                                 <Field label="Name">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <input
-                                            placeholder="First name"
-                                            className="h-11 rounded-xl border px-3 bg-[#F6F7FB] outline-none text-sm"
-                                            style={{
-                                                borderColor: EKARI.hair,
-                                                color: EKARI.text,
-                                            }}
-                                            value={firstName}
-                                            onChange={(e) => setFirstName(e.target.value)}
-                                        />
-                                        <input
-                                            placeholder="Surname"
-                                            className="h-11 rounded-xl border px-3 bg-[#F6F7FB] outline-none text-sm"
-                                            style={{
-                                                borderColor: EKARI.hair,
-                                                color: EKARI.text,
-                                            }}
-                                            value={surname}
-                                            onChange={(e) => setSurname(e.target.value)}
-                                        />
-
-                                    </div>
+                                    {nameFromProvider ? (
+                                        <div
+                                            className="rounded-xl border px-3 py-3 text-sm"
+                                            style={{ borderColor: EKARI.hair, background: "#F6F7FB" }}
+                                        >
+                                            <div className="font-bold" style={{ color: EKARI.text }}>
+                                                {firstName} {surname}
+                                            </div>
+                                            {authEmail && (
+                                                <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                                                    {authEmail}
+                                                </div>
+                                            )}
+                                            <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                                                Name and email were provided by Google.
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <input
+                                                value={firstName}
+                                                onChange={(e) => setFirstName(e.target.value)}
+                                                placeholder="First name"
+                                                className="rounded-xl border px-3 py-3 text-sm"
+                                                style={{ borderColor: EKARI.hair }}
+                                            />
+                                            <input
+                                                value={surname}
+                                                onChange={(e) => setSurname(e.target.value)}
+                                                placeholder="Surname"
+                                                className="rounded-xl border px-3 py-3 text-sm"
+                                                style={{ borderColor: EKARI.hair }}
+                                            />
+                                        </div>
+                                    )}
                                 </Field>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <Field

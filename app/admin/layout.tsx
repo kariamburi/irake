@@ -32,6 +32,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/overview", label: "Overview" },
     { href: "/admin/mapview", label: "Map view" },
     { href: "/admin/deeds", label: "Deeds" },
+    { href: "/admin/reported", label: "Reported cases" },
     { href: "/admin/market", label: "Market" },
     { href: "/admin/events", label: "Events" },
     { href: "/admin/discussions", label: "Discussions" },
@@ -60,6 +61,7 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/overview")) return "Overview";
     if (pathname.startsWith("/admin/mapview")) return "Map View";
     if (pathname.startsWith("/admin/deeds")) return "Deeds moderation";
+    if (pathname.startsWith("/admin/reported")) return "Reported cases";
     if (pathname.startsWith("/admin/market")) return "Market listings";
     if (pathname.startsWith("/admin/events")) return "Events";
     if (pathname.startsWith("/admin/discussions")) return "Discussions";
