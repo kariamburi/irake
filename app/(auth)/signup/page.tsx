@@ -289,33 +289,65 @@ export default function SignupPage() {
                             type="checkbox"
                             checked={consent}
                             onChange={(e) => setConsent(e.target.checked)}
-                            className="mt-1 h-4 w-4 rounded border"
+                            className="mt-1 h-4 w-4 rounded border shrink-0"
                             style={{ accentColor: EKARI.gold }}
                             disabled={disableAll}
                         />
-                        <label
-                            htmlFor="consent"
-                            className="text-xs md:text-sm leading-5"
-                            style={{ color: EKARI.text }}
-                        >
-                            By crafting an account, you agree to our{" "}
-                            <Link
-                                href="/terms"
-                                className="underline font-semibold"
-                                style={{ color: EKARI.forest }}
+
+                        <div className="flex-1 min-w-0">
+                            <label
+                                htmlFor="consent"
+                                className="text-xs md:text-sm leading-5"
+                                style={{ color: EKARI.text }}
                             >
-                                Terms
-                            </Link>{" "}
-                            and{" "}
-                            <Link
-                                href="/privacy"
-                                className="underline font-semibold"
-                                style={{ color: EKARI.forest }}
+                                By crafting an account, you agree to our{" "}
+                                <Link
+                                    href="/terms"
+                                    className="underline font-semibold"
+                                    style={{ color: EKARI.forest }}
+                                >
+                                    Terms and Conditions
+                                </Link>{" "}
+                                and{" "}
+                                <Link
+                                    href="/privacy"
+                                    className="underline font-semibold"
+                                    style={{ color: EKARI.forest }}
+                                >
+                                    Privacy Policy
+                                </Link>
+                                .
+                            </label>
+
+                            <details
+                                className="mt-2 rounded-xl border px-3 py-2 text-[11px] md:text-xs leading-5"
+                                style={{
+                                    borderColor: EKARI.hair,
+                                    background: "#F9FAFB",
+                                    color: EKARI.dim,
+                                }}
                             >
-                                Privacy Policy
-                            </Link>
-                            .
-                        </label>
+                                <summary
+                                    className="cursor-pointer font-bold"
+                                    style={{ color: EKARI.forest }}
+                                >
+                                    Community Guidelines
+                                </summary>
+
+                                <div className="mt-2">
+                                    By using ekarihub, you agree not to post or share:
+                                    <br />• Abusive, hateful, or violent content
+                                    <br />• Sexual or explicit content
+                                    <br />• Fraudulent or misleading content
+                                    <br />• Illegal goods or services
+                                    <br />
+                                    <br />
+                                    <span style={{ color: EKARI.danger, fontWeight: 700 }}>
+                                        Violation may result in account suspension or removal.
+                                    </span>
+                                </div>
+                            </details>
+                        </div>
                     </div>
 
                     <button

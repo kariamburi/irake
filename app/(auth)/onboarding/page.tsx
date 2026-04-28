@@ -1370,7 +1370,7 @@ export default function OnboardingWizardPage() {
                                 <FooterNav
                                     onBack={onBack}
                                     onNext={handleNext}
-                                    disableBack={step === 1}
+                                    disableBack={false}   // ✅ allow click
                                     disableNext={!canNext1}
                                 />
                             </motion.div>
