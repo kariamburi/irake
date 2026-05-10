@@ -7,10 +7,15 @@ import {
     query,
     orderBy,
     limit,
-    onSnapshot,
     updateDoc,
     doc,
     deleteDoc,
+    getDocs,
+    where,
+    startAfter,
+    QueryDocumentSnapshot,
+    DocumentData,
+    onSnapshot,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -31,6 +36,8 @@ const EKARI = {
     dim: "#6B7280",
     hair: "#E5E7EB",
 };
+
+const PAGE_SIZE = 20;
 
 type MarketStatus = "active" | "sold" | "reserved" | "hidden" | string;
 
@@ -92,8 +99,6 @@ const STATUS_COLOR: Record<MarketStatus, string> = {
     hidden: "bg-gray-500",
 };
 
-/* ------------------------ Product preview modal ------------------------ */
-
 type ListingPreviewDoc = {
     name?: string;
 };
@@ -118,19 +123,18 @@ function ProductPreviewModal({
             },
             () => setLoading(false)
         );
+
         return () => unsub();
     }, [listingId]);
 
-    // Close on Esc
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
         };
+
         window.addEventListener("keydown", handler);
         return () => window.removeEventListener("keydown", handler);
     }, [onClose]);
-
-    const stop = (e: React.MouseEvent) => e.stopPropagation();
 
     const publicUrl = `/market/${listingId}`;
 
@@ -141,10 +145,9 @@ function ProductPreviewModal({
         >
             <div
                 className="relative w-full max-w-5xl h-[90vh] rounded-3xl bg-white shadow-xl flex flex-col overflow-hidden"
-                onClick={stop}
+                onClick={(e) => e.stopPropagation()}
                 style={{ borderColor: EKARI.hair, borderWidth: 1 }}
             >
-                {/* Header */}
                 <div
                     className="flex items-center justify-between gap-3 px-4 md:px-6 py-3 border-b"
                     style={{ borderColor: EKARI.hair }}
@@ -156,6 +159,7 @@ function ProductPreviewModal({
                         >
                             Listing preview
                         </div>
+
                         <div
                             className="mt-0.5 text-sm md:text-base font-bold truncate"
                             style={{ color: EKARI.text }}
@@ -163,6 +167,7 @@ function ProductPreviewModal({
                             {listing?.name || "Untitled listing"}
                         </div>
                     </div>
+
                     <div className="flex items-center gap-2">
                         <Link
                             href={publicUrl}
@@ -174,6 +179,7 @@ function ProductPreviewModal({
                         >
                             Open full page
                         </Link>
+
                         <button
                             type="button"
                             onClick={onClose}
@@ -185,7 +191,6 @@ function ProductPreviewModal({
                     </div>
                 </div>
 
-                {/* Body */}
                 <div className="flex-1 bg-gray-50/60 flex flex-col">
                     {loading ? (
                         <div
@@ -202,21 +207,17 @@ function ProductPreviewModal({
                             Could not load this listing. It may have been removed.
                         </div>
                     ) : (
-                        <div className="flex-1">
-                            <iframe
-                                src={publicUrl}
-                                title="Listing preview"
-                                className="w-full h-full rounded-b-3xl"
-                            />
-                        </div>
+                        <iframe
+                            src={publicUrl}
+                            title="Listing preview"
+                            className="w-full h-full rounded-b-3xl"
+                        />
                     )}
                 </div>
             </div>
         </div>
     );
 }
-
-/* ------------------------------ Main page ------------------------------ */
 
 export default function AdminMarketPage() {
     const [items, setItems] = useState<ListingDoc[]>([]);
@@ -225,48 +226,85 @@ export default function AdminMarketPage() {
     const [busyId, setBusyId] = useState<string | null>(null);
     const [previewListingId, setPreviewListingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        const base = query(
-            collection(db, "marketListings"),
-            orderBy("createdAt", "desc"),
-            limit(60)
-        );
+    const [page, setPage] = useState(1);
+    const [pageCursors, setPageCursors] = useState<
+        (QueryDocumentSnapshot<DocumentData> | null)[]
+    >([null]);
+    const [hasMore, setHasMore] = useState(true);
 
-        const unsub = onSnapshot(
-            base,
-            (snap) => {
-                setItems(
-                    snap.docs.map(
-                        (d) =>
-                        ({
-                            id: d.id,
-                            ...(d.data() as any),
-                        } as ListingDoc)
-                    )
-                );
-                setLoading(false);
-            },
-            (err) => {
-                console.error("AdminMarket listener error:", err);
-                setLoading(false);
+    const loadListings = async (
+        targetPage: number,
+        cursor: QueryDocumentSnapshot<DocumentData> | null
+    ) => {
+        setLoading(true);
+
+        try {
+            const constraints: any[] = [];
+
+            if (filterStatus !== "all") {
+                constraints.push(where("status", "==", filterStatus));
             }
-        );
 
-        return () => unsub();
-    }, []);
+            constraints.push(orderBy("createdAt", "desc"));
 
-    const filtered = useMemo(() => {
-        if (filterStatus === "all") return items;
-        return items.filter((i) => (i.status || "active") === filterStatus);
-    }, [items, filterStatus]);
+            if (cursor) {
+                constraints.push(startAfter(cursor));
+            }
+
+            constraints.push(limit(PAGE_SIZE));
+
+            const snap = await getDocs(
+                query(collection(db, "marketListings"), ...constraints)
+            );
+
+            const nextItems = snap.docs.map(
+                (d) =>
+                ({
+                    id: d.id,
+                    ...(d.data() as any),
+                } as ListingDoc)
+            );
+
+            setItems(nextItems);
+            setPage(targetPage);
+            setHasMore(snap.docs.length === PAGE_SIZE);
+
+            const lastVisible = snap.docs[snap.docs.length - 1] ?? null;
+
+            setPageCursors((prev) => {
+                const copy = [...prev];
+                copy[targetPage] = lastVisible;
+                return copy;
+            });
+        } catch (err) {
+            console.error("AdminMarket pagination error:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        setItems([]);
+        setPage(1);
+        setPageCursors([null]);
+        setHasMore(true);
+
+        loadListings(1, null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filterStatus]);
+
+    const filtered = useMemo(() => items, [items]);
 
     async function updateStatus(listing: ListingDoc, status: MarketStatus) {
         try {
             setBusyId(listing.id);
+
             await updateDoc(doc(db, "marketListings", listing.id), {
                 status,
                 sold: status === "sold",
             });
+
+            setItems((prev) => prev.filter((item) => item.id !== listing.id));
         } catch (err: any) {
             alert(err?.message || "Failed to update listing");
         } finally {
@@ -278,10 +316,14 @@ export default function AdminMarketPage() {
         const ok = window.confirm(
             "Delete this listing? This will remove it from the marketplace."
         );
+
         if (!ok) return;
+
         try {
             setBusyId(listing.id);
             await deleteDoc(doc(db, "marketListings", listing.id));
+
+            setItems((prev) => prev.filter((item) => item.id !== listing.id));
         } catch (err: any) {
             alert(err?.message || "Failed to delete listing");
         } finally {
@@ -294,7 +336,6 @@ export default function AdminMarketPage() {
     return (
         <>
             <div className="p-4 md:p-6 space-y-6">
-                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
                     <div>
                         <h1
@@ -303,19 +344,18 @@ export default function AdminMarketPage() {
                         >
                             Marketplace listings
                         </h1>
+
                         <p className="text-sm md:text-base" style={{ color: EKARI.dim }}>
-                            All market listings across ekarihub. As admin, you can moderate status
-                            or remove spammy items.
+                            All market listings across ekarihub. As admin, you can moderate
+                            status or remove spammy items.
                         </p>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <span
-                            className="text-xs font-semibold"
-                            style={{ color: EKARI.dim }}
-                        >
+                        <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
                             Filter status:
                         </span>
+
                         <select
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value as any)}
@@ -331,20 +371,46 @@ export default function AdminMarketPage() {
                     </div>
                 </div>
 
-                {/* Summary badge */}
-                <div className="flex items-center gap-2 text-sm">
-                    <IoCubeOutline className="text-emerald-700" />
-                    <span className="font-semibold" style={{ color: EKARI.text }}>
-                        {items.length} listing{items.length === 1 ? "" : "s"} loaded
-                    </span>
-                    {filterStatus !== "all" && (
-                        <span className="text-xs" style={{ color: EKARI.dim }}>
-                            • Showing {filtered.length} {filterStatus} items
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                        <IoCubeOutline className="text-emerald-700" />
+
+                        <span className="font-semibold" style={{ color: EKARI.text }}>
+                            Showing {items.length} listing{items.length === 1 ? "" : "s"}
                         </span>
-                    )}
+
+                        <span className="text-xs" style={{ color: EKARI.dim }}>
+                            • Page {page}
+                        </span>
+
+                        {filterStatus !== "all" && (
+                            <span className="text-xs" style={{ color: EKARI.dim }}>
+                                • Filtered by {filterStatus}
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            disabled={loading || page === 1}
+                            onClick={() => loadListings(page - 1, pageCursors[page - 2] || null)}
+                            className="rounded-full border px-4 py-1.5 text-xs font-bold disabled:opacity-40"
+                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                        >
+                            Previous
+                        </button>
+
+                        <button
+                            disabled={loading || !hasMore}
+                            onClick={() => loadListings(page + 1, pageCursors[page] || null)}
+                            className="rounded-full px-4 py-1.5 text-xs font-bold text-white disabled:opacity-40"
+                            style={{ backgroundColor: EKARI.forest }}
+                        >
+                            {loading ? "Loading…" : "Next"}
+                        </button>
+                    </div>
                 </div>
 
-                {/* Listing cards */}
                 {loading ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {Array.from({ length: 6 }).map((_, i) => (
@@ -359,162 +425,185 @@ export default function AdminMarketPage() {
                         No listings match this filter.
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filtered.map((l) => {
-                            const status: MarketStatus =
-                                (l.status as MarketStatus) ??
-                                ((l as any).sold ? "sold" : "active");
+                    <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filtered.map((l) => {
+                                const status: MarketStatus =
+                                    (l.status as MarketStatus) ?? ((l as any).sold ? "sold" : "active");
 
-                            const statusLabel =
-                                STATUS_LABEL[status] ||
-                                status.replace(/^\w/, (c) => c.toUpperCase());
-                            const statusColorClass =
-                                STATUS_COLOR[status] || "bg-gray-500";
+                                const statusLabel =
+                                    STATUS_LABEL[status] ||
+                                    status.replace(/^\w/, (c) => c.toUpperCase());
 
-                            const cover =
-                                l.imageUrl || (l.imageUrls && l.imageUrls[0]) || "";
+                                const statusColorClass = STATUS_COLOR[status] || "bg-gray-500";
 
-                            const isBusy = busyId === l.id;
+                                const cover = l.imageUrl || (l.imageUrls && l.imageUrls[0]) || "";
 
-                            const priceText =
-                                l.type === "lease" || l.type === "service"
-                                    ? `${l.rate || "—"}${l.billingUnit ? ` / ${l.billingUnit}` : ""
-                                    }`
-                                    : formatKES(Number(l.price || 0));
+                                const isBusy = busyId === l.id;
 
-                            return (
-                                <div
-                                    key={l.id}
-                                    className="rounded-2xl border bg-white shadow-sm hover:shadow-md transition flex flex-col overflow-hidden"
-                                    style={{ borderColor: EKARI.hair }}
-                                >
-                                    {/* Image / header area */}
-                                    <div className="relative h-36 bg-gray-100">
-                                        {cover ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                                src={cover}
-                                                alt={l.name || "Listing"}
-                                                className="h-full w-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">
-                                                No image
+                                const priceText =
+                                    l.type === "lease" || l.type === "service"
+                                        ? `${l.rate || "—"}${l.billingUnit ? ` / ${l.billingUnit}` : ""
+                                        }`
+                                        : formatKES(Number(l.price || 0));
+
+                                return (
+                                    <div
+                                        key={l.id}
+                                        className="rounded-2xl border bg-white shadow-sm hover:shadow-md transition flex flex-col overflow-hidden"
+                                        style={{ borderColor: EKARI.hair }}
+                                    >
+                                        <div className="relative h-36 bg-gray-100">
+                                            {cover ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img
+                                                    src={cover}
+                                                    alt={l.name || "Listing"}
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">
+                                                    No image
+                                                </div>
+                                            )}
+
+                                            <div
+                                                className={`absolute left-2 top-2 text-[10px] font-extrabold text-white px-2 py-1 rounded-full flex items-center gap-1 ${statusColorClass}`}
+                                            >
+                                                <IoCheckmarkDone size={12} />
+                                                {statusLabel}
                                             </div>
-                                        )}
-                                        <div
-                                            className={`absolute left-2 top-2 text-[10px] font-extrabold text-white px-2 py-1 rounded-full flex items-center gap-1 ${statusColorClass}`}
-                                        >
-                                            <IoCheckmarkDone size={12} />
-                                            {statusLabel}
-                                        </div>
-                                    </div>
-
-                                    {/* Body */}
-                                    <div className="p-3 flex-1 flex flex-col gap-2">
-                                        <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">
-                                            {l.name || "Untitled listing"}
                                         </div>
 
-                                        <div className="text-xs text-gray-500 flex flex-wrap gap-1">
-                                            <span>
-                                                Seller:{" "}
-                                                <span className="font-mono">
-                                                    {l.sellerId?.slice(0, 8) || "unknown"}
+                                        <div className="p-3 flex-1 flex flex-col gap-2">
+                                            <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">
+                                                {l.name || "Untitled listing"}
+                                            </div>
+
+                                            <div className="text-xs text-gray-500 flex flex-wrap gap-1">
+                                                <span>
+                                                    Seller:{" "}
+                                                    <span className="font-mono">
+                                                        {l.sellerId?.slice(0, 8) || "unknown"}
+                                                    </span>
                                                 </span>
-                                            </span>
-                                            {l.category && (
-                                                <>
-                                                    <span>•</span>
-                                                    <span>{l.category}</span>
-                                                </>
-                                            )}
-                                        </div>
 
-                                        <div
-                                            className="text-sm font-black"
-                                            style={{ color: EKARI.forest }}
-                                        >
-                                            {priceText}
-                                        </div>
+                                                {l.category && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span>{l.category}</span>
+                                                    </>
+                                                )}
+                                            </div>
 
-                                        <div className="text-[11px] text-gray-400">
-                                            Created: {formatDate(l.createdAt)}
-                                        </div>
-
-                                        {/* Admin actions */}
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                            {/* Preview listing */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setPreviewListingId(l.id)}
-                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                            <div
+                                                className="text-sm font-black"
+                                                style={{ color: EKARI.forest }}
                                             >
-                                                Preview listing
-                                            </button>
+                                                {priceText}
+                                            </div>
 
-                                            {status !== "active" && (
+                                            <div className="text-[11px] text-gray-400">
+                                                Created: {formatDate(l.createdAt)}
+                                            </div>
+
+                                            <div className="mt-2 flex flex-wrap gap-2">
                                                 <button
-                                                    onClick={() => updateStatus(l, "active")}
-                                                    disabled={isBusy}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                    type="button"
+                                                    onClick={() => setPreviewListingId(l.id)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                                                 >
-                                                    <IoCheckmarkDone size={12} />
-                                                    Activate
+                                                    Preview listing
                                                 </button>
-                                            )}
-                                            {status !== "sold" && (
+
+                                                {status !== "active" && (
+                                                    <button
+                                                        onClick={() => updateStatus(l, "active")}
+                                                        disabled={isBusy}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                    >
+                                                        <IoCheckmarkDone size={12} />
+                                                        Activate
+                                                    </button>
+                                                )}
+
+                                                {status !== "sold" && (
+                                                    <button
+                                                        onClick={() => updateStatus(l, "sold")}
+                                                        disabled={isBusy}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                    >
+                                                        <IoCashOutline size={12} />
+                                                        Sold
+                                                    </button>
+                                                )}
+
+                                                {status !== "reserved" && (
+                                                    <button
+                                                        onClick={() => updateStatus(l, "reserved")}
+                                                        disabled={isBusy}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-yellow-500 text-white hover:opacity-90 disabled:opacity-60"
+                                                    >
+                                                        <IoTimeOutline size={12} />
+                                                        Reserve
+                                                    </button>
+                                                )}
+
+                                                {status !== "hidden" && (
+                                                    <button
+                                                        onClick={() => updateStatus(l, "hidden")}
+                                                        disabled={isBusy}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-gray-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                    >
+                                                        <IoEyeOffOutline size={12} />
+                                                        Hide
+                                                    </button>
+                                                )}
+
                                                 <button
-                                                    onClick={() => updateStatus(l, "sold")}
+                                                    onClick={() => deleteListing(l)}
                                                     disabled={isBusy}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-600 text-white hover:opacity-90 disabled:opacity-60"
                                                 >
-                                                    <IoCashOutline size={12} />
-                                                    Sold
+                                                    <IoTrashOutline size={12} />
+                                                    Delete
                                                 </button>
-                                            )}
-                                            {status !== "reserved" && (
-                                                <button
-                                                    onClick={() => updateStatus(l, "reserved")}
-                                                    disabled={isBusy}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-yellow-500 text-white hover:opacity-90 disabled:opacity-60"
-                                                >
-                                                    <IoTimeOutline size={12} />
-                                                    Reserve
-                                                </button>
-                                            )}
-                                            {status !== "hidden" && (
-                                                <button
-                                                    onClick={() => updateStatus(l, "hidden")}
-                                                    disabled={isBusy}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-gray-600 text-white hover:opacity-90 disabled:opacity-60"
-                                                >
-                                                    <IoEyeOffOutline size={12} />
-                                                    Hide
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => deleteListing(l)}
-                                                disabled={isBusy}
-                                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-600 text-white hover:opacity-90 disabled:opacity-60"
-                                            >
-                                                <IoTrashOutline size={12} />
-                                                Delete
-                                            </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex items-center justify-center gap-3 pt-4">
+                            <button
+                                disabled={loading || page === 1}
+                                onClick={() => loadListings(page - 1, pageCursors[page - 2] || null)}
+                                className="rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-40"
+                                style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                            >
+                                Previous
+                            </button>
+
+                            <span className="text-sm font-bold" style={{ color: EKARI.dim }}>
+                                Page {page}
+                            </span>
+
+                            <button
+                                disabled={loading || !hasMore}
+                                onClick={() => loadListings(page + 1, pageCursors[page] || null)}
+                                className="rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+                                style={{ backgroundColor: EKARI.forest }}
+                            >
+                                {loading ? "Loading…" : "Next"}
+                            </button>
+                        </div>
+                    </>
                 )}
             </div>
 
             {previewListingId && (
-                <ProductPreviewModal
-                    listingId={previewListingId}
-                    onClose={closePreview}
-                />
+                <ProductPreviewModal listingId={previewListingId} onClose={closePreview} />
             )}
         </>
     );
