@@ -39,7 +39,7 @@ const EKARI = {
 
 const PAGE_SIZE = 20;
 
-type MarketStatus = "active" | "sold" | "reserved" | "hidden" | string;
+type MarketStatus = "active" | "sold" | "reserved" | "hidden" | "draft" | string;
 
 type MarketType =
     | "product"
@@ -60,10 +60,20 @@ type ListingDoc = {
     category?: string;
     type?: MarketType;
     status?: MarketStatus;
+    ownerId?: string;
     sellerId?: string;
+    seller?: {
+        id?: string;
+        name?: string;
+        handle?: string;
+        photoURL?: string;
+        verified?: boolean;
+    };
     imageUrl?: string;
     imageUrls?: string[];
     createdAt?: any;
+    updatedAt?: any;
+    sold?: boolean;
 };
 
 function formatKES(n: number | undefined) {
@@ -85,18 +95,20 @@ function formatDate(ts: any) {
     return String(ts);
 }
 
-const STATUS_LABEL: Record<MarketStatus, string> = {
+const STATUS_LABEL: Record<string, string> = {
     active: "Active",
     sold: "Sold",
     reserved: "Reserved",
     hidden: "Hidden",
+    draft: "Draft",
 };
 
-const STATUS_COLOR: Record<MarketStatus, string> = {
+const STATUS_COLOR: Record<string, string> = {
     active: "bg-emerald-600",
     sold: "bg-rose-600",
     reserved: "bg-amber-500",
     hidden: "bg-gray-500",
+    draft: "bg-slate-500",
 };
 
 type ListingPreviewDoc = {
@@ -115,6 +127,7 @@ function ProductPreviewModal({
 
     useEffect(() => {
         const ref = doc(db, "marketListings", listingId);
+
         const unsub = onSnapshot(
             ref,
             (snap) => {
@@ -140,16 +153,16 @@ function ProductPreviewModal({
 
     return (
         <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 backdrop-blur-sm px-3"
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-3 backdrop-blur-sm"
             onClick={onClose}
         >
             <div
-                className="relative w-full max-w-5xl h-[90vh] rounded-3xl bg-white shadow-xl flex flex-col overflow-hidden"
+                className="relative flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl"
                 onClick={(e) => e.stopPropagation()}
                 style={{ borderColor: EKARI.hair, borderWidth: 1 }}
             >
                 <div
-                    className="flex items-center justify-between gap-3 px-4 md:px-6 py-3 border-b"
+                    className="flex items-center justify-between gap-3 border-b px-4 py-3 md:px-6"
                     style={{ borderColor: EKARI.hair }}
                 >
                     <div className="min-w-0">
@@ -161,7 +174,7 @@ function ProductPreviewModal({
                         </div>
 
                         <div
-                            className="mt-0.5 text-sm md:text-base font-bold truncate"
+                            className="mt-0.5 truncate text-sm font-bold md:text-base"
                             style={{ color: EKARI.text }}
                         >
                             {listing?.name || "Untitled listing"}
@@ -173,7 +186,7 @@ function ProductPreviewModal({
                             href={publicUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="hidden sm:inline-flex items-center gap-1 rounded-full border px-3 h-8 text-xs font-semibold hover:bg-gray-50"
+                            className="hidden h-8 items-center gap-1 rounded-full border px-3 text-xs font-semibold hover:bg-gray-50 sm:inline-flex"
                             style={{ borderColor: EKARI.hair, color: EKARI.text }}
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -183,7 +196,7 @@ function ProductPreviewModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="inline-flex items-center justify-center h-8 w-8 rounded-full border text-xs font-bold hover:bg-gray-50"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold hover:bg-gray-50"
                             style={{ borderColor: EKARI.hair, color: EKARI.text }}
                         >
                             ✕
@@ -191,17 +204,17 @@ function ProductPreviewModal({
                     </div>
                 </div>
 
-                <div className="flex-1 bg-gray-50/60 flex flex-col">
+                <div className="flex flex-1 flex-col bg-gray-50/60">
                     {loading ? (
                         <div
-                            className="flex-1 grid place-items-center text-sm"
+                            className="grid flex-1 place-items-center text-sm"
                             style={{ color: EKARI.dim }}
                         >
                             Loading listing…
                         </div>
                     ) : !listing ? (
                         <div
-                            className="flex-1 grid place-items-center text-sm text-center px-4"
+                            className="grid flex-1 place-items-center px-4 text-center text-sm"
                             style={{ color: EKARI.dim }}
                         >
                             Could not load this listing. It may have been removed.
@@ -210,7 +223,7 @@ function ProductPreviewModal({
                         <iframe
                             src={publicUrl}
                             title="Listing preview"
-                            className="w-full h-full rounded-b-3xl"
+                            className="h-full w-full rounded-b-3xl"
                         />
                     )}
                 </div>
@@ -278,6 +291,7 @@ export default function AdminMarketPage() {
             });
         } catch (err) {
             console.error("AdminMarket pagination error:", err);
+            alert("Failed to load market listings.");
         } finally {
             setLoading(false);
         }
@@ -322,7 +336,6 @@ export default function AdminMarketPage() {
         try {
             setBusyId(listing.id);
             await deleteDoc(doc(db, "marketListings", listing.id));
-
             setItems((prev) => prev.filter((item) => item.id !== listing.id));
         } catch (err: any) {
             alert(err?.message || "Failed to delete listing");
@@ -335,11 +348,11 @@ export default function AdminMarketPage() {
 
     return (
         <>
-            <div className="p-4 md:p-6 space-y-6">
-                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+            <div className="space-y-6 p-4 md:p-6">
+                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
                         <h1
-                            className="text-2xl md:text-3xl font-extrabold"
+                            className="text-2xl font-extrabold md:text-3xl"
                             style={{ color: EKARI.text }}
                         >
                             Marketplace listings
@@ -359,7 +372,7 @@ export default function AdminMarketPage() {
                         <select
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value as any)}
-                            className="text-xs md:text-sm rounded-full border px-3 py-1.5 outline-none bg-white"
+                            className="rounded-full border bg-white px-3 py-1.5 text-xs outline-none md:text-sm"
                             style={{ borderColor: EKARI.hair, color: EKARI.text }}
                         >
                             <option value="all">All</option>
@@ -367,12 +380,13 @@ export default function AdminMarketPage() {
                             <option value="sold">Sold</option>
                             <option value="reserved">Reserved</option>
                             <option value="hidden">Hidden</option>
+                            <option value="draft">Draft</option>
                         </select>
                     </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <IoCubeOutline className="text-emerald-700" />
 
                         <span className="font-semibold" style={{ color: EKARI.text }}>
@@ -412,11 +426,11 @@ export default function AdminMarketPage() {
                 </div>
 
                 {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {Array.from({ length: 6 }).map((_, i) => (
                             <div
                                 key={i}
-                                className="h-40 rounded-2xl bg-gray-100 animate-pulse"
+                                className="h-40 animate-pulse rounded-2xl bg-gray-100"
                             />
                         ))}
                     </div>
@@ -426,10 +440,10 @@ export default function AdminMarketPage() {
                     </div>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {filtered.map((l) => {
                                 const status: MarketStatus =
-                                    (l.status as MarketStatus) ?? ((l as any).sold ? "sold" : "active");
+                                    (l.status as MarketStatus) ?? (l.sold ? "sold" : "active");
 
                                 const statusLabel =
                                     STATUS_LABEL[status] ||
@@ -437,9 +451,16 @@ export default function AdminMarketPage() {
 
                                 const statusColorClass = STATUS_COLOR[status] || "bg-gray-500";
 
-                                const cover = l.imageUrl || (l.imageUrls && l.imageUrls[0]) || "";
+                                const cover = l.imageUrl || l.imageUrls?.[0] || "";
 
                                 const isBusy = busyId === l.id;
+
+                                const sellerName =
+                                    l.seller?.name ||
+                                    l.seller?.handle ||
+                                    l.ownerId?.slice(0, 8) ||
+                                    l.sellerId?.slice(0, 8) ||
+                                    "unknown";
 
                                 const priceText =
                                     l.type === "lease" || l.type === "service"
@@ -450,7 +471,7 @@ export default function AdminMarketPage() {
                                 return (
                                     <div
                                         key={l.id}
-                                        className="rounded-2xl border bg-white shadow-sm hover:shadow-md transition flex flex-col overflow-hidden"
+                                        className="flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md"
                                         style={{ borderColor: EKARI.hair }}
                                     >
                                         <div className="relative h-36 bg-gray-100">
@@ -462,30 +483,28 @@ export default function AdminMarketPage() {
                                                     className="h-full w-full object-cover"
                                                 />
                                             ) : (
-                                                <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">
+                                                <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
                                                     No image
                                                 </div>
                                             )}
 
                                             <div
-                                                className={`absolute left-2 top-2 text-[10px] font-extrabold text-white px-2 py-1 rounded-full flex items-center gap-1 ${statusColorClass}`}
+                                                className={`absolute left-2 top-2 flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-extrabold text-white ${statusColorClass}`}
                                             >
                                                 <IoCheckmarkDone size={12} />
                                                 {statusLabel}
                                             </div>
                                         </div>
 
-                                        <div className="p-3 flex-1 flex flex-col gap-2">
-                                            <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">
+                                        <div className="flex flex-1 flex-col gap-2 p-3">
+                                            <div className="line-clamp-2 text-[13px] font-extrabold text-gray-900">
                                                 {l.name || "Untitled listing"}
                                             </div>
 
-                                            <div className="text-xs text-gray-500 flex flex-wrap gap-1">
+                                            <div className="flex flex-wrap gap-1 text-xs text-gray-500">
                                                 <span>
                                                     Seller:{" "}
-                                                    <span className="font-mono">
-                                                        {l.sellerId?.slice(0, 8) || "unknown"}
-                                                    </span>
+                                                    <span className="font-semibold">{sellerName}</span>
                                                 </span>
 
                                                 {l.category && (
@@ -511,7 +530,7 @@ export default function AdminMarketPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => setPreviewListingId(l.id)}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                                    className="inline-flex items-center gap-1 rounded-full border border-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50"
                                                 >
                                                     Preview listing
                                                 </button>
@@ -520,7 +539,7 @@ export default function AdminMarketPage() {
                                                     <button
                                                         onClick={() => updateStatus(l, "active")}
                                                         disabled={isBusy}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                        className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 disabled:opacity-60"
                                                     >
                                                         <IoCheckmarkDone size={12} />
                                                         Activate
@@ -531,7 +550,7 @@ export default function AdminMarketPage() {
                                                     <button
                                                         onClick={() => updateStatus(l, "sold")}
                                                         disabled={isBusy}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                        className="inline-flex items-center gap-1 rounded-full bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 disabled:opacity-60"
                                                     >
                                                         <IoCashOutline size={12} />
                                                         Sold
@@ -542,7 +561,7 @@ export default function AdminMarketPage() {
                                                     <button
                                                         onClick={() => updateStatus(l, "reserved")}
                                                         disabled={isBusy}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-yellow-500 text-white hover:opacity-90 disabled:opacity-60"
+                                                        className="inline-flex items-center gap-1 rounded-full bg-yellow-500 px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 disabled:opacity-60"
                                                     >
                                                         <IoTimeOutline size={12} />
                                                         Reserve
@@ -553,7 +572,7 @@ export default function AdminMarketPage() {
                                                     <button
                                                         onClick={() => updateStatus(l, "hidden")}
                                                         disabled={isBusy}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-gray-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                        className="inline-flex items-center gap-1 rounded-full bg-gray-600 px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 disabled:opacity-60"
                                                     >
                                                         <IoEyeOffOutline size={12} />
                                                         Hide
@@ -563,7 +582,7 @@ export default function AdminMarketPage() {
                                                 <button
                                                     onClick={() => deleteListing(l)}
                                                     disabled={isBusy}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-600 text-white hover:opacity-90 disabled:opacity-60"
+                                                    className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90 disabled:opacity-60"
                                                 >
                                                     <IoTrashOutline size={12} />
                                                     Delete
