@@ -2379,6 +2379,11 @@ export default function SellModal({
             ...(badge ? { authorBadge: badge } : {}),
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
+            // ✅ Add these defaults
+            featured: false,
+            rankBoost: 0,
+            publishedAt: serverTimestamp(),
+
             type: typeSel,
             nameLower: name.trim().toLowerCase(),
             categoryLower: category.toLowerCase(),
