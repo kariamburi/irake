@@ -266,8 +266,47 @@ const SECTIONS: Section[] = [
         ),
     },
     {
+        id: "identity-verification",
+        title: "11. Identity Verification & Face Data",
+        body: (
+            <div className="space-y-3">
+                <p>
+                    To help prevent fraud, impersonation, scams, and misuse of the platform,
+                    ekarihub may request identity verification documents such as a selfie
+                    photo and government-issued identification.
+                </p>
+
+                <p>
+                    This information is used solely for:
+                </p>
+
+                <ul className="list-disc pl-6 space-y-1">
+                    <li>Account verification</li>
+                    <li>Fraud prevention</li>
+                    <li>Safety and trust purposes</li>
+                </ul>
+
+                <p>
+                    Verification data is stored securely and is not sold or shared with
+                    advertisers or third parties for marketing purposes.
+                </p>
+
+                <p>
+                    Access to verification data is restricted to authorized internal
+                    reviewers only.
+                </p>
+
+                <p>
+                    Users may request account deletion and removal of associated
+                    verification data, subject to applicable legal, fraud prevention,
+                    and compliance obligations.
+                </p>
+            </div>
+        ),
+    },
+    {
         id: "rights",
-        title: "11. Your Data Rights",
+        title: "12. Your Data Rights",
         body: (
             <div className="space-y-2">
                 <p>As a user, you have the following rights under the Kenya Data Protection Act, 2019:</p>
@@ -292,7 +331,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "cookies",
-        title: "12. Use of Cookies and Tracking Technologies",
+        title: "13. Use of Cookies and Tracking Technologies",
         body: (
             <p>
                 ekarihub uses cookies and similar tracking technologies to improve user experience, gather analytics,
@@ -305,7 +344,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "changes",
-        title: "13. Changes to This Privacy Policy",
+        title: "14. Changes to This Privacy Policy",
         body: (
             <p>
                 This Privacy Policy may be updated periodically to reflect changes in the Hub. We will notify you of any
@@ -315,7 +354,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "contact",
-        title: "14. Contact Information",
+        title: "15. Contact Information",
         body: (
             <div className="space-y-2">
                 <p>
@@ -335,7 +374,7 @@ const SECTIONS: Section[] = [
     },
     {
         id: "liability",
-        title: "15. Liability for Data Management",
+        title: "16. Liability for Data Management",
         body: (
             <p>
                 EKABEL LIMITED is ultimately responsible for compliance with data protection laws and for ensuring the
