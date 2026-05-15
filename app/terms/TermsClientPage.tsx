@@ -493,8 +493,65 @@ const SECTIONS: Section[] = [
         ),
     },
     {
+        id: "subscription-terms",
+        title: "15. Subscription Terms and EULA",
+        body: (
+            <div className="space-y-4">
+                <p>
+                    ekarihub offers optional auto-renewable subscription packages for sellers,
+                    including Silver, Gold, and Platinum plans.
+                </p>
+
+                <p>
+                    Subscription plans may be offered on a monthly or yearly basis. The title,
+                    duration, and price of each subscription are displayed in the app before
+                    purchase and confirmed through Apple In-App Purchase on iOS.
+                </p>
+
+                <p>
+                    Subscriptions automatically renew unless canceled at least 24 hours before
+                    the end of the current billing period. Users can manage or cancel their
+                    subscriptions through their Apple ID subscription settings.
+                </p>
+
+                <p>
+                    Payment will be charged to the user&apos;s Apple ID account at confirmation
+                    of purchase. Renewal charges are made according to Apple&apos;s subscription
+                    billing rules.
+                </p>
+
+                <p>
+                    By subscribing through iOS, users agree to Apple&apos;s Standard End User
+                    License Agreement (EULA):
+                    <br />
+                    <a
+                        href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-blue-600 underline"
+                    >
+                        Apple Standard EULA
+                    </a>
+                </p>
+
+                <p>
+                    Our Privacy Policy is available here:
+                    <br />
+                    <a
+                        href="https://ekarihub.com/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-blue-600 underline"
+                    >
+                        ekarihub Privacy Policy
+                    </a>
+                </p>
+            </div>
+        ),
+    },
+    {
         id: "contact",
-        title: "15. Contact Information",
+        title: "16. Contact Information",
         body: (
             <div className="space-y-4">
                 <p>
