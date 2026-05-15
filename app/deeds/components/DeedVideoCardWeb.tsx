@@ -15,6 +15,7 @@ import { useDeedEngagementWeb } from "../hooks/useDeedEngagementWeb";
 import PhotoSliderPlayer from "@/app/components/PhotoSliderPlayer";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { DonateDialogWeb } from "@/app/components/DonateDialogWeb";
+import { useRecordDeedViewWeb } from "@/app/hooks/useRecordDeedViewWeb";
 
 type Props = {
     item: Deed;
@@ -132,7 +133,13 @@ export function DeedVideoCardWeb({
         totalShares,
         share,
     } = useDeedEngagementWeb(item.id, uid);
-
+    useRecordDeedViewWeb({
+        deedId: item.id,
+        authorId: item.authorId,
+        viewerId: uid || null,
+        isActive,
+        shouldLoad,
+    });
     const isPhoto = item.type === "photo";
     const poster = item.posterUrl || item.media?.[0]?.thumbUrl || null;
 
