@@ -64,7 +64,7 @@ export function useRecordDeedViewWeb({
                 const deedRef = doc(db, "deeds", deedId);
                 const viewRef = doc(
                     db,
-                    "deedViews",
+                    "views",
                     `${deedId}_${visitorId}_${today}`
                 );
 
@@ -76,7 +76,7 @@ export function useRecordDeedViewWeb({
                     const viewPayload: any = {
                         deedId,
                         authorId: authorId || null,
-                        viewerId: viewerId || null,
+                        userId: viewerId || null,
                         ymd: today,
                         source: "web",
                         createdAt: serverTimestamp(),
