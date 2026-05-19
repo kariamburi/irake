@@ -39,7 +39,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/uplifts", label: "Uplifts" },
     { href: "/admin/earnings", label: "Creator earnings" },
     { href: "/admin/wallets", label: "Creator withdrawals" },
-    { href: "/admin/finance", label: "Finance Settings" },
+    { href: "/admin/settings", label: "Settings" },
     { href: "/admin/verification", label: "Verification" },
     { href: "/admin/support-tickets", label: "Support tickets" },
     { href: "/admin/sounds", label: "Sounds library" },
@@ -68,7 +68,7 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/uplifts")) return "Uplifts";
     if (pathname.startsWith("/admin/earnings")) return "Creator earnings";
     if (pathname.startsWith("/admin/wallets")) return "Creator withdrawals";
-    if (pathname.startsWith("/admin/finance")) return "Finance Settings";
+    if (pathname.startsWith("/admin/settings")) return "Settings";
     if (pathname.startsWith("/admin/verification")) return "Verification";
     if (pathname.startsWith("/admin/support-tickets")) return "Support tickets";
     if (pathname.startsWith("/admin/sounds")) return "Sounds library";

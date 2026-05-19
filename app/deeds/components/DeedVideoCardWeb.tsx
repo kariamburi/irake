@@ -122,6 +122,8 @@ export function DeedVideoCardWeb({
 
     const { muted, toggleMute } = useGlobalMuteWeb();
 
+    const engagementEnabled = isActive && shouldLoad;
+
     const {
         liked,
         likeCount,
@@ -132,7 +134,11 @@ export function DeedVideoCardWeb({
         totalBookmarks,
         totalShares,
         share,
-    } = useDeedEngagementWeb(item.id, uid);
+    } = useDeedEngagementWeb(
+        engagementEnabled ? item.id : "",
+        engagementEnabled ? uid : null
+    );
+
     useRecordDeedViewWeb({
         deedId: item.id,
         authorId: item.authorId,
@@ -303,18 +309,23 @@ export function DeedVideoCardWeb({
         });
     };
 
+
     const commonOverlayProps = {
         uid,
         item,
-        commented,
-        liked,
-        saved,
+        commented: engagementEnabled ? commented : false,
+        liked: engagementEnabled ? liked : false,
+        saved: engagementEnabled ? saved : false,
         muted,
         showMute: false,
-        likeCount,
-        commentCount: commentedCount,
-        shareCount: totalShares,
-        saveCount: totalBookmarks,
+
+        likeCount: engagementEnabled ? likeCount : item.stats?.likes ?? 0,
+        commentCount: engagementEnabled ? commentedCount : item.stats?.comments ?? 0,
+        shareCount: engagementEnabled ? totalShares : item.stats?.shares ?? 0,
+        saveCount: engagementEnabled
+            ? totalBookmarks
+            : item.stats?.saves ?? item.stats?.bookmarks ?? 0,
+
         onToggleLike: onLikeClick,
         onToggleSave: onSaveClick,
         onShare: onShareClick,
