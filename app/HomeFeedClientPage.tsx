@@ -920,7 +920,17 @@ function useFollowAuthor(authorId?: string, uid?: string) {
         const ref = doc(db, "follows", followDocId);
         const s = await getDoc(ref);
         if (s.exists()) await deleteDoc(ref);
-        else await setDoc(ref, { followerId: uid, followingId: authorId, createdAt: Date.now() });
+        else {
+            await setDoc(
+                ref,
+                {
+                    followerId: uid,
+                    followingId: authorId,
+                    createdAt: serverTimestamp(),
+                },
+                { merge: true }
+            );
+        }
     };
 
     return { following, followersCount, toggle };

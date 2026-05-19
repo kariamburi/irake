@@ -1254,12 +1254,16 @@ function useFollowingState(viewerUid?: string, targetUid?: string) {
     const s = await getDoc(ref);
     if (s.exists()) await deleteDoc(ref);
     else
-      await setDoc(ref, {
-        followerId: viewerUid,
-        followingId: targetUid,
-        createdAt: Date.now(),
-      });
-  };
+      await setDoc(
+        ref,
+        {
+          followerId: viewerUid,
+          followingId: targetUid,
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+  }
   return { isFollowing, toggle };
 }
 function usePartnerStats(ownerUid?: string, viewerUid?: string) {
