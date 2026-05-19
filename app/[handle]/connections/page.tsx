@@ -2,7 +2,6 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   collection,
@@ -14,6 +13,12 @@ import {
   setDoc,
   deleteDoc,
   serverTimestamp,
+  limit,
+  startAfter,
+  documentId,
+  orderBy,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -22,6 +27,8 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { resolveUidByHandle } from "@/lib/fire-queries";
 import { IoArrowBack, IoSearchOutline } from "react-icons/io5";
 import SmartAvatar from "@/app/components/SmartAvatar";
+
+const PAGE_SIZE = 20;
 
 const EKARI = {
   forest: "#233F39",
@@ -44,18 +51,15 @@ type UserSummary = {
 
 function formatCount(n?: number) {
   const v = Number(n || 0);
-  if (v >= 1_000_000_000)
-    return (v / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
-  if (v >= 1_000_000)
-    return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (v >= 1_000)
-    return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + "B";
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
   return String(v);
 }
 
-/** Responsive helpers */
 function useMediaQuery(queryStr: string) {
   const [matches, setMatches] = React.useState(false);
+
   React.useEffect(() => {
     const mq = window.matchMedia(queryStr);
     const onChange = () => setMatches(mq.matches);
@@ -63,8 +67,10 @@ function useMediaQuery(queryStr: string) {
     mq.addEventListener?.("change", onChange);
     return () => mq.removeEventListener?.("change", onChange);
   }, [queryStr]);
+
   return matches;
 }
+
 function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
 }
@@ -75,7 +81,12 @@ export default function HandleConnectionsPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-
+  const [tabCounts, setTabCounts] = React.useState({
+    following: 0,
+    followers: 0,
+    partners: 0,
+    mutual: 0,
+  });
   const rawHandle = params?.handle ?? "";
   const decoded = (() => {
     try {
@@ -88,15 +99,12 @@ export default function HandleConnectionsPage() {
   const handleSlug = decoded.replace(/^@/, "");
   const handleWithAt = decoded.startsWith("@") ? decoded : `@${decoded}`;
 
-  const [ownerUid, setOwnerUid] = React.useState<string | null | undefined>(
-    undefined
-  );
+  const [ownerUid, setOwnerUid] = React.useState<string | null | undefined>(undefined);
   const [ownerUsername, setOwnerUsername] = React.useState<string>(handleWithAt);
+
   const [tab, setTab] = React.useState<TabKey>(() => {
     const t = (searchParams?.get("tab") || "followers") as TabKey;
-    return ["following", "followers", "partners", "mutual"].includes(t)
-      ? t
-      : "followers";
+    return ["following", "followers", "partners", "mutual"].includes(t) ? t : "followers";
   });
 
   const [following, setFollowing] = React.useState<UserSummary[]>([]);
@@ -104,43 +112,105 @@ export default function HandleConnectionsPage() {
   const [partners, setPartners] = React.useState<UserSummary[]>([]);
   const [mutualPartners, setMutualPartners] = React.useState<UserSummary[]>([]);
 
-  const [viewerFollowingSet, setViewerFollowingSet] = React.useState<Set<string>>(
-    new Set()
-  );
-  const [viewerFollowersSet, setViewerFollowersSet] = React.useState<Set<string>>(
-    new Set()
-  );
+  const [viewerFollowingSet, setViewerFollowingSet] = React.useState<Set<string>>(new Set());
+  const [viewerFollowersSet, setViewerFollowersSet] = React.useState<Set<string>>(new Set());
 
   const [loading, setLoading] = React.useState(true);
-  const [search, setSearch] = React.useState("");
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const [hasMore, setHasMore] = React.useState(true);
+  const [lastDoc, setLastDoc] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
 
-  // keep tab in sync with query (?tab=...)
+  const [search, setSearch] = React.useState("");
+  const observerRef = React.useRef<HTMLDivElement | null>(null);
+  const fetchingRef = React.useRef(false);
+
+  const viewerUid = user?.uid;
+  const loadTabCounts = React.useCallback(async () => {
+    if (!ownerUid) return;
+
+    const followsRef = collection(db, "follows");
+
+    const [followingSnap, followersSnap] = await Promise.all([
+      getDocs(query(followsRef, where("followerId", "==", ownerUid))),
+      getDocs(query(followsRef, where("followingId", "==", ownerUid))),
+    ]);
+
+    const ownerFollowingIds = followingSnap.docs.map(
+      (d) => (d.data() as any).followingId as string
+    );
+
+    const ownerFollowerIds = followersSnap.docs.map(
+      (d) => (d.data() as any).followerId as string
+    );
+
+    const ownerFollowingSet = new Set(ownerFollowingIds);
+    const ownerFollowerSet = new Set(ownerFollowerIds);
+
+    let partnersCount = 0;
+
+    ownerFollowingSet.forEach((id) => {
+      if (ownerFollowerSet.has(id)) partnersCount++;
+    });
+
+    let mutualCount = 0;
+
+    if (viewerUid && viewerUid !== ownerUid) {
+      const viewerFollowersSnap = await getDocs(
+        query(followsRef, where("followingId", "==", viewerUid))
+      );
+
+      const viewerFollowersSet = new Set(
+        viewerFollowersSnap.docs.map(
+          (d) => (d.data() as any).followerId as string
+        )
+      );
+
+      ownerFollowerSet.forEach((id) => {
+        if (viewerFollowersSet.has(id)) mutualCount++;
+      });
+    }
+
+    setTabCounts({
+      following: ownerFollowingIds.length,
+      followers: ownerFollowerIds.length,
+      partners: partnersCount,
+      mutual: mutualCount,
+    });
+  }, [ownerUid, viewerUid]);
   React.useEffect(() => {
     const t = (searchParams?.get("tab") || "followers") as TabKey;
     if (["following", "followers", "partners", "mutual"].includes(t)) {
-      setTab(t);
+      if (t !== tab) {
+        setLoading(true);
+        setTab(t);
+      }
     }
   }, [searchParams]);
+  React.useEffect(() => {
+    if (!ownerUid) return;
 
-  // resolve owner uid from handle
+    loadTabCounts();
+  }, [ownerUid, viewerUid, loadTabCounts]);
   React.useEffect(() => {
     let active = true;
+
     (async () => {
       const res: any = await resolveUidByHandle(handleWithAt);
       if (!active) return;
+
       setOwnerUid(res?.uid ?? null);
       if (res?.handle) setOwnerUsername(res.handle);
     })();
+
     return () => {
       active = false;
     };
   }, [handleWithAt]);
 
-  const viewerUid = user?.uid;
-
   const fetchUserDocs = React.useCallback(async (ids: string[]) => {
     const map: Record<string, UserSummary> = {};
     const unique = Array.from(new Set(ids)).filter(Boolean);
+
     await Promise.all(
       unique.map(async (id) => {
         try {
@@ -162,95 +232,176 @@ export default function HandleConnectionsPage() {
         }
       })
     );
+
     return map;
   }, []);
 
-  // main loader
-  React.useEffect(() => {
-    if (!ownerUid) {
-      if (ownerUid === null) setLoading(false);
+  const loadViewerRelations = React.useCallback(async () => {
+    if (!viewerUid) {
+      setViewerFollowingSet(new Set());
+      setViewerFollowersSet(new Set());
       return;
     }
 
-    (async () => {
+    const followsRef = collection(db, "follows");
+
+    const [viewerFollowingSnap, viewerFollowersSnap] = await Promise.all([
+      getDocs(query(followsRef, where("followerId", "==", viewerUid))),
+      getDocs(query(followsRef, where("followingId", "==", viewerUid))),
+    ]);
+
+    setViewerFollowingSet(
+      new Set(viewerFollowingSnap.docs.map((d) => (d.data() as any).followingId as string))
+    );
+
+    setViewerFollowersSet(
+      new Set(viewerFollowersSnap.docs.map((d) => (d.data() as any).followerId as string))
+    );
+  }, [viewerUid]);
+
+  const resetTabData = React.useCallback(() => {
+    setFollowing([]);
+    setFollowers([]);
+    setPartners([]);
+    setMutualPartners([]);
+    setLastDoc(null);
+    setHasMore(true);
+  }, []);
+
+  const loadConnections = React.useCallback(
+    async (reset = false) => {
+      if (!ownerUid || fetchingRef.current) return;
+
+      fetchingRef.current = true;
+
       try {
-        setLoading(true);
+        if (reset) {
+          setLoading(true);
+          resetTabData();
+        } else {
+          setLoadingMore(true);
+        }
+
         const followsRef = collection(db, "follows");
 
-        // owner following & followers
-        const [followingSnap, followersSnap] = await Promise.all([
-          getDocs(query(followsRef, where("followerId", "==", ownerUid))),
-          getDocs(query(followsRef, where("followingId", "==", ownerUid))),
-        ]);
+        const constraints: any[] = [
+          tab === "following"
+            ? where("followerId", "==", ownerUid)
+            : where("followingId", "==", ownerUid),
+          orderBy(documentId()),
+        ];
 
-        const ownerFollowingIds = followingSnap.docs.map(
-          (d) => (d.data() as any).followingId as string
-        );
-        const ownerFollowerIds = followersSnap.docs.map(
-          (d) => (d.data() as any).followerId as string
-        );
+        if (!reset && lastDoc) {
+          constraints.push(startAfter(lastDoc));
+        }
 
-        const ownerFollowingSetLocal = new Set(ownerFollowingIds);
-        const ownerFollowersSetLocal = new Set(ownerFollowerIds);
+        constraints.push(limit(PAGE_SIZE));
 
-        // partners: owner ↔ user mutual
-        const partnersIds: string[] = [];
-        ownerFollowingSetLocal.forEach((id) => {
-          if (ownerFollowersSetLocal.has(id)) partnersIds.push(id);
+        const snap = await getDocs(query(followsRef, ...constraints));
+
+        if (snap.empty) {
+          setHasMore(false);
+          return;
+        }
+
+        const ids = snap.docs.map((d) => {
+          const data = d.data() as any;
+          return tab === "following" ? data.followingId : data.followerId;
         });
 
-        // viewer relations
-        let viewerFollowingIds: string[] = [];
-        let viewerFollowerIds: string[] = [];
-        if (viewerUid) {
-          const [viewerFollowingSnap, viewerFollowersSnap] = await Promise.all([
-            getDocs(query(followsRef, where("followerId", "==", viewerUid))),
-            getDocs(query(followsRef, where("followingId", "==", viewerUid))),
-          ]);
-          viewerFollowingIds = viewerFollowingSnap.docs.map(
-            (d) => (d.data() as any).followingId as string
+        let finalIds = ids;
+
+        if (tab === "partners") {
+          const checks = await Promise.all(
+            ids.map(async (id) => {
+              const relId = `${id}_${ownerUid}`;
+              const relSnap = await getDoc(doc(db, "follows", relId));
+              return relSnap.exists() ? id : null;
+            })
           );
-          viewerFollowerIds = viewerFollowersSnap.docs.map(
-            (d) => (d.data() as any).followerId as string
-          );
+          finalIds = checks.filter(Boolean) as string[];
         }
 
-        const viewerFollowersSetLocal = new Set(viewerFollowerIds);
-        const viewerFollowingSetLocal = new Set(viewerFollowingIds);
-
-        setViewerFollowersSet(viewerFollowersSetLocal);
-        setViewerFollowingSet(viewerFollowingSetLocal);
-
-        // mutual partners: people who follow viewer AND owner
-        const mutualIds: string[] = [];
-        if (viewerUid && viewerUid !== ownerUid) {
-          ownerFollowersSetLocal.forEach((id) => {
-            if (viewerFollowersSetLocal.has(id)) mutualIds.push(id);
-          });
+        if (tab === "mutual") {
+          if (!viewerUid || viewerUid === ownerUid) {
+            finalIds = [];
+          } else {
+            finalIds = ids.filter((id) => viewerFollowersSet.has(id));
+          }
         }
 
-        const allIds = [
-          ...ownerFollowingIds,
-          ...ownerFollowerIds,
-          ...partnersIds,
-          ...mutualIds,
-        ];
-        const userMap = await fetchUserDocs(allIds);
+        const userMap = await fetchUserDocs(finalIds);
+        const users = finalIds.map((id) => userMap[id] || { id });
 
-        setFollowing(ownerFollowingIds.map((id) => userMap[id] || { id }));
-        setFollowers(ownerFollowerIds.map((id) => userMap[id] || { id }));
-        setPartners(partnersIds.map((id) => userMap[id] || { id }));
-        setMutualPartners(mutualIds.map((id) => userMap[id] || { id }));
+        if (tab === "following") {
+          setFollowing((prev) => (reset ? users : [...prev, ...users]));
+        } else if (tab === "followers") {
+          setFollowers((prev) => (reset ? users : [...prev, ...users]));
+        } else if (tab === "partners") {
+          setPartners((prev) => (reset ? users : [...prev, ...users]));
+        } else {
+          setMutualPartners((prev) => (reset ? users : [...prev, ...users]));
+        }
+
+        setLastDoc(snap.docs[snap.docs.length - 1]);
+
+        if (snap.docs.length < PAGE_SIZE) {
+          setHasMore(false);
+        }
       } catch (e) {
-        console.warn("OwnerConnections web load error:", e);
+        console.warn("Connections infinite load error:", e);
       } finally {
         setLoading(false);
+        setLoadingMore(false);
+        fetchingRef.current = false;
       }
+    },
+    [
+      ownerUid,
+      tab,
+      lastDoc,
+      viewerUid,
+      viewerFollowersSet,
+      fetchUserDocs,
+      resetTabData,
+    ]
+  );
+
+  React.useEffect(() => {
+    if (ownerUid === null) {
+      setLoading(false);
+      return;
+    }
+
+    if (!ownerUid) return;
+
+    (async () => {
+      await loadViewerRelations();
+      await loadConnections(true);
     })();
-  }, [ownerUid, viewerUid, fetchUserDocs]);
+  }, [ownerUid, viewerUid, tab]);
+
+  React.useEffect(() => {
+    if (!hasMore || loading || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadConnections(false);
+        }
+      },
+      { threshold: 0.4 }
+    );
+
+    const el = observerRef.current;
+    if (el) observer.observe(el);
+
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, loadConnections]);
 
   const currentList = React.useMemo(() => {
     const q = search.trim().toLowerCase();
+
     const base =
       tab === "following"
         ? following
@@ -275,6 +426,7 @@ export default function HandleConnectionsPage() {
       router.push(`/login?next=${encodeURIComponent(next)}`);
       return;
     }
+
     if (userId === viewerUid) return;
 
     const relId = `${viewerUid}_${userId}`;
@@ -298,6 +450,7 @@ export default function HandleConnectionsPage() {
         },
         { merge: true }
       );
+
       setViewerFollowingSet((prev) => {
         const next = new Set(prev);
         next.add(userId);
@@ -305,11 +458,6 @@ export default function HandleConnectionsPage() {
       });
     }
   };
-
-  const followingCount = following.length;
-  const followersCount = followers.length;
-  const partnersCount = partners.length;
-  const mutualCount = mutualPartners.length;
 
   const goBackToProfile = () => {
     router.push(`/${encodeURIComponent(handleSlug)}`);
@@ -319,57 +467,47 @@ export default function HandleConnectionsPage() {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else goBackToProfile();
   };
+  const goToTab = (nextTab: TabKey) => {
+    if (nextTab === tab) return;
 
+    setLoading(true);
+    setLoadingMore(false);
+    setHasMore(true);
+    setSearch("");
+
+    router.push(
+      `/${encodeURIComponent(handleSlug)}/connections?tab=${nextTab}`
+    );
+  };
   const TabsBar = (
-    <div
-      className="flex border-b text-sm font-semibold"
-      style={{ borderColor: EKARI.hair }}
-    >
+    <div className="flex border-b text-sm font-semibold" style={{ borderColor: EKARI.hair }}>
       <Tab
-        label={`Following ${formatCount(followingCount)}`}
+        label={`Following ${formatCount(tabCounts.following)}`}
         active={tab === "following"}
-        onClick={() =>
-          router.push(
-            `/${encodeURIComponent(handleSlug)}/connections?tab=following`
-          )
-        }
+        onClick={() => goToTab("following")}
       />
+
       <Tab
-        label={`Followers ${formatCount(followersCount)}`}
+        label={`Followers ${formatCount(tabCounts.followers)}`}
         active={tab === "followers"}
-        onClick={() =>
-          router.push(
-            `/${encodeURIComponent(handleSlug)}/connections?tab=followers`
-          )
-        }
+        onClick={() => goToTab("followers")}
       />
+
       <Tab
-        label={`Partners ${formatCount(partnersCount)}`}
+        label={`Partners ${formatCount(tabCounts.partners)}`}
         active={tab === "partners"}
-        onClick={() =>
-          router.push(
-            `/${encodeURIComponent(handleSlug)}/connections?tab=partners`
-          )
-        }
+        onClick={() => goToTab("partners")}
       />
+
       <Tab
-        label={`Mutual ${formatCount(mutualCount)}`}
+        label={`Mutual ${formatCount(tabCounts.mutual)}`}
         active={tab === "mutual"}
-        onClick={() =>
-          router.push(
-            `/${encodeURIComponent(handleSlug)}/connections?tab=mutual`
-          )
-        }
+        onClick={() => goToTab("mutual")}
       />
     </div>
   );
-
   const Body = (
-    <div
-      className="mx-auto min-h-screen w-full px-3 md:px-4 pt-3 pb-6"
-      style={{ backgroundColor: EKARI.bg }}
-    >
-      {/* Desktop Top bar (mobile uses sticky header) */}
+    <div className="mx-auto min-h-screen w-full px-3 md:px-4 pt-3 pb-6" style={{ backgroundColor: EKARI.bg }}>
       {!isMobile && (
         <div className="flex items-center gap-3 mb-3">
           <button
@@ -380,6 +518,7 @@ export default function HandleConnectionsPage() {
           >
             <IoArrowBack size={20} />
           </button>
+
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold truncate" style={{ color: EKARI.subtext }}>
               {handleSlug}
@@ -388,14 +527,13 @@ export default function HandleConnectionsPage() {
               Connections
             </div>
           </div>
+
           <div className="w-9" />
         </div>
       )}
 
-      {/* Tabs */}
       {!isMobile && TabsBar}
 
-      {/* Search bar */}
       <div
         className="mt-3 mb-2 flex items-center gap-2 rounded-xl px-3 py-2 border"
         style={{ backgroundColor: "#F9FAFB", borderColor: EKARI.hair }}
@@ -404,13 +542,12 @@ export default function HandleConnectionsPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search connections"
+          placeholder="Search loaded connections"
           className="flex-1 bg-transparent text-sm outline-none"
           style={{ color: EKARI.text }}
         />
       </div>
 
-      {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <BouncingBallLoader />
@@ -431,21 +568,25 @@ export default function HandleConnectionsPage() {
               onToggleFollow={onToggleFollow}
             />
           ))}
+
+          <div ref={observerRef} className="py-6 flex justify-center">
+            {loadingMore && <BouncingBallLoader />}
+            {!hasMore && !loadingMore && (
+              <span className="text-xs" style={{ color: EKARI.subtext }}>
+                No more users
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 
-  // Mobile shell: sticky header + sticky tabs + safe areas
   if (isMobile) {
     return (
       <div className="fixed inset-0 flex flex-col bg-white">
-        {/* Header */}
         <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
-          <div
-            className="h-14 px-3 flex items-center gap-2"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
-          >
+          <div className="h-14 px-3 flex items-center gap-2" style={{ paddingTop: "env(safe-area-inset-top)" }}>
             <button
               onClick={goBackSmart}
               className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
@@ -471,11 +612,9 @@ export default function HandleConnectionsPage() {
             </button>
           </div>
 
-          {/* Sticky tabs under header */}
           <div className="px-2">{TabsBar}</div>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
 
         <div style={{ height: "env(safe-area-inset-bottom)" }} />
@@ -483,7 +622,6 @@ export default function HandleConnectionsPage() {
     );
   }
 
-  // Desktop shell
   return <AppShell>{Body}</AppShell>;
 }
 
@@ -525,8 +663,10 @@ function Row({
   onToggleFollow: (id: string) => void;
 }) {
   const router = useRouter();
+
   const fullName =
     [user.firstName, user.surname].filter(Boolean).join(" ") || "ekarihub user";
+
   const handle = user.handle || "";
   const id = user.id;
 
@@ -535,6 +675,7 @@ function Row({
   const followsViewer = viewerFollowersSet.has(id);
 
   let pillLabel = "";
+
   if (!viewerUid || viewerUid === id) {
     pillLabel = "";
   } else if (isFriend) {
@@ -562,12 +703,13 @@ function Row({
           style={{ backgroundColor: EKARI.hair }}
         >
           <SmartAvatar src={user.photoURL} alt={fullName || "User"} size={46} />
-
         </div>
+
         <div className="min-w-0">
           <div className="text-sm font-semibold truncate" style={{ color: EKARI.text }}>
             {fullName}
           </div>
+
           {!!handle && (
             <div className="text-xs truncate" style={{ color: EKARI.subtext }}>
               {handle}

@@ -443,9 +443,6 @@ export function DeedOverlayWeb({
                                 <AuthorBadgePill badge={(item as any)?.authorBadge} />
 
                                 <div className="flex items-center gap-2 text-[11px] text-white/70">
-                                    <span title={`${followersCount} followers`}>
-                                        {formatCount(followersCount)} Followers
-                                    </span>
 
                                     {timeAgo ? (
                                         <>

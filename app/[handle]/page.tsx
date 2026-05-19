@@ -54,6 +54,7 @@ import {
   IoShareSocialOutline,
   IoAnalyticsOutline,
   IoBookmarkOutline,
+  IoArrowBack,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -2787,11 +2788,7 @@ export default function HandleProfilePage() {
               aria-label="Back"
               title="Back"
             >
-              {/* you already import IoArrowBack elsewhere in your project, but not in this file;
-                  simplest: re-use an existing icon from your imports or add IoArrowBack import. */}
-              <span className="text-[18px] font-black" style={{ color: EKARI.text }}>
-                ←
-              </span>
+              <IoArrowBack size={20} color={EKARI.text} />
             </button>
 
             <div className="min-w-0 flex-1">
