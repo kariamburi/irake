@@ -68,7 +68,6 @@ export function DeedsScrollerWeb({
         setActiveIndex(next);
     }, [items.length, initialIndex]);
 
-    // once DOM is rendered around selected item, scroll there
     useEffect(() => {
         const root = rootRef.current;
         if (!root) return;
@@ -76,10 +75,9 @@ export function DeedsScrollerWeb({
         if (cardH <= 0) return;
 
         const clamped = Math.max(0, Math.min(items.length - 1, initialIndex));
-        const firstId = items[clamped]?.id ?? "";
 
-        // run once for the current first ready dataset / selected item
-        const nextBootKey = `${firstId}_${clamped}_${cardH}`;
+        // ✅ only boot once per selected initialIndex/card height
+        const nextBootKey = `${clamped}_${cardH}`;
         if (bootKeyRef.current === nextBootKey) return;
         bootKeyRef.current = nextBootKey;
 
@@ -97,7 +95,7 @@ export function DeedsScrollerWeb({
                 onActiveItemChange?.(item, clamped);
             }
         });
-    }, [items, initialIndex, cardH, onActiveItemChange, rootRef]);
+    }, [initialIndex, cardH]);
 
     useEffect(() => {
         const node = rootRef.current;

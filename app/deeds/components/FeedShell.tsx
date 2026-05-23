@@ -404,10 +404,25 @@ function FeedShellInner({
                                             dataSaverOn={dataSaverOn}
                                             hlsMaxHeight={hlsMaxHeight}
                                             loading={currentFeed.loading}
+                                            renderBottomSpacer={
+                                                currentFeed.loadingMore ? (
+                                                    <div
+                                                        className="snap-start grid place-items-center bg-black"
+                                                        style={{ height: pageHeight }}
+                                                    >
+                                                        <BouncingBallLoader />
+                                                    </div>
+                                                ) : null
+                                            }
                                             onNeedMore={(index) => {
                                                 const remaining = visibleItems.length - 1 - index;
 
-                                                if (remaining <= 4 && !loadingMoreRef.current && currentFeed.hasMore) {
+                                                if (
+                                                    remaining <= 4 &&
+                                                    !loadingMoreRef.current &&
+                                                    currentFeed.hasMore
+                                                ) {
+                                                    loadingMoreRef.current = true;
                                                     feed.loadMore(feed.activeTab);
                                                 }
                                             }}
