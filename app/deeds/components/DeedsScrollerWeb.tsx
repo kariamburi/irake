@@ -61,14 +61,6 @@ export function DeedsScrollerWeb({
 
     // keep active index synced when initialIndex changes
     useEffect(() => {
-        if (!items.length) return;
-
-        const next = Math.max(0, Math.min(items.length - 1, initialIndex));
-        activeIndexRef.current = next;
-        setActiveIndex(next);
-    }, [items.length, initialIndex]);
-
-    useEffect(() => {
         const root = rootRef.current;
         if (!root) return;
         if (!items.length) return;
@@ -76,7 +68,6 @@ export function DeedsScrollerWeb({
 
         const clamped = Math.max(0, Math.min(items.length - 1, initialIndex));
 
-        // ✅ only boot once per selected initialIndex/card height
         const nextBootKey = `${clamped}_${cardH}`;
         if (bootKeyRef.current === nextBootKey) return;
         bootKeyRef.current = nextBootKey;

@@ -164,7 +164,14 @@ function FeedShellInner({
     const visibleItems = useMemo(() => {
         return currentFeed.items.filter((item) => !blockedAuthorIds.has(item.authorId));
     }, [currentFeed.items, blockedAuthorIds]);
+    useEffect(() => {
+        if (activeDeed) return;
+        if (!visibleItems.length) return;
 
+        setActiveIndex(0);
+        setActiveDeedId(visibleItems[0].id);
+        setActiveDeed(visibleItems[0]);
+    }, [visibleItems, activeDeed]);
     const handleUserBlocked = (authorId: string) => {
         setBlockedAuthorIds((prev) => {
             const next = new Set(prev);
