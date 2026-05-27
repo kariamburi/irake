@@ -1987,12 +1987,21 @@ export default function SellModal({
     );
     const [category, setCategory] = useState<string>("");
     const [description, setDescription] = useState<string>("");
+    function getOthersCategory(categoriesForType: string[]) {
+        return (
+            categoriesForType.find((c) => c.toLowerCase() === "others") ||
+            categoriesForType.find((c) => c.toLowerCase() === "other") ||
+            "Others"
+        );
+    }
 
-    // Keep category initialized (mainly for service path)
+    // Keep category initialized
     useEffect(() => {
-        const first = categoriesForType[0] || "";
-        setCategory((prev) => (prev ? prev : first));
+        const others = getOthersCategory(categoriesForType);
+        setCategory((prev) => prev || others);
     }, [categoriesForType]);
+    // Keep category initialized (mainly for service path)
+
 
     // Name + use-case tips
     const [name, setName] = useState<string>("");
@@ -2089,7 +2098,7 @@ export default function SellModal({
         if (!open) {
             setStep(0);
             setTypeSel("product");
-            setCategory("");
+            setCategory(getOthersCategory(categoriesForType));
             setName("");
             setUseCaseTip("");
             setUnit("");
@@ -2126,11 +2135,11 @@ export default function SellModal({
         }
 
         const row = currentItem;
-        const fallbackCategory = categoriesForType[0] || "";
+        const fallbackCategory = getOthersCategory(categoriesForType);
 
-        if (row?.category || fallbackCategory) {
-            setCategory(row?.category || fallbackCategory);
-        }
+        // If item exists in catalog, use its real category.
+        // If typed item does NOT exist, save it under Others.
+        setCategory(row?.category || fallbackCategory);
 
 
         if (typeSel === "tree") {
