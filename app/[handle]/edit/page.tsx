@@ -344,7 +344,8 @@ export default function EditProfilePage() {
 
   const isDesktop = useIsDesktop();
   const isMobile = useIsMobile();
-
+  const [allowPushNotifications, setAllowPushNotifications] = useState(true);
+  const [allowEmailNotifications, setAllowEmailNotifications] = useState(true);
   const goBack = React.useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push("/");
@@ -562,7 +563,8 @@ export default function EditProfilePage() {
 
           setPhoneVerified(!!d.phoneVerified || !!u.phoneNumber);
           setCountryCode(d.countryCode ?? null);
-
+          setAllowPushNotifications(d.allowPushNotifications !== false);
+          setAllowEmailNotifications(d.allowEmailNotifications !== false);
           const fromDoc = d.preferredCurrency as "KES" | "USD" | undefined;
           const fallback = (d.countryCode === "KE" ? "KES" : "USD") as "KES" | "USD";
           setPreferredCurrency(fromDoc ?? fallback);
@@ -631,7 +633,20 @@ export default function EditProfilePage() {
       setSaving(false);
     }
   };
+  const saveNotificationSetting = async (
+    key: "allowPushNotifications" | "allowEmailNotifications",
+    value: boolean
+  ) => {
+    if (!uid) return;
 
+    if (key === "allowPushNotifications") {
+      setAllowPushNotifications(value);
+    } else {
+      setAllowEmailNotifications(value);
+    }
+
+    await saveField({ [key]: value });
+  };
   // cleanup util for temporary avatar previews
   const cleanupAvatarPreview = () => {
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -1005,6 +1020,23 @@ export default function EditProfilePage() {
                     : "Auto (based on country)"
                 }
                 onEdit={() => setSheet("currency")}
+              />
+              <ToggleItemRow
+                label="Push notifications"
+                value="Likes, comments, messages and updates"
+                checked={allowPushNotifications}
+                onChange={(v) =>
+                  saveNotificationSetting("allowPushNotifications", v)
+                }
+              />
+
+              <ToggleItemRow
+                label="Email notifications"
+                value="Receive important alerts by email"
+                checked={allowEmailNotifications}
+                onChange={(v) =>
+                  saveNotificationSetting("allowEmailNotifications", v)
+                }
               />
               <ItemRow
                 label="Interests"
@@ -1532,7 +1564,42 @@ export default function EditProfilePage() {
   // ✅ Desktop wrapper: keep AppShell
   return <AppShell>{PageContent}</AppShell>;
 }
+function ToggleItemRow({
+  label,
+  value,
+  checked,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-4 flex items-center justify-between hover:border-[#C79257]/70 hover:shadow-md transition-all">
+      <div className="pr-3">
+        <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+          {label}
+        </div>
+        <div className="mt-1 text-sm text-slate-900 font-semibold">
+          {value}
+        </div>
+      </div>
 
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${checked ? "bg-[#233F39]" : "bg-gray-300"
+          }`}
+      >
+        <span
+          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${checked ? "translate-x-6" : "translate-x-1"
+            }`}
+        />
+      </button>
+    </div>
+  );
+}
 /* =========================================================
    ItemRow — card-style row
    ========================================================= */
