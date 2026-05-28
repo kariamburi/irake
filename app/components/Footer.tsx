@@ -73,7 +73,7 @@ export function Footer() {
                         </Link>
 
                         <Link
-                            href="#"
+                            href="https://apps.apple.com/us/app/ekarihub/id6761846497"
                             className="rounded-xl border px-3 py-2 text-sm font-bold hover:shadow-sm inline-flex items-center gap-2"
                             style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#fff" }}
                             aria-label="Download on the App Store"
@@ -92,7 +92,20 @@ export function Footer() {
                 </div>
             </div>
             <div className="py-4 text-center text-xs" style={{ color: EKARI.dim }}>
-                © {new Date().getFullYear()} EkariHub. All rights reserved.
+                <div>© {new Date().getFullYear()} ekarihub. All rights reserved.</div>
+
+                <div className="mt-1 text-[10px] opacity-70">
+                    Powered by{" "}
+                    <Link
+                        href="https://www.craftinventors.co.ke"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline font-semibold"
+                        style={{ color: EKARI.text }}
+                    >
+                        Craft Inventors
+                    </Link>
+                </div>
             </div>
         </footer>
     );
