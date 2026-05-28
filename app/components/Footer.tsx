@@ -91,20 +91,25 @@ export function Footer() {
 
                 </div>
             </div>
-            <div className="py-4 text-center text-xs" style={{ color: EKARI.dim }}>
-                <div>© {new Date().getFullYear()} ekarihub. All rights reserved.</div>
+            <div
+                className="py-4 text-xs border-t"
+                style={{ color: EKARI.dim, borderColor: EKARI.hair }}
+            >
+                <div className="mx-auto max-w-6xl px-5 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <div>© {new Date().getFullYear()} ekarihub. All rights reserved.</div>
 
-                <div className="mt-1 text-[10px] opacity-70">
-                    Powered by{" "}
-                    <Link
-                        href="https://www.craftinventors.co.ke"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline font-semibold"
-                        style={{ color: EKARI.text }}
-                    >
-                        Craft Inventors
-                    </Link>
+                    <div className="text-[10px] opacity-70">
+                        Powered by{" "}
+                        <Link
+                            href="https://www.craftinventors.co.ke"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline font-semibold"
+                            style={{ color: EKARI.text }}
+                        >
+                            Craft Inventors
+                        </Link>
+                    </div>
                 </div>
             </div>
         </footer>
