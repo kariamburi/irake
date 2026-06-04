@@ -699,7 +699,19 @@ export default function RightRail({
     const [text, setText] = useState("");
     const [replyTo, setReplyTo] = useState<{ id: string; handle?: string | null } | null>(null);
     const [sending, setSending] = useState(false);
+    const MAX_TEXTAREA_HEIGHT = 120;
 
+    const resizeComposerTextarea = useCallback(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+
+        el.style.height = "auto";
+
+        const nextHeight = Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT);
+        el.style.height = `${nextHeight}px`;
+        el.style.overflowY =
+            el.scrollHeight > MAX_TEXTAREA_HEIGHT ? "auto" : "hidden";
+    }, []);
     const isGuest = !currentUser?.uid;
     const normalizedText = text.replace(/\r\n/g, "\n");
     const canSend =
@@ -717,6 +729,13 @@ export default function RightRail({
         setTab("comments");
         setText("");
         setReplyTo(null);
+        requestAnimationFrame(() => {
+            const el = textareaRef.current;
+            if (!el) return;
+
+            el.style.height = "auto";
+            el.style.overflowY = "hidden";
+        });
         setSending(false);
         setShowEmoji(false);
     }, [deedId, open]);
@@ -756,6 +775,13 @@ export default function RightRail({
             onsuccesfulcomment?.(deedId);
             setText("");
             setReplyTo(null);
+            requestAnimationFrame(() => {
+                const el = textareaRef.current;
+                if (!el) return;
+
+                el.style.height = "auto";
+                el.style.overflowY = "hidden";
+            });
         } finally {
             setSending(false);
         }
@@ -961,23 +987,34 @@ export default function RightRail({
                             </div>
 
                             <div
-                                className={["flex-1 bg-gray-100 items-center rounded-full px-3 py-2 flex items-end gap-2", sending ? "opacity-80" : ""].join(
-                                    " "
-                                )}
+                                className={[
+                                    "flex-1 bg-gray-100 items-center rounded-3xl px-3 py-2 flex items-end gap-2",
+                                    sending ? "opacity-80" : "",
+                                ].join(" ")}
                             >
                                 <textarea
                                     ref={textareaRef}
                                     value={text}
                                     onChange={(e) => {
-                                        setText(clipGraphemes(e.target.value, 400));
+                                        const next = clipGraphemes(e.target.value, 400);
+                                        setText(next);
+
                                         selectionStartRef.current = e.target.selectionStart ?? e.target.value.length;
                                         selectionEndRef.current = e.target.selectionEnd ?? e.target.value.length;
+
+                                        requestAnimationFrame(resizeComposerTextarea);
                                     }}
                                     onClick={syncComposerSelection}
-                                    onKeyUp={syncComposerSelection}
+                                    onKeyUp={() => {
+                                        syncComposerSelection();
+                                        resizeComposerTextarea();
+                                    }}
                                     onSelect={syncComposerSelection}
-                                    onFocus={syncComposerSelection}
-                                    className="flex-1 text-black bg-transparent outline-none text-sm resize-none max-h-28"
+                                    onFocus={() => {
+                                        syncComposerSelection();
+                                        resizeComposerTextarea();
+                                    }}
+                                    className="flex-1 text-black bg-transparent outline-none text-sm resize-none leading-5 min-h-[20px] overflow-hidden"
                                     placeholder={!enabled ? "Comments are off" : isGuest ? "Sign in to comment…" : "Add a comment…"}
                                     disabled={!enabled || isGuest || sending}
                                     rows={1}
@@ -989,7 +1026,10 @@ export default function RightRail({
                                             return;
                                         }
 
-                                        requestAnimationFrame(syncComposerSelection);
+                                        requestAnimationFrame(() => {
+                                            syncComposerSelection();
+                                            resizeComposerTextarea();
+                                        });
                                     }}
                                 />
 
