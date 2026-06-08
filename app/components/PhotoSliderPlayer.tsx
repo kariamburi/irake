@@ -363,9 +363,9 @@ export function PhotoSliderPlayer({
     if (!count) return null;
 
     const current = photos[clamp(index, 0, count - 1)];
-    const currentFit = getPhotoFit(current?.url);
-    const objectClass = currentFit === "contain" ? "object-contain" : "object-cover";
-
+    // const currentFit = getPhotoFit(current?.url);
+    // const objectClass = currentFit === "contain" ? "object-contain" : "object-cover";
+    const objectClass = "object-contain";
     const progressStyle =
         progressPosition === "top"
             ? { top: `${progressTopOffset}px` }
