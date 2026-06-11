@@ -48,33 +48,21 @@ function detectOrientationFromElement(
     if (height > width) return "portrait";
     return "square";
 }
-
 function getMediaFit(
     orientation: Deed["orientation"],
     aspectRatioValue?: number | null
 ): "cover" | "contain" {
-    if (orientation === "portrait") return "cover";
-    if (orientation === "landscape") return "contain";
-    if (orientation === "square") return "contain";
-
-    if (typeof aspectRatioValue === "number") {
-        if (aspectRatioValue < 0.9) return "cover";
-        if (aspectRatioValue > 1.1) return "contain";
-        return "contain";
-    }
-
-    return "cover";
+    return "contain";
 }
+
 
 function getMediaStageClass() {
     return "absolute inset-0 flex items-center justify-center overflow-hidden bg-black";
 }
-
 function getMediaClass(fit: "cover" | "contain") {
-    return fit === "cover"
-        ? "block h-full w-full object-cover"
-        : "block h-auto w-auto max-h-full max-w-full object-contain";
+    return "block h-full w-full object-contain";
 }
+
 
 function formatTime(seconds: number) {
     if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -512,11 +500,11 @@ export function DeedVideoCardWeb({
                             onTimeUpdate={handleTimeUpdate}
                             onPlay={handlePlay}
                             onPause={handlePause}
-                            style={
-                                fit === "contain"
-                                    ? { maxWidth: "100%", maxHeight: "100%" }
-                                    : undefined
-                            }
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "contain",
+                            }}
                         />
                     )}
                 </div>
