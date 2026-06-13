@@ -680,6 +680,7 @@ export default function OnboardingWizardPage() {
             handleAvailable === true
         );
     }, [
+        loadingAuthProfile,
         firstName,
         surname,
         gender,
@@ -1189,20 +1190,42 @@ export default function OnboardingWizardPage() {
                             >
                                 <Field label="Name">
                                     {nameFromProvider ? (
-                                        <div
-                                            className="rounded-xl border px-3 py-3 text-sm"
-                                            style={{ borderColor: EKARI.hair, background: "#F6F7FB" }}
-                                        >
-                                            <div className="font-bold" style={{ color: EKARI.text }}>
-                                                {firstName} {surname}
-                                            </div>
-                                            {authEmail && (
-                                                <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                                                    {authEmail}
+                                        <div className="space-y-3">
+                                            <div
+                                                className="rounded-xl border px-3 py-3 text-sm"
+                                                style={{ borderColor: EKARI.hair, background: "#F6F7FB" }}
+                                            >
+                                                <div className="font-bold" style={{ color: EKARI.text }}>
+                                                    {firstName} {surname}
                                                 </div>
-                                            )}
-                                            <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                                                Name and email were provided by Google.
+
+                                                {authEmail && (
+                                                    <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                                                        {authEmail}
+                                                    </div>
+                                                )}
+
+                                                <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                                                    Name and email were provided by Google. You can complete missing details below.
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <input
+                                                    value={firstName}
+                                                    onChange={(e) => setFirstName(e.target.value)}
+                                                    placeholder="First name"
+                                                    className="rounded-xl border px-3 py-3 text-sm"
+                                                    style={{ borderColor: EKARI.hair }}
+                                                />
+
+                                                <input
+                                                    value={surname}
+                                                    onChange={(e) => setSurname(e.target.value)}
+                                                    placeholder="Surname"
+                                                    className="rounded-xl border px-3 py-3 text-sm"
+                                                    style={{ borderColor: EKARI.hair }}
+                                                />
                                             </div>
                                         </div>
                                     ) : (
@@ -1374,6 +1397,17 @@ export default function OnboardingWizardPage() {
                                     disableNext={!canNext1}
                                 />
                             </motion.div>
+                            {!canNext1 && (
+                                <div className="mt-3 text-xs font-semibold" style={{ color: EKARI.danger }}>
+                                    {!firstName.trim() ? "First name missing." :
+                                        !surname.trim() ? "Surname missing." :
+                                            !gender ? "Select gender." :
+                                                !dobDate ? "Select date of birth." :
+                                                    !isAdult ? "User must be 18+." :
+                                                        handleAvailable !== true ? "Username must show OK before continuing." :
+                                                            "Complete all required fields."}
+                                </div>
+                            )}
                         </>
                     )}
 
