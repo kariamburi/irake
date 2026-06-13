@@ -143,11 +143,32 @@ export default function SignupPage() {
         }
     };
 
+    const isProfileComplete = (data: any) => {
+        return (
+            data?.onboarded === true &&
+            !!data?.handle &&
+            !!data?.firstName &&
+            !!data?.surname &&
+            !!data?.dob &&
+            !!data?.gender &&
+            Array.isArray(data?.areaOfInterest) &&
+            data.areaOfInterest.length > 0 &&
+            Array.isArray(data?.roles) &&
+            data.roles.length > 0
+        );
+    };
+
     const resolveDestination = async (uid: string) => {
         try {
             const snap = await getDoc(doc(db, "users", uid));
 
             if (!snap.exists()) {
+                return "/onboarding";
+            }
+
+            const data = snap.data();
+
+            if (!isProfileComplete(data)) {
                 return "/onboarding";
             }
 
