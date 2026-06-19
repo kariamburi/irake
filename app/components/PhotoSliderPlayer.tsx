@@ -442,7 +442,7 @@ export function PhotoSliderPlayer({
                 }}
             />
 
-            <div className="absolute inset-0 z-20 flex">
+            <div className="absolute mb-[190px] inset-0 z-20 flex">
                 <button
                     type="button"
                     aria-label="Previous photo"
