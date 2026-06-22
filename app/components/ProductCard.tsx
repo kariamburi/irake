@@ -230,7 +230,39 @@ export default function ProductCard({
                         <span>{imgCount}</span>
                     </div>
                 )}
+                {/* Status badge */}
+                <div
+                    className={clsx(
+                        "absolute right-2 top-10 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] text-white",
+                        isSold
+                            ? "bg-red-600"
+                            : isReserved
+                                ? "bg-yellow-500"
+                                : isHidden
+                                    ? "bg-gray-500"
+                                    : "bg-emerald-600"
+                    )}
+                >
+                    {isSold ? (
+                        <IoCloseCircle size={12} />
+                    ) : isReserved ? (
+                        <IoTimeOutline size={12} />
+                    ) : isHidden ? (
+                        <IoEyeOffOutline size={12} />
+                    ) : (
+                        <IoCheckmarkCircle size={12} />
+                    )}
 
+                    <span>
+                        {isSold
+                            ? "Sold"
+                            : isReserved
+                                ? "Reserved"
+                                : isHidden
+                                    ? "Hidden"
+                                    : "Available"}
+                    </span>
+                </div>
                 {/* Price + Status row */}
                 <div className="absolute left-2 right-2 bottom-2 flex items-center justify-between">
                     {/* Price chip */}
@@ -241,39 +273,7 @@ export default function ProductCard({
                         {priceText}
                     </div>
 
-                    {/* Status badge */}
-                    <div
-                        className={clsx(
-                            "inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] text-white",
-                            isSold
-                                ? "bg-red-600"
-                                : isReserved
-                                    ? "bg-yellow-500"
-                                    : isHidden
-                                        ? "bg-gray-500"
-                                        : "bg-emerald-600"
-                        )}
-                    >
-                        {isSold ? (
-                            <IoCloseCircle size={12} />
-                        ) : isReserved ? (
-                            <IoTimeOutline size={12} />
-                        ) : isHidden ? (
-                            <IoEyeOffOutline size={12} />
-                        ) : (
-                            <IoCheckmarkCircle size={12} />
-                        )}
 
-                        <span>
-                            {isSold
-                                ? "Sold"
-                                : isReserved
-                                    ? "Reserved"
-                                    : isHidden
-                                        ? "Hidden"
-                                        : "Available"}
-                        </span>
-                    </div>
                 </div>
             </button>
 

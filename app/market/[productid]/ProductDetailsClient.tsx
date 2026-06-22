@@ -315,6 +315,9 @@ export default function ProductDetailsClient({
         return (arr || []).filter(Boolean);
     }, [product]);
 
+
+    // put this immediately after images useMemo
+
     const goTo = (i: number) => {
         if (scrollRef.current) {
             const w = scrollRef.current.clientWidth;
