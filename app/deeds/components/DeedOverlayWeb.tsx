@@ -375,7 +375,11 @@ export function DeedOverlayWeb({
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10">
                 <div
                     className={cn(
-                        "absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent transition-opacity duration-200",
+                        "absolute inset-0 h-full bottom-0 bg-gradient-to-t from-black/95  to-transparent transition-opacity duration-200",
+
+                        captionExpanded
+                            ? "via-black/80"
+                            : "via-black/40",
                         mediaReady ? "opacity-100" : "opacity-0 pointer-events-none"
                     )}
                 />
