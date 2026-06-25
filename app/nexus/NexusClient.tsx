@@ -44,6 +44,7 @@ import {
     IoMenu,
     IoChevronForward,
     IoCheckmarkCircle,
+    IoArrowBack,
 } from "react-icons/io5";
 
 import { db } from "@/lib/firebase";
@@ -1157,13 +1158,23 @@ export default function NexusPage() {
     const mobileHeader = (
         <div className="sticky top-0 z-30 border-b bg-white/95 backdrop-blur" style={{ borderColor: EKARI.hair }}>
             <div className="flex items-center justify-between gap-3 px-3 py-3">
-                <div>
-                    <h1 className="text-[24px] font-black" style={{ color: EKARI.text }}>
-                        Nexus
-                    </h1>
-                    <p className="text-[12px] font-medium text-slate-500">
-                        Explore • Connect • Learn
-                    </p>
+                <div className="flex">
+                    <button
+                        type="button"
+                        onClick={() => { router.back() }}
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#111827] transition hover:bg-black/5"
+                        aria-label="Back"
+                    >
+                        <IoArrowBack size={22} />
+                    </button>
+                    <div>
+                        <h1 className="text-[24px] font-black" style={{ color: EKARI.text }}>
+                            Nexus
+                        </h1>
+                        <p className="text-[12px] font-medium text-slate-500">
+                            Explore • Connect • Learn
+                        </p>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1198,11 +1209,11 @@ export default function NexusPage() {
                             {TopCards}
                             {Controls}
                             {Feed}
-                            <MobileBottomTabs
+                            {/**  <MobileBottomTabs
                                 onCreate={goUpload}
                                 theme="light"
                                 activeKey="nexus"
-                            />
+                            />*/}
                         </main>
                     )}
                 </div>

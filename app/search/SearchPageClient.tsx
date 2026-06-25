@@ -22,6 +22,8 @@ import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { DeedStats } from "@/lib/fire-queries";
 import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
+import MobileBottomTabs from "../components/navigation/MobileBottomTabs";
+import { useAuth } from "../hooks/useAuth";
 
 /* -------------------- Types -------------------- */
 
@@ -364,6 +366,7 @@ export default function SearchPageClient() {
         else router.push("/");
     }, [router]);
 
+
     const [q, setQ] = useState("");
     const [lastQuery, setLastQuery] = useState("");
     const [active, setActive] = useState<TabKey>("Top");
@@ -395,7 +398,12 @@ export default function SearchPageClient() {
     const [bootstrappedFromURL, setBootstrappedFromURL] = useState(false);
 
     const hideDropdownTimer = useRef<number | null>(null);
-
+    const { user, signOutUser } = useAuth();
+    const uid = user?.uid;
+    const goUpload = () => {
+        if (!user?.uid) router.push("/getstarted?next=/studio/upload");
+        else router.push("/studio/upload");
+    };
     /* --------- Recents --------- */
 
     useEffect(() => {
@@ -1948,9 +1956,15 @@ export default function SearchPageClient() {
                                     )}
                                 </div>
                             )}
+
                         </>
                     )}
                 </div>
+                {!isDesktop && (<MobileBottomTabs
+                    onCreate={goUpload}
+                    theme="light"
+                    activeKey="nexus"
+                />)}
             </main>
         </AppShell>
     );

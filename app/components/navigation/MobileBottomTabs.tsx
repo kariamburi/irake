@@ -10,6 +10,7 @@ import {
     IoCompassOutline,
     IoHome,
     IoHomeOutline,
+    IoSearchOutline,
 } from "react-icons/io5";
 import { EKARI, hexToRgba } from "@/app/nexus/discussions/[discussionId]/discussion-thread.utils";
 
@@ -129,7 +130,7 @@ export default function MobileBottomTabs({
     const resolvedActive = {
         deeds: activeKey ? activeKey === "deeds" : isActive("/"),
         market: activeKey ? activeKey === "market" : isActive("/market"),
-        nexus: activeKey ? activeKey === "nexus" : isActive("/nexus"),
+        nexus: activeKey ? activeKey === "nexus" : isActive("/search"),
         bonga: activeKey ? activeKey === "bonga" : isActive("/bonga"),
     };
 
@@ -210,9 +211,10 @@ export default function MobileBottomTabs({
 
                 <TabBtn
                     tabKey="nexus"
-                    label="Nexus"
-                    icon={<IoCompassOutline size={20} />}
-                    onClick={() => handleTabPress("nexus", "/nexus")}
+                    label="Dive"
+                    //icon={<IoCompassOutline size={20} />}
+                    icon={<IoSearchOutline size={20} />}
+                    onClick={() => handleTabPress("nexus", "/search")}
                     active={resolvedActive.nexus}
                     theme={theme}
                     refreshing={refreshingKey === "nexus"}
