@@ -420,16 +420,18 @@ export default function ResetPasswordPage() {
             </>
           )}
 
-          <button
-            onClick={() => router.back()}
-            className="mx-auto mt-4 flex items-center gap-1 text-sm font-bold"
-            style={{ color: EKARI.dim }}
-            disabled={loading}
-          >
-            <IoChevronBack size={18} />
-            Back
-          </button>
-
+          <div
+            className="w-full justify-end items-center">
+            <button
+              onClick={() => router.replace("/")}
+              className="mx-auto mt-4 flex items-center gap-1 text-sm font-bold"
+              style={{ color: EKARI.dim }}
+              disabled={loading}
+            >
+              <IoChevronBack size={18} />
+              Home
+            </button>
+          </div>
           <div
             className="mt-5 border-t pt-3 border-dashed"
             style={{ borderColor: EKARI.hair }}
