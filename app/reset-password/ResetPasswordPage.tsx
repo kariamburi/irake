@@ -20,10 +20,7 @@ import { getAuthSafe } from "@/lib/firebase";
 
 const EKARI = {
   forest: "#233F39",
-  leaf: "#1F3A34",
   gold: "#C79257",
-  sand: "#FFFFFF",
-  card: "#FFFFFF",
   text: "#0F172A",
   dim: "#6B7280",
   hair: "#E5E7EB",
@@ -38,15 +35,7 @@ export default function ResetPasswordPage() {
   const mode = sp.get("mode");
   const oobCode = sp.get("oobCode");
 
-  // Load Firebase auth safely (client-only)
   const [authBundle, setAuthBundle] = useState<{ auth: any } | null>(null);
-  useEffect(() => {
-    (async () => {
-      const bundle = await getAuthSafe();
-      if (bundle) setAuthBundle({ auth: bundle.auth });
-    })();
-  }, []);
-
   const [email, setEmail] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
 
@@ -59,10 +48,88 @@ export default function ResetPasswordPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [done, setDone] = useState(false);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAuth() {
+      try {
+        const bundle = await getAuthSafe();
+
+        if (!mounted) return;
+
+        if (!bundle?.auth) {
+          setErrorMsg(
+            "Unable to load password reset. Please open this link in Google Chrome or request a new reset link."
+          );
+          setChecking(false);
+          return;
+        }
+
+        setAuthBundle({ auth: bundle.auth });
+      } catch (err) {
+        console.log("Firebase auth load error:", err);
+
+        if (!mounted) return;
+
+        setErrorMsg(
+          "Unable to load password reset. Please open this link in Google Chrome or request a new reset link."
+        );
+        setChecking(false);
+      }
+    }
+
+    loadAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function verifyLink() {
+      try {
+        setErrorMsg("");
+
+        if (!authBundle?.auth) return;
+
+        if (mode !== "resetPassword" || !oobCode) {
+          setErrorMsg("Invalid reset link. Please request a new one.");
+          setChecking(false);
+          return;
+        }
+
+        const mail = await verifyPasswordResetCode(authBundle.auth, oobCode);
+
+        if (!mounted) return;
+
+        setEmail(mail);
+      } catch (err) {
+        console.log("Reset link verification error:", err);
+
+        if (!mounted) return;
+
+        setErrorMsg(
+          "This reset link is invalid or has expired. Please request a new one."
+        );
+      } finally {
+        if (mounted) setChecking(false);
+      }
+    }
+
+    verifyLink();
+
+    return () => {
+      mounted = false;
+    };
+  }, [authBundle, mode, oobCode]);
+
   const disableAll = checking || loading || !authBundle;
 
   const pwRules = useMemo(() => {
     const v = pw.trim();
+
     return {
       len: v.length >= 8,
       num: /\d/.test(v),
@@ -82,28 +149,6 @@ export default function ResetPasswordPage() {
     );
   }, [oobCode, mode, pwRules, pw, pw2]);
 
-  useEffect(() => {
-    (async () => {
-      setErrorMsg("");
-      if (!authBundle || !authBundle.auth) return;
-
-      if (mode !== "resetPassword" || !oobCode) {
-        setErrorMsg("Invalid reset link. Please request a new one.");
-        setChecking(false);
-        return;
-      }
-
-      try {
-        const mail = await verifyPasswordResetCode(authBundle.auth, oobCode);
-        setEmail(mail);
-      } catch (e: any) {
-        setErrorMsg("This reset link is invalid or has expired. Please request a new one.");
-      } finally {
-        setChecking(false);
-      }
-    })();
-  }, [authBundle, mode, oobCode]);
-
   const mapAuthError = (err: any) => {
     switch (err?.code) {
       case "auth/expired-action-code":
@@ -120,15 +165,18 @@ export default function ResetPasswordPage() {
   };
 
   const handleReset = async () => {
-    if (!canSubmit || disableAll) return;
+    if (!canSubmit || disableAll || !authBundle?.auth || !oobCode) return;
+
     setLoading(true);
     setErrorMsg("");
 
     try {
-      await confirmPasswordReset(authBundle!.auth, oobCode!, pw.trim());
+      await confirmPasswordReset(authBundle.auth, oobCode, pw.trim());
       setDone(true);
-      // Small UX: bounce to login after success
-      setTimeout(() => router.push("/login"), 900);
+
+      setTimeout(() => {
+        router.push("/login");
+      }, 900);
     } catch (err: any) {
       setErrorMsg(mapAuthError(err));
     } finally {
@@ -145,7 +193,6 @@ export default function ResetPasswordPage() {
       }}
     >
       <div className="w-full max-w-xl flex flex-col items-center gap-4">
-        {/* Brand header */}
         <motion.div
           className="flex flex-col items-center gap-2 text-center"
           initial={{ opacity: 0, scale: 0.96 }}
@@ -165,45 +212,67 @@ export default function ResetPasswordPage() {
             height={86}
             priority
           />
-          <p className="text-xs md:text-sm tracking-wide" style={{ color: EKARI.subtext }}>
+
+          <p
+            className="text-xs md:text-sm tracking-wide"
+            style={{ color: EKARI.subtext }}
+          >
             Create a new password
           </p>
         </motion.div>
 
-        {/* Card */}
         <motion.div
-          className="w-full rounded-3xl bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_rgba(15,23,42,0.26)] border border-white/70 px-4 py-5 md:px-6 md:py-6 mt-2"
+          className="w-full px-4 py-5 md:px-6 md:py-6 mt-2"
           initial={{ opacity: 0, y: 12, scale: 0.99 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
         >
-          {/* Title + helper */}
           <div className="flex flex-col gap-1 mb-3">
-            <h1 className="font-black text-lg md:text-xl" style={{ color: EKARI.text }}>
+            <h1
+              className="font-black text-lg md:text-xl"
+              style={{ color: EKARI.text }}
+            >
               Reset password
             </h1>
-            <p className="text-xs md:text-sm leading-5" style={{ color: EKARI.subtext }}>
-              {email
-                ? <>Resetting password for <span className="font-semibold">{email}</span></>
-                : "Verify your reset link, then set a new password."}
+
+            <p
+              className="text-xs md:text-sm leading-5"
+              style={{ color: EKARI.subtext }}
+            >
+              {email ? (
+                <>
+                  Resetting password for{" "}
+                  <span className="font-semibold">{email}</span>
+                </>
+              ) : (
+                "Verify your reset link, then set a new password."
+              )}
             </p>
           </div>
 
-          {/* State: checking */}
           {checking && (
             <p className="text-sm" style={{ color: EKARI.dim }}>
               Verifying reset link…
             </p>
           )}
 
-          {/* Error */}
           {!!errorMsg && !done && (
-            <p className="mt-3 text-center text-sm font-semibold" style={{ color: EKARI.danger }}>
-              {errorMsg}
-            </p>
+            <div
+              className="mt-3 rounded-xl border px-3 py-3 text-center"
+              style={{
+                color: EKARI.danger,
+                borderColor: "#FECACA",
+                backgroundColor: "#FEF2F2",
+              }}
+            >
+              <p className="text-sm font-semibold">{errorMsg}</p>
+              <p className="mt-2 text-xs">
+                Tip: open the link in Google Chrome. If it still fails, request
+                a new password reset link.
+              </p>
+            </div>
           )}
 
-          {/* Success */}
           {done && (
             <motion.div
               className="mt-3 rounded-xl border px-3 py-2.5 flex items-start gap-2"
@@ -223,18 +292,22 @@ export default function ResetPasswordPage() {
             </motion.div>
           )}
 
-          {/* Form */}
           {!checking && !done && !errorMsg && (
             <>
-              {/* New password */}
               <label className="block text-xs font-semibold mb-1.5 mt-3">
                 <span style={{ color: EKARI.dim }}>New password</span>
               </label>
+
               <div
                 className="flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
                 style={{ borderColor: EKARI.hair }}
               >
-                <IoLockClosedOutline className="mr-2" size={18} color={EKARI.dim} />
+                <IoLockClosedOutline
+                  className="mr-2"
+                  size={18}
+                  color={EKARI.dim}
+                />
+
                 <input
                   type={showPw ? "text" : "password"}
                   placeholder="At least 8 chars"
@@ -246,6 +319,7 @@ export default function ResetPasswordPage() {
                   }}
                   disabled={disableAll}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPw((s) => !s)}
@@ -261,15 +335,20 @@ export default function ResetPasswordPage() {
                 </button>
               </div>
 
-              {/* Confirm password */}
               <label className="block text-xs font-semibold mb-1.5 mt-3">
                 <span style={{ color: EKARI.dim }}>Confirm password</span>
               </label>
+
               <div
                 className="flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
                 style={{ borderColor: EKARI.hair }}
               >
-                <IoLockClosedOutline className="mr-2" size={18} color={EKARI.dim} />
+                <IoLockClosedOutline
+                  className="mr-2"
+                  size={18}
+                  color={EKARI.dim}
+                />
+
                 <input
                   type={showPw2 ? "text" : "password"}
                   placeholder="Re-type password"
@@ -281,6 +360,7 @@ export default function ResetPasswordPage() {
                   }}
                   disabled={disableAll}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPw2((s) => !s)}
@@ -296,12 +376,21 @@ export default function ResetPasswordPage() {
                 </button>
               </div>
 
-              {/* Rules */}
-              <div className="mt-3 rounded-xl border px-3 py-2.5" style={{ borderColor: EKARI.hair }}>
-                <p className="text-xs font-semibold" style={{ color: EKARI.text }}>
+              <div
+                className="mt-3 rounded-xl border px-3 py-2.5"
+                style={{ borderColor: EKARI.hair }}
+              >
+                <p
+                  className="text-xs font-semibold"
+                  style={{ color: EKARI.text }}
+                >
                   Password requirements
                 </p>
-                <ul className="mt-1 text-xs leading-5" style={{ color: EKARI.subtext }}>
+
+                <ul
+                  className="mt-1 text-xs leading-5"
+                  style={{ color: EKARI.subtext }}
+                >
                   <li className={pwRules.len ? "font-semibold" : ""}>
                     • At least 8 characters
                   </li>
@@ -317,7 +406,6 @@ export default function ResetPasswordPage() {
                 </ul>
               </div>
 
-              {/* Primary CTA */}
               <button
                 onClick={handleReset}
                 disabled={!canSubmit || disableAll}
@@ -332,7 +420,6 @@ export default function ResetPasswordPage() {
             </>
           )}
 
-          {/* Back */}
           <button
             onClick={() => router.back()}
             className="mx-auto mt-4 flex items-center gap-1 text-sm font-bold"
@@ -343,15 +430,28 @@ export default function ResetPasswordPage() {
             Back
           </button>
 
-          {/* Terms / Privacy */}
-          <div className="mt-5 border-t pt-3 border-dashed" style={{ borderColor: EKARI.hair }}>
-            <p className="text-[11px] md:text-xs leading-5 text-center" style={{ color: EKARI.text }}>
+          <div
+            className="mt-5 border-t pt-3 border-dashed"
+            style={{ borderColor: EKARI.hair }}
+          >
+            <p
+              className="text-[11px] md:text-xs leading-5 text-center"
+              style={{ color: EKARI.text }}
+            >
               By continuing, you agree to our{" "}
-              <Link href="/terms" className="underline font-semibold" style={{ color: EKARI.forest }}>
+              <Link
+                href="/terms"
+                className="underline font-semibold"
+                style={{ color: EKARI.forest }}
+              >
                 Terms and Conditions
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="underline font-semibold" style={{ color: EKARI.forest }}>
+              <Link
+                href="/privacy"
+                className="underline font-semibold"
+                style={{ color: EKARI.forest }}
+              >
                 Privacy Policy
               </Link>
               .
