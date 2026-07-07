@@ -29,6 +29,7 @@ import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { useRouter } from "next/navigation";
 import { NotificationItem } from "@/app/components/NotificationItem";
+import { createPortal } from "react-dom";
 
 export const dynamic = "force-dynamic";
 
@@ -607,36 +608,12 @@ export default function NotificationsPage() {
     <>
       {TopCards}
       <div className={clsx(isDesktop ? "mt-2" : "mt-1")}>{List}</div>
-      {pendingDeleteId && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-xl">
-            <div className="text-lg font-black text-slate-900">Delete notification?</div>
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              This notification will be removed from your list.
-            </p>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingDeleteId(null)}
-                disabled={deleting}
-                className="rounded-full border px-4 py-2 text-sm font-bold"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={confirmDeleteNotification}
-                disabled={deleting}
-                className="rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteNotificationModal
+        open={!!pendingDeleteId}
+        deleting={deleting}
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={confirmDeleteNotification}
+      />
     </>
   );
 
@@ -658,5 +635,53 @@ export default function NotificationsPage() {
         {Content}
       </div>
     </AppShell>
+  );
+}
+function DeleteNotificationModal({
+  open,
+  deleting,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  deleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-xl">
+        <div className="text-lg font-black text-slate-900">
+          Delete notification?
+        </div>
+
+        <p className="mt-2 text-sm font-semibold text-slate-500">
+          This notification will be removed from your list.
+        </p>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={deleting}
+            className="rounded-full border px-4 py-2 text-sm font-bold"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={deleting}
+            className="rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

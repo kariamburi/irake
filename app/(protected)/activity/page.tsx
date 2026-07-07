@@ -612,39 +612,12 @@ export default function ActivityPage() {
 
       {/* Mobile safe area spacer */}
       {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
-      {pendingDeleteId && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-xl">
-            <div className="text-lg font-black text-slate-900">
-              Delete notification?
-            </div>
-
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              This notification will be removed from your activity list.
-            </p>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingDeleteId(null)}
-                disabled={deleting}
-                className="rounded-full border px-4 py-2 text-sm font-bold"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={confirmDeleteNotification}
-                disabled={deleting}
-                className="rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteNotificationModal
+        open={!!pendingDeleteId}
+        deleting={deleting}
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={confirmDeleteNotification}
+      />
       <div className="h-6" />
     </div>
   );
@@ -750,4 +723,52 @@ export default function ActivityPage() {
 
   // ✅ DESKTOP: keep AppShell
   return <AppShell>{Body}</AppShell>;
+}
+function DeleteNotificationModal({
+  open,
+  deleting,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  deleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-xl">
+        <div className="text-lg font-black text-slate-900">
+          Delete notification?
+        </div>
+
+        <p className="mt-2 text-sm font-semibold text-slate-500">
+          This notification will be removed from your list.
+        </p>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={deleting}
+            className="rounded-full border px-4 py-2 text-sm font-bold"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={deleting}
+            className="rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 }
