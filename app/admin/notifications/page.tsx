@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { app } from "@/lib/firebase";
+import { app, db } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 
 const EKARI = {
     forest: "#233F39",
@@ -22,17 +23,19 @@ export default function AdminNotificationsPage() {
     const [sending, setSending] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState("");
-
+    const [progress, setProgress] = useState<any>(null);
+    const [currentBroadcastId, setCurrentBroadcastId] = useState<string | null>(null);
     async function handleSend(e: React.FormEvent) {
         e.preventDefault();
         setSending(true);
         setError("");
         setResult(null);
+        setProgress(null);
 
         try {
-            const fn = httpsCallable(getFunctions(app), "adminSendBroadcast");
+            const fn = httpsCallable(getFunctions(app), "adminCreateBroadcastJob");
 
-            const res = await fn({
+            const res: any = await fn({
                 title,
                 body,
                 sendPush,
@@ -40,12 +43,23 @@ export default function AdminNotificationsPage() {
                 target,
             });
 
-            setResult(res.data);
-            setTitle("");
-            setBody("");
+            const broadcastId = res.data.broadcastId;
+            setCurrentBroadcastId(broadcastId);
+
+            const unsub = onSnapshot(doc(db, "adminBroadcasts", broadcastId), (snap) => {
+                if (!snap.exists()) return;
+                const data = snap.data();
+                setProgress(data);
+
+                if (data.status === "completed" || data.status === "failed") {
+                    setSending(false);
+                    setResult(data);
+                    unsub();
+                }
+            });
         } catch (err: any) {
-            setError(err?.message || "Failed to send notification.");
-        } finally {
+            console.error(err);
+            setError(err?.message || err?.details || err?.code || "Failed to create broadcast job.");
             setSending(false);
         }
     }
@@ -141,7 +155,46 @@ export default function AdminNotificationsPage() {
                         {result.pushCount}, email queued: {result.emailQueued}
                     </div>
                 )}
+                {progress && (
+                    <div className="rounded-xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
+                        <div className="flex justify-between text-sm font-bold">
+                            <span>Status: {progress.status}</span>
+                            <span>
+                                {progress.totalUsers > 0
+                                    ? Math.round((progress.processed / progress.totalUsers) * 100)
+                                    : 0}
+                                %
+                            </span>
+                        </div>
 
+                        <div className="mt-2 h-3 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                    width: `${progress.totalUsers > 0
+                                        ? Math.round((progress.processed / progress.totalUsers) * 100)
+                                        : 0
+                                        }%`,
+                                    backgroundColor: EKARI.forest,
+                                }}
+                            />
+                        </div>
+
+                        <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                            Processed {progress.processed || 0} of {progress.totalUsers || 0} users ·
+                            In-app {progress.notificationCount || 0} ·
+                            Push {progress.pushCount || 0} ·
+                            Email queued {progress.emailQueued || 0} ·
+                            Failed {progress.failedCount || 0}
+                        </div>
+
+                        {currentBroadcastId && (
+                            <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                                Job ID: {currentBroadcastId}
+                            </div>
+                        )}
+                    </div>
+                )}
                 <button
                     type="submit"
                     disabled={sending || !title.trim() || !body.trim() || (!sendPush && !sendEmail)}
