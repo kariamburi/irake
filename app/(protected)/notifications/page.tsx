@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   limit,
@@ -17,6 +18,7 @@ import {
   IoChevronForward,
   IoNotificationsOutline,
   IoPeopleOutline,
+  IoTrashOutline,
 } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
 import clsx from "clsx";
@@ -149,6 +151,11 @@ type Notif = {
   createdAt?: any;
   seen?: boolean;
   meta?: Record<string, any>;
+  message?: string;
+  broadcastId?: string;
+  byPhotoURL?: string | null;
+  byUserId?: string;
+  handle?: string;
 };
 
 export default function NotificationsPage() {
@@ -259,6 +266,8 @@ export default function NotificationsPage() {
         setNotifPreview(`${n.byName || "Someone"} checked out your profile 👀`);
       else if (n.type === "payment_success")
         setNotifPreview(n.preview || n.title || "Payment successful ✅");
+      else if (n.type === "admin_broadcast")
+        setNotifPreview(n.preview || n.message || n.title || "System notification");
       else setNotifPreview(n.title || "New activity on ekarihub 🔔");
     });
 
@@ -291,6 +300,24 @@ export default function NotificationsPage() {
 
     return () => unsub();
   }, [uid]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const askDeleteNotification = useCallback((id: string) => {
+    setPendingDeleteId(id);
+  }, []);
+
+  const confirmDeleteNotification = useCallback(async () => {
+    if (!uid || !pendingDeleteId) return;
+
+    try {
+      setDeleting(true);
+      await deleteDoc(doc(db, "users", uid, "notifications", pendingDeleteId));
+      setPendingDeleteId(null);
+    } finally {
+      setDeleting(false);
+    }
+  }, [uid, pendingDeleteId]);
 
   const Header = (
     <div
@@ -492,13 +519,24 @@ export default function NotificationsPage() {
           >
             <ul className="space-y-2">
               {items.map((n) => (
-                <li key={n.id}>
-                  {/* keep your NotificationItem exactly the same */}
-                  <NotificationItem
-                    n={n}
-                    handle={myHandle}
-                    onOpen={(href) => pushSafe(router, href)}
-                  />
+                <li key={n.id} className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <NotificationItem
+                      n={n}
+                      handle={myHandle}
+                      onOpen={(href) => pushSafe(router, href)}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => askDeleteNotification(n.id)}
+                    className="h-10 w-10 shrink-0 rounded-2xl border bg-white/80 grid place-items-center transition hover:bg-red-50"
+                    style={{ borderColor: "rgba(239,68,68,0.22)", color: "#B42318" }}
+                    title="Delete notification"
+                  >
+                    <IoTrashOutline size={18} />
+                  </button>
                 </li>
               ))}
               {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
@@ -569,6 +607,36 @@ export default function NotificationsPage() {
     <>
       {TopCards}
       <div className={clsx(isDesktop ? "mt-2" : "mt-1")}>{List}</div>
+      {pendingDeleteId && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-xl">
+            <div className="text-lg font-black text-slate-900">Delete notification?</div>
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              This notification will be removed from your list.
+            </p>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteId(null)}
+                disabled={deleting}
+                className="rounded-full border px-4 py-2 text-sm font-bold"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmDeleteNotification}
+                disabled={deleting}
+                className="rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 

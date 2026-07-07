@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
@@ -26,6 +27,8 @@ import {
   IoPersonAdd,
   IoNotifications,
   IoCheckmarkCircleOutline,
+  IoMegaphone,
+  IoTrashOutline,
 } from "react-icons/io5";
 import clsx from "clsx";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -80,6 +83,9 @@ type Notif = {
     byPhotoURL?: string | null;
     handle?: string;
   };
+  title?: string;
+  message?: string;
+  broadcastId?: string;
 };
 
 /* ---------------------------- Utils ---------------------------- */
@@ -122,8 +128,12 @@ function dayBucket(date: Date) {
 function primaryText(n: Notif) {
   if (n.type === "like") return `Liked your deed 👍`;
   if (n.type === "comment") return `Commented your deed: ${n.preview || ""}`;
-  else if (n.type === "profile_view") return `Checked out your profile 👀`;
+  if (n.type === "profile_view") return `Checked out your profile 👀`;
   if (n.type === "follow") return `Started following you 🤝`;
+  if (n.type === "admin_broadcast") {
+    return n.message || n.preview || n.title || "System notification";
+  }
+
   return n.byName || "Notification";
 }
 
@@ -140,10 +150,13 @@ function badgeFor(n: Notif) {
       };
     case "follow":
       return { icon: IoPersonAdd, bg: EKARI.gold, color: "#fff", label: "follow" };
+    case "admin_broadcast":
+      return { icon: IoMegaphone, bg: EKARI.forest, color: "#fff", label: "system" };
     default:
       return { icon: IoNotifications, bg: EKARI.forest, color: "#fff", label: "notif" };
   }
 }
+
 
 /* ----------------------- Smart Avatar (loader) ----------------------- */
 function SmartAvatar({
@@ -200,12 +213,14 @@ function NotifRow({
   uid,
   onOpenProfile,
   onOpenThread,
+  onDelete,
   highlight,
 }: {
   n: Notif;
   uid?: string | null;
   onOpenProfile: (handle?: string, name?: string, photoURL?: string | null) => void;
   onOpenThread: (n?: any) => void;
+  onDelete: (id: string) => void;
   highlight?: boolean;
 }) {
   const [following, setFollowing] = useState<boolean | null>(null);
@@ -270,7 +285,10 @@ function NotifRow({
         {/* Avatar – ALWAYS go to profile */}
         <button
           type="button"
-          onClick={() => onOpenProfile(n.handle, n.byName, n.byPhotoURL)}
+          onClick={() => {
+            if (n.type === "admin_broadcast" || n.byUserId === "system") return;
+            onOpenProfile(n.handle, n.byName, n.byPhotoURL);
+          }}
           className="relative shrink-0"
           aria-label={`${n.byName || "User"} profile`}
         >
@@ -293,7 +311,10 @@ function NotifRow({
             {/* Name – ALWAYS go to profile */}
             <button
               type="button"
-              onClick={() => onOpenProfile(n.handle, n.byName, n.byPhotoURL)}
+              onClick={() => {
+                if (n.type === "admin_broadcast" || n.byUserId === "system") return;
+                onOpenProfile(n.handle, n.byName, n.byPhotoURL);
+              }}
               className="text-left group"
             >
               <div
@@ -316,7 +337,7 @@ function NotifRow({
             onClick={() => {
               if ((n.type === "comment" || n.type === "like") && n.deedId && n.handle) {
                 router.push(`/${encodeURIComponent(n.handle)}/deed/${n.deedId}`);
-              } else {
+              } else if (n.type !== "admin_broadcast" && n.byUserId !== "system") {
                 onOpenProfile(n.handle, n.byName, n.byPhotoURL);
               }
             }}
@@ -349,7 +370,15 @@ function NotifRow({
             Message
           </button>
         )}
-
+        <button
+          type="button"
+          onClick={() => onDelete(n.id)}
+          className="h-9 w-9 rounded-full border grid place-items-center hover:bg-red-50"
+          style={{ borderColor: "rgba(239,68,68,0.25)", color: "#B42318" }}
+          title="Delete notification"
+        >
+          <IoTrashOutline size={16} />
+        </button>
         {/* Unread dot – forest */}
         {n.seen === false && (
           <span className="ml-1 inline-flex items-center justify-center" title="Unread" aria-label="Unread">
@@ -421,6 +450,24 @@ export default function ActivityPage() {
       }
     })();
   }, [uid, items]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const askDeleteNotification = useCallback((id: string) => {
+    setPendingDeleteId(id);
+  }, []);
+
+  const confirmDeleteNotification = useCallback(async () => {
+    if (!uid || !pendingDeleteId) return;
+
+    try {
+      setDeleting(true);
+      await deleteDoc(doc(db, "users", uid, "notifications", pendingDeleteId));
+      setPendingDeleteId(null);
+    } finally {
+      setDeleting(false);
+    }
+  }, [uid, pendingDeleteId]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -553,6 +600,7 @@ export default function ActivityPage() {
                     uid={uid}
                     onOpenProfile={openProfile}
                     onOpenThread={openThread}
+                    onDelete={askDeleteNotification}
                     highlight={n.seen === false}
                   />
                 ))}
@@ -564,7 +612,39 @@ export default function ActivityPage() {
 
       {/* Mobile safe area spacer */}
       {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+      {pendingDeleteId && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-xl">
+            <div className="text-lg font-black text-slate-900">
+              Delete notification?
+            </div>
 
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              This notification will be removed from your activity list.
+            </p>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteId(null)}
+                disabled={deleting}
+                className="rounded-full border px-4 py-2 text-sm font-bold"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmDeleteNotification}
+                disabled={deleting}
+                className="rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="h-6" />
     </div>
   );

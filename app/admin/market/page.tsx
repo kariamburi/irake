@@ -71,6 +71,8 @@ type ListingDoc = {
     };
     imageUrl?: string;
     imageUrls?: string[];
+    thumbnailUrl?: string;
+    thumbnailUrls?: string[];
     createdAt?: any;
     updatedAt?: any;
     sold?: boolean;
@@ -451,7 +453,12 @@ export default function AdminMarketPage() {
 
                                 const statusColorClass = STATUS_COLOR[status] || "bg-gray-500";
 
-                                const cover = l.imageUrl || l.imageUrls?.[0] || "";
+                                const cover =
+                                    l.thumbnailUrl ||
+                                    l.thumbnailUrls?.[0] ||
+                                    l.imageUrl ||
+                                    l.imageUrls?.[0] ||
+                                    "";
 
                                 const isBusy = busyId === l.id;
 
