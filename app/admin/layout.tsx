@@ -31,6 +31,8 @@ const EKARI = {
 const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/overview", label: "Overview" },
     { href: "/admin/mapview", label: "Map view" },
+    { href: "/admin/notifications", label: "Notifications" },
+    { href: "/admin/traffic-source", label: "Traffic Source" },
     { href: "/admin/deeds", label: "Deeds" },
     { href: "/admin/reported", label: "Reported cases" },
     { href: "/admin/market", label: "Market" },
@@ -50,6 +52,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/subscriptions", label: "Subscriptions" },
     { href: "/admin/payments", label: "Payments" },
     { href: "/admin/analytics", label: "Market Analytics" },
+
 
 
 
@@ -80,6 +83,8 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/subscriptions")) return "Subscriptions";
     if (pathname.startsWith("/admin/payments")) return "Payments";
     if (pathname.startsWith("/admin/analytics")) return "Market Analytics";
+    if (pathname.startsWith("/admin/traffic-source")) return "Traffic Source";
+    if (pathname.startsWith("/admin/notifications")) return "Notifications";
 
     return "Admin";
 }

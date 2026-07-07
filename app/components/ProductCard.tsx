@@ -33,6 +33,8 @@ export type Product = {
     description?: string | null; // ✅ add this
     imageUrl?: string;
     imageUrls?: string[];
+    thumbnailUrl?: string;
+    thumbnailUrls?: string[];
     sellerId?: string;
     seller?: {
         id?: string;
@@ -104,7 +106,13 @@ export default function ProductCard({
     p: Product;
     // onClick?: () => void;
 }) {
-    const cover = (p.imageUrl || p.imageUrls?.[0]) as string | undefined;
+    // const cover = (p.imageUrl || p.imageUrls?.[0]) as string | undefined;
+    const cover = (
+        p.thumbnailUrl ||
+        p.thumbnailUrls?.[0] ||
+        p.imageUrl ||
+        p.imageUrls?.[0]
+    ) as string | undefined;
     const router = useRouter();
 
     const imgCount = Array.isArray(p.imageUrls)

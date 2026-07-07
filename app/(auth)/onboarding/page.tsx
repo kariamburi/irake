@@ -67,7 +67,28 @@ type GroupConfig = {
     title: string;
     items: string[];
 };
+type ReferralSource =
+    | "facebook"
+    | "instagram"
+    | "tiktok"
+    | "whatsapp"
+    | "google"
+    | "friend"
+    | "field_agent"
+    | "event"
+    | "other";
 
+const REFERRAL_SOURCES: { key: ReferralSource; label: string }[] = [
+    { key: "facebook", label: "Facebook" },
+    { key: "instagram", label: "Instagram" },
+    { key: "tiktok", label: "TikTok" },
+    { key: "whatsapp", label: "WhatsApp" },
+    { key: "google", label: "Google" },
+    { key: "friend", label: "Friend / Referral" },
+    { key: "field_agent", label: "Field agent" },
+    { key: "event", label: "Event / Training" },
+    { key: "other", label: "Other" },
+];
 /* ---------- Helpers ---------- */
 const normalizeTag = (s: string) =>
     (s ?? "")
@@ -384,7 +405,7 @@ export default function OnboardingWizardPage() {
     const [existingPhotoURL, setExistingPhotoURL] = useState<string | null>(null);
     const [loadingAuthProfile, setLoadingAuthProfile] = useState(true);
     const [nameFromProvider, setNameFromProvider] = useState(false);
-
+    const [referralSource, setReferralSource] = useState<ReferralSource | null>(null);
     // Guard: if auth resolved and no user → go to login
     useEffect(() => {
         if (!authLoading && !user) {
@@ -930,7 +951,10 @@ export default function OnboardingWizardPage() {
                 followersCount: 0,
                 followingCount: 0,
                 likes: 0,
-
+                referralSource,
+                referralSourceLabel:
+                    REFERRAL_SOURCES.find((x) => x.key === referralSource)?.label ?? null,
+                trafficSource: referralSource,
                 createdAt: now,
                 updatedAt: now,
                 premiumUntil: null,
@@ -1847,7 +1871,32 @@ export default function OnboardingWizardPage() {
                                         A profile photo is required to finish onboarding.
                                     </div>
                                 </div>
+                                <Field
+                                    label="How did you hear about ekarihub?"
+                                    helper="This helps us know which channels are working."
+                                >
+                                    <div className="flex flex-wrap gap-2">
+                                        {REFERRAL_SOURCES.map((item) => {
+                                            const active = referralSource === item.key;
 
+                                            return (
+                                                <button
+                                                    key={item.key}
+                                                    type="button"
+                                                    onClick={() => setReferralSource(item.key)}
+                                                    className="rounded-full border px-3 py-2 text-xs font-bold"
+                                                    style={{
+                                                        borderColor: active ? EKARI.forest : EKARI.hair,
+                                                        background: active ? EKARI.forest : "#fff",
+                                                        color: active ? "#fff" : EKARI.text,
+                                                    }}
+                                                >
+                                                    {item.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </Field>
                                 <FooterNav
                                     onBack={onBack}
                                     onNext={handleNext}
@@ -1858,7 +1907,8 @@ export default function OnboardingWizardPage() {
                                             !uploading &&
                                             !saving &&
                                             !authLoading &&
-                                            hasProfilePhoto
+                                            hasProfilePhoto &&
+                                            !!referralSource
                                         )
                                     }
                                     nextLabel={saving ? "Finishing…" : "Finish"}

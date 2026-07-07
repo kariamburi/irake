@@ -1971,10 +1971,7 @@ export default function SellModal({
     // Steps: 0 Type, 1 Name (or Category+Item), 2 Pack+Unit, 3 Price/Rate, 4 Photos+Location+Review
     const [step, setStep] = useState<number>(0);
 
-    type PhotoItem = {
-        full: { blob: Blob; url: string; name: string };
-        thumb: { blob: Blob; url: string; name: string };
-    };
+    type PhotoItem = { blob: Blob; url: string; name: string };
     const [photos, setPhotos] = useState<PhotoItem[]>([]);
 
     // Step 0
@@ -2162,30 +2159,19 @@ export default function SellModal({
             const room = Math.max(0, 5 - photos.length);
             const slice = incoming.slice(0, room);
 
-            const processed = await Promise.all(
-                slice.map(async (f) => {
-                    const [full, thumb] = await Promise.all([
-                        compressImage(f, {
-                            maxSide: 1600,
-                            targetBytes: 650 * 1024,
-                            initialQuality: 0.82,
-                            minQuality: 0.6,
-                            mime: "image/webp",
-                        }),
-                        compressImage(f, {
-                            maxSide: 420,
-                            targetBytes: 80 * 1024,
-                            initialQuality: 0.72,
-                            minQuality: 0.45,
-                            mime: "image/webp",
-                        }),
-                    ]);
-
-                    return { full, thumb };
-                })
+            const compressed = await Promise.all(
+                slice.map((f) =>
+                    compressImage(f, {
+                        maxSide: 1600,
+                        targetBytes: 550 * 1024,
+                        initialQuality: 0.82,
+                        minQuality: 0.6,
+                        mime: "image/webp",
+                    })
+                )
             );
 
-            setPhotos((prev) => [...prev, ...processed]);
+            setPhotos((prev) => [...prev, ...compressed]);
         },
         [photos.length]
     );
@@ -2193,8 +2179,7 @@ export default function SellModal({
     const removeImg = useCallback((idx: number) => {
         setPhotos((prev) => {
             const next = [...prev];
-            URL.revokeObjectURL(next[idx]?.full.url);
-            URL.revokeObjectURL(next[idx]?.thumb.url);
+            URL.revokeObjectURL(next[idx]?.url);
             next.splice(idx, 1);
             return next;
         });
@@ -2357,38 +2342,17 @@ export default function SellModal({
         const docId = prodRef.id;
 
         const toUpload = photos.slice(0, 5);
-
-
-        const uploads = await Promise.all(
+        const urls = await Promise.all(
             toUpload.map(async (p, i) => {
-                const fullPath = `products/${user.uid}/${docId}/images/full/${i}.webp`;
-                const thumbPath = `products/${user.uid}/${docId}/images/thumbs/${i}.webp`;
-
-                const fullRef = sRef(storage, fullPath);
-                const thumbRef = sRef(storage, thumbPath);
-
-                await Promise.all([
-                    uploadBytes(fullRef, p.full.blob, {
-                        contentType: "image/webp",
-                        cacheControl: "public,max-age=31536000,immutable",
-                    }),
-                    uploadBytes(thumbRef, p.thumb.blob, {
-                        contentType: "image/webp",
-                        cacheControl: "public,max-age=31536000,immutable",
-                    }),
-                ]);
-
-                const [fullUrl, thumbUrl] = await Promise.all([
-                    getDownloadURL(fullRef),
-                    getDownloadURL(thumbRef),
-                ]);
-
-                return { fullUrl, thumbUrl };
+                const path = `products/${user.uid}/${docId}/images/${i}.webp`;
+                const ref = sRef(storage, path);
+                await uploadBytes(ref, p.blob, {
+                    contentType: "image/webp",
+                    cacheControl: "public,max-age=31536000,immutable",
+                });
+                return await getDownloadURL(ref);
             })
         );
-
-        const urls = uploads.map((x) => x.fullUrl);
-        const thumbUrls = uploads.map((x) => x.thumbUrl);
 
         const nPrice =
             typeSel === "lease" || typeSel === "service"
@@ -2412,8 +2376,6 @@ export default function SellModal({
             description: cleanDescription,
             imageUrl: urls[0],
             imageUrls: urls,
-            thumbnailUrl: thumbUrls[0],
-            thumbnailUrls: thumbUrls,
             ownerId: user.uid,
             collectionType: "marketListing",
             seller: {
@@ -3301,10 +3263,9 @@ export default function SellModal({
                             {photos.length > 0 && (
                                 <div className="mt-3 flex flex-wrap gap-3">
                                     {photos.map((p, idx) => (
-                                        <div key={p.thumb.url} className="relative w-24 h-24">
-
+                                        <div key={p.url} className="relative w-24 h-24">
                                             <img
-                                                src={p.thumb.url}
+                                                src={p.url}
                                                 alt=""
                                                 className="w-full h-full object-cover rounded-xl border border-gray-200"
                                             />
