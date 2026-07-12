@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import {
     collection,
     getDocs,
@@ -41,8 +47,16 @@ import {
     IoStar,
 } from "react-icons/io5";
 
-import FilterModal, { distanceKm, Filters, toLower } from "@/app/components/FilterModal";
-import ProductCard, { computeStatus, KES, Product } from "@/app/components/ProductCard";
+import FilterModal, {
+    distanceKm,
+    Filters,
+    toLower,
+} from "@/app/components/FilterModal";
+import ProductCard, {
+    computeStatus,
+    KES,
+    Product,
+} from "@/app/components/ProductCard";
 import SellModal from "@/app/components/SellModal";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -103,7 +117,7 @@ function PremiumSurface({
             className={cn(
                 "rounded-3xl border bg-white/80 backdrop-blur-xl",
                 "shadow-[0_18px_60px_rgba(15,23,42,0.10)]",
-                className
+                className,
             )}
             style={style}
         >
@@ -139,7 +153,7 @@ function PremiumPillButton({
                 "transition active:scale-[0.98]",
                 "focus:outline-none focus:ring-2",
                 "disabled:opacity-60 disabled:cursor-not-allowed",
-                className
+                className,
             )}
             style={style}
         >
@@ -176,7 +190,7 @@ async function assertNotSuspended(uid: string) {
     if (data?.isSuspended === true) {
         throw new Error(
             data?.suspendedReason ||
-            "Your account has been suspended due to community guideline violations."
+            "Your account has been suspended due to community guideline violations.",
         );
     }
 
@@ -239,14 +253,18 @@ function CategoryRail({
     activeType: MarketType | null;
     onSelect: (type: MarketType | null) => void;
 }) {
-    const railData: Array<{ key: string; label: string; type: MarketType | null }> = [
-        { key: "all", label: "All", type: null },
-        ...DIRECT_NAME_TYPES.map((type) => ({
-            key: type,
-            label: TYPE_LABEL[type],
-            type,
-        })),
-    ];
+    const railData: Array<{
+        key: string;
+        label: string;
+        type: MarketType | null;
+    }> = [
+            { key: "all", label: "All", type: null },
+            ...DIRECT_NAME_TYPES.map((type) => ({
+                key: type,
+                label: TYPE_LABEL[type],
+                type,
+            })),
+        ];
 
     return (
         <div className="overflow-x-auto no-scrollbar">
@@ -289,13 +307,15 @@ function CategoryRail({
 
 /* ---------------- page ---------------- */
 export default function MarketPage() {
-
     const isMobile = useIsMobile();
 
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebounced(search.trim().toLowerCase(), 350);
 
-    const [filters, setFilters] = useState<Filters>({ type: null, category: null });
+    const [filters, setFilters] = useState<Filters>({
+        type: null,
+        category: null,
+    });
     const [sort, setSort] = useState<SortKey>("recent");
     const [filterOpen, setFilterOpen] = useState(false);
 
@@ -303,7 +323,11 @@ export default function MarketPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [paging, setPaging] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
+    const [hasMore, setHasMore] = useState(true);
+
     const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+    const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+    const pagingRef = useRef(false);
 
     const unsubRef = useRef<(() => void) | null>(null);
     const hasLoadedOnce = useRef(false);
@@ -321,7 +345,8 @@ export default function MarketPage() {
     const { unreadDM, notifTotal } = useInboxTotalsWeb(!!uid, uid);
 
     const handle = (profile as any)?.handle ?? null;
-    const profileHref = handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
+    const profileHref =
+        handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
 
     const [noticeOpen, setNoticeOpen] = useState(false);
     const [noticeTitle, setNoticeTitle] = useState("");
@@ -355,7 +380,7 @@ export default function MarketPage() {
                     </button>
                 </div>
             </div>,
-            document.body
+            document.body,
         )
         : null;
     const applyClientFilters = useCallback(
@@ -364,32 +389,45 @@ export default function MarketPage() {
 
             const searched = debouncedSearch
                 ? visible.filter((p) => {
-                    const inName = (p.nameLower || p.name?.toLowerCase?.() || "").includes(debouncedSearch);
-                    const inPlace = (p.place?.textLower || p.place?.countyLower || p.place?.townLower || "").includes(
-                        debouncedSearch
-                    );
+                    const inName = (
+                        p.nameLower ||
+                        p.name?.toLowerCase?.() ||
+                        ""
+                    ).includes(debouncedSearch);
+                    const inPlace = (
+                        p.place?.textLower ||
+                        p.place?.countyLower ||
+                        p.place?.townLower ||
+                        ""
+                    ).includes(debouncedSearch);
                     return inName || inPlace;
                 })
                 : visible;
 
             const byLocText = filters.locationText
                 ? searched.filter((p) =>
-                    (p.place?.textLower || p.place?.countyLower || p.place?.townLower || "").includes(
-                        toLower(filters.locationText)
-                    )
+                    (
+                        p.place?.textLower ||
+                        p.place?.countyLower ||
+                        p.place?.townLower ||
+                        ""
+                    ).includes(toLower(filters.locationText)),
                 )
                 : searched;
 
             const byRadius =
                 filters.center && filters.radiusKm
                     ? byLocText.filter((p) =>
-                        p.location ? distanceKm(filters.center!, p.location) <= (filters.radiusKm as number) : false
+                        p.location
+                            ? distanceKm(filters.center!, p.location) <=
+                            (filters.radiusKm as number)
+                            : false,
                     )
                     : byLocText;
 
             return byRadius;
         },
-        [debouncedSearch, filters.locationText, filters.center, filters.radiusKm]
+        [debouncedSearch, filters.locationText, filters.center, filters.radiusKm],
     );
     const handleSelectType = useCallback((type: MarketType | null) => {
         setFilters((prev): Filters => ({
@@ -413,16 +451,19 @@ export default function MarketPage() {
             where("featuredUntil", ">", now),
             orderBy("featuredUntil", "desc"),
             orderBy("publishedAt", "desc"),
-            limit(14)
+            limit(14),
         );
 
         const unsub = onSnapshot(
             q,
             (snap) => {
-                const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Product[];
+                const docs = snap.docs.map((d) => ({
+                    id: d.id,
+                    ...(d.data() as any),
+                })) as Product[];
                 setFeaturedItems(applyClientFilters(docs));
             },
-            () => setFeaturedItems([])
+            () => setFeaturedItems([]),
         );
 
         return () => unsub();
@@ -439,7 +480,8 @@ export default function MarketPage() {
         } catch (e: any) {
             showNotice(
                 "Account suspended",
-                e?.message || "Your account is suspended and cannot sell on ekariMarket."
+                e?.message ||
+                "Your account is suspended and cannot sell on ekariMarket.",
             );
         }
     };
@@ -480,102 +522,109 @@ export default function MarketPage() {
         };
     }, [featuredItems, scrollFeaturedByCards]);
 
-    const FeaturedStrip = !initialLoading && featuredItems.length > 0 ? (
-        <div className={cn(isMobile ? "px-3 mb-2 mt-3" : "px-4 mt-4")}>
-            <PremiumSurface
-                className={cn(isMobile ? "px-3 py-3" : "px-4 py-4")}
-                style={{
-                    borderColor: "rgba(199,146,87,0.22)",
-                    background:
-                        "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.70))",
-                }}
-            >
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        <span
-                            className="h-9 w-9 rounded-2xl grid place-items-center border"
-                            style={{
-                                borderColor: "rgba(199,146,87,0.30)",
-                                background:
-                                    "linear-gradient(135deg, rgba(199,146,87,0.18), rgba(35,63,57,0.08))",
-                            }}
-                        >
-                            <IoStar size={16} style={{ color: EKARI.gold }} />
-                        </span>
-                        <div className="leading-tight">
-                            <div className="text-sm font-black" style={{ color: EKARI.text }}>
-                                Featured
+    const FeaturedStrip =
+        !initialLoading && featuredItems.length > 0 ? (
+            <div className={cn(isMobile ? "px-3 mb-2 mt-3" : "px-4 mt-4")}>
+                <PremiumSurface
+                    className={cn(isMobile ? "px-3 py-3" : "px-4 py-4")}
+                    style={{
+                        borderColor: "rgba(199,146,87,0.22)",
+                        background:
+                            "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.70))",
+                    }}
+                >
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className="h-9 w-9 rounded-2xl grid place-items-center border"
+                                style={{
+                                    borderColor: "rgba(199,146,87,0.30)",
+                                    background:
+                                        "linear-gradient(135deg, rgba(199,146,87,0.18), rgba(35,63,57,0.08))",
+                                }}
+                            >
+                                <IoStar size={16} style={{ color: EKARI.gold }} />
+                            </span>
+                            <div className="leading-tight">
+                                <div
+                                    className="text-sm font-black"
+                                    style={{ color: EKARI.text }}
+                                >
+                                    Featured
+                                </div>
+                                <div className="text-[12px]" style={{ color: EKARI.dim }}>
+                                    Premium listings curated for you
+                                </div>
                             </div>
-                            <div className="text-[12px]" style={{ color: EKARI.dim }}>
-                                Premium listings curated for you
-                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => scrollFeaturedByCards(-1)}
+                                className="h-10 w-10 rounded-2xl border grid place-items-center hover:bg-black/[0.03] focus:ring-2"
+                                style={{ borderColor: "rgba(199,146,87,0.25)", ...ringStyle }}
+                                aria-label="Previous featured"
+                                onMouseEnter={() => (featPausedRef.current = true)}
+                                onMouseLeave={() => (featPausedRef.current = false)}
+                            >
+                                <IoChevronBack size={18} style={{ color: EKARI.text }} />
+                            </button>
+                            <button
+                                onClick={() => scrollFeaturedByCards(1)}
+                                className="h-10 w-10 rounded-2xl border grid place-items-center hover:bg-black/[0.03] focus:ring-2"
+                                style={{ borderColor: "rgba(199,146,87,0.25)", ...ringStyle }}
+                                aria-label="Next featured"
+                                onMouseEnter={() => (featPausedRef.current = true)}
+                                onMouseLeave={() => (featPausedRef.current = false)}
+                            >
+                                <IoChevronForward size={18} style={{ color: EKARI.text }} />
+                            </button>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => scrollFeaturedByCards(-1)}
-                            className="h-10 w-10 rounded-2xl border grid place-items-center hover:bg-black/[0.03] focus:ring-2"
-                            style={{ borderColor: "rgba(199,146,87,0.25)", ...ringStyle }}
-                            aria-label="Previous featured"
-                            onMouseEnter={() => (featPausedRef.current = true)}
-                            onMouseLeave={() => (featPausedRef.current = false)}
+                    <div className="relative">
+                        <div
+                            ref={featRef}
+                            className={cn(
+                                "flex gap-3 overflow-x-auto overflow-y-hidden no-scrollbar pb-0",
+                                "snap-x snap-mandatory",
+                            )}
+                            style={{
+                                WebkitOverflowScrolling: "touch",
+                                touchAction: "pan-x", // ✅ horizontal gestures handled here
+                            }}
+                            onWheel={(e) => {
+                                // ✅ Convert mouse wheel vertical → horizontal scroll on desktop trackpads/mice
+                                if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                                    e.currentTarget.scrollLeft += e.deltaY;
+                                    e.preventDefault();
+                                }
+                            }}
                         >
-                            <IoChevronBack size={18} style={{ color: EKARI.text }} />
-                        </button>
-                        <button
-                            onClick={() => scrollFeaturedByCards(1)}
-                            className="h-10 w-10 rounded-2xl border grid place-items-center hover:bg-black/[0.03] focus:ring-2"
-                            style={{ borderColor: "rgba(199,146,87,0.25)", ...ringStyle }}
-                            aria-label="Next featured"
-                            onMouseEnter={() => (featPausedRef.current = true)}
-                            onMouseLeave={() => (featPausedRef.current = false)}
-                        >
-                            <IoChevronForward size={18} style={{ color: EKARI.text }} />
-                        </button>
-                    </div>
-                </div>
-
-                <div className="relative">
-                    <div
-                        ref={featRef}
-                        className={cn(
-                            "flex gap-3 overflow-x-auto overflow-y-hidden no-scrollbar pb-0",
-                            "snap-x snap-mandatory"
-                        )}
-                        style={{
-                            WebkitOverflowScrolling: "touch",
-                            touchAction: "pan-x",     // ✅ horizontal gestures handled here
-                        }}
-                        onWheel={(e) => {
-                            // ✅ Convert mouse wheel vertical → horizontal scroll on desktop trackpads/mice
-                            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-                                e.currentTarget.scrollLeft += e.deltaY;
-                                e.preventDefault();
-                            }
-                        }}
-                    >
-
-                        {featuredItems.map((p) => (
-                            <div key={p.id} data-feat-card className="min-w-[190px] max-w-[190px] snap-start">
+                            {featuredItems.map((p) => (
                                 <div
-                                    className="rounded-3xl p-[1px]"
-                                    style={{
-                                        background:
-                                            "linear-gradient(135deg, rgba(199,146,87,0.55), rgba(35,63,57,0.45))",
-                                    }}
+                                    key={p.id}
+                                    data-feat-card
+                                    className="min-w-[190px] max-w-[190px] snap-start"
                                 >
-                                    <div className="rounded-3xl h-full bg-white overflow-hidden">
-                                        <ProductCard p={p} />
+                                    <div
+                                        className="rounded-3xl p-[1px]"
+                                        style={{
+                                            background:
+                                                "linear-gradient(135deg, rgba(199,146,87,0.55), rgba(35,63,57,0.45))",
+                                        }}
+                                    >
+                                        <div className="rounded-3xl h-full bg-white overflow-hidden">
+                                            <ProductCard p={p} />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            </PremiumSurface>
-        </div>
-    ) : null;
+                </PremiumSurface>
+            </div>
+        ) : null;
 
     /* ================= Main list query ================= */
     const buildQuery = useCallback(
@@ -586,24 +635,45 @@ export default function MarketPage() {
             wheres.push(where("status", "==", "active"));
 
             if (filters.type) wheres.push(where("type", "==", filters.type));
-            if (filters.category) wheres.push(where("categoryLower", "==", filters.category.toLowerCase()));
-            if (typeof filters.minPrice === "number") wheres.push(where("price", ">=", filters.minPrice));
-            if (typeof filters.maxPrice === "number") wheres.push(where("price", "<=", filters.maxPrice));
-            if (filters.county) wheres.push(where("place.countyLower", "==", toLower(filters.county)));
-            if (filters.town) wheres.push(where("place.townLower", "==", toLower(filters.town)));
+            if (filters.category)
+                wheres.push(
+                    where("categoryLower", "==", filters.category.toLowerCase()),
+                );
+            if (typeof filters.minPrice === "number")
+                wheres.push(where("price", ">=", filters.minPrice));
+            if (typeof filters.maxPrice === "number")
+                wheres.push(where("price", "<=", filters.maxPrice));
+            if (filters.county)
+                wheres.push(where("place.countyLower", "==", toLower(filters.county)));
+            if (filters.town)
+                wheres.push(where("place.townLower", "==", toLower(filters.town)));
 
             wheres.forEach((w) => (qRef = query(qRef, w)));
 
             if (sort === "recent") {
-                qRef = query(qRef, orderBy("featured", "desc"), orderBy("rankBoost", "desc"), orderBy("publishedAt", "desc"));
-            } else if (sort === "priceAsc") qRef = query(qRef, orderBy("price", "asc"));
+                qRef = query(
+                    qRef,
+                    orderBy("featured", "desc"),
+                    orderBy("rankBoost", "desc"),
+                    orderBy("publishedAt", "desc"),
+                );
+            } else if (sort === "priceAsc")
+                qRef = query(qRef, orderBy("price", "asc"));
             else qRef = query(qRef, orderBy("price", "desc"));
 
             if (after) qRef = query(qRef, startAfter(after));
             qRef = query(qRef, limit(24));
             return qRef;
         },
-        [filters.type, filters.category, filters.minPrice, filters.maxPrice, filters.county, filters.town, sort]
+        [
+            filters.type,
+            filters.category,
+            filters.minPrice,
+            filters.maxPrice,
+            filters.county,
+            filters.town,
+            sort,
+        ],
     );
 
     const runInitialLoad = useCallback(async () => {
@@ -623,10 +693,12 @@ export default function MarketPage() {
                 const unsub = onSnapshot(
                     q,
                     (snap: QuerySnapshot<DocumentData>) => {
-
-
-                        const docs = snap.docs.map((d: any) => ({ id: d.id, ...(d.data() as any) })) as Product[];
+                        const docs = snap.docs.map((d: any) => ({
+                            id: d.id,
+                            ...(d.data() as any),
+                        })) as Product[];
                         lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
+                        setHasMore(snap.docs.length === 24);
 
                         const filtered = applyClientFilters(docs);
 
@@ -639,22 +711,24 @@ export default function MarketPage() {
                         }
                     },
                     (err: any) => {
-
                         setItems([]);
                         lastDocRef.current = null;
+                        setHasMore(false);
                         hasLoadedOnce.current = true;
                         setInitialLoading(false);
-                    }
+                    },
                 );
 
                 unsubRef.current = unsub;
             } else {
-
                 const snap: QuerySnapshot<DocumentData> = await getDocs(q);
 
-
-                const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Product[];
+                const docs = snap.docs.map((d) => ({
+                    id: d.id,
+                    ...(d.data() as any),
+                })) as Product[];
                 lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
+                setHasMore(snap.docs.length === 24);
 
                 const filtered = applyClientFilters(docs);
 
@@ -663,9 +737,9 @@ export default function MarketPage() {
                 setInitialLoading(false);
             }
         } catch (err: any) {
-
             setItems([]);
             lastDocRef.current = null;
+            setHasMore(false);
             hasLoadedOnce.current = true;
             setInitialLoading(false);
         }
@@ -691,25 +765,79 @@ export default function MarketPage() {
     }, [runInitialLoad]);
 
     const loadMore = useCallback(async () => {
-        if (paging || !lastDocRef.current) return;
+        if (
+            pagingRef.current ||
+            !hasMore ||
+            !lastDocRef.current ||
+            initialLoading
+        ) {
+            return;
+        }
+
+        pagingRef.current = true;
         setPaging(true);
+
         try {
             const q = buildQuery(lastDocRef.current);
             const snap: QuerySnapshot<DocumentData> = await getDocs(q);
-            if (!snap.empty) {
-                const extra = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Product[];
-                const merged = [...items, ...extra];
-                setItems(applyClientFilters(merged));
-                lastDocRef.current = snap.docs[snap.docs.length - 1] || lastDocRef.current;
-            } else {
+
+            if (snap.empty) {
                 lastDocRef.current = null;
+                setHasMore(false);
+                return;
             }
+
+            const extra = snap.docs.map((d) => ({
+                id: d.id,
+                ...(d.data() as any),
+            })) as Product[];
+
+            lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
+            setHasMore(snap.docs.length === 24);
+
+            setItems((previousItems) => {
+                const existingIds = new Set(previousItems.map((item) => item.id));
+                const uniqueExtra = extra.filter((item) => !existingIds.has(item.id));
+
+                return applyClientFilters([...previousItems, ...uniqueExtra]);
+            });
+        } catch (error) {
+            console.error("Unable to load more market listings:", error);
         } finally {
+            pagingRef.current = false;
             setPaging(false);
         }
-    }, [buildQuery, items, paging, applyClientFilters]);
+    }, [applyClientFilters, buildQuery, hasMore, initialLoading]);
 
-    const featuredIdSet = useMemo(() => new Set(featuredItems.map((x) => x.id)), [featuredItems]);
+    useEffect(() => {
+        const sentinel = loadMoreSentinelRef.current;
+
+        if (!sentinel || initialLoading || !hasMore) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+
+                if (entry?.isIntersecting && !pagingRef.current) {
+                    void loadMore();
+                }
+            },
+            {
+                root: null,
+                rootMargin: "500px 0px",
+                threshold: 0,
+            },
+        );
+
+        observer.observe(sentinel);
+
+        return () => observer.disconnect();
+    }, [hasMore, initialLoading, loadMore]);
+
+    const featuredIdSet = useMemo(
+        () => new Set(featuredItems.map((x) => x.id)),
+        [featuredItems],
+    );
     const normalItems = useMemo(() => {
         if (!featuredItems.length) return items;
         return items.filter((p) => !featuredIdSet.has(p.id));
@@ -721,14 +849,20 @@ export default function MarketPage() {
     };
     const activeChips = useMemo(() => {
         const chips: string[] = [];
-        if (filters.type) chips.push(TYPE_LABEL[filters.type as keyof typeof TYPE_LABEL] || filters.type);
+        if (filters.type)
+            chips.push(
+                TYPE_LABEL[filters.type as keyof typeof TYPE_LABEL] || filters.type,
+            );
         if (filters.category) chips.push(filters.category);
-        if (typeof filters.minPrice === "number") chips.push(`≥ ${KES(filters.minPrice)}`);
-        if (typeof filters.maxPrice === "number") chips.push(`≤ ${KES(filters.maxPrice)}`);
+        if (typeof filters.minPrice === "number")
+            chips.push(`≥ ${KES(filters.minPrice)}`);
+        if (typeof filters.maxPrice === "number")
+            chips.push(`≤ ${KES(filters.maxPrice)}`);
         if (filters.county) chips.push(filters.county);
         if (filters.town) chips.push(filters.town);
         if (filters.locationText) chips.push(filters.locationText);
-        if (filters.center && filters.radiusKm) chips.push(`${filters.radiusKm} km nearby`);
+        if (filters.center && filters.radiusKm)
+            chips.push(`${filters.radiusKm} km nearby`);
         if (debouncedSearch) chips.push(`“${debouncedSearch}”`);
         return chips;
     }, [filters, debouncedSearch]);
@@ -737,12 +871,14 @@ export default function MarketPage() {
         (p: Product) => {
             setItems((prev) => {
                 const next = applyClientFilters([p, ...prev]);
-                if (sort === "priceAsc") return next.sort((a, b) => (a.price || 0) - (b.price || 0));
-                if (sort === "priceDesc") return next.sort((a, b) => (b.price || 0) - (a.price || 0));
+                if (sort === "priceAsc")
+                    return next.sort((a, b) => (a.price || 0) - (b.price || 0));
+                if (sort === "priceDesc")
+                    return next.sort((a, b) => (b.price || 0) - (a.price || 0));
                 return next;
             });
         },
-        [applyClientFilters, sort]
+        [applyClientFilters, sort],
     );
 
     /* ---------------- premium controls UI ---------------- */
@@ -752,9 +888,9 @@ export default function MarketPage() {
                 <div
                     className={cn(
                         "flex-1 h-11 rounded-full px-3 flex items-center gap-2",
-                        "bg-white/80 backdrop-blur-xl",
+                        "bg-white",
                         "shadow-[0_14px_50px_rgba(15,23,42,0.08)]",
-                        "border focus-within:ring-2"
+                        "border focus-within:ring-2",
                     )}
                     style={{ borderColor: "rgba(199,146,87,0.22)", ...ringStyle }}
                 >
@@ -762,7 +898,8 @@ export default function MarketPage() {
                         className="h-9 w-9 rounded-2xl grid place-items-center border"
                         style={{
                             borderColor: "rgba(199,146,87,0.20)",
-                            background: "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
+                            background:
+                                "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
                         }}
                     >
                         <IoSearch size={18} style={{ color: EKARI.forest }} />
@@ -793,7 +930,7 @@ export default function MarketPage() {
                         "h-11 w-11 grid place-items-center rounded-2xl",
                         "bg-white/80 backdrop-blur-xl border",
                         "shadow-[0_14px_50px_rgba(15,23,42,0.08)]",
-                        "hover:bg-white focus:ring-2 active:scale-[0.98] transition"
+                        "hover:bg-white focus:ring-2 active:scale-[0.98] transition",
                     )}
                     style={{ borderColor: "rgba(199,146,87,0.22)", ...ringStyle }}
                     aria-label="Open filters"
@@ -802,12 +939,20 @@ export default function MarketPage() {
                 </button>
 
                 <button
-                    onClick={() => setSort((s) => (s === "recent" ? "priceAsc" : s === "priceAsc" ? "priceDesc" : "recent"))}
+                    onClick={() =>
+                        setSort((s) =>
+                            s === "recent"
+                                ? "priceAsc"
+                                : s === "priceAsc"
+                                    ? "priceDesc"
+                                    : "recent",
+                        )
+                    }
                     className={cn(
                         "h-11 w-11 grid place-items-center rounded-2xl",
                         "bg-white/80 backdrop-blur-xl border",
                         "shadow-[0_14px_50px_rgba(15,23,42,0.08)]",
-                        "hover:bg-white focus:ring-2 active:scale-[0.98] transition"
+                        "hover:bg-white focus:ring-2 active:scale-[0.98] transition",
                     )}
                     style={{ borderColor: "rgba(199,146,87,0.22)", ...ringStyle }}
                     aria-label="Toggle sort"
@@ -831,7 +976,7 @@ export default function MarketPage() {
                                 className={cn(
                                     "shrink-0 text-xs font-extrabold rounded-full px-3 py-1.5",
                                     "border bg-white/80 backdrop-blur-xl",
-                                    "shadow-[0_10px_30px_rgba(15,23,42,0.06)]"
+                                    "shadow-[0_10px_30px_rgba(15,23,42,0.06)]",
                                 )}
                                 style={{
                                     color: EKARI.text,
@@ -846,6 +991,38 @@ export default function MarketPage() {
             )}
         </div>
     );
+
+    const InfiniteScrollFooter = !initialLoading ? (
+        <div
+            ref={loadMoreSentinelRef}
+            className="flex min-h-[110px] items-center justify-center"
+            aria-live="polite"
+        >
+            {paging ? (
+                <div className="flex flex-col items-center gap-3">
+                    <BouncingBallLoader />
+                    <span className="text-xs font-bold" style={{ color: EKARI.dim }}>
+                        Loading more listings…
+                    </span>
+                </div>
+            ) : hasMore ? (
+                <div className="h-2 w-2 rounded-full opacity-0" aria-hidden="true" />
+            ) : normalItems.length > 0 ? (
+                <div className="flex flex-col items-center gap-2 py-4">
+                    <div
+                        className="h-px w-24"
+                        style={{
+                            background:
+                                "linear-gradient(90deg, transparent, rgba(199,146,87,0.55), transparent)",
+                        }}
+                    />
+                    <span className="text-xs font-bold" style={{ color: EKARI.dim }}>
+                        You’ve reached the end
+                    </span>
+                </div>
+            ) : null}
+        </div>
+    ) : null;
 
     /* ---------------- premium page background (forest + gold only) ---------------- */
     const premiumBg: React.CSSProperties = {
@@ -896,10 +1073,16 @@ export default function MarketPage() {
                                     <IoCartOutline size={20} style={{ color: EKARI.forest }} />
                                 </span>
                                 <div className="leading-tight">
-                                    <div className="font-black text-base" style={{ color: EKARI.text }}>
+                                    <div
+                                        className="font-black text-base"
+                                        style={{ color: EKARI.text }}
+                                    >
                                         ekariMarket
                                     </div>
-                                    <div className="text-[11px] font-semibold" style={{ color: EKARI.dim }}>
+                                    <div
+                                        className="text-[11px] font-semibold"
+                                        style={{ color: EKARI.dim }}
+                                    >
                                         Buy • Sell • Lease
                                     </div>
                                 </div>
@@ -908,7 +1091,8 @@ export default function MarketPage() {
                             <PremiumPillButton
                                 onClick={openSellModal}
                                 style={{
-                                    background: "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",
+                                    background:
+                                        "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",
                                     color: "white",
                                     ...ringStyle,
                                 }}
@@ -921,19 +1105,35 @@ export default function MarketPage() {
                         {Controls}
 
                         {!initialLoading && (
-                            <div className="px-3 pb-2 text-[12px] font-semibold" style={{ color: EKARI.dim }}>
+                            <div
+                                className="px-3 pb-2 text-[12px] font-semibold"
+                                style={{ color: EKARI.dim }}
+                            >
                                 {normalItems.length} result{normalItems.length === 1 ? "" : "s"}
-                                {sort !== "recent" ? ` • ${sort === "priceAsc" ? "price ↑" : "price ↓"}` : ""}
-                                <button onClick={onRefresh} className="ml-2 underline" style={{ color: EKARI.forest }}>
+                                {sort !== "recent"
+                                    ? ` • ${sort === "priceAsc" ? "price ↑" : "price ↓"}`
+                                    : ""}
+                                <button
+                                    onClick={onRefresh}
+                                    className="ml-2 underline"
+                                    style={{ color: EKARI.forest }}
+                                >
                                     refresh
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    <div style={{ paddingBottom: "calc(94px + env(safe-area-inset-bottom))" }}>
+                    <div
+                        style={{
+                            paddingBottom: "calc(94px + env(safe-area-inset-bottom))",
+                        }}
+                    >
                         {initialLoading && (
-                            <div className="h-[260px] grid place-items-center" style={{ color: EKARI.dim }}>
+                            <div
+                                className="h-[260px] grid place-items-center"
+                                style={{ color: EKARI.dim }}
+                            >
                                 <BouncingBallLoader />
                             </div>
                         )}
@@ -946,12 +1146,16 @@ export default function MarketPage() {
                                     className="w-16 h-16 grid place-items-center rounded-3xl mb-3 border shadow-sm"
                                     style={{
                                         borderColor: "rgba(199,146,87,0.22)",
-                                        background: "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
+                                        background:
+                                            "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
                                     }}
                                 >
                                     <IoCartOutline size={28} style={{ color: EKARI.forest }} />
                                 </div>
-                                <div className="text-lg font-black" style={{ color: EKARI.text }}>
+                                <div
+                                    className="text-lg font-black"
+                                    style={{ color: EKARI.text }}
+                                >
                                     No item found
                                 </div>
                                 <div className="mt-1 text-sm" style={{ color: EKARI.dim }}>
@@ -961,7 +1165,8 @@ export default function MarketPage() {
                                     onClick={() => setFilterOpen(true)}
                                     className="mt-5 w-full max-w-[320px]"
                                     style={{
-                                        background: "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,1))",
+                                        background:
+                                            "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,1))",
                                         color: "white",
                                         ...ringStyle,
                                     }}
@@ -989,29 +1194,16 @@ export default function MarketPage() {
                             ))}
                         </div>
 
-                        {!initialLoading && lastDocRef.current && (
-                            <div className="py-8 grid place-items-center">
-                                <PremiumPillButton
-                                    onClick={loadMore}
-                                    disabled={paging}
-                                    className="px-6"
-                                    style={{
-                                        borderColor: "rgba(229,231,235,0.9)",
-                                        color: EKARI.text,
-                                        background: `linear-gradient(135deg, ${hexToRgba(EKARI.gold, 0.18)}, rgba(255,255,255,1))`,
-                                    }}
-                                >
-                                    {paging ? <BouncingBallLoader /> : "Load more"}
-                                </PremiumPillButton>
-                            </div>
-                        )}
+                        {InfiniteScrollFooter}
                     </div>
 
-                    {!sellOpen && <MobileBottomTabs
-                        onCreate={goUpload}
-                        theme="light"
-                        activeKey="market"
-                    />}
+                    {!sellOpen && (
+                        <MobileBottomTabs
+                            onCreate={goUpload}
+                            theme="light"
+                            activeKey="market"
+                        />
+                    )}
 
                     <EkariSideMenuSheet
                         open={menuOpen}
@@ -1020,8 +1212,8 @@ export default function MarketPage() {
                         handle={(profile as any)?.handle ?? null}
                         photoURL={(profile as any)?.photoURL ?? null}
                         profileHref={profileHref}
-                        unreadDM={uid ? unreadDM ?? 0 : 0}
-                        notifTotal={uid ? notifTotal ?? 0 : 0}
+                        unreadDM={uid ? (unreadDM ?? 0) : 0}
+                        notifTotal={uid ? (notifTotal ?? 0) : 0}
                         onLogout={signOutUser}
                     />
                 </div>
@@ -1035,10 +1227,13 @@ export default function MarketPage() {
                         setFilterOpen(false);
                     }}
                 />
-                <SellModal open={sellOpen} onClose={() => setSellOpen(false)} onCreated={onCreated} />
+                <SellModal
+                    open={sellOpen}
+                    onClose={() => setSellOpen(false)}
+                    onCreated={onCreated}
+                />
 
                 {NoticeModal}
-
             </>
         );
     }
@@ -1047,31 +1242,42 @@ export default function MarketPage() {
     return (
         <AppShell>
             <div className="min-h-screen w-full" style={premiumBg}>
+                {/* Only the market identity bar stays sticky */}
                 <div
-                    className="sticky top-0 z-10"
+                    className="sticky top-0 z-40"
                     style={{
                         background:
-                            "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.82))",
-                        backdropFilter: "blur(14px)",
+                            "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.88))",
+                        backdropFilter: "blur(18px)",
+                        WebkitBackdropFilter: "blur(18px)",
                         borderBottom: "1px solid rgba(199,146,87,0.18)",
+                        boxShadow: "0 8px 30px rgba(15,23,42,0.05)",
                     }}
                 >
-                    <div className="h-[72px] lg:mr-10 px-4 max-w-[1180px] mx-auto flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                    <div className="mx-auto flex h-[72px] max-w-[1180px] items-center justify-between px-4 lg:mr-10">
+                        <div className="flex min-w-0 items-center gap-3">
                             <span
-                                className="h-11 w-11 rounded-3xl grid place-items-center border shadow-sm"
+                                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border shadow-sm"
                                 style={{
-                                    borderColor: "rgba(199,146,87,0.22)",
-                                    background: "linear-gradient(135deg, rgba(199,146,87,0.18), rgba(35,63,57,0.08))",
+                                    borderColor: "rgba(199,146,87,0.28)",
+                                    background:
+                                        "linear-gradient(135deg, rgba(199,146,87,0.22), rgba(35,63,57,0.10))",
                                 }}
                             >
                                 <IoCartOutline size={22} style={{ color: EKARI.forest }} />
                             </span>
-                            <div className="leading-tight">
-                                <div className="font-black text-lg" style={{ color: EKARI.text }}>
+
+                            <div className="min-w-0 leading-tight">
+                                <div
+                                    className="truncate text-lg font-black tracking-[-0.02em]"
+                                    style={{ color: EKARI.text }}
+                                >
                                     ekariMarket
                                 </div>
-                                <div className="text-[12px] font-semibold" style={{ color: EKARI.dim }}>
+                                <div
+                                    className="truncate text-[12px] font-semibold"
+                                    style={{ color: EKARI.dim }}
+                                >
                                     Premium marketplace for ekarihub
                                 </div>
                             </div>
@@ -1079,8 +1285,10 @@ export default function MarketPage() {
 
                         <PremiumPillButton
                             onClick={openSellModal}
+                            className="shrink-0 shadow-[0_10px_30px_rgba(35,63,57,0.20)]"
                             style={{
-                                background: "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",
+                                background:
+                                    "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",
                                 color: "white",
                                 ...ringStyle,
                             }}
@@ -1089,22 +1297,44 @@ export default function MarketPage() {
                             <span>Sell / Lease</span>
                         </PremiumPillButton>
                     </div>
+                </div>
 
-                    <div className="max-w-[1180px] mx-auto">{Controls}</div>
+                {/* Search, filters and result count scroll with the listings */}
+                <div
+                    className="border-b"
+                    style={{
+                        borderColor: "rgba(199,146,87,0.14)",
+                        background: "rgba(255,255,255,0.58)",
+                    }}
+                >
+                    <div className="mx-auto max-w-[1180px]">{Controls}</div>
 
                     {!initialLoading && (
-                        <div className="px-4 pb-3 max-w-[1180px] mx-auto text-xs font-semibold" style={{ color: EKARI.dim }}>
+                        <div
+                            className="mx-auto max-w-[1180px] px-4 pb-3 text-xs font-semibold"
+                            style={{ color: EKARI.dim }}
+                        >
                             {normalItems.length} result{normalItems.length === 1 ? "" : "s"}
-                            {sort !== "recent" ? ` • sorted by ${sort === "priceAsc" ? "price ↑" : "price ↓"}` : ""}
-                            <button onClick={onRefresh} className="ml-2 underline" style={{ color: EKARI.forest }}>
-                                refresh
+                            {sort !== "recent"
+                                ? ` • sorted by ${sort === "priceAsc" ? "price ↑" : "price ↓"}`
+                                : ""}
+                            <button
+                                onClick={onRefresh}
+                                disabled={refreshing}
+                                className="ml-2 font-bold underline disabled:opacity-50"
+                                style={{ color: EKARI.forest }}
+                            >
+                                {refreshing ? "refreshing…" : "refresh"}
                             </button>
                         </div>
                     )}
                 </div>
 
                 {initialLoading && (
-                    <div className="h-[280px] grid place-items-center" style={{ color: EKARI.dim }}>
+                    <div
+                        className="h-[280px] grid place-items-center"
+                        style={{ color: EKARI.dim }}
+                    >
                         <BouncingBallLoader />
                     </div>
                 )}
@@ -1129,22 +1359,7 @@ export default function MarketPage() {
                         ))}
                     </div>
 
-                    {!initialLoading && lastDocRef.current && (
-                        <div className="py-10 grid place-items-center">
-                            <PremiumPillButton
-                                onClick={loadMore}
-                                disabled={paging}
-                                className="px-7"
-                                style={{
-                                    borderColor: "rgba(229,231,235,0.9)",
-                                    color: EKARI.text,
-                                    background: `linear-gradient(135deg, ${hexToRgba(EKARI.gold, 0.18)}, rgba(255,255,255,1))`,
-                                }}
-                            >
-                                {paging ? <BouncingBallLoader /> : "Load more"}
-                            </PremiumPillButton>
-                        </div>
-                    )}
+                    {InfiniteScrollFooter}
 
                     {!initialLoading && normalItems.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -1152,7 +1367,8 @@ export default function MarketPage() {
                                 className="w-16 h-16 grid place-items-center rounded-3xl mb-3 border shadow-sm"
                                 style={{
                                     borderColor: "rgba(199,146,87,0.22)",
-                                    background: "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
+                                    background:
+                                        "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
                                 }}
                             >
                                 <IoCartOutline size={28} style={{ color: EKARI.forest }} />
@@ -1167,7 +1383,8 @@ export default function MarketPage() {
                                 onClick={() => setFilterOpen(true)}
                                 className="mt-5 px-6"
                                 style={{
-                                    background: "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,1))",
+                                    background:
+                                        "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,1))",
                                     color: "white",
                                     ...ringStyle,
                                 }}
@@ -1178,7 +1395,6 @@ export default function MarketPage() {
                         </div>
                     )}
                 </div>
-
             </div>
 
             <FilterModal
@@ -1190,10 +1406,13 @@ export default function MarketPage() {
                     setFilterOpen(false);
                 }}
             />
-            <SellModal open={sellOpen} onClose={() => setSellOpen(false)} onCreated={onCreated} />
+            <SellModal
+                open={sellOpen}
+                onClose={() => setSellOpen(false)}
+                onCreated={onCreated}
+            />
 
             {NoticeModal}
-
         </AppShell>
     );
 }

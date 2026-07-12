@@ -486,7 +486,7 @@ export function PhotoSliderPlayer({
 
             {showProgress && count > 1 && (
                 <div
-                    className="absolute left-3 right-3 z-40 pointer-events-none"
+                    className="absolute left-10 right-10 z-40 pointer-events-none"
                     style={progressStyle}
                 >
                     <div className="rounded-full px-2 py-2">

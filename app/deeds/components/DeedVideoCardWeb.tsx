@@ -404,7 +404,7 @@ export function DeedVideoCardWeb({
 
     if (isPhoto) {
         return (
-            <article className="h-full w-full px-0 py-0 md:px-3 lg:px-4 md:py-2">
+            <article className="h-full w-full px-0 py-0 md:px-3 md:py-2 lg:px-4">
                 <div className="relative h-full w-full overflow-hidden rounded-none bg-black md:rounded-2xl">
                     <div className={mediaStageClass}>
                         {sliderPhotos.length > 0 ? (
@@ -427,7 +427,10 @@ export function DeedVideoCardWeb({
                                 loading="eager"
                                 style={
                                     fit === "contain"
-                                        ? { maxWidth: "100%", maxHeight: "100%" }
+                                        ? {
+                                            maxWidth: "100%",
+                                            maxHeight: "100%",
+                                        }
                                         : undefined
                                 }
                             />
@@ -438,6 +441,32 @@ export function DeedVideoCardWeb({
                         )}
                     </div>
 
+                    {/* Photo slider audio mute/unmute button */}
+                    {!!sliderAudioUrl && shouldLoad && (
+                        <div className="pointer-events-none absolute bottom-[50px] left-4 z-30 lg:bottom-2">
+                            <button
+                                type="button"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleMute();
+                                }}
+                                className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/40"
+                                aria-label={
+                                    muted
+                                        ? "Unmute photo audio"
+                                        : "Mute photo audio"
+                                }
+                                title={muted ? "Unmute" : "Mute"}
+                            >
+                                {muted ? (
+                                    <IoVolumeMute size={20} />
+                                ) : (
+                                    <IoVolumeHigh size={20} />
+                                )}
+                            </button>
+                        </div>
+                    )}
+
                     <DeedOverlayWeb
                         {...commonOverlayProps}
                         canSupport={canSupport}
@@ -446,7 +475,6 @@ export function DeedVideoCardWeb({
                         isSuspended={isSuspended}
                         suspendedReason={suspendedReason}
                     />
-
                 </div>
             </article>
         );
