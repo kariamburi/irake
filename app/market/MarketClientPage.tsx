@@ -1285,7 +1285,7 @@ export default function MarketPage() {
 
                         <PremiumPillButton
                             onClick={openSellModal}
-                            className="shrink-0 shadow-[0_10px_30px_rgba(35,63,57,0.20)]"
+                            className="shrink-0 shadow-[0_10px_30px_rgba(35,63,57,0.20)] mr-10"
                             style={{
                                 background:
                                     "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",

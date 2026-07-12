@@ -18,6 +18,10 @@ import {
     IoMaleOutline,
     IoFemaleOutline,
     IoPersonOutline,
+    IoCheckmark,
+    IoSearchOutline,
+    IoCloseOutline,
+    IoChevronForwardOutline,
 } from "react-icons/io5";
 import {
     GoogleMap,
@@ -99,7 +103,35 @@ const normalizeTag = (s: string) =>
         .replace(/\+/g, "plus")
         .replace(/[^a-z0-9_]/g, "")
         .slice(0, 30);
+const POPULAR_INTERESTS = [
+    "Maize",
+    "Dairy Farming",
+    "Poultry",
+    "Vegetable Farming",
+    "Livestock",
+    "Agribusiness",
+    "Irrigation",
+    "Farm Inputs",
+    "Market Access",
+    "Organic Farming",
+    "Agricultural Technology",
+    "Farm Machinery",
+];
 
+const POPULAR_ROLES = [
+    "Farmer",
+    "Agribusiness Owner",
+    "Buyer",
+    "Seller",
+    "Agronomist",
+    "Veterinarian",
+    "Extension Officer",
+    "Input Supplier",
+    "Aggregator",
+    "Processor",
+    "Exporter",
+    "Student",
+];
 const RESERVED = new Set([
     "admin",
     "administrator",
@@ -191,6 +223,8 @@ function GenderPills({
 }
 
 /* ---------------- SmartPicker (web) ---------------- */
+/* ---------------- SmartPicker ---------------- */
+
 type SmartPickerProps = {
     label: string;
     value: string[];
@@ -206,8 +240,10 @@ type SmartPickerProps = {
         gold: string;
         dim: string;
     };
-    groups?: { title: string; items: string[] }[];
-    inlineBrowse?: boolean;
+    groups?: {
+        title: string;
+        items: string[];
+    }[];
 };
 
 function SmartPicker({
@@ -217,7 +253,7 @@ function SmartPicker({
     options,
     popular = [],
     placeholder = "Search…",
-    max = 10,
+    max = 6,
     ekari = {
         hair: "#E5E7EB",
         text: "#0F172A",
@@ -226,168 +262,501 @@ function SmartPicker({
         dim: "#6B7280",
     },
     groups,
-    inlineBrowse = true,
 }: SmartPickerProps) {
     const [query, setQuery] = useState("");
     const [openModal, setOpenModal] = useState(false);
 
-    const selectedSet = useMemo(() => new Set(value), [value]);
+    const selectedSet = useMemo(
+        () => new Set(value),
+        [value]
+    );
+
     const canAddMore = value.length < max;
 
-    const packs = useMemo(() => {
-        const base = groups?.length ? groups : [{ title: "All", items: options }];
-        const q = query.trim().toLowerCase();
-        return base.map((g) => ({
-            ...g,
-            items: q
-                ? g.items.filter((i) => i.toLowerCase().includes(q))
-                : g.items,
-        }));
-    }, [groups, options, query]);
+    const normalizedGroups = useMemo(() => {
+        if (groups?.length) {
+            return groups.map((group) => ({
+                title: group.title,
+                items: Array.from(new Set(group.items)),
+            }));
+        }
 
-    function add(tag: string) {
-        if (!canAddMore) return;
-        if (selectedSet.has(tag)) return;
-        onChange([...value, tag]);
-    }
-    function remove(tag: string) {
-        onChange(value.filter((t) => t !== tag));
-    }
-    function toggle(tag: string) {
-        selectedSet.has(tag) ? remove(tag) : add(tag);
-    }
+        return [
+            {
+                title: "All",
+                items: Array.from(new Set(options)),
+            },
+        ];
+    }, [groups, options]);
 
-    const GroupedList = () => {
-        // Flatten + dedupe all items from all packs
-        const seen = new Set<string>();
-        const flat: string[] = [];
-        packs.forEach((g) => {
-            g.items.forEach((i) => {
-                if (!seen.has(i)) {
-                    seen.add(i);
-                    flat.push(i);
-                }
-            });
-        });
+    const popularOptions = useMemo(() => {
+        const available = new Set(options);
 
-        return (
-            <div className="mt-3 max-h-[60vh] overflow-auto">
-                <div className="flex flex-wrap gap-2">
-                    {flat.map((i) => {
-                        const active = selectedSet.has(i);
-                        return (
-                            <button
-                                key={i}
-                                onClick={() => toggle(i)}
-                                className="rounded-full border px-3 py-1.5 text-xs font-bold"
-                                style={{
-                                    borderColor: active ? ekari.forest : ekari.hair,
-                                    background: active ? ekari.forest : "#fff",
-                                    color: active ? "#fff" : ekari.text,
-                                }}
-                                disabled={!active && !canAddMore}
-                            >
-                                {i}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
+        const requested = popular.filter((item) =>
+            available.has(item)
         );
-    };
 
+        if (requested.length > 0) {
+            return Array.from(new Set(requested)).slice(0, 12);
+        }
+
+        return Array.from(new Set(options)).slice(0, 12);
+    }, [popular, options]);
+
+    const filteredGroups = useMemo(() => {
+        const searchValue = query.trim().toLowerCase();
+
+        if (!searchValue) {
+            return normalizedGroups;
+        }
+
+        return normalizedGroups
+            .map((group) => ({
+                ...group,
+                items: group.items.filter((item) =>
+                    item.toLowerCase().includes(searchValue)
+                ),
+            }))
+            .filter((group) => group.items.length > 0);
+    }, [normalizedGroups, query]);
+
+    function toggle(item: string) {
+        if (selectedSet.has(item)) {
+            onChange(value.filter((selected) => selected !== item));
+            return;
+        }
+
+        if (!canAddMore) return;
+
+        onChange([...value, item]);
+    }
+
+    function closeModal() {
+        setOpenModal(false);
+        setQuery("");
+    }
 
     return (
-        <div>
-            <div className="flex items-center justify-between">
-                <div className="text-xs" style={{ color: ekari.dim }}>
+        <div className="w-full">
+            {/* Selection summary */}
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <div
+                        className="text-sm font-black"
+                        style={{ color: ekari.text }}
+                    >
+                        Popular {label.toLowerCase()}
+                    </div>
+
+                    <div
+                        className="mt-0.5 text-xs"
+                        style={{ color: ekari.dim }}
+                    >
+                        Choose up to {max}
+                    </div>
+                </div>
+
+                <div
+                    className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-black"
+                    style={{
+                        borderColor:
+                            value.length >= max
+                                ? ekari.gold
+                                : ekari.hair,
+                        background:
+                            value.length > 0
+                                ? "rgba(199,146,87,0.10)"
+                                : "#fff",
+                        color:
+                            value.length > 0
+                                ? ekari.forest
+                                : ekari.dim,
+                    }}
+                >
                     {value.length}/{max}
                 </div>
             </div>
 
-            {!!popular.length && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                    {popular.map((p) => {
-                        const active = selectedSet.has(p);
-                        return (
+            {/* Selected items */}
+            {value.length > 0 && (
+                <div
+                    className="mt-4 rounded-2xl border p-3"
+                    style={{
+                        borderColor: "rgba(199,146,87,0.25)",
+                        background:
+                            "linear-gradient(135deg, rgba(199,146,87,0.08), rgba(35,63,57,0.04))",
+                    }}
+                >
+                    <div
+                        className="mb-2 text-[11px] font-black uppercase tracking-[0.1em]"
+                        style={{ color: ekari.dim }}
+                    >
+                        Your selections
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        {value.map((item) => (
                             <button
-                                key={p}
-                                onClick={() => toggle(p)}
-                                className="rounded-full border px-3 py-1.5 text-xs font-bold"
+                                key={item}
+                                type="button"
+                                onClick={() => toggle(item)}
+                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-extrabold text-white transition active:scale-[0.98]"
                                 style={{
-                                    borderColor: active ? ekari.forest : ekari.hair,
-                                    background: active ? ekari.forest : "#fff",
-                                    color: active ? "#fff" : ekari.text,
+                                    background: ekari.forest,
                                 }}
+                                aria-label={`Remove ${item}`}
                             >
-                                {p}
+                                <IoCheckmark size={14} />
+
+                                <span>{item}</span>
+
+                                <IoCloseOutline
+                                    size={14}
+                                    className="ml-0.5 opacity-80"
+                                />
                             </button>
-                        );
-                    })}
+                        ))}
+                    </div>
                 </div>
             )}
 
-            {inlineBrowse ? (
-                <GroupedList />
-            ) : (
-                <div className="mt-2">
+            {/* Popular choices */}
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {popularOptions.map((item) => {
+                    const active = selectedSet.has(item);
+                    const disabled = !active && !canAddMore;
+
+                    return (
+                        <button
+                            key={item}
+                            type="button"
+                            onClick={() => toggle(item)}
+                            disabled={disabled}
+                            className="flex min-h-[48px] items-center justify-between gap-2 rounded-2xl border px-3 py-2.5 text-left text-xs font-extrabold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+                            style={{
+                                borderColor: active
+                                    ? ekari.forest
+                                    : ekari.hair,
+                                background: active
+                                    ? ekari.forest
+                                    : "#fff",
+                                color: active
+                                    ? "#fff"
+                                    : ekari.text,
+                                boxShadow: active
+                                    ? "0 10px 24px rgba(35,63,57,0.18)"
+                                    : "0 5px 16px rgba(15,23,42,0.04)",
+                            }}
+                            aria-pressed={active}
+                        >
+                            <span className="line-clamp-2">
+                                {item}
+                            </span>
+
+                            <span
+                                className="grid h-6 w-6 shrink-0 place-items-center rounded-full border"
+                                style={{
+                                    borderColor: active
+                                        ? "rgba(255,255,255,0.45)"
+                                        : ekari.hair,
+                                    background: active
+                                        ? "rgba(255,255,255,0.14)"
+                                        : "#F9FAFB",
+                                }}
+                            >
+                                {active ? (
+                                    <IoCheckmark size={14} />
+                                ) : (
+                                    <span
+                                        className="text-base leading-none"
+                                        style={{ color: ekari.dim }}
+                                    >
+                                        +
+                                    </span>
+                                )}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Browse all */}
+            <button
+                type="button"
+                onClick={() => setOpenModal(true)}
+                className="mt-4 flex h-12 w-full items-center justify-between rounded-2xl border bg-white px-4 text-sm font-extrabold transition hover:bg-gray-50 active:scale-[0.99]"
+                style={{
+                    borderColor: "rgba(199,146,87,0.28)",
+                    color: ekari.forest,
+                    boxShadow:
+                        "0 10px 30px rgba(15,23,42,0.06)",
+                }}
+            >
+                <span className="flex items-center gap-2">
+                    <span
+                        className="grid h-8 w-8 place-items-center rounded-xl"
+                        style={{
+                            background:
+                                "rgba(199,146,87,0.12)",
+                        }}
+                    >
+                        <IoSearchOutline size={17} />
+                    </span>
+
+                    Search or browse all
+                </span>
+
+                <IoChevronForwardOutline size={18} />
+            </button>
+
+            {!canAddMore && (
+                <div
+                    className="mt-3 rounded-xl px-3 py-2 text-center text-xs font-semibold"
+                    style={{
+                        background: "rgba(199,146,87,0.10)",
+                        color: ekari.forest,
+                    }}
+                >
+                    You have selected the maximum of {max}.
+                    Remove one to choose another.
+                </div>
+            )}
+
+            {/* Search modal */}
+            {openModal && (
+                <div className="fixed inset-0 z-[9999]">
                     <button
                         type="button"
-                        onClick={() => setOpenModal(true)}
-                        className="text-xs font-bold underline"
-                        style={{ color: ekari.forest }}
-                    >
-                        Browse all
-                    </button>
-                </div>
-            )}
-
-            {openModal && (
-                <div className="fixed inset-0 z-50">
-                    <div
-                        className="absolute inset-0 bg-black/40"
-                        onClick={() => setOpenModal(false)}
+                        aria-label="Close picker"
+                        className="absolute inset-0 h-full w-full bg-black/45 backdrop-blur-[2px]"
+                        onClick={closeModal}
                     />
-                    <div
-                        className="absolute left-1/2 top-1/2 w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-white p-4 shadow-xl"
-                        style={{ borderColor: ekari.hair }}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div
-                                className="font-extrabold"
-                                style={{ color: ekari.text }}
-                            >
-                                {label}
-                            </div>
-                            <button
-                                onClick={() => setOpenModal(false)}
-                                className="text-sm font-bold"
-                            >
-                                Close
-                            </button>
+
+                    <div className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-2xl overflow-hidden rounded-t-[28px] bg-white shadow-2xl md:bottom-auto md:left-1/2 md:top-1/2 md:w-[92vw] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[28px]">
+                        {/* Handle on mobile */}
+                        <div className="flex justify-center pt-2 md:hidden">
+                            <div className="h-1.5 w-12 rounded-full bg-gray-300" />
                         </div>
 
-                        <div className="mt-3">
-                            <input
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                className="w-full rounded-lg border px-3 py-2 text-sm"
+                        {/* Modal header */}
+                        <div
+                            className="sticky top-0 z-20 border-b bg-white/95 px-4 pb-4 pt-3 backdrop-blur-xl md:px-6 md:pt-5"
+                            style={{
+                                borderColor: ekari.hair,
+                            }}
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div
+                                        className="text-lg font-black"
+                                        style={{ color: ekari.text }}
+                                    >
+                                        Choose {label.toLowerCase()}
+                                    </div>
+
+                                    <div
+                                        className="mt-0.5 text-xs"
+                                        style={{ color: ekari.dim }}
+                                    >
+                                        {value.length}/{max} selected
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="grid h-10 w-10 place-items-center rounded-full border bg-white"
+                                    style={{
+                                        borderColor: ekari.hair,
+                                        color: ekari.text,
+                                    }}
+                                    aria-label="Close"
+                                >
+                                    <IoCloseOutline size={21} />
+                                </button>
+                            </div>
+
+                            <div
+                                className="mt-4 flex h-12 items-center gap-2 rounded-2xl border px-3"
                                 style={{
                                     borderColor: ekari.hair,
-                                    background: "#F6F7FB",
-                                    color: ekari.text,
+                                    background: "#F8FAFC",
                                 }}
-                                placeholder={placeholder}
-                            />
+                            >
+                                <IoSearchOutline
+                                    size={19}
+                                    style={{ color: ekari.dim }}
+                                />
+
+                                <input
+                                    autoFocus
+                                    value={query}
+                                    onChange={(event) =>
+                                        setQuery(event.target.value)
+                                    }
+                                    className="h-full flex-1 bg-transparent text-sm font-semibold outline-none"
+                                    style={{ color: ekari.text }}
+                                    placeholder={placeholder}
+                                />
+
+                                {query && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setQuery("")}
+                                        className="grid h-8 w-8 place-items-center rounded-full"
+                                        aria-label="Clear search"
+                                    >
+                                        <IoCloseOutline
+                                            size={18}
+                                            style={{ color: ekari.dim }}
+                                        />
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
-                        <GroupedList />
+                        {/* Modal options */}
+                        <div className="max-h-[calc(88dvh-160px)] overflow-y-auto px-4 py-4 md:px-6">
+                            {filteredGroups.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 text-center">
+                                    <div
+                                        className="grid h-14 w-14 place-items-center rounded-2xl"
+                                        style={{
+                                            background:
+                                                "rgba(199,146,87,0.12)",
+                                            color: ekari.forest,
+                                        }}
+                                    >
+                                        <IoSearchOutline size={24} />
+                                    </div>
 
+                                    <div
+                                        className="mt-3 font-black"
+                                        style={{ color: ekari.text }}
+                                    >
+                                        No results found
+                                    </div>
+
+                                    <div
+                                        className="mt-1 text-sm"
+                                        style={{ color: ekari.dim }}
+                                    >
+                                        Try another search term.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {filteredGroups.map((group) => (
+                                        <section key={group.title}>
+                                            <div
+                                                className="mb-3 text-xs font-black uppercase tracking-[0.1em]"
+                                                style={{
+                                                    color: ekari.dim,
+                                                }}
+                                            >
+                                                {group.title}
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                {group.items.map(
+                                                    (item) => {
+                                                        const active =
+                                                            selectedSet.has(
+                                                                item
+                                                            );
+
+                                                        const disabled =
+                                                            !active &&
+                                                            !canAddMore;
+
+                                                        return (
+                                                            <button
+                                                                key={item}
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    toggle(
+                                                                        item
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    disabled
+                                                                }
+                                                                className="flex min-h-[48px] items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-bold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+                                                                style={{
+                                                                    borderColor:
+                                                                        active
+                                                                            ? ekari.forest
+                                                                            : ekari.hair,
+                                                                    background:
+                                                                        active
+                                                                            ? "rgba(35,63,57,0.07)"
+                                                                            : "#fff",
+                                                                    color: active
+                                                                        ? ekari.forest
+                                                                        : ekari.text,
+                                                                }}
+                                                            >
+                                                                <span>
+                                                                    {item}
+                                                                </span>
+
+                                                                <span
+                                                                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full border"
+                                                                    style={{
+                                                                        borderColor:
+                                                                            active
+                                                                                ? ekari.forest
+                                                                                : ekari.hair,
+                                                                        background:
+                                                                            active
+                                                                                ? ekari.forest
+                                                                                : "#fff",
+                                                                        color: active
+                                                                            ? "#fff"
+                                                                            : ekari.dim,
+                                                                    }}
+                                                                >
+                                                                    {active ? (
+                                                                        <IoCheckmark
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                        />
+                                                                    ) : (
+                                                                        "+"
+                                                                    )}
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    }
+                                                )}
+                                            </div>
+                                        </section>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal footer */}
                         <div
-                            className="mt-4 text-right text-xs"
-                            style={{ color: ekari.dim }}
+                            className="sticky bottom-0 border-t bg-white/95 p-4 backdrop-blur-xl md:px-6"
+                            style={{
+                                borderColor: ekari.hair,
+                            }}
                         >
-                            {value.length}/{max} selected
+                            <button
+                                type="button"
+                                onClick={closeModal}
+                                className="h-12 w-full rounded-2xl text-sm font-black text-white transition active:scale-[0.99]"
+                                style={{
+                                    background:
+                                        "linear-gradient(135deg, #C79257, #233F39)",
+                                    boxShadow:
+                                        "0 12px 30px rgba(35,63,57,0.22)",
+                                }}
+                            >
+                                Done · {value.length} selected
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1478,12 +1847,11 @@ export default function OnboardingWizardPage() {
                                         value={areaOfInterest}
                                         onChange={setAreaOfInterest}
                                         options={interestOptions}
-                                        popular={[]}
+                                        popular={POPULAR_INTERESTS}
                                         groups={interestGroupsForUI}
-                                        max={10}
+                                        max={6}
                                         ekari={EKARI}
-                                        inlineBrowse
-                                        placeholder="Search interests (e.g., Maize, Irrigation)"
+                                        placeholder="Search crops, livestock, technology…"
                                     />
                                 </Field>
 
@@ -1540,12 +1908,11 @@ export default function OnboardingWizardPage() {
                                         value={roles}
                                         onChange={setRoles}
                                         options={roleOptions}
-                                        popular={[]}
+                                        popular={POPULAR_ROLES}
                                         groups={roleGroupsForUI}
-                                        max={10}
+                                        max={4}
                                         ekari={EKARI}
-                                        inlineBrowse
-                                        placeholder="Search roles (e.g., Farmer, Aggregator)"
+                                        placeholder="Search farmer, buyer, agronomist…"
                                     />
                                 </Field>
 
