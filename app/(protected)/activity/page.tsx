@@ -65,7 +65,13 @@ function useIsDesktop() {
 function useIsMobile() {
   return useMediaQuery("(max-width: 1023px)");
 }
+function getNotificationSenderName(n: Notif) {
+  if (n.type === "admin_broadcast") {
+    return n.byName?.trim() || "ekarihub Team";
+  }
 
+  return n.byName?.trim() || "User";
+}
 /* ---------------------------- Types ---------------------------- */
 type Notif = {
   id: string;
@@ -273,6 +279,18 @@ function NotifRow({
 
   const badge = badgeFor(n);
   const AvatarBadgeIcon = badge.icon;
+  const senderName = getNotificationSenderName(n);
+
+  const [expanded, setExpanded] = useState(false);
+
+  const fullText = primaryText(n).trim();
+  const isLongBroadcast =
+    n.type === "admin_broadcast" && fullText.length > 220;
+
+  const visibleText =
+    isLongBroadcast && !expanded
+      ? `${fullText.slice(0, 220).trimEnd()}...`
+      : fullText;
 
   return (
     <li
@@ -291,10 +309,19 @@ function NotifRow({
             onOpenProfile(n.handle, n.byName, n.byPhotoURL);
           }}
           className="relative shrink-0"
-          aria-label={`${n.byName || "User"} profile`}
+          aria-label={`${senderName} profile`}
         >
           <div className="relative">
-            <SmartAvatar src={n.byPhotoURL} alt={n.byName || "User"} size={46} />
+            <SmartAvatar
+              src={
+                n.type === "admin_broadcast"
+                  ? n.byPhotoURL ||
+                  "https://firebasestorage.googleapis.com/v0/b/ekarihub-aed5a.firebasestorage.app/o/Ekarihub%20Favicon%20Logo_Green.png?alt=media&token=2ebcbdcc-a8fc-43f0-b8d8-1b6b38ca898d"
+                  : n.byPhotoURL
+              }
+              alt={senderName}
+              size={46}
+            />
             <span
               className="absolute -right-1 -bottom-1 w-[18px] h-[18px] rounded-full border-2 border-white flex items-center justify-center"
               style={{ backgroundColor: badge.bg }}
@@ -325,27 +352,50 @@ function NotifRow({
                   "group-hover:underline"
                 )}
               >
-                {n.byName || "User"}
+                {senderName}
               </div>
             </button>
 
             <div className="ml-2 text-[12px] text-slate-500">{timeAgo(n.createdAt)}</div>
           </div>
 
-          {/* Primary text – click → deed (like/comment) or profile */}
-          <button
-            type="button"
-            onClick={() => {
-              if ((n.type === "comment" || n.type === "like") && n.deedId && n.handle) {
-                router.push(`/${encodeURIComponent(n.handle)}/deed/${n.deedId}`);
-              } else if (n.type !== "admin_broadcast" && n.byUserId !== "system") {
-                onOpenProfile(n.handle, n.byName, n.byPhotoURL);
-              }
-            }}
-            className="mt-0.5 text-[13px] text-slate-600 hover:text-slate-900 hover:underline text-left"
-          >
-            {primaryText(n)}
-          </button>
+          {/* Notification content */}
+          {n.type === "admin_broadcast" ? (
+            <div className="mt-0.5 text-[13px] leading-5 text-slate-600 whitespace-pre-line">
+              <span>{visibleText}</span>
+
+              {isLongBroadcast && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((current) => !current)}
+                  className="ml-1 inline font-extrabold hover:underline focus:outline-none"
+                  style={{ color: EKARI.forest }}
+                  aria-expanded={expanded}
+                  aria-label={expanded ? "Collapse notification" : "Expand notification"}
+                >
+                  {expanded ? "Read less" : "Read more"}
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  (n.type === "comment" || n.type === "like") &&
+                  n.deedId &&
+                  n.handle
+                ) {
+                  router.push(`/${encodeURIComponent(n.handle)}/deed/${n.deedId}`);
+                } else if (n.byUserId !== "system") {
+                  onOpenProfile(n.handle, n.byName, n.byPhotoURL);
+                }
+              }}
+              className="mt-0.5 text-[13px] text-slate-600 hover:text-slate-900 hover:underline text-left"
+            >
+              {fullText}
+            </button>
+          )}
         </div>
 
         {/* Right actions */}
@@ -426,11 +476,32 @@ export default function ActivityPage() {
       collection(db, "users", uid, "notifications"),
       orderBy("createdAt", "desc")
     );
-    const unsub = onSnapshot(qAll, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Notif[];
-      setItems(data);
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      qAll,
+      (snap) => {
+        const data = snap.docs.map((notificationDoc) => {
+          const raw = notificationDoc.data();
+
+          console.log("NOTIFICATION DOCUMENT", {
+            id: notificationDoc.id,
+            ...raw,
+          });
+
+          return {
+            id: notificationDoc.id,
+            ...raw,
+          } as Notif;
+        });
+
+        setItems(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Notification listener error:", error);
+        setLoading(false);
+      }
+    );
+
     return () => unsub();
   }, [uid]);
 
