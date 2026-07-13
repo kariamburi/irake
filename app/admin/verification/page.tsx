@@ -43,7 +43,7 @@ const EKARI = {
   bgSoft: "#F3F4F6",
 };
 
-type VerificationStatus = "none" | "pending" | "approved" | "rejected";
+type VerificationStatus = "none" | "payment_pending" | "pending" | "approved" | "rejected";
 type VerificationType = "individual" | "business" | "company";
 
 type UserVerificationRow = {
@@ -64,6 +64,11 @@ type UserVerificationRow = {
   reviewerId?: string | null;
   rejectionReason?: string | null;
   paystackReference?: string | null;
+  paymentStatus?: "pending" | "paid" | "failed" | null;
+  lastPaymentReference?: string | null;
+  lastPaymentCurrency?: string | null;
+  lastPaymentAmountMinor?: number | null;
+  lastPaymentAt?: any;
 
   // ⭐ KYC images
   nationalIdFrontUrl?: string | null;
@@ -107,6 +112,14 @@ function buildRowFromDoc(docSnap: any): UserVerificationRow {
     reviewerId: v.reviewerId ?? null,
     rejectionReason: v.rejectionReason ?? null,
     paystackReference: v.paystackReference ?? null,
+    paymentStatus: v.paymentStatus ?? null,
+    lastPaymentReference: v.lastPaymentReference ?? null,
+    lastPaymentCurrency: v.lastPaymentCurrency ?? null,
+    lastPaymentAmountMinor:
+      typeof v.lastPaymentAmountMinor === "number"
+        ? v.lastPaymentAmountMinor
+        : null,
+    lastPaymentAt: v.lastPaymentAt,
     // ⭐ KYC images
     nationalIdFrontUrl: v.nationalIdFrontUrl ?? null,
     nationalIdBackUrl: v.nationalIdBackUrl ?? null,
@@ -195,10 +208,11 @@ export default function AdminVerificationPage() {
 
     const ref = collection(db, "users");
 
-    // Only users with verification.status == "pending"
+    // Only show applications after Paystack confirms payment.
     const q = query(
       ref,
       where("verification.status", "==", "pending"),
+      where("verification.paymentStatus", "==", "paid"),
       orderBy("verification.requestedAt", "desc")
     );
 

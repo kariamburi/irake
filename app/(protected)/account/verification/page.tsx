@@ -35,7 +35,7 @@ const EKARI = {
   hair: "#E5E7EB",
 };
 
-type VerificationStatus = "none" | "pending" | "approved" | "rejected";
+type VerificationStatus = "none" | "payment_pending" | "pending" | "approved" | "rejected";
 type PreferredCurrency = "KES" | "USD";
 type VerificationType = "individual" | "business" | "company";
 
@@ -55,6 +55,11 @@ type VerificationData = {
   reviewerId?: string | null;
   rejectionReason?: string | null;
   paystackReference?: string | null;
+  paymentStatus?: "pending" | "paid" | "failed" | null;
+  lastPaymentReference?: string | null;
+  lastPaymentCurrency?: string | null;
+  lastPaymentAmountMinor?: number | null;
+  lastPaymentAt?: any;
   nationalIdFrontUrl?: string | null;
   nationalIdBackUrl?: string | null;
   selfieUrl?: string | null;
@@ -166,6 +171,14 @@ export default function VerificationPage() {
           reviewerId: vRaw?.reviewerId ?? null,
           rejectionReason: vRaw?.rejectionReason ?? null,
           paystackReference: vRaw?.paystackReference ?? null,
+          paymentStatus: vRaw?.paymentStatus ?? null,
+          lastPaymentReference: vRaw?.lastPaymentReference ?? null,
+          lastPaymentCurrency: vRaw?.lastPaymentCurrency ?? null,
+          lastPaymentAmountMinor:
+            typeof vRaw?.lastPaymentAmountMinor === "number"
+              ? vRaw.lastPaymentAmountMinor
+              : null,
+          lastPaymentAt: vRaw?.lastPaymentAt,
           nationalIdFrontUrl: vRaw?.nationalIdFrontUrl ?? null,
           nationalIdBackUrl: vRaw?.nationalIdBackUrl ?? null,
           selfieUrl: vRaw?.selfieUrl ?? null,
@@ -379,7 +392,9 @@ export default function VerificationPage() {
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
         verification: {
-          status: "pending",
+          // Keep out of the admin queue until Paystack confirms payment.
+          status: "payment_pending",
+          paymentStatus: "pending",
           verificationType,
           roleLabel: roleLabel.trim(),
           notes: notes.trim() || null,
@@ -473,6 +488,15 @@ export default function VerificationPage() {
         </div>
       );
     }
+    if (status === "payment_pending") {
+      return (
+        <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-800 border border-sky-200">
+          <IoTimeOutline size={14} />
+          <span>Waiting for payment confirmation</span>
+        </div>
+      );
+    }
+
     if (status === "pending") {
       return (
         <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
@@ -624,6 +648,14 @@ export default function VerificationPage() {
         >
           Your profile is verified. If you need to update your details or submit new documents,
           contact ekarihub support.
+        </div>
+      )}
+
+      {status === "payment_pending" && (
+        <div className="mt-8 rounded-lg border border-sky-100 bg-sky-50 p-4 text-xs text-sky-900">
+          Your verification documents were saved. We are waiting for Paystack to confirm the
+          payment. Once payment is confirmed, your application will automatically move to the
+          admin review queue.
         </div>
       )}
 
