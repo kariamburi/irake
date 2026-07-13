@@ -630,6 +630,8 @@ export default function HandleConnectionsPage() {
             <Row
               key={u.id}
               user={u}
+              tab={tab}
+              ownerUid={ownerUid}
               viewerUid={viewerUid}
               viewerFollowingSet={viewerFollowingSet}
               viewerFollowersSet={viewerFollowersSet}
@@ -719,12 +721,16 @@ function Tab({
 
 function Row({
   user,
+  tab,
+  ownerUid,
   viewerUid,
   viewerFollowingSet,
   viewerFollowersSet,
   onToggleFollow,
 }: {
   user: UserSummary;
+  tab: TabKey;
+  ownerUid?: string | null;
   viewerUid?: string;
   viewerFollowingSet: Set<string>;
   viewerFollowersSet: Set<string>;
@@ -742,11 +748,22 @@ function Row({
   const viewerFollows = viewerFollowingSet.has(id);
   const followsViewer = viewerFollowersSet.has(id);
 
+  /*
+   * When viewing your own Partners tab, every listed user is already your
+   * partner, so show a non-clickable "Partners" badge.
+   *
+   * When viewing another profile's Partners tab, calculate the button from
+   * the signed-in viewer's relationship with each listed user:
+   * Partners, Follow back, Following, or Follow.
+   */
+  const viewingOwnConnections = !!viewerUid && viewerUid === ownerUid;
+  const isOwnPartnersTab = tab === "partners" && viewingOwnConnections;
+
   let pillLabel = "";
 
   if (!viewerUid || viewerUid === id) {
     pillLabel = "";
-  } else if (isFriend) {
+  } else if (isOwnPartnersTab || isFriend) {
     pillLabel = "Partners";
   } else if (followsViewer && !viewerFollows) {
     pillLabel = "Follow back";
@@ -788,25 +805,40 @@ function Row({
 
       <div className="flex items-center gap-2">
         {!!pillLabel && viewerUid !== id && (
-          <button
-            onClick={() => onToggleFollow(id)}
-            className="min-w-[96px] rounded-full px-4 py-1.5 text-xs font-semibold"
-            style={
-              pillLabel === "Partners" || pillLabel === "Following"
-                ? {
-                  backgroundColor: "#F9FAFB",
-                  color: EKARI.text,
-                  borderWidth: 1,
-                  borderColor: EKARI.hair,
-                }
-                : {
-                  backgroundColor: EKARI.primary,
-                  color: "#FFFFFF",
-                }
-            }
-          >
-            {pillLabel}
-          </button>
+          pillLabel === "Partners" ? (
+            <span
+              className="min-w-[96px] rounded-full px-4 py-1.5 text-center text-xs font-semibold"
+              style={{
+                backgroundColor: "#F9FAFB",
+                color: EKARI.text,
+                borderWidth: 1,
+                borderColor: EKARI.hair,
+              }}
+              title="You and this user follow each other"
+            >
+              Partners
+            </span>
+          ) : (
+            <button
+              onClick={() => onToggleFollow(id)}
+              className="min-w-[96px] rounded-full px-4 py-1.5 text-xs font-semibold"
+              style={
+                pillLabel === "Following"
+                  ? {
+                    backgroundColor: "#F9FAFB",
+                    color: EKARI.text,
+                    borderWidth: 1,
+                    borderColor: EKARI.hair,
+                  }
+                  : {
+                    backgroundColor: EKARI.primary,
+                    color: "#FFFFFF",
+                  }
+              }
+            >
+              {pillLabel}
+            </button>
+          )
         )}
       </div>
     </div>
