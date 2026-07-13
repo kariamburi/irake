@@ -240,7 +240,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         // ✅ Verification: users where verification.status == "pending"
         const verQuery = query(
             collection(db, "users"),
-            where("verification.status", "==", "pending")
+            where("verification.status", "==", "pending"),
+            where("verification.paymentStatus", "==", "paid")
         );
         const unsubVer = onSnapshot(verQuery, (snap) => {
             setPendingVerificationCount(snap.size);
