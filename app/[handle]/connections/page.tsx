@@ -123,6 +123,7 @@ export default function HandleConnectionsPage() {
   const [search, setSearch] = React.useState("");
   const observerRef = React.useRef<HTMLDivElement | null>(null);
   const fetchingRef = React.useRef(false);
+  const viewerFollowersRef = React.useRef<Set<string>>(new Set());
 
   const viewerUid = user?.uid;
   const loadTabCounts = React.useCallback(async () => {
@@ -238,8 +239,10 @@ export default function HandleConnectionsPage() {
 
   const loadViewerRelations = React.useCallback(async () => {
     if (!viewerUid) {
+      const empty = new Set<string>();
+      viewerFollowersRef.current = empty;
       setViewerFollowingSet(new Set());
-      setViewerFollowersSet(new Set());
+      setViewerFollowersSet(empty);
       return;
     }
 
@@ -254,9 +257,14 @@ export default function HandleConnectionsPage() {
       new Set(viewerFollowingSnap.docs.map((d) => (d.data() as any).followingId as string))
     );
 
-    setViewerFollowersSet(
-      new Set(viewerFollowersSnap.docs.map((d) => (d.data() as any).followerId as string))
+    const nextViewerFollowersSet = new Set(
+      viewerFollowersSnap.docs.map(
+        (d) => (d.data() as any).followerId as string
+      )
     );
+
+    viewerFollowersRef.current = nextViewerFollowersSet;
+    setViewerFollowersSet(nextViewerFollowersSet);
   }, [viewerUid]);
 
   const resetTabData = React.useCallback(() => {
@@ -284,131 +292,131 @@ export default function HandleConnectionsPage() {
 
         const followsRef = collection(db, "follows");
 
-        const constraints: any[] = [
-          tab === "following"
-            ? where("followerId", "==", ownerUid)
-            : where("followingId", "==", ownerUid),
-          orderBy(documentId()),
-        ];
+        /*
+         * `sourceCursor` tracks the last scanned follow document.
+         *
+         * Following and followers are unfiltered, so one Firestore page gives
+         * one visible page.
+         *
+         * Partners and mutual are filtered tabs. A source page may contain
+         * fewer than PAGE_SIZE matches, so we keep scanning source pages until
+         * we collect PAGE_SIZE matching users or reach the end.
+         */
+        let sourceCursor = reset ? null : lastDoc;
+        let reachedEnd = false;
 
-        if (!reset && lastDoc) {
-          constraints.push(startAfter(lastDoc));
-        }
+        const collectedIds: string[] = [];
+        const seenIds = new Set<string>();
 
-        constraints.push(limit(PAGE_SIZE));
+        while (collectedIds.length < PAGE_SIZE && !reachedEnd) {
+          const constraints: any[] = [
+            tab === "following"
+              ? where("followerId", "==", ownerUid)
+              : where("followingId", "==", ownerUid),
+            orderBy(documentId()),
+          ];
 
-        const snap = await getDocs(query(followsRef, ...constraints));
-
-        if (snap.empty) {
-          setHasMore(false);
-          return;
-        }
-
-        const ids = snap.docs.map((d) => {
-          const data = d.data() as any;
-          return tab === "following" ? data.followingId : data.followerId;
-        });
-
-        let finalIds = ids;
-
-        if (tab === "partners") {
-          const checks = await Promise.all(
-            ids.map(async (id) => {
-              const relId = `${id}_${ownerUid}`;
-              const relSnap = await getDoc(doc(db, "follows", relId));
-              return relSnap.exists() ? id : null;
-            })
-          );
-          finalIds = checks.filter(Boolean) as string[];
-        }
-
-
-        if (tab === "mutual") {
-          if (!viewerUid || viewerUid === ownerUid) {
-            setMutualPartners([]);
-            setHasMore(false);
-            setLastDoc(null);
-            return;
+          if (sourceCursor) {
+            constraints.push(startAfter(sourceCursor));
           }
 
-          const [ownerFollowersSnap, viewerFollowersSnap] = await Promise.all([
-            getDocs(
-              query(
-                followsRef,
-                where("followingId", "==", ownerUid)
-              )
-            ),
-            getDocs(
-              query(
-                followsRef,
-                where("followingId", "==", viewerUid)
-              )
-            ),
-          ]);
+          constraints.push(limit(PAGE_SIZE));
 
-          const ownerFollowerIds = ownerFollowersSnap.docs
-            .map(
-              (d) => (d.data() as any).followerId as string
-            )
-            .filter(Boolean);
-
-          const currentViewerFollowersSet = new Set(
-            viewerFollowersSnap.docs
-              .map(
-                (d) => (d.data() as any).followerId as string
-              )
-              .filter(Boolean)
+          const snap = await getDocs(
+            query(followsRef, ...constraints)
           );
 
-          const mutualIds = Array.from(
-            new Set(
-              ownerFollowerIds.filter((id) =>
+          if (snap.empty) {
+            reachedEnd = true;
+            break;
+          }
+
+          sourceCursor = snap.docs[snap.docs.length - 1];
+
+          if (snap.docs.length < PAGE_SIZE) {
+            reachedEnd = true;
+          }
+
+          const rawIds = snap.docs
+            .map((d) => {
+              const data = d.data() as any;
+              return tab === "following"
+                ? data.followingId
+                : data.followerId;
+            })
+            .filter(Boolean) as string[];
+
+          let matchedIds = rawIds;
+
+          if (tab === "partners") {
+            const checks = await Promise.all(
+              rawIds.map(async (id) => {
+                const relId = `${id}_${ownerUid}`;
+                const relSnap = await getDoc(
+                  doc(db, "follows", relId)
+                );
+
+                return relSnap.exists() ? id : null;
+              })
+            );
+
+            matchedIds = checks.filter(Boolean) as string[];
+          }
+
+          if (tab === "mutual") {
+            if (!viewerUid || viewerUid === ownerUid) {
+              matchedIds = [];
+              reachedEnd = true;
+            } else {
+              const currentViewerFollowersSet =
+                viewerFollowersRef.current;
+
+              matchedIds = rawIds.filter((id) =>
                 currentViewerFollowersSet.has(id)
-              )
-            )
-          );
+              );
+            }
+          }
 
-          console.log("MUTUAL DEBUG", {
-            ownerUid,
-            viewerUid,
-            ownerFollowerIds,
-            viewerFollowerIds: Array.from(
-              currentViewerFollowersSet
-            ),
-            mutualIds,
-          });
+          for (const id of matchedIds) {
+            if (!seenIds.has(id)) {
+              seenIds.add(id);
+              collectedIds.push(id);
+            }
 
-          const userMap = await fetchUserDocs(mutualIds);
+            if (collectedIds.length >= PAGE_SIZE) break;
+          }
 
-          const users = mutualIds.map(
-            (id) => userMap[id] || { id }
-          );
-
-          setMutualPartners(users);
-          setHasMore(false);
-          setLastDoc(null);
-
-          return;
+          // Unfiltered tabs need only one source page per visible page.
+          if (tab === "following" || tab === "followers") {
+            break;
+          }
         }
 
-        const userMap = await fetchUserDocs(finalIds);
-        const users = finalIds.map((id) => userMap[id] || { id });
+        const userMap = await fetchUserDocs(collectedIds);
+        const users = collectedIds.map(
+          (id) => userMap[id] || { id }
+        );
 
         if (tab === "following") {
-          setFollowing((prev) => (reset ? users : [...prev, ...users]));
+          setFollowing((prev) =>
+            reset ? users : [...prev, ...users]
+          );
         } else if (tab === "followers") {
-          setFollowers((prev) => (reset ? users : [...prev, ...users]));
+          setFollowers((prev) =>
+            reset ? users : [...prev, ...users]
+          );
         } else if (tab === "partners") {
-          setPartners((prev) => (reset ? users : [...prev, ...users]));
+          setPartners((prev) =>
+            reset ? users : [...prev, ...users]
+          );
         } else {
-          setMutualPartners((prev) => (reset ? users : [...prev, ...users]));
+          setMutualPartners((prev) =>
+            reset ? users : [...prev, ...users]
+          );
         }
 
-        setLastDoc(snap.docs[snap.docs.length - 1]);
-
-        if (snap.docs.length < PAGE_SIZE) {
-          setHasMore(false);
-        }
+        setLastDoc(sourceCursor);
+        setHasMore(!reachedEnd);
       } catch (e) {
         console.warn("Connections infinite load error:", e);
       } finally {
@@ -422,7 +430,6 @@ export default function HandleConnectionsPage() {
       tab,
       lastDoc,
       viewerUid,
-      viewerFollowersSet,
       fetchUserDocs,
       resetTabData,
     ]
