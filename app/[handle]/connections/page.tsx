@@ -322,12 +322,73 @@ export default function HandleConnectionsPage() {
           finalIds = checks.filter(Boolean) as string[];
         }
 
+
         if (tab === "mutual") {
           if (!viewerUid || viewerUid === ownerUid) {
-            finalIds = [];
-          } else {
-            finalIds = ids.filter((id) => viewerFollowersSet.has(id));
+            setMutualPartners([]);
+            setHasMore(false);
+            setLastDoc(null);
+            return;
           }
+
+          const [ownerFollowersSnap, viewerFollowersSnap] = await Promise.all([
+            getDocs(
+              query(
+                followsRef,
+                where("followingId", "==", ownerUid)
+              )
+            ),
+            getDocs(
+              query(
+                followsRef,
+                where("followingId", "==", viewerUid)
+              )
+            ),
+          ]);
+
+          const ownerFollowerIds = ownerFollowersSnap.docs
+            .map(
+              (d) => (d.data() as any).followerId as string
+            )
+            .filter(Boolean);
+
+          const currentViewerFollowersSet = new Set(
+            viewerFollowersSnap.docs
+              .map(
+                (d) => (d.data() as any).followerId as string
+              )
+              .filter(Boolean)
+          );
+
+          const mutualIds = Array.from(
+            new Set(
+              ownerFollowerIds.filter((id) =>
+                currentViewerFollowersSet.has(id)
+              )
+            )
+          );
+
+          console.log("MUTUAL DEBUG", {
+            ownerUid,
+            viewerUid,
+            ownerFollowerIds,
+            viewerFollowerIds: Array.from(
+              currentViewerFollowersSet
+            ),
+            mutualIds,
+          });
+
+          const userMap = await fetchUserDocs(mutualIds);
+
+          const users = mutualIds.map(
+            (id) => userMap[id] || { id }
+          );
+
+          setMutualPartners(users);
+          setHasMore(false);
+          setLastDoc(null);
+
+          return;
         }
 
         const userMap = await fetchUserDocs(finalIds);
