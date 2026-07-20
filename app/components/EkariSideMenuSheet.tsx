@@ -15,6 +15,7 @@ import {
     IoLogInOutline,
     IoLogOutOutline,
     IoNotificationsOutline,
+    IoPartlySunnyOutline,
     IoPersonCircleOutline,
     IoSparklesOutline,
 } from "react-icons/io5";
@@ -232,6 +233,12 @@ export function EkariSideMenuSheet({
                 alsoMatch: ["/market"],
             },
             { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
+            {
+                key: "weather",
+                label: "Weather",
+                href: "/weather",
+                icon: <IoPartlySunnyOutline />, requiresAuth: true,
+            },
             { key: "studio", label: "Deed studio", href: "/studio/upload", icon: <IoAdd />, requiresAuth: true },
 
             {

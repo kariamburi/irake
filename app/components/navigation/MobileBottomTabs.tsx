@@ -10,12 +10,13 @@ import {
     IoCompassOutline,
     IoHome,
     IoHomeOutline,
+    IoPartlySunnyOutline,
     IoSearchOutline,
 } from "react-icons/io5";
 import { EKARI, hexToRgba } from "@/app/nexus/discussions/[discussionId]/discussion-thread.utils";
 
 type ThemeMode = "light" | "dark";
-type TabKey = "deeds" | "market" | "nexus" | "bonga";
+type TabKey = "deeds" | "market" | "nexus" | "weather" | "bonga";
 
 type Props = {
     onCreate: () => void;
@@ -131,6 +132,7 @@ export default function MobileBottomTabs({
         deeds: activeKey ? activeKey === "deeds" : isActive("/"),
         market: activeKey ? activeKey === "market" : isActive("/market"),
         nexus: activeKey ? activeKey === "nexus" : isActive("/search"),
+        weather: activeKey ? activeKey === "weather" : isActive("/weather"),
         bonga: activeKey ? activeKey === "bonga" : isActive("/bonga"),
     };
 
@@ -218,6 +220,16 @@ export default function MobileBottomTabs({
                     active={resolvedActive.nexus}
                     theme={theme}
                     refreshing={refreshingKey === "nexus"}
+                />
+                <TabBtn
+                    tabKey="weather"
+                    label="Weather"
+                    //icon={<IoCompassOutline size={20} />}
+                    icon={<IoPartlySunnyOutline size={20} />}
+                    onClick={() => handleTabPress("weather", "/weather")}
+                    active={resolvedActive.nexus}
+                    theme={theme}
+                    refreshing={refreshingKey === "weather"}
                 />
 
                 <TabBtn
