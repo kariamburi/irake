@@ -231,9 +231,15 @@ export default function Page() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToEnd = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  //const scrollToEnd = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  useEffect(scrollToEnd, [messages]);
+  const scrollToEnd = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    scrollToEnd();
+  }, [messages, scrollToEnd]);
 
   const stopTyping = useCallback(() => {
     if (typingTimerRef.current) {

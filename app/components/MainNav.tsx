@@ -15,6 +15,7 @@ import {
     IoCartOutline,
     IoHomeOutline,
     IoCompassOutline,
+    IoPartlySunnyOutline,
 } from "react-icons/io5";
 
 import { useAuth } from "@/app/hooks/useAuth";
@@ -260,9 +261,27 @@ export function LeftNavDesktop({
         requiresAuth?: boolean;
         badgeCount?: number;
     }> = [
-            { label: "Deeds", href: "/", icon: <IoHomeOutline /> },
-            { label: "ekariMarket", href: "/market", icon: <IoCartOutline /> },
-            { label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
+            {
+                label: "Deeds",
+                href: "/",
+                icon: <IoHomeOutline />,
+            },
+            {
+                label: "ekariMarket",
+                href: "/market",
+                icon: <IoCartOutline />,
+            },
+            {
+                label: "Nexus",
+                href: "/nexus",
+                icon: <IoCompassOutline />,
+            },
+            {
+                label: "Weather",
+                href: "/weather",
+                icon: <IoPartlySunnyOutline />,
+                requiresAuth: true,
+            },
             {
                 label: "Deed studio",
                 href: "/studio/upload",
@@ -283,9 +302,12 @@ export function LeftNavDesktop({
                 requiresAuth: true,
                 badgeCount: authUid ? unreadDM : 0,
             },
-            { label: "ekari AI", href: "/ai", icon: <IoSparklesOutline /> },
+            {
+                label: "ekari AI",
+                href: "/ai",
+                icon: <IoSparklesOutline />,
+            },
         ];
-
     const profileHref =
         handle && handle.trim().length > 0 ? `/${handle}` : "/getstarted";
 
