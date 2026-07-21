@@ -55,6 +55,7 @@ import {
   IoAnalyticsOutline,
   IoBookmarkOutline,
   IoArrowBack,
+  IoRepeatOutline,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -132,6 +133,7 @@ import {
   IoSparklesOutline,
 } from "react-icons/io5";
 import LargeAvatar from "../components/LargeAvatar";
+import { repostDeed } from "@/lib/repostDeed";
 
 function toWhatsAppLink(raw?: string | null) {
   const phone = cleanPhone(raw);
@@ -1393,49 +1395,173 @@ function VideosGrid({
   items,
   handle,
   isOwner,
+  ownerUid,
+  viewerUid,
   loading,
   showEmpty,
 }: {
   items: DeedDoc[];
   handle: string;
   isOwner: boolean;
+  ownerUid?: string | null;
+  viewerUid?: string | null;
   loading: boolean;
   showEmpty: boolean;
 }) {
-  return (
-    <div className="px-3 md:px-6 pb-12">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
+  const [repostTarget, setRepostTarget] =
+    React.useState<DeedDoc | null>(null);
 
-        {items.map((d, idx) => (
-          <VideoTile
-            key={d.id}
-            deed={d}
-            handle={handle}
-            isOwner={isOwner}
-            index={idx}
-          />
-        ))}
+  const [repostingId, setRepostingId] =
+    React.useState<string | null>(null);
+
+  const [infoModal, setInfoModal] = React.useState<{
+    open: boolean;
+    title: string;
+    message: string;
+  }>({
+    open: false,
+    title: "",
+    message: "",
+  });
+
+  const performRepost = React.useCallback(async () => {
+    const deed = repostTarget;
+    setRepostTarget(null);
+
+    if (!deed?.id) return;
+
+    if (!viewerUid) {
+      setInfoModal({
+        open: true,
+        title: "Sign in required",
+        message: "Please sign in before reposting a deed.",
+      });
+      return;
+    }
+
+    if (!isOwner || viewerUid !== ownerUid) {
+      setInfoModal({
+        open: true,
+        title: "Not allowed",
+        message: "You can only repost your own deed.",
+      });
+      return;
+    }
+
+    try {
+      setRepostingId(deed.id);
+
+      await repostDeed(deed.id, viewerUid);
+
+      setInfoModal({
+        open: true,
+        title: "Deed reposted",
+        message:
+          "Your deed has been moved to the top of the recent feed.",
+      });
+    } catch (error: any) {
+      console.error("PROFILE_REPOST_FAILED", {
+        deedId: deed.id,
+        error,
+      });
+
+      setInfoModal({
+        open: true,
+        title: "Repost failed",
+        message:
+          error?.message ||
+          "Could not repost this deed. Please try again.",
+      });
+    } finally {
+      setRepostingId(null);
+    }
+  }, [
+    repostTarget,
+    viewerUid,
+    ownerUid,
+    isOwner,
+  ]);
+
+  return (
+    <>
+      <div className="px-3 md:px-6 pb-12">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
+          {items.map((deed, index) => (
+            <VideoTile
+              key={deed.id}
+              deed={deed}
+              handle={handle}
+              isOwner={isOwner}
+              index={index}
+              reposting={repostingId === deed.id}
+              onRepost={() => {
+                if (!isOwner) return;
+                setRepostTarget(deed);
+              }}
+            />
+          ))}
+        </div>
+
+        {showEmpty && !loading && items.length === 0 && (
+          <div
+            className="py-16 text-center text-sm"
+            style={{ color: EKARI.subtext }}
+          >
+            No deeds yet
+          </div>
+        )}
       </div>
 
-      {showEmpty && !loading && items.length === 0 && (
-        <div className="py-16 text-center text-sm" style={{ color: EKARI.subtext }}>
-          No deeds yet
-        </div>
-      )}
-    </div>
+      <ConfirmModal
+        open={!!repostTarget}
+        title="Repost this deed?"
+        message="This deed will move to the top of your profile and recent deed feeds. Likes, comments and views will remain unchanged."
+        confirmText="Repost deed"
+        cancelText="Cancel"
+        onConfirm={() => {
+          void performRepost();
+        }}
+        onCancel={() => setRepostTarget(null)}
+      />
+
+      <ConfirmModal
+        open={infoModal.open}
+        title={infoModal.title || "Notice"}
+        message={infoModal.message}
+        confirmText="Close"
+        cancelText={undefined}
+        onConfirm={() =>
+          setInfoModal((previous) => ({
+            ...previous,
+            open: false,
+          }))
+        }
+        onCancel={() =>
+          setInfoModal((previous) => ({
+            ...previous,
+            open: false,
+          }))
+        }
+      />
+    </>
   );
 }
+
 
 function VideoTile({
   deed,
   handle,
   isOwner,
   index,
+  reposting,
+  onRepost,
 }: {
   deed: DeedDoc;
   handle: string;
   isOwner: boolean;
   index: number;
+  reposting: boolean;
+  onRepost: () => void;
 }) {
   // Prefer the smallest preview first if you have it in your schema.
   // If you don’t, this still works (it just may use the same thumb for both).
@@ -1558,9 +1684,51 @@ function VideoTile({
   if (!ready) return <div>{Card}</div>;
 
   return (
-    <Link href={href} className="block" prefetch aria-label="Open video">
-      {Card}
-    </Link>
+    <div className="relative">
+      <Link
+        href={href}
+        className="block"
+        prefetch
+        aria-label="Open deed"
+      >
+        {Card}
+      </Link>
+
+      {isOwner && (
+        <button
+          type="button"
+          disabled={reposting}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (reposting) return;
+            onRepost();
+          }}
+          className={[
+            "absolute right-2 top-2 z-20",
+            "inline-flex h-9 items-center gap-1.5 rounded-full",
+            "border border-white/20 bg-black/65 px-3",
+            "text-[11px] font-black text-white backdrop-blur-md",
+            "shadow-[0_8px_24px_rgba(0,0,0,0.35)]",
+            "transition hover:bg-black/80 active:scale-[0.97]",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+          ].join(" ")}
+          aria-label="Repost deed"
+          title="Repost deed"
+        >
+          {reposting ? (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          ) : (
+            <IoRepeatOutline size={15} />
+          )}
+
+          <span>
+            {reposting ? "Reposting" : "Repost"}
+          </span>
+        </button>
+      )}
+    </div>
   );
 }
 

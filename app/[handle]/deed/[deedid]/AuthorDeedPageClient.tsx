@@ -31,7 +31,8 @@ import {
 import { DeedsScrollerWeb } from "@/app/deeds/components/DeedsScrollerWeb";
 import { DesktopDeedRailWeb } from "@/app/deeds/components/DesktopDeedRailWeb";
 import { GlobalMuteProviderWeb } from "@/app/deeds/hooks/useGlobalMuteWeb";
-import { IoArrowBack } from "react-icons/io5";
+import { IoArrowBack, IoRepeatOutline } from "react-icons/io5";
+import { repostDeed } from "@/lib/repostDeed";
 
 type Props = {
     handle: string;
@@ -274,7 +275,21 @@ export default function AuthorDeedPageClient({
     const [activeDeedId, setActiveDeedId] = useState<string | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const [following, setFollowing] = useState<Set<string>>(new Set());
+    const [repostConfirmOpen, setRepostConfirmOpen] =
+        useState(false);
 
+    const [reposting, setReposting] =
+        useState(false);
+
+    const [repostMessage, setRepostMessage] = useState<{
+        open: boolean;
+        title: string;
+        message: string;
+    }>({
+        open: false,
+        title: "",
+        message: "",
+    });
     const loading = authLoading || profileLoading || pageLoading;
     const pageHeight = typeof window !== "undefined" ? window.innerHeight : 800;
 
@@ -313,7 +328,116 @@ export default function AuthorDeedPageClient({
             [nextDeedId]: true,
         }));
     }, []);
+    const activeDeedIsOwnedByViewer = useMemo(() => {
+        if (!user?.uid || !activeDeed?.authorId) {
+            return false;
+        }
 
+        return activeDeed.authorId === user.uid;
+    }, [
+        user?.uid,
+        activeDeed?.authorId,
+    ]);
+    const performRepost = useCallback(async () => {
+        setRepostConfirmOpen(false);
+
+        if (!user?.uid) {
+            router.push("/login");
+            return;
+        }
+
+        if (!activeDeed?.id) {
+            setRepostMessage({
+                open: true,
+                title: "Repost failed",
+                message: "No active deed was selected.",
+            });
+            return;
+        }
+
+        if (activeDeed.authorId !== user.uid) {
+            setRepostMessage({
+                open: true,
+                title: "Not allowed",
+                message: "You can only repost your own deed.",
+            });
+            return;
+        }
+
+        if (reposting) return;
+
+        try {
+            setReposting(true);
+
+            const result = await repostDeed(
+                activeDeed.id,
+                user.uid
+            );
+
+            /*
+             * Update the local active item immediately.
+             * The Firestore helper has already updated the real document.
+             */
+            setItems((previous) =>
+                previous.map((deed) =>
+                    deed.id === activeDeed.id
+                        ? {
+                            ...deed,
+                            createdAt: new Date(
+                                result.repostedAtMs
+                            ),
+                            repostedAtMs:
+                                result.repostedAtMs,
+                            repostCount:
+                                result.repostCount,
+                        }
+                        : deed
+                )
+            );
+
+            setActiveDeed((previous) =>
+                previous?.id === activeDeed.id
+                    ? {
+                        ...previous,
+                        createdAt: new Date(
+                            result.repostedAtMs
+                        ),
+                        repostedAtMs:
+                            result.repostedAtMs,
+                        repostCount:
+                            result.repostCount,
+                    } as Deed
+                    : previous
+            );
+
+            setRepostMessage({
+                open: true,
+                title: "Deed reposted",
+                message:
+                    "Your deed has been moved to the top of recent deed feeds.",
+            });
+        } catch (error: any) {
+            console.error("DEED_ROUTE_REPOST_FAILED", {
+                deedId: activeDeed.id,
+                error,
+            });
+
+            setRepostMessage({
+                open: true,
+                title: "Repost failed",
+                message:
+                    error?.message ||
+                    "Could not repost this deed. Please try again.",
+            });
+        } finally {
+            setReposting(false);
+        }
+    }, [
+        user?.uid,
+        activeDeed,
+        reposting,
+        router,
+    ]);
     const handleActiveItemChange = useCallback(
         (item: Deed, index: number) => {
             setActiveDeed(item);
@@ -794,6 +918,37 @@ export default function AuthorDeedPageClient({
                             </div>
                         </div>
                     ) : null}
+                    {activeDeedIsOwnedByViewer && (
+                        <button
+                            type="button"
+                            disabled={reposting}
+                            onClick={() => setRepostConfirmOpen(true)}
+                            className={[
+                                "fixed z-[70]",
+                                "right-4 top-[calc(env(safe-area-inset-top)+72px)]",
+                                "lg:right-6 lg:top-6",
+                                "inline-flex h-11 items-center gap-2 rounded-full",
+                                "border border-white/20 bg-black/65 px-4",
+                                "text-xs font-black text-white",
+                                "shadow-[0_12px_32px_rgba(0,0,0,0.4)]",
+                                "backdrop-blur-md transition",
+                                "hover:bg-black/80 active:scale-[0.97]",
+                                "disabled:cursor-not-allowed disabled:opacity-60",
+                            ].join(" ")}
+                            aria-label="Repost deed"
+                            title="Repost this deed"
+                        >
+                            {reposting ? (
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                            ) : (
+                                <IoRepeatOutline size={18} />
+                            )}
+
+                            <span>
+                                {reposting ? "Reposting" : "Repost"}
+                            </span>
+                        </button>
+                    )}
                 </div>
 
                 <EkariSideMenuSheet
