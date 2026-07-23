@@ -363,7 +363,7 @@ function ProfileHeroStorefront({
           style={{ borderColor: EKARI.hair }}
         >
           {/* Cover */}
-          <div className="relative h-[190px] md:h-[210px]" style={{ background: heroBg }}>
+          <div className="relative h-[110px] md:h-[140px]" style={{ background: heroBg }}>
             <div className="absolute inset-0 bg-black/0" />
 
           </div>
