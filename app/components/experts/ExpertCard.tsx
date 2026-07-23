@@ -167,7 +167,7 @@ export default function ExpertCard({
     const displayName =
         expert.displayName?.trim() ||
         expert.organizationName?.trim() ||
-        "Ekari Expert";
+        "ekari Expert";
 
     const rating =
         Number(expert.rating?.average) || 0;
