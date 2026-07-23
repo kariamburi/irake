@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+
 import {
     IoHeart,
     IoChatbubble,
@@ -208,9 +209,11 @@ function PremiumIconButton({
 }
 
 /* ---------- Channels ---------- */
-type TabKey = "forYou" | "following" | "nearby";
-const TABS: TabKey[] = ["forYou", "following", "nearby"];
-const LABEL: Record<TabKey, string> = {
+type FeedTabKey = "forYou" | "following" | "nearby";
+
+const TABS: FeedTabKey[] = ["forYou", "following", "nearby"];
+
+const LABEL: Record<FeedTabKey, string> = {
     forYou: "For You",
     following: "Following",
     nearby: "Nearby",
@@ -534,7 +537,7 @@ async function fetchPublicForYouPage(params: { limitCount?: number; cursor?: Pag
         return { items: [], cursor: null as PageCursor, hasMore: false };
     }
 }
-async function fetchServerFeedIds(surface: TabKey, uid?: string): Promise<string[]> {
+async function fetchServerFeedIds(surface: FeedTabKey, uid?: string): Promise<string[]> {
     if (!uid) return [];
 
     const uniq = (arr: string[]) => Array.from(new Set(arr.map(String).filter(Boolean)));
@@ -561,7 +564,7 @@ async function fetchServerFeedIds(surface: TabKey, uid?: string): Promise<string
 
         const callRefresh = async () => {
             const functions = getFunctions(app, "us-central1");
-            const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
+            const refreshFeed = httpsCallable<{ surface: FeedTabKey }, { ids: string[] }>(
                 functions,
                 "refreshFeed"
             );
@@ -656,7 +659,7 @@ function TopLoader({ active, color = "#233F39" }: { active: boolean; color?: str
 }
 
 /* ---------- Server feeds (same contract as mobile) ---------- */
-async function fetchServerFeed(surface: TabKey, uid?: string) {
+async function fetchServerFeed(surface: FeedTabKey, uid?: string) {
     if (!uid) return [];
 
     const uniq = (arr: string[]) => Array.from(new Set(arr.map(String).filter(Boolean)));
@@ -704,7 +707,7 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
         // 2) Refresh
         if (!ids || !ids.length) {
             const functions = getFunctions(app, "us-central1");
-            const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(functions, "refreshFeed");
+            const refreshFeed = httpsCallable<{ surface: FeedTabKey }, { ids: string[] }>(functions, "refreshFeed");
             try {
                 const res = await refreshFeed({ surface });
                 ids = uniq(res.data?.ids || []);
@@ -728,7 +731,7 @@ async function fetchServerFeed(surface: TabKey, uid?: string) {
             if (missingRatio >= 0.3 || items.length < 5) {
                 try {
                     const functions = getFunctions(app, "us-central1");
-                    const refreshFeed = httpsCallable<{ surface: TabKey }, { ids: string[] }>(
+                    const refreshFeed = httpsCallable<{ surface: FeedTabKey }, { ids: string[] }>(
                         functions,
                         "refreshFeed"
                     );
@@ -1331,10 +1334,10 @@ function ChannelTabs({
     dataSaverOn,
     onToggleDataSaver,
 }: {
-    active: TabKey;
+    active: FeedTabKey;
     commentsId: string;
     uid: any;
-    onChange: (k: TabKey) => void;
+    onChange: (k: FeedTabKey) => void;
     dataSaverOn: boolean;
     onToggleDataSaver: () => void;
 }) {
@@ -1410,7 +1413,7 @@ function useChannelFeed({
     archiveMode,
     archivePage = 1,
 }: {
-    tab: TabKey;
+    tab: FeedTabKey;
     uid?: string;
     archiveMode?: "deeds";
     archivePage?: number;
@@ -1425,17 +1428,17 @@ function useChannelFeed({
     const hasMorePublicRef = useRef<boolean>(true);
     const fetchingMorePublicRef = useRef<boolean>(false);
 
-    const serverIdsRef = useRef<Record<TabKey, string[]>>({
+    const serverIdsRef = useRef<Record<FeedTabKey, string[]>>({
         forYou: [],
         following: [],
         nearby: [],
     });
-    const serverHydratedRef = useRef<Record<TabKey, number>>({
+    const serverHydratedRef = useRef<Record<FeedTabKey, number>>({
         forYou: 0,
         following: 0,
         nearby: 0,
     });
-    const fetchingMoreServerRef = useRef<Record<TabKey, boolean>>({
+    const fetchingMoreServerRef = useRef<Record<FeedTabKey, boolean>>({
         forYou: false,
         following: false,
         nearby: false,
@@ -2665,7 +2668,7 @@ function FeedShell({
     else if (!isFast) hlsMaxHeight = 720;
     else hlsMaxHeight = undefined;
 
-    const [tab, setTab] = useState<TabKey>("forYou");
+    const [tab, setTab] = useState<FeedTabKey>("forYou");
     const { items, loading, loadMore, hasNextPage } = useChannelFeed({
         tab,
         uid,
@@ -2749,7 +2752,7 @@ function FeedShell({
     }, [uid, router, userDataSaver, updatingDataSaver]);
 
     const changeTab = useCallback(
-        (k: TabKey) => {
+        (k: FeedTabKey) => {
             if (!uid && (k === "following" || k === "nearby")) {
                 router.push("/getstarted?next=/");
                 setTab("forYou");
