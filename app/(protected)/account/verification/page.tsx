@@ -637,17 +637,44 @@ export default function VerificationPage() {
 
       {status === "approved" && (
         <div
-          className="mt-8 rounded-lg p-4 text-xs"
+          className="mt-8 rounded-2xl border p-5"
           style={{
             borderColor: EKARI.forest,
             backgroundColor: "#E6F1EE",
             color: EKARI.forest,
-            borderWidth: 1,
-            borderStyle: "solid",
           }}
         >
-          Your profile is verified. If you need to update your details or submit new documents,
-          contact ekarihub support.
+          <div className="flex items-start gap-3">
+            <IoShieldCheckmarkOutline
+              size={24}
+              className="shrink-0"
+            />
+
+            <div>
+              <div className="text-sm font-black">
+                Your profile is verified
+              </div>
+
+              <p className="mt-1 text-xs leading-5">
+                You can now configure your professional
+                services, consultation fees, service
+                locations and client terms.
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  router.push("/account/expert")
+                }
+                className="mt-4 rounded-full px-5 py-2.5 text-xs font-black text-white"
+                style={{
+                  backgroundColor: EKARI.forest,
+                }}
+              >
+                Set up expert services
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

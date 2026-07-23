@@ -28,6 +28,7 @@ type AppSettings = {
   processingFeePercent?: number;
   donationPresetsUSD?: number[];
   platformSharePercent?: number;
+  expertConsultationPlatformSharePercent?: number; // Experts
   verificationFeeUSD?: number;
   requireVerifiedToPostProduct?: boolean;
   maxVideoDurationSec?: number;
@@ -112,6 +113,10 @@ export default function AdminSettingsPage() {
   const [usdRateInput, setUsdRateInput] = useState("130");
   const [processingFeeInput, setProcessingFeeInput] = useState("0");
   const [platformShareInput, setPlatformShareInput] = useState("10");
+  const [
+    expertConsultationPlatformShareInput,
+    setExpertConsultationPlatformShareInput,
+  ] = useState("15");
   const [verificationFeeUSDInput, setVerificationFeeUSDInput] = useState("5");
   const [usdPresetsInput, setUsdPresetsInput] = useState("1,5,10,15,20,50,100");
 
@@ -151,7 +156,11 @@ export default function AdminSettingsPage() {
 
         if (data.platformSharePercent != null)
           setPlatformShareInput(String(data.platformSharePercent));
-
+        if (data.expertConsultationPlatformSharePercent != null) {
+          setExpertConsultationPlatformShareInput(
+            String(data.expertConsultationPlatformSharePercent)
+          );
+        }
         if (data.verificationFeeUSD != null)
           setVerificationFeeUSDInput(String(data.verificationFeeUSD));
 
@@ -205,6 +214,10 @@ export default function AdminSettingsPage() {
     const usdRate = parseFloat(usdRateInput);
     const processingFee = parseFloat(processingFeeInput);
     const platformShare = parseFloat(platformShareInput);
+    const expertConsultationPlatformShare =
+      parseFloat(
+        expertConsultationPlatformShareInput
+      );
     const verificationFeeUSD = parseFloat(verificationFeeUSDInput);
 
     const maxVideoDurationSec = parseInt(maxVideoDurationInput, 10);
@@ -261,7 +274,20 @@ export default function AdminSettingsPage() {
       });
       return;
     }
-
+    if (
+      !Number.isFinite(
+        expertConsultationPlatformShare
+      ) ||
+      expertConsultationPlatformShare < 0 ||
+      expertConsultationPlatformShare > 100
+    ) {
+      setFeedbackModal({
+        title: "Invalid consultation platform share",
+        message:
+          "Consultation platform share must be between 0 and 100.",
+      });
+      return;
+    }
     if (!Number.isFinite(verificationFeeUSD) || verificationFeeUSD < 0) {
       setFeedbackModal({
         title: "Invalid verification fee",
@@ -349,6 +375,8 @@ export default function AdminSettingsPage() {
           processingFeePercent: processingFee,
           donationPresetsUSD,
           platformSharePercent: platformShare,
+          expertConsultationPlatformSharePercent:
+            expertConsultationPlatformShare,
           verificationFeeUSD,
           requireVerifiedToPostProduct,
           maxVideoDurationSec,
@@ -370,8 +398,7 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const currentPlatformShare = settings?.platformSharePercent ?? 10;
-  const currentCreatorShare = 100 - currentPlatformShare;
+
 
   const lastUpdated =
     settings?.updatedAt?.toDate?.() instanceof Date
@@ -391,7 +418,7 @@ export default function AdminSettingsPage() {
                 <IoSettingsOutline size={15} />
               </span>
               <span className="text-xs font-black uppercase tracking-wide text-slate-500">
-                EkariHub Admin
+                ekariHub Admin
               </span>
             </div>
 
@@ -603,24 +630,33 @@ export default function AdminSettingsPage() {
 
           <SectionCard
             icon={<IoTrendingUpOutline size={18} />}
-            title="Donation & Revenue Share"
-            subtitle="Configure donation presets and how uplift revenue is split."
-            badge="Uplifts"
+            title="Revenue Sharing"
+            subtitle="Configure donation presets and revenue sharing for creators and agricultural experts."
+            badge="Revenue"
           >
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Donation presets" hint="Comma separated USD amounts">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Field
+                label="Donation presets"
+                hint="Comma separated USD amounts"
+              >
                 <input
                   type="text"
                   value={usdPresetsInput}
-                  onChange={(e) => setUsdPresetsInput(e.target.value)}
+                  onChange={(event) =>
+                    setUsdPresetsInput(event.target.value)
+                  }
                   placeholder="1,5,10,15,20,50,100"
                   className={inputClass}
                 />
               </Field>
 
               <Field
-                label="Platform share"
-                hint={`Creator receives ${Math.max(0, 100 - (Number(platformShareInput) || 0))}% after fees`}
+                label="Donation platform share"
+                hint={`Creator receives ${Math.max(
+                  0,
+                  100 -
+                  (Number(platformShareInput) || 0)
+                )}% before processing fees`}
               >
                 <input
                   type="number"
@@ -628,18 +664,92 @@ export default function AdminSettingsPage() {
                   min={0}
                   max={100}
                   value={platformShareInput}
-                  onChange={(e) => setPlatformShareInput(e.target.value)}
+                  onChange={(event) =>
+                    setPlatformShareInput(
+                      event.target.value
+                    )
+                  }
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field
+                label="Expert consultation share"
+                hint={`Expert receives ${Math.max(
+                  0,
+                  100 -
+                  (Number(
+                    expertConsultationPlatformShareInput
+                  ) || 0)
+                )}% before processing fees`}
+              >
+                <input
+                  type="number"
+                  step="0.5"
+                  min={0}
+                  max={100}
+                  value={
+                    expertConsultationPlatformShareInput
+                  }
+                  onChange={(event) =>
+                    setExpertConsultationPlatformShareInput(
+                      event.target.value
+                    )
+                  }
                   className={inputClass}
                 />
               </Field>
             </div>
 
-            <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm font-bold text-slate-700">
-                Current split:{" "}
-                <span className="text-emerald-700">
-                  {currentPlatformShare}% EkariHub / {currentCreatorShare}% creator
-                </span>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Donation split
+                </p>
+
+                <p className="mt-2 text-sm font-black text-slate-900">
+                  {Number(platformShareInput) || 0}%
+                  {" "}ekariHub
+                </p>
+
+                <p className="mt-1 text-sm font-semibold text-emerald-700">
+                  {Math.max(
+                    0,
+                    100 -
+                    (Number(platformShareInput) || 0)
+                  )}
+                  % creator
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Expert consultation split
+                </p>
+
+                <p className="mt-2 text-sm font-black text-slate-900">
+                  {Number(
+                    expertConsultationPlatformShareInput
+                  ) || 0}
+                  % ekariHub
+                </p>
+
+                <p className="mt-1 text-sm font-semibold text-emerald-700">
+                  {Math.max(
+                    0,
+                    100 -
+                    (Number(
+                      expertConsultationPlatformShareInput
+                    ) || 0)
+                  )}
+                  % expert
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-xs font-semibold leading-5 text-amber-800">
+                Processing fees are deducted separately according to the configured processing-fee percentage.
               </p>
             </div>
           </SectionCard>

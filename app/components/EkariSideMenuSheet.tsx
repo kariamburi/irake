@@ -17,6 +17,7 @@ import {
     IoNotificationsOutline,
     IoPartlySunnyOutline,
     IoPersonCircleOutline,
+    IoShieldCheckmarkOutline,
     IoSparklesOutline,
 } from "react-icons/io5";
 import { cn } from "@/lib/utils";
@@ -232,7 +233,13 @@ export function EkariSideMenuSheet({
                 icon: <IoCartOutline />,
                 alsoMatch: ["/market"],
             },
-            { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
+            // { key: "nexus", label: "Nexus", href: "/nexus", icon: <IoCompassOutline /> },
+            {
+                key: "ekariExperts",
+                label: "ekariExperts",
+                href: "/ekari-experts",
+                icon: <IoShieldCheckmarkOutline />,
+            },
             {
                 key: "weather",
                 label: "Weather",

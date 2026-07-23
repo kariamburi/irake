@@ -1,64 +1,81 @@
 import { Timestamp } from "firebase/firestore";
 
-export type ConsultationMode =
+export type ExpertProfileStatus =
+    | "draft"
+    | "active"
+    | "paused"
+    | "suspended";
+
+export type ConsultationMethod =
     | "phone"
     | "whatsapp"
     | "video"
-    | "in_person";
+    | "physical";
 
-export interface ExpertAvailabilityDay {
-    enabled: boolean;
-    startTime: string;
-    endTime: string;
-}
+export type ExpertFeeType = "fixed" | "starting_from" | "free";
 
-export interface ExpertAvailability {
-    monday: ExpertAvailabilityDay;
-    tuesday: ExpertAvailabilityDay;
-    wednesday: ExpertAvailabilityDay;
-    thursday: ExpertAvailabilityDay;
-    friday: ExpertAvailabilityDay;
-    saturday: ExpertAvailabilityDay;
-    sunday: ExpertAvailabilityDay;
-}
+export type ExpertLocation = {
+    county: string;
+    town: string;
+    latitude: number | null;
+    longitude: number | null;
+    geohash?: string | null;
+};
 
-export interface ExpertProfile {
-    /**
-     * The user has chosen to offer expert services.
-     * Professional approval still comes from verification.status.
-     */
-    isEnabled: boolean;
+export type ExpertPricing = {
+    currency: "KES";
+    consultationFee: number;
+    physicalVisitFeeFrom: number | null;
+    feeType: ExpertFeeType;
+    consultationDurationMinutes: number;
+};
 
-    /**
-     * Controls whether the expert appears in the public experts directory.
-     */
-    isVisible: boolean;
+export type ExpertTerms = {
+    summary: string;
+    cancellationNoticeHours: number;
+    cancellationPolicy: string;
+    allowsRescheduling: boolean;
+    paymentRequiredBeforeBooking: boolean;
+};
 
-    professionalBio: string;
+export type ExpertAvailability = {
+    timezone: string;
+    scheduleConfigured: boolean;
+};
+
+export type ExpertRating = {
+    average: number;
+    count: number;
+};
+
+export type ExpertProfile = {
+    uid: string;
+
+    status: ExpertProfileStatus;
+    isDiscoverable: boolean;
+    acceptingBookings: boolean;
+
+    headline: string;
+    expertBio: string;
+
     specialties: string[];
-
     countiesServed: string[];
     languages: string[];
+    consultationMethods: ConsultationMethod[];
 
-    whatsappNumber: string;
+    primaryLocation: ExpertLocation;
 
-    consultationFeeKes: number;
-    consultationDurationMinutes: number;
-
-    consultationModes: ConsultationMode[];
-
-    acceptsBookings: boolean;
-    acceptsCalls: boolean;
-    acceptsWhatsapp: boolean;
-    acceptsOnlineConsultation: boolean;
-    acceptsInPersonConsultation: boolean;
-
+    pricing: ExpertPricing;
+    terms: ExpertTerms;
     availability: ExpertAvailability;
 
-    avgRating: number;
-    reviewsCount: number;
-    consultationsCount: number;
+    rating: ExpertRating;
+    completedConsultations: number;
 
     createdAt?: Timestamp | null;
     updatedAt?: Timestamp | null;
-}
+    publishedAt?: Timestamp | null;
+
+    suspendedAt?: Timestamp | null;
+    suspendedReason?: string | null;
+};

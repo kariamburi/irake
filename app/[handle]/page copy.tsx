@@ -130,6 +130,7 @@ import {
   IoSwapVerticalOutline,
   IoFunnelOutline,
   IoRocketOutline,
+  IoSparklesOutline,
 } from "react-icons/io5";
 import LargeAvatar from "../components/LargeAvatar";
 import { repostDeed } from "@/lib/repostDeed";
@@ -331,6 +332,7 @@ function ProfileHeroStorefront({
   const verificationType: VerificationType =
     (profile.verificationType as VerificationType) || "individual";
 
+  const showVerified = verificationStatus === "approved";
   const isPremium =
     profile.storefrontUntil && profile.storefrontUntil > Date.now();
   const router = useRouter();
@@ -366,6 +368,64 @@ function ProfileHeroStorefront({
           <div className="relative h-[190px] md:h-[210px]" style={{ background: heroBg }}>
             <div className="absolute inset-0 bg-black/0" />
 
+            <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
+
+              {showVerified ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-[11px] font-bold text-green-700 shadow-sm">
+                  <IoShieldCheckmarkOutline size={14} />
+                  Verified
+                </span>
+              ) : (<>
+                {isOwner && (
+                  <Link
+                    href="/account/verification"
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700 shadow-sm transition hover:bg-amber-100"
+                  >
+                    <IoShieldCheckmarkOutline size={14} />
+                    Get verified
+                  </Link>
+                )}
+              </>)}
+
+              {isPremium && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black"
+                  style={{
+                    background: "rgba(199,146,87,0.22)",
+                    color: "white",
+                    border: "1px solid rgba(255,255,255,0.25)",
+                    backdropFilter: "blur(10px)",
+                  }}
+                >
+                  <IoSparklesOutline size={14} /> Premium
+                </span>
+              )}
+              {profile.storefrontUntil && isOwner &&
+                profile.storefrontUntil <= Date.now() && (
+
+
+                  <Link
+                    href="/seller/dashboard?tab=packages"
+                    className="inline-flex items-center gap-2 rounded-full border border-red-200/80 bg-gradient-to-r from-red-50 to-rose-50 px-3.5 py-1.5 text-xs font-bold text-red-700 shadow-sm backdrop-blur-sm hover:scale-[1.03] hover:shadow-md active:scale-[0.97] transition-all duration-200 cursor-pointer"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-red-500 ring-2 ring-red-200" />
+                    Storefront expired
+                  </Link>
+                )}
+              {profile.isAdmin && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black border"
+                  style={{
+                    borderColor: "rgba(255,255,255,0.35)",
+                    background: "rgba(255,255,255,0.18)",
+                    color: "white",
+                    backdropFilter: "blur(10px)",
+                  }}
+                >
+                  <IoShieldCheckmarkOutline size={14} /> Admin
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Content */}
@@ -629,7 +689,7 @@ function ProfileHeroStorefront({
 
 
             {/* tiny footer */}
-            <div className="mt-4 flex gap-2 text-[11px]" style={{ color: EKARI.subtext }}>
+            <div className="mt-4 flex items-center justify-between text-[11px]" style={{ color: EKARI.subtext }}>
               {/** <span>
                 Powered by <span className="font-black" style={{ color: EKARI.text }}>ekarihub</span>
               </span>
@@ -672,16 +732,16 @@ function ProfileHeroStorefront({
                 </Link>
               )}
 
-              {/**  {(verificationStatus === "none" || verificationStatus === "rejected") && isOwner && (
+              {(verificationStatus === "none" || verificationStatus === "rejected") && isOwner && (
                 <Link
                   href="/account/verification"
                   className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-2 border hover:bg-black/[0.02]"
                   style={{ borderColor: `${EKARI.primary}55`, color: EKARI.primary, background: "white" }}
                 >
                   <IoShieldCheckmarkOutline size={16} />
-                  {verificationStatus === "rejected" ? "Re-request" : "Get Verified"}
+                  {verificationStatus === "rejected" ? "Re-request" : "Verify"}
                 </Link>
-              )} */}
+              )}
 
               {verificationStatus === "pending" && isOwner && (
                 <button
@@ -706,179 +766,6 @@ function ProfileHeroStorefront({
 
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-
-function ProfessionalAccountSection({
-  profile,
-  isOwner,
-  hasPublishedExpertProfile,
-}: {
-  profile: Profile;
-  isOwner: boolean;
-  hasPublishedExpertProfile: boolean;
-}) {
-  const verificationStatus: VerificationStatus =
-    profile.verificationStatus || "none";
-  const isVerified = verificationStatus === "approved";
-
-  if (!isOwner && !isVerified) return null;
-
-  const typeLabel =
-    profile.verificationType === "business"
-      ? "Verified business"
-      : profile.verificationType === "company"
-        ? "Verified company"
-        : "Verified individual";
-
-  const professionalLabel =
-    profile.verificationOrganizationName ||
-    profile.verificationRoleLabel ||
-    "Verified professional";
-
-  const storefrontExpired =
-    !!profile.storefrontUntil &&
-    profile.storefrontUntil <= Date.now();
-
-  const verificationMessage =
-    verificationStatus === "pending"
-      ? "Your verification request is awaiting review."
-      : verificationStatus === "rejected"
-        ? "Your verification request needs attention."
-        : "Complete verification to unlock a trusted professional profile and expert services.";
-
-  return (
-    <section className="mx-auto mb-6 max-w-5xl px-3 md:px-4">
-      <div
-        className="overflow-hidden rounded-[26px] border bg-white shadow-[0_14px_44px_rgba(15,23,42,0.06)]"
-        style={{ borderColor: EKARI.hair }}
-      >
-        <div className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-6">
-          <div className="flex min-w-0 items-start gap-4">
-            <div
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl"
-              style={{
-                backgroundColor: isVerified ? "#E6F1EE" : "#FFF7ED",
-                color: isVerified ? EKARI.forest : "#B45309",
-              }}
-            >
-              {verificationStatus === "pending" ? (
-                <IoTimeOutline size={23} />
-              ) : (
-                <IoShieldCheckmarkOutline size={24} />
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-black" style={{ color: EKARI.text }}>
-                  {isVerified ? "Professional account" : "Build professional trust"}
-                </h2>
-
-                {isVerified ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
-                    <IoShieldCheckmarkOutline size={13} />
-                    {typeLabel}
-                  </span>
-                ) : null}
-
-                {isOwner && profile.isAdmin ? (
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-600">
-                    Admin
-                  </span>
-                ) : null}
-
-                {isOwner && storefrontExpired ? (
-                  <Link
-                    href="/seller/dashboard?tab=packages"
-                    className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-black text-rose-700 hover:bg-rose-100"
-                  >
-                    Storefront expired
-                  </Link>
-                ) : null}
-              </div>
-
-              {isVerified ? (
-                <>
-                  <p className="mt-1.5 text-sm font-bold" style={{ color: EKARI.forest }}>
-                    {professionalLabel}
-                  </p>
-                  <p className="mt-1 text-xs leading-5" style={{ color: EKARI.subtext }}>
-                    Identity and professional credentials have been reviewed by ekarihub.
-                    {isOwner && !hasPublishedExpertProfile
-                      ? " Complete your expert settings to start receiving consultation requests."
-                      : ""}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-1.5 text-sm leading-6" style={{ color: EKARI.subtext }}>
-                  {verificationMessage}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {isOwner ? (
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap md:justify-end">
-              {isVerified ? (
-                <>
-                  <Link
-                    href="/account/expert"
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-black text-white"
-                    style={{ backgroundColor: EKARI.forest }}
-                  >
-                    <IoPencilOutline size={15} />
-                    Expert settings
-                  </Link>
-
-                  <Link
-                    href="/account/expert/bookings"
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                    style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                  >
-                    <IoCalendarOutline size={15} />
-                    Expert bookings
-                  </Link>
-                </>
-              ) : (
-                <Link
-                  href="/account/verification"
-                  className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-xs font-black text-white"
-                  style={{ backgroundColor: EKARI.forest }}
-                >
-                  <IoShieldCheckmarkOutline size={16} />
-                  {verificationStatus === "pending"
-                    ? "View verification"
-                    : verificationStatus === "rejected"
-                      ? "Review verification"
-                      : "Get verified"}
-                </Link>
-              )}
-
-              <Link
-                href="/account/bookings"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                style={{ borderColor: EKARI.hair, color: EKARI.text }}
-              >
-                <IoListOutline size={15} />
-                My bookings
-              </Link>
-
-              {isVerified ? (
-                <Link
-                  href="/account/verification"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                  style={{ borderColor: EKARI.hair, color: EKARI.subtext }}
-                >
-                  Verification
-                </Link>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </div>
     </section>
@@ -2775,521 +2662,6 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
 }
 
 
-
-type PublicExpertProfile = {
-  uid: string;
-  handle?: string;
-  displayName?: string;
-  name?: string;
-  photoURL?: string;
-  headline?: string;
-  expertBio?: string;
-  verificationRole?: string;
-  verificationRoleLabel?: string;
-  organizationName?: string;
-  specialties?: string[];
-  countiesServed?: string[];
-  languages?: string[];
-  consultationMethods?: string[];
-  primaryLocation?: {
-    county?: string;
-    town?: string;
-  };
-  pricing?: {
-    currency?: string;
-    consultationFee?: number;
-    physicalVisitFeeFrom?: number | null;
-    feeType?: "fixed" | "starting_from" | "free";
-    consultationDurationMinutes?: number;
-  };
-  terms?: {
-    summary?: string;
-    cancellationNoticeHours?: number;
-    cancellationPolicy?: string;
-    allowsRescheduling?: boolean;
-    paymentRequiredBeforeBooking?: boolean;
-  };
-  rating?: {
-    average?: number;
-    count?: number;
-  };
-  completedConsultations?: number;
-  acceptingBookings?: boolean;
-  status?: string;
-  isDiscoverable?: boolean;
-};
-
-function usePublicExpertProfile(uid?: string) {
-  const [expert, setExpert] =
-    React.useState<PublicExpertProfile | null>(null);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    if (!uid) {
-      setExpert(null);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    const unsubscribe = onSnapshot(
-      doc(db, "publicExperts", uid),
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setExpert(null);
-          setLoading(false);
-          return;
-        }
-
-        const data =
-          snapshot.data() as Partial<PublicExpertProfile>;
-
-        if (
-          data.status !== "active" ||
-          data.isDiscoverable !== true
-        ) {
-          setExpert(null);
-          setLoading(false);
-          return;
-        }
-
-        setExpert({
-          ...data,
-          uid: snapshot.id,
-        } as PublicExpertProfile);
-
-        setLoading(false);
-      },
-      (error) => {
-        console.warn(
-          "public expert listener error:",
-          error?.message || error
-        );
-        setExpert(null);
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [uid]);
-
-  return { expert, loading };
-}
-
-function expertMethodLabel(method: string) {
-  if (method === "whatsapp") return "WhatsApp";
-  if (method === "video") return "Video consultation";
-  if (method === "physical") return "Physical visit";
-  if (method === "phone") return "Phone call";
-
-  return method
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (character) =>
-      character.toUpperCase()
-    );
-}
-
-function ExpertPublicSection({
-  expert,
-  profile,
-  isOwner,
-  onBook,
-}: {
-  expert: PublicExpertProfile;
-  profile: Profile;
-  isOwner: boolean;
-  onBook: () => void;
-}) {
-  const feeType = expert.pricing?.feeType || "fixed";
-  const consultationFee = Number(
-    expert.pricing?.consultationFee || 0
-  );
-
-  const feeText =
-    feeType === "free"
-      ? "Free consultation"
-      : feeType === "starting_from"
-        ? `From ${KES(consultationFee)}`
-        : KES(consultationFee);
-
-  const locationText = [
-    expert.primaryLocation?.town,
-    expert.primaryLocation?.county,
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  const ratingAverage = Number(
-    expert.rating?.average || 0
-  );
-  const ratingCount = Number(expert.rating?.count || 0);
-
-  return (
-    <section className="mx-auto mb-6 max-w-5xl px-3 md:px-4">
-      <div
-        className="overflow-hidden rounded-[28px] border bg-white shadow-[0_18px_55px_rgba(15,23,42,0.07)]"
-        style={{ borderColor: EKARI.hair }}
-      >
-        <div
-          className="px-5 py-5 text-white md:px-7 md:py-6"
-          style={{
-            background:
-              "linear-gradient(135deg, #233F39 0%, #31594F 55%, #C79257 140%)",
-          }}
-        >
-          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-black backdrop-blur">
-                  <IoShieldCheckmarkOutline size={15} />
-                  Verified ekariExpert
-                </span>
-
-                {expert.acceptingBookings !== false ? (
-                  <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-black text-emerald-50">
-                    Accepting clients
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black text-white/80">
-                    Not accepting new clients
-                  </span>
-                )}
-              </div>
-
-              <h2 className="mt-4 text-xl font-black leading-tight md:text-2xl">
-                {expert.headline ||
-                  expert.verificationRoleLabel ||
-                  expert.verificationRole ||
-                  "Agricultural professional"}
-              </h2>
-
-              {locationText ? (
-                <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-white/80">
-                  <IoLocationOutline size={16} />
-                  {locationText}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 md:min-w-[320px]">
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur">
-                <div className="text-lg font-black">
-                  {ratingCount > 0
-                    ? ratingAverage.toFixed(1)
-                    : "New"}
-                </div>
-                <div className="mt-1 text-[11px] font-bold text-white/70">
-                  Rating
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur">
-                <div className="text-lg font-black">
-                  {Number(
-                    expert.completedConsultations || 0
-                  ).toLocaleString("en-KE")}
-                </div>
-                <div className="mt-1 text-[11px] font-bold text-white/70">
-                  Consultations
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur">
-                <div className="truncate text-sm font-black">
-                  {feeText}
-                </div>
-                <div className="mt-1 text-[11px] font-bold text-white/70">
-                  Standard fee
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_320px] md:p-7">
-          <div className="min-w-0 space-y-6">
-            {expert.expertBio ? (
-              <div>
-                <h3
-                  className="text-sm font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  About this expert
-                </h3>
-                <p
-                  className="mt-2 whitespace-pre-line text-sm leading-7"
-                  style={{ color: EKARI.subtext }}
-                >
-                  {expert.expertBio}
-                </p>
-              </div>
-            ) : null}
-
-            {expert.specialties &&
-              expert.specialties.length > 0 ? (
-              <div>
-                <h3
-                  className="text-sm font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  Areas of expertise
-                </h3>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {expert.specialties.map((specialty) => (
-                    <span
-                      key={specialty}
-                      className="rounded-full border px-3 py-2 text-xs font-bold"
-                      style={{
-                        borderColor:
-                          "rgba(35,63,57,0.18)",
-                        backgroundColor:
-                          "rgba(35,63,57,0.06)",
-                        color: EKARI.forest,
-                      }}
-                    >
-                      {specialty}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              {expert.consultationMethods &&
-                expert.consultationMethods.length > 0 ? (
-                <div>
-                  <h3
-                    className="text-sm font-black"
-                    style={{ color: EKARI.text }}
-                  >
-                    Consultation methods
-                  </h3>
-                  <div className="mt-3 space-y-2">
-                    {expert.consultationMethods.map(
-                      (method) => (
-                        <div
-                          key={method}
-                          className="flex items-center gap-2 text-sm font-semibold"
-                          style={{
-                            color: EKARI.subtext,
-                          }}
-                        >
-                          <IoCheckmarkDone
-                            size={17}
-                            color={EKARI.green}
-                          />
-                          {expertMethodLabel(method)}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              ) : null}
-
-              {expert.languages &&
-                expert.languages.length > 0 ? (
-                <div>
-                  <h3
-                    className="text-sm font-black"
-                    style={{ color: EKARI.text }}
-                  >
-                    Languages
-                  </h3>
-                  <p
-                    className="mt-3 text-sm leading-6"
-                    style={{ color: EKARI.subtext }}
-                  >
-                    {expert.languages.join(", ")}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-
-            {expert.countiesServed &&
-              expert.countiesServed.length > 0 ? (
-              <div>
-                <h3
-                  className="text-sm font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  Counties served
-                </h3>
-                <p
-                  className="mt-2 text-sm leading-6"
-                  style={{ color: EKARI.subtext }}
-                >
-                  {expert.countiesServed.join(", ")}
-                </p>
-              </div>
-            ) : null}
-
-            {expert.terms?.summary ? (
-              <div
-                className="rounded-2xl border p-4"
-                style={{
-                  borderColor: EKARI.hair,
-                  backgroundColor: "#F8FAFC",
-                }}
-              >
-                <h3
-                  className="text-sm font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  Consultation terms
-                </h3>
-                <p
-                  className="mt-2 whitespace-pre-line text-sm leading-6"
-                  style={{ color: EKARI.subtext }}
-                >
-                  {expert.terms.summary}
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-600">
-                  {expert.terms
-                    .cancellationNoticeHours ? (
-                    <span>
-                      Cancellation notice:{" "}
-                      {
-                        expert.terms
-                          .cancellationNoticeHours
-                      }{" "}
-                      hours
-                    </span>
-                  ) : null}
-
-                  {expert.terms.allowsRescheduling ? (
-                    <span>Rescheduling allowed</span>
-                  ) : null}
-
-                  {expert.terms
-                    .paymentRequiredBeforeBooking ? (
-                    <span>
-                      Payment required before confirmation
-                    </span>
-                  ) : null}
-                </div>
-
-                {expert.terms.cancellationPolicy ? (
-                  <p className="mt-3 text-xs leading-5 text-slate-500">
-                    {expert.terms.cancellationPolicy}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <aside>
-            <div
-              className="sticky top-20 rounded-3xl border p-5"
-              style={{
-                borderColor: EKARI.hair,
-                backgroundColor: "#FFFFFF",
-              }}
-            >
-              <p
-                className="text-xs font-black uppercase tracking-wide"
-                style={{ color: EKARI.primary }}
-              >
-                Consultation
-              </p>
-
-              <div
-                className="mt-2 text-2xl font-black"
-                style={{ color: EKARI.text }}
-              >
-                {feeText}
-              </div>
-
-              {expert.pricing
-                ?.consultationDurationMinutes ? (
-                <p
-                  className="mt-1 text-sm"
-                  style={{ color: EKARI.subtext }}
-                >
-                  {
-                    expert.pricing
-                      .consultationDurationMinutes
-                  }{" "}
-                  minutes
-                </p>
-              ) : null}
-
-              {expert.pricing?.physicalVisitFeeFrom !=
-                null ? (
-                <div
-                  className="mt-4 rounded-2xl p-3 text-sm"
-                  style={{
-                    backgroundColor:
-                      "rgba(199,146,87,0.10)",
-                    color: EKARI.text,
-                  }}
-                >
-                  Physical visits from{" "}
-                  <strong>
-                    {KES(
-                      Number(
-                        expert.pricing
-                          .physicalVisitFeeFrom
-                      )
-                    )}
-                  </strong>
-                </div>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={onBook}
-                disabled={
-                  isOwner ||
-                  expert.acceptingBookings === false
-                }
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #233F39, #C79257)",
-                }}
-              >
-                <IoCalendarClearOutline size={18} />
-                {isOwner
-                  ? "This is your expert profile"
-                  : expert.acceptingBookings === false
-                    ? "Not accepting clients"
-                    : "Book consultation"}
-              </button>
-
-              {!isOwner &&
-                expert.acceptingBookings !== false ? (
-                <p
-                  className="mt-3 text-center text-[11px] leading-5"
-                  style={{ color: EKARI.subtext }}
-                >
-                  Choose a consultation method, date and time,
-                  then send your request to {profile.name || "this expert"}.
-                </p>
-              ) : null}
-
-              {isOwner ? (
-                <Link
-                  href="/account/expert"
-                  className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border px-4 py-3 text-sm font-black"
-                  style={{
-                    borderColor: EKARI.hair,
-                    color: EKARI.forest,
-                  }}
-                >
-                  Manage expert profile
-                </Link>
-              ) : null}
-            </div>
-          </aside>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-
 /* ---------- page ---------- */
 // ✅ Adaptation: mobile = fixed inset (no AppShell / no bottom tabs), desktop = AppShell
 // Drop these helpers near the TOP of the file (same file).
@@ -3381,8 +2753,6 @@ export default function HandleProfilePage() {
 
   const isOwner = !!user?.uid && !!uid && user.uid === uid;
   const { profile, loading: loadingProfile } = useProfileByUid(uid ?? undefined);
-  const { expert: publicExpert, loading: loadingExpert } =
-    usePublicExpertProfile(uid ?? undefined);
 
   const shouldHidePublicContent = profile?.isSuspended === true && !isOwner;
 
@@ -3441,7 +2811,7 @@ export default function HandleProfilePage() {
       {isOwner && <DeedProcessingGate authorUid={uid ?? null} handle={handleWithAt} />}
 
       {/* container: desktop has max width, mobile full width */}
-      <div className={isDesktop ? "min-h-screen w-full" : "min-h-screen w-full"}>
+      <div className={isDesktop ? "min-h-screen mx-auto w-full max-w-[1160px] px-4 md:px-8" : "min-h-screen w-full"}>
         {/* header with tabs */}
         {loadingProfile ? (
           <div className="p-6 animate-pulse">
@@ -3506,45 +2876,6 @@ export default function HandleProfilePage() {
               reviewsSummary={reviewsSummary}
               showAdminBadge={viewerIsAdmin && isOwner}
             />
-
-            <ProfessionalAccountSection
-              profile={profile}
-              isOwner={isOwner}
-              hasPublishedExpertProfile={!!publicExpert}
-            />
-
-            {loadingExpert ? (
-              <div className="mx-auto mb-6 max-w-5xl px-3 md:px-4">
-                <div
-                  className="animate-pulse rounded-[28px] border bg-white p-6"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <div className="h-5 w-40 rounded bg-slate-200" />
-                  <div className="mt-4 h-8 w-3/4 rounded bg-slate-100" />
-                  <div className="mt-5 h-24 rounded-2xl bg-slate-100" />
-                </div>
-              </div>
-            ) : publicExpert ? (
-              <ExpertPublicSection
-                expert={publicExpert}
-                profile={profile}
-                isOwner={isOwner}
-                onBook={() => {
-                  if (!user?.uid) {
-                    requireAuth();
-                    return;
-                  }
-
-                  if (user.uid === profile.id) return;
-
-                  router.push(
-                    `/book-expert/${encodeURIComponent(
-                      publicExpert.uid || profile.id
-                    )}`
-                  );
-                }}
-              />
-            ) : null}
 
             <div className="max-w-5xl mx-auto px-4 -mt-2 md:-mt-3 mb-5">
               {profile?.isSuspended && !isOwner ? (
@@ -3657,3 +2988,4 @@ export default function HandleProfilePage() {
     </AppShell>
   );
 }
+

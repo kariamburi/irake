@@ -16,6 +16,7 @@ import {
     IoHomeOutline,
     IoCompassOutline,
     IoPartlySunnyOutline,
+    IoShieldCheckmarkOutline,
 } from "react-icons/io5";
 
 import { useAuth } from "@/app/hooks/useAuth";
@@ -272,10 +273,15 @@ export function LeftNavDesktop({
                 icon: <IoCartOutline />,
             },
             {
-                label: "Nexus",
-                href: "/nexus",
-                icon: <IoCompassOutline />,
+                label: "ekariExperts",
+                href: "/ekari-experts",
+                icon: <IoShieldCheckmarkOutline />,
             },
+            // {
+            //    label: "Nexus",
+            //    href: "/nexus",
+            //    icon: <IoCompassOutline />,
+            //},
             {
                 label: "Weather",
                 href: "/weather",
