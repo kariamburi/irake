@@ -54,22 +54,22 @@ export function DeedsTopBar({
                                     <IoMenu size={20} />
                                 </button>
 
-                                {/**   <button
+                                <button
                                     type="button"
                                     onClick={onOpenSearch}
                                     className="grid h-12 w-12 place-items-center rounded-full bg-black/28 text-white backdrop-blur-md"
                                     aria-label="Search"
                                 >
                                     <IoSearch size={24} />
-                                </button>*/}
-                                <button
+                                </button>
+                                {/**<button
                                     type="button"
                                     onClick={onOpenDive}
                                     className="grid h-12 w-12 place-items-center rounded-full bg-black/28 text-white backdrop-blur-md"
                                     aria-label="Search"
                                 >
                                     <IoCompassOutline size={24} />
-                                </button>
+                                </button>*/}
                                 <button
                                     type="button"
                                     onClick={onOpenProfile}

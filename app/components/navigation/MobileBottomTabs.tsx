@@ -11,12 +11,14 @@ import {
     IoHome,
     IoHomeOutline,
     IoPartlySunnyOutline,
+    IoPeopleOutline,
+    IoSchoolOutline,
     IoSearchOutline,
 } from "react-icons/io5";
 import { EKARI, hexToRgba } from "@/app/nexus/discussions/[discussionId]/discussion-thread.utils";
 
 type ThemeMode = "light" | "dark";
-type TabKey = "deeds" | "market" | "nexus" | "weather" | "bonga";
+type TabKey = "deeds" | "market" | "experts" | "bonga";
 
 type Props = {
     onCreate: () => void;
@@ -131,8 +133,9 @@ export default function MobileBottomTabs({
     const resolvedActive = {
         deeds: activeKey ? activeKey === "deeds" : isActive("/"),
         market: activeKey ? activeKey === "market" : isActive("/market"),
-        nexus: activeKey ? activeKey === "nexus" : isActive("/search"),
-        weather: activeKey ? activeKey === "weather" : isActive("/weather"),
+        // nexus: activeKey ? activeKey === "nexus" : isActive("/search"),
+        // weather: activeKey ? activeKey === "weather" : isActive("/weather"),
+        experts: activeKey ? activeKey === "experts" : isActive("/ekari-experts"),
         bonga: activeKey ? activeKey === "bonga" : isActive("/bonga"),
     };
 
@@ -211,7 +214,7 @@ export default function MobileBottomTabs({
                     <IoAdd size={26} color="#111827" />
                 </button>
 
-                <TabBtn
+                {/**   <TabBtn
                     tabKey="nexus"
                     label="Dive"
                     //icon={<IoCompassOutline size={20} />}
@@ -230,6 +233,15 @@ export default function MobileBottomTabs({
                     active={resolvedActive.nexus}
                     theme={theme}
                     refreshing={refreshingKey === "weather"}
+                />*/}
+                <TabBtn
+                    tabKey="experts"
+                    label="ekariExperts"
+                    icon={<IoPeopleOutline size={20} />}
+                    onClick={() => handleTabPress("experts", "/ekari-experts")}
+                    active={resolvedActive.experts}
+                    theme={theme}
+                    refreshing={refreshingKey === "experts"}
                 />
 
                 <TabBtn

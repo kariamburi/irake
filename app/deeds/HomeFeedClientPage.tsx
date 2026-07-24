@@ -50,7 +50,7 @@ type Props = {
   archiveMode?: "deeds" | null;
 };
 
-type TabKey = "deeds" | "market" | "nexus" | "weather" | "bonga";
+type TabKey = "deeds" | "market" | "experts" | "bonga";
 
 export default function HomeFeedClientPage({
   archivePageNumber = 1,

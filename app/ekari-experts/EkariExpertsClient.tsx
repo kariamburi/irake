@@ -10,8 +10,10 @@ import {
 
 import {
     collection,
+    doc,
     getDocs,
     limit,
+    onSnapshot,
     orderBy,
     query,
 } from "firebase/firestore";
@@ -28,6 +30,7 @@ import {
     IoClose,
     IoFilterOutline,
     IoLocationOutline,
+    IoMenu,
     IoPeopleOutline,
     IoRefreshOutline,
     IoSearchOutline,
@@ -43,6 +46,10 @@ import {
 } from "@/app/constants/expertConstants";
 import { db } from "@/lib/firebase";
 import { PublicExpert } from "../types/publicExpert";
+import MobileBottomTabs from "../components/navigation/MobileBottomTabs";
+import { useAuth } from "../hooks/useAuth";
+import { EkariSideMenuSheet } from "../components/EkariSideMenuSheet";
+import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 
 const EKARI = {
     forest: "#233F39",
@@ -84,7 +91,9 @@ function normalizeArray(
         )
         .filter(Boolean);
 }
-
+function useIsDesktop() {
+    return useMediaQuery("(min-width: 1024px)");
+}
 function normalizePublicExpert(
     id: string,
     data: Record<string, any>
@@ -293,6 +302,7 @@ function getTimestampMillis(
 function MarketplaceContent() {
     const router = useRouter();
     const pathname = usePathname();
+
     const searchParams =
         useSearchParams();
 
@@ -700,8 +710,18 @@ function MarketplaceContent() {
         setSpecialty("");
         setAcceptingOnly(false);
         setSort("recommended");
+    }; const ringStyle: React.CSSProperties = {
+        ["--tw-ring-color" as any]: EKARI.forest,
     };
 
+    const [menuOpen, setMenuOpen] = useState(false);
+    const { user, signOutUser } = useAuth();
+    const profile = useUserProfile(user?.uid);
+    const { unreadDM, notifTotal } = useInboxTotalsWeb(!!user?.uid, user?.uid);
+
+    const handle = (profile as any)?.handle ?? null;
+    const profileHref =
+        handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
     return (
         <AppShell>
             <main
@@ -732,6 +752,18 @@ function MarketplaceContent() {
                                 "rgba(255,255,255,0.04)",
                         }}
                     />
+                    <div className="lg:hidden h-full p-2 flex items-center justify-between gap-2">
+                        {/* Left: menu */}
+                        <button
+                            onClick={() => setMenuOpen(true)}
+                            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
+                            style={{ borderColor: EKARI.hair, ...ringStyle }}
+                            aria-label="Open menu"
+                        >
+                            <IoMenu size={20} style={{ color: EKARI.hair }} />
+                        </button>
+                    </div>
+                    {/* Center: title */}
 
                     <div className="relative mx-auto max-w-7xl px-4 py-4 md:px-8 md:py-4">
                         <div className="max-w-3xl">
@@ -1240,11 +1272,95 @@ function MarketplaceContent() {
                         </div>
                     </div>
                 ) : null}
+                <EkariSideMenuSheet
+                    open={menuOpen}
+                    onClose={() => setMenuOpen(false)}
+                    uid={user?.uid}
+                    handle={(profile as any)?.handle ?? null}
+                    photoURL={(profile as any)?.photoURL ?? null}
+                    profileHref={profileHref}
+                    unreadDM={user?.uid ? unreadDM ?? 0 : 0}
+                    notifTotal={user?.uid ? notifTotal ?? 0 : 0}
+                    onLogout={signOutUser}
+                />
             </main>
         </AppShell>
     );
 }
+/* ---------- Profiles ---------- */
+function useUserProfile(uid?: string) {
+    const [profile, setProfile] = useState<{
+        handle?: string;
+        photoURL?: string;
+        dataSaverVideos?: boolean;
+        uid?: string;
+    } | null>(null);
+
+    useEffect(() => {
+        if (!uid) {
+            setProfile(null);
+            return;
+        }
+        const ref = doc(db, "users", uid);
+        const unsub = onSnapshot(ref, (snap) => {
+            const data = snap.data() as any | undefined;
+            if (!data) {
+                setProfile(null);
+                return;
+            }
+            setProfile({
+                uid,
+                handle: data?.handle,
+                photoURL: data?.photoURL,
+                dataSaverVideos: !!data?.dataSaverVideos,
+            });
+        });
+        return () => unsub();
+    }, [uid]);
+
+    return profile;
+}
 
 export default function EkariExpertsClient() {
-    return <MarketplaceContent />;
+    const { user, signOutUser } = useAuth();
+    const router = useRouter();
+    const isDesktop = useIsDesktop();
+
+
+    const goUpload = () => {
+        if (!user?.uid) router.push("/getstarted?next=/studio/upload");
+        else router.push("/studio/upload");
+    };
+    return <><MarketplaceContent />
+        {!isDesktop && (<>
+            <MobileBottomTabs
+                onCreate={goUpload}
+                theme="light"
+                activeKey="experts"
+            />
+
+        </>)};
+    </>
+}
+
+function useMediaQuery(query: string) {
+    const [matches, setMatches] = useState(false);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia(query);
+
+        const updateMatch = () => {
+            setMatches(mediaQuery.matches);
+        };
+
+        updateMatch();
+
+        mediaQuery.addEventListener("change", updateMatch);
+
+        return () => {
+            mediaQuery.removeEventListener("change", updateMatch);
+        };
+    }, [query]);
+
+    return matches;
 }

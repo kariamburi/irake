@@ -1960,11 +1960,7 @@ export default function SearchPageClient() {
                         </>
                     )}
                 </div>
-                {!isDesktop && (<MobileBottomTabs
-                    onCreate={goUpload}
-                    theme="light"
-                    activeKey="nexus"
-                />)}
+
             </main>
         </AppShell>
     );
