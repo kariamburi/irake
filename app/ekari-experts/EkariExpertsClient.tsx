@@ -11,11 +11,13 @@ import {
 import {
     collection,
     doc,
+    documentId,
     getDocs,
     limit,
     onSnapshot,
     orderBy,
     query,
+    where,
 } from "firebase/firestore";
 
 import {
@@ -274,7 +276,98 @@ function normalizePublicExpert(
             data.updatedAt || null,
     };
 }
+async function loadUserRatingStats(
+    userIds: string[]
+): Promise<Map<string, UserRatingStats>> {
+    const ratingMap =
+        new Map<string, UserRatingStats>();
 
+    const cleanUserIds = Array.from(
+        new Set(
+            userIds
+                .map((uid) =>
+                    String(uid || "").trim()
+                )
+                .filter(Boolean)
+        )
+    );
+
+    if (cleanUserIds.length === 0) {
+        return ratingMap;
+    }
+
+    const userIdChunks = chunkArray(
+        cleanUserIds,
+        30
+    );
+
+    await Promise.all(
+        userIdChunks.map(async (ids) => {
+            const usersQuery = query(
+                collection(db, "users"),
+                where(
+                    documentId(),
+                    "in",
+                    ids
+                )
+            );
+
+            const userSnapshot =
+                await getDocs(usersQuery);
+
+            userSnapshot.docs.forEach(
+                (userDocument) => {
+                    const userData =
+                        userDocument.data();
+
+                    const average = Number(
+                        userData
+                            .sellerReviewStats
+                            ?.avgRating
+                    );
+
+                    const count = Number(
+                        userData
+                            .sellerReviewStats
+                            ?.reviewsCount
+                    );
+
+                    ratingMap.set(
+                        userDocument.id,
+                        {
+                            average:
+                                Number.isFinite(
+                                    average
+                                )
+                                    ? Math.max(
+                                        0,
+                                        Math.min(
+                                            5,
+                                            average
+                                        )
+                                    )
+                                    : 0,
+
+                            count:
+                                Number.isFinite(
+                                    count
+                                )
+                                    ? Math.max(
+                                        0,
+                                        Math.floor(
+                                            count
+                                        )
+                                    )
+                                    : 0,
+                        }
+                    );
+                }
+            );
+        })
+    );
+
+    return ratingMap;
+}
 function getTimestampMillis(
     value: any
 ): number {
@@ -298,7 +391,28 @@ function getTimestampMillis(
 
     return 0;
 }
+type UserRatingStats = {
+    average: number;
+    count: number;
+};
+function chunkArray<T>(
+    values: T[],
+    size: number
+): T[][] {
+    const chunks: T[][] = [];
 
+    for (
+        let index = 0;
+        index < values.length;
+        index += size
+    ) {
+        chunks.push(
+            values.slice(index, index + size)
+        );
+    }
+
+    return chunks;
+}
 function MarketplaceContent() {
     const router = useRouter();
     const pathname = usePathname();
@@ -386,7 +500,42 @@ function MarketplaceContent() {
                             )
                     );
 
-                setExperts(loadedExperts);
+                const ratingMap =
+                    await loadUserRatingStats(
+                        loadedExperts.map(
+                            (expert) => expert.uid
+                        )
+                    );
+
+                const expertsWithProfileRatings =
+                    loadedExperts.map((expert) => {
+                        const profileRating =
+                            ratingMap.get(expert.uid);
+
+                        /*
+                         * Use the existing user profile rating
+                         * when available. Fall back to the rating
+                         * copied into publicExperts for compatibility.
+                         */
+                        if (!profileRating) {
+                            return expert;
+                        }
+
+                        return {
+                            ...expert,
+
+                            rating: {
+                                average:
+                                    profileRating.average,
+                                count:
+                                    profileRating.count,
+                            },
+                        };
+                    });
+
+                setExperts(expertsWithProfileRatings);
+
+
             } catch (error: any) {
                 console.error(
                     "Failed to load public experts:",
@@ -1008,7 +1157,7 @@ function MarketplaceContent() {
                         ) : null}
 
                         {loading ? (
-                            <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(280px,1fr))]">
+                            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                                 {Array.from({ length: 6 }).map((_, index) => (
                                     <div
                                         key={index}
@@ -1037,7 +1186,7 @@ function MarketplaceContent() {
                         ) : null}
 
                         {!loading && !errorMessage && filteredExperts.length > 0 ? (
-                            <div className="grid items-stretch gap-5 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
+                            <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
                                 {filteredExperts.map((expert) => (
                                     <ExpertCard
                                         key={expert.uid}

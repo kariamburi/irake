@@ -10,6 +10,8 @@ import {
     IoLogoWhatsapp,
     IoPeopleOutline,
     IoStar,
+    IoStarHalf,
+    IoStarOutline,
     IoVideocamOutline,
 } from "react-icons/io5";
 
@@ -88,7 +90,122 @@ function getLocationLabel(
 
     return town || county || "Kenya";
 }
+function ExpertRating({
+    average,
+    count,
+}: {
+    average: number;
+    count: number;
+}) {
+    const safeAverage = Math.max(
+        0,
+        Math.min(5, Number(average) || 0)
+    );
 
+    const safeCount = Math.max(
+        0,
+        Number(count) || 0
+    );
+
+    if (safeCount === 0) {
+        return (
+            <div
+                className="inline-flex items-center gap-1.5 text-xs font-bold"
+                style={{
+                    color: EKARI.subtext,
+                }}
+            >
+                <div className="flex items-center gap-0.5">
+                    {Array.from({
+                        length: 5,
+                    }).map((_, index) => (
+                        <IoStarOutline
+                            key={index}
+                            size={14}
+                            className="text-slate-300"
+                        />
+                    ))}
+                </div>
+
+                <span>New</span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div
+                className="flex items-center gap-0.5"
+                aria-label={`${safeAverage.toFixed(
+                    1
+                )} out of 5 stars`}
+            >
+                {Array.from({
+                    length: 5,
+                }).map((_, index) => {
+                    const starNumber =
+                        index + 1;
+
+                    if (
+                        safeAverage >=
+                        starNumber
+                    ) {
+                        return (
+                            <IoStar
+                                key={index}
+                                size={15}
+                                className="text-amber-400"
+                            />
+                        );
+                    }
+
+                    if (
+                        safeAverage >=
+                        starNumber - 0.5
+                    ) {
+                        return (
+                            <IoStarHalf
+                                key={index}
+                                size={15}
+                                className="text-amber-400"
+                            />
+                        );
+                    }
+
+                    return (
+                        <IoStarOutline
+                            key={index}
+                            size={15}
+                            className="text-slate-300"
+                        />
+                    );
+                })}
+            </div>
+
+            <span
+                className="text-xs font-black"
+                style={{
+                    color: EKARI.text,
+                }}
+            >
+                {safeAverage.toFixed(1)}
+            </span>
+
+            <span
+                className="text-[11px] font-semibold"
+                style={{
+                    color: EKARI.subtext,
+                }}
+            >
+                ({safeCount}{" "}
+                {safeCount === 1
+                    ? "review"
+                    : "reviews"}
+                )
+            </span>
+        </div>
+    );
+}
 function ConsultationIcons({
     methods,
 }: {
@@ -204,8 +321,8 @@ export default function ExpertCard({
                 }}
             />
 
-            <div className="flex flex-1 flex-col p-5">
-                <div className="flex items-start gap-4">
+            <div className="flex flex-1 flex-col p-4">
+                <div className="flex items-start gap-3">
                     <Link
                         href={profilePath}
                         className="relative shrink-0"
@@ -267,7 +384,7 @@ export default function ExpertCard({
                                     className="flex items-center gap-1.5"
                                 >
                                     <h2
-                                        className="truncate text-base font-black transition group-hover:underline"
+                                        className="truncate text-sm font-black transition group-hover:underline"
                                         style={{ color: EKARI.text }}
                                     >
                                         {displayName}
@@ -287,18 +404,13 @@ export default function ExpertCard({
                                     className="mt-1 truncate text-xs font-bold"
                                     style={{ color: EKARI.gold }}
                                 >
-                                    {expert.verificationRole ||
+                                    {expert.headline || expert.verificationRole ||
                                         expert.organizationName ||
                                         "Agricultural professional"}
                                 </p>
                             </div>
 
-                            {rating > 0 ? (
-                                <div className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700">
-                                    <IoStar size={13} />
-                                    {rating.toFixed(1)}
-                                </div>
-                            ) : null}
+
                         </div>
 
                         <div
@@ -313,6 +425,12 @@ export default function ExpertCard({
                             <span className="truncate">
                                 {getLocationLabel(expert)}
                             </span>
+                        </div>
+                        <div className="mt-2">
+                            <ExpertRating
+                                average={rating}
+                                count={ratingCount}
+                            />
                         </div>
                     </div>
                 </div>
@@ -433,15 +551,16 @@ export default function ExpertCard({
                                 : "New expert"}
                         </span>
 
-                        <span>
-                            {ratingCount > 0
-                                ? `${ratingCount} ${ratingCount === 1
-                                    ? "review"
-                                    : "reviews"
-                                }`
-                                : expert.acceptingBookings
-                                    ? "Accepting clients"
-                                    : "Not accepting clients"}
+                        <span
+                            className={
+                                expert.acceptingBookings
+                                    ? "font-bold text-emerald-700"
+                                    : ""
+                            }
+                        >
+                            {expert.acceptingBookings
+                                ? "Accepting clients"
+                                : "Not accepting clients"}
                         </span>
                     </div>
                 </div>

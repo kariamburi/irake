@@ -56,6 +56,8 @@ import {
   IoBookmarkOutline,
   IoArrowBack,
   IoRepeatOutline,
+  IoStar,
+  IoStarHalf,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -2931,7 +2933,121 @@ function expertMethodLabel(method: string) {
       character.toUpperCase()
     );
 }
+function ExpertRatingDisplay({
+  average,
+  count,
+  light = false,
+}: {
+  average: number;
+  count: number;
+  light?: boolean;
+}) {
+  const safeAverage = Math.max(
+    0,
+    Math.min(5, Number(average) || 0)
+  );
 
+  const safeCount = Math.max(
+    0,
+    Math.floor(Number(count) || 0)
+  );
+
+  const filledStarClass = light
+    ? "text-amber-300"
+    : "text-amber-400";
+
+  const emptyStarClass = light
+    ? "text-white/35"
+    : "text-slate-300";
+
+  return (
+    <div
+      className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1"
+      aria-label={
+        safeCount > 0
+          ? `${safeAverage.toFixed(1)} out of 5 stars from ${safeCount} reviews`
+          : "No reviews yet"
+      }
+    >
+      <div className="flex items-center gap-0.5">
+        {Array.from({ length: 5 }).map(
+          (_, index) => {
+            const starNumber = index + 1;
+
+            if (safeAverage >= starNumber) {
+              return (
+                <IoStar
+                  key={index}
+                  size={15}
+                  className={filledStarClass}
+                />
+              );
+            }
+
+            if (
+              safeAverage >=
+              starNumber - 0.5
+            ) {
+              return (
+                <IoStarHalf
+                  key={index}
+                  size={15}
+                  className={filledStarClass}
+                />
+              );
+            }
+
+            return (
+              <IoStarOutline
+                key={index}
+                size={15}
+                className={emptyStarClass}
+              />
+            );
+          }
+        )}
+      </div>
+
+      {safeCount > 0 ? (
+        <>
+          <span
+            className={
+              light
+                ? "text-sm font-black text-white"
+                : "text-sm font-black text-slate-900"
+            }
+          >
+            {safeAverage.toFixed(1)}
+          </span>
+
+          <span
+            className={
+              light
+                ? "text-[11px] font-bold text-white/70"
+                : "text-[11px] font-semibold text-slate-500"
+            }
+          >
+            ({safeCount}{" "}
+            {safeCount === 1
+              ? "review"
+              : "reviews"}
+            )
+          </span>
+        </>
+      ) : (
+        <span
+          className={
+            light
+              ? "text-xs font-bold text-white/70"
+              : "text-xs font-bold text-slate-500"
+          }
+        >
+          New
+        </span>
+      )}
+    </div>
+  );
+}
 function ExpertPublicSection({
   expert,
   profile,
@@ -2963,9 +3079,16 @@ function ExpertPublicSection({
     .join(", ");
 
   const ratingAverage = Number(
-    expert.rating?.average || 0
+    profile.sellerReviewAvg ??
+    expert.rating?.average ??
+    0
   );
-  const ratingCount = Number(expert.rating?.count || 0);
+
+  const ratingCount = Number(
+    profile.sellerReviewCount ??
+    expert.rating?.count ??
+    0
+  );
 
   return (
     <section className="mx-auto mb-6 max-w-5xl px-3 md:px-4">
@@ -3014,14 +3137,15 @@ function ExpertPublicSection({
               ) : null}
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:min-w-[320px]">
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur">
-                <div className="text-lg font-black">
-                  {ratingCount > 0
-                    ? ratingAverage.toFixed(1)
-                    : "New"}
-                </div>
-                <div className="mt-1 text-[11px] font-bold text-white/70">
+            <div className="grid grid-cols-3 gap-2 md:min-w-[430px]">
+              <div className="col-span-3 rounded-2xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur md:col-span-1">
+                <ExpertRatingDisplay
+                  average={ratingAverage}
+                  count={ratingCount}
+                  light
+                />
+
+                <div className="mt-2 text-[11px] font-bold text-white/70">
                   Rating
                 </div>
               </div>
