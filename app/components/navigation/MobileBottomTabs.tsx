@@ -181,7 +181,7 @@ export default function MobileBottomTabs({
 
                 <TabBtn
                     tabKey="market"
-                    label="ekariMarket"
+                    label="Market"
                     icon={<IoCartOutline size={20} />}
                     onClick={() => handleTabPress("market", "/market")}
                     active={resolvedActive.market}
@@ -236,7 +236,7 @@ export default function MobileBottomTabs({
                 />*/}
                 <TabBtn
                     tabKey="experts"
-                    label="ekariExperts"
+                    label="Experts"
                     icon={<IoPeopleOutline size={20} />}
                     onClick={() => handleTabPress("experts", "/ekari-experts")}
                     active={resolvedActive.experts}
