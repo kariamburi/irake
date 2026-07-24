@@ -11,6 +11,7 @@ import {
     serverTimestamp,
     updateDoc,
     where,
+    writeBatch,
     type Timestamp,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged, type User } from "firebase/auth";
@@ -279,6 +280,31 @@ export default function ClientBookingsPage() {
                 });
 
                 setBookings(rows);
+
+                const unreadDocuments = snapshot.docs.filter(
+                    (bookingDocument) =>
+                        bookingDocument.data().clientUnread === true
+                );
+
+                if (unreadDocuments.length > 0) {
+                    const batch = writeBatch(db);
+
+                    unreadDocuments.forEach((bookingDocument) => {
+                        batch.update(bookingDocument.ref, {
+                            clientUnread: false,
+                            clientReadAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
+                        });
+                    });
+
+                    void batch.commit().catch((badgeError) => {
+                        console.error(
+                            "CLEAR_CLIENT_BOOKING_BADGES_FAILED",
+                            badgeError
+                        );
+                    });
+                }
+
                 setBookingsLoading(false);
             },
             (snapshotError) => {

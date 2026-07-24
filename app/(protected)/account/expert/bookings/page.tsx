@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import {
     collection,
     doc,
+    getDocs,
     onSnapshot,
     orderBy,
     query,
     serverTimestamp,
     updateDoc,
     where,
+    writeBatch,
 } from "firebase/firestore";
 import {
     IoArrowBack,
@@ -138,6 +140,58 @@ export default function ExpertBookingsPage() {
         );
 
         return unsubscribe;
+    }, [user?.uid]);
+    async function clearExpertBookingBadges(
+        expertId: string
+    ): Promise<void> {
+        const unreadQuery = query(
+            collection(db, "expertBookings"),
+            where("expertId", "==", expertId),
+            where("expertUnread", "==", true)
+        );
+
+        const unreadSnapshot = await getDocs(
+            unreadQuery
+        );
+
+        if (unreadSnapshot.empty) {
+            return;
+        }
+
+        const batch = writeBatch(db);
+
+        unreadSnapshot.docs.forEach(
+            (bookingDocument) => {
+                batch.update(
+                    bookingDocument.ref,
+                    {
+                        expertUnread: false,
+                        expertReadAt:
+                            serverTimestamp(),
+                        updatedAt:
+                            serverTimestamp(),
+                    }
+                );
+            }
+        );
+
+        await batch.commit();
+    }
+
+
+    React.useEffect(() => {
+        if (!user?.uid) {
+            return;
+        }
+
+        void clearExpertBookingBadges(
+            user.uid
+        ).catch((error) => {
+            console.error(
+                "CLEAR_EXPERT_BOOKING_BADGES_FAILED",
+                error
+            );
+        });
     }, [user?.uid]);
 
     const visibleBookings = React.useMemo(

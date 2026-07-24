@@ -29,6 +29,9 @@ import {
   IoCheckmarkCircleOutline,
   IoMegaphone,
   IoTrashOutline,
+  IoCalendarNumberOutline,
+  IoCloseCircleOutline,
+  IoShieldCheckmarkOutline,
 } from "react-icons/io5";
 import clsx from "clsx";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -75,24 +78,53 @@ function getNotificationSenderName(n: Notif) {
 /* ---------------------------- Types ---------------------------- */
 type Notif = {
   id: string;
-  type: "like" | "comment" | "follow" | string;
+  type:
+  | "like"
+  | "comment"
+  | "follow"
+  | "profile_view"
+  | "payment_success"
+  | "new_deed"
+  | "new_event"
+  | "new_discussion"
+  | "admin_broadcast"
+  | "expert_booking_created"
+  | "expert_booking_cancelled"
+  | "expert_booking_accepted"
+  | "expert_booking_declined"
+  | "expert_booking_confirmed"
+  | "expert_booking_completed"
+  | string;
   byUserId?: string;
   handle?: string;
   byName?: string;
   byPhotoURL?: string | null;
   preview?: string | null;
+  message?: string;
+  title?: string;
   createdAt?: any;
   seen?: boolean;
   deedId?: string;
+  eventId?: string;
+  discussionId?: string;
+  bookingId?: string;
+  expertId?: string;
+  clientId?: string;
   threadId?: string;
+  broadcastId?: string;
+  deepLink?: string;
+  meta?: {
+    kind?: string;
+    bookingId?: string;
+    expertId?: string;
+    clientId?: string;
+    [key: string]: any;
+  };
   peer?: {
     byName?: string;
     byPhotoURL?: string | null;
     handle?: string;
   };
-  title?: string;
-  message?: string;
-  broadcastId?: string;
 };
 
 /* ---------------------------- Utils ---------------------------- */
@@ -133,15 +165,45 @@ function dayBucket(date: Date) {
 }
 
 function primaryText(n: Notif) {
-  if (n.type === "like") return `Liked your deed 👍`;
-  if (n.type === "comment") return `Commented your deed: ${n.preview || ""}`;
-  if (n.type === "profile_view") return `Checked out your profile 👀`;
-  if (n.type === "follow") return `Started following you 🤝`;
+  if (n.type === "like") return "Liked your deed 👍";
+  if (n.type === "comment") return `Commented on your deed: ${n.preview || ""}`;
+  if (n.type === "profile_view") return "Checked out your profile 👀";
+  if (n.type === "follow") return "Started following you 🤝";
+  if (n.type === "new_deed") return "Posted a new deed ✨";
+  if (n.type === "new_event") return "Created a new event 📅";
+  if (n.type === "new_discussion") return "Started a new discussion 💬";
+
+  if (n.type === "expert_booking_created") {
+    return n.preview || n.message || "Sent you a new consultation request";
+  }
+  if (n.type === "expert_booking_cancelled") {
+    return n.preview || n.message || "Cancelled the consultation request";
+  }
+  if (n.type === "expert_booking_accepted") {
+    return n.preview || n.message || "Your consultation request was accepted";
+  }
+  if (n.type === "expert_booking_declined") {
+    return n.preview || n.message || "Your consultation request was declined";
+  }
+  if (n.type === "expert_booking_confirmed") {
+    return n.preview || n.message || "Your consultation has been confirmed";
+  }
+  if (n.type === "expert_booking_completed") {
+    return n.preview || n.message || "Your consultation was marked as completed";
+  }
+
+  if (n.type === "payment_success") {
+    if (n.meta?.kind === "expert_consultation") {
+      return n.preview || n.message || "Consultation payment successful ✅";
+    }
+    return n.preview || n.message || n.title || "Payment successful ✅";
+  }
+
   if (n.type === "admin_broadcast") {
     return n.message || n.preview || n.title || "System notification";
   }
 
-  return n.byName || "Notification";
+  return n.message || n.preview || n.title || n.byName || "Notification";
 }
 
 function badgeFor(n: Notif) {
@@ -159,6 +221,20 @@ function badgeFor(n: Notif) {
       return { icon: IoPersonAdd, bg: EKARI.gold, color: "#fff", label: "follow" };
     case "admin_broadcast":
       return { icon: IoMegaphone, bg: EKARI.forest, color: "#fff", label: "system" };
+    case "expert_booking_created":
+      return { icon: IoCalendarNumberOutline, bg: EKARI.gold, color: "#fff", label: "new request" };
+    case "expert_booking_cancelled":
+      return { icon: IoCloseCircleOutline, bg: "#B42318", color: "#fff", label: "cancelled" };
+    case "expert_booking_accepted":
+      return { icon: IoCheckmarkCircleOutline, bg: "#2563EB", color: "#fff", label: "accepted" };
+    case "expert_booking_declined":
+      return { icon: IoCloseCircleOutline, bg: "#DC2626", color: "#fff", label: "declined" };
+    case "expert_booking_confirmed":
+      return { icon: IoShieldCheckmarkOutline, bg: "#15803D", color: "#fff", label: "confirmed" };
+    case "expert_booking_completed":
+      return { icon: IoCheckmarkCircleOutline, bg: "#15803D", color: "#fff", label: "completed" };
+    case "payment_success":
+      return { icon: IoCheckmarkCircleOutline, bg: "#F59E0B", color: "#fff", label: "payment" };
     default:
       return { icon: IoNotifications, bg: EKARI.forest, color: "#fff", label: "notif" };
   }
@@ -215,6 +291,47 @@ function SmartAvatar({
 }
 
 /* --------------------------- Row component --------------------------- */
+function routeForActivityNotification(n: Notif): string | null {
+  if (n.deepLink) return n.deepLink;
+
+  const bookingId = n.bookingId || n.meta?.bookingId;
+
+  if (
+    n.type === "expert_booking_created" ||
+    n.type === "expert_booking_cancelled"
+  ) {
+    return "/account/expert/bookings";
+  }
+
+  if (
+    n.type === "expert_booking_accepted" ||
+    n.type === "expert_booking_declined" ||
+    n.type === "expert_booking_confirmed" ||
+    n.type === "expert_booking_completed" ||
+    (n.type === "payment_success" && n.meta?.kind === "expert_consultation")
+  ) {
+    return bookingId
+      ? `/account/bookings/${encodeURIComponent(bookingId)}`
+      : "/account/bookings";
+  }
+
+  if ((n.type === "comment" || n.type === "like" || n.type === "new_deed") && n.deedId && n.handle) {
+    return `/${encodeURIComponent(n.handle.replace(/^@/, ""))}/deed/${n.deedId}`;
+  }
+
+  if (n.type === "new_event") {
+    return n.eventId ? `/nexus/events/${n.eventId}` : "/nexus/events";
+  }
+
+  if (n.type === "new_discussion") {
+    return n.discussionId
+      ? `/nexus/discussions/${n.discussionId}`
+      : "/nexus/discussions";
+  }
+
+  return null;
+}
+
 function NotifRow({
   n,
   uid,
@@ -381,13 +498,14 @@ function NotifRow({
             <button
               type="button"
               onClick={() => {
-                if (
-                  (n.type === "comment" || n.type === "like") &&
-                  n.deedId &&
-                  n.handle
-                ) {
-                  router.push(`/${encodeURIComponent(n.handle)}/deed/${n.deedId}`);
-                } else if (n.byUserId !== "system") {
+                const href = routeForActivityNotification(n);
+
+                if (href) {
+                  router.push(href);
+                  return;
+                }
+
+                if (n.byUserId !== "system") {
                   onOpenProfile(n.handle, n.byName, n.byPhotoURL);
                 }
               }}

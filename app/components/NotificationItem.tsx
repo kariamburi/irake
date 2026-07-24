@@ -10,6 +10,10 @@ import {
     IoChatboxOutline,
     IoCalendarOutline,
     IoDocumentTextOutline,
+    IoCalendarNumberOutline,
+    IoCloseCircleOutline,
+    IoCheckmarkCircle,
+    IoShieldCheckmarkOutline,
 } from "react-icons/io5";
 import { EKARI } from "../constants/constants";
 import { useRouter } from "next/navigation";
@@ -34,13 +38,37 @@ type Notif = {
     | "new_deed"
     | "new_event"
     | "new_discussion"
+    | "admin_broadcast"
+    | "expert_booking_created"
+    | "expert_booking_cancelled"
+    | "expert_booking_accepted"
+    | "expert_booking_declined"
+    | "expert_booking_confirmed"
+    | "expert_booking_completed"
     | string;
     byName?: string;
+    byUserId?: string;
+    byPhotoURL?: string | null;
+    handle?: string;
     title?: string;
+    message?: string;
     preview?: string;
     createdAt?: any;
     seen?: boolean;
-    meta?: Record<string, any>;
+    bookingId?: string;
+    expertId?: string;
+    clientId?: string;
+    deedId?: string;
+    eventId?: string;
+    discussionId?: string;
+    deepLink?: string;
+    meta?: {
+        kind?: string;
+        bookingId?: string;
+        expertId?: string;
+        clientId?: string;
+        [key: string]: any;
+    };
 };
 
 
@@ -127,6 +155,60 @@ function notifMeta(n: Notif) {
                 label: "Discussion",
             };
 
+        case "expert_booking_created":
+            return {
+                icon: <IoCalendarNumberOutline size={16} />,
+                iconBg: "bg-amber-600",
+                ring: "ring-amber-100",
+                chip: "bg-amber-50 text-amber-700",
+                label: "New request",
+            };
+
+        case "expert_booking_cancelled":
+            return {
+                icon: <IoCloseCircleOutline size={16} />,
+                iconBg: "bg-rose-600",
+                ring: "ring-rose-100",
+                chip: "bg-rose-50 text-rose-700",
+                label: "Cancelled",
+            };
+
+        case "expert_booking_accepted":
+            return {
+                icon: <IoCheckmarkCircle size={16} />,
+                iconBg: "bg-blue-600",
+                ring: "ring-blue-100",
+                chip: "bg-blue-50 text-blue-700",
+                label: "Accepted",
+            };
+
+        case "expert_booking_declined":
+            return {
+                icon: <IoCloseCircleOutline size={16} />,
+                iconBg: "bg-red-600",
+                ring: "ring-red-100",
+                chip: "bg-red-50 text-red-700",
+                label: "Declined",
+            };
+
+        case "expert_booking_confirmed":
+            return {
+                icon: <IoShieldCheckmarkOutline size={16} />,
+                iconBg: "bg-emerald-600",
+                ring: "ring-emerald-100",
+                chip: "bg-emerald-50 text-emerald-700",
+                label: "Confirmed",
+            };
+
+        case "expert_booking_completed":
+            return {
+                icon: <IoCheckmarkCircle size={16} />,
+                iconBg: "bg-green-700",
+                ring: "ring-green-100",
+                chip: "bg-green-50 text-green-700",
+                label: "Completed",
+            };
+
         default:
             return {
                 icon: <IoNotificationsOutline size={16} />,
@@ -161,67 +243,122 @@ function shortTime(ts: any) {
 
 function buildPreview(n: Notif) {
     if (n.type === "like") return `${n.byName || "Someone"} liked your post.`;
-    if (n.type === "comment")
-        return `${n.byName || "Someone"} commented: ${n.preview || ""}`;
+    if (n.type === "comment") return `${n.byName || "Someone"} commented: ${n.preview || ""}`;
     if (n.type === "follow") return `${n.byName || "Someone"} started following you.`;
-    else if (n.type === "profile_view")
-        return `${n.byName || "Someone"} checked out your profile 👀`;
-    if (n.type === "payment_success") return n.preview || n.title || "Payment successful.";
-    // ✅ NEW
+    if (n.type === "profile_view") return `${n.byName || "Someone"} checked out your profile 👀`;
     if (n.type === "new_deed") return `${n.byName || "Someone"} posted a new deed.`;
     if (n.type === "new_event") return `${n.byName || "Someone"} created a new event.`;
     if (n.type === "new_discussion") return `${n.byName || "Someone"} started a new discussion.`;
-    return n.title || "New activity.";
+
+    if (n.type === "expert_booking_created") {
+        return n.preview || n.message || `${n.byName || "A client"} sent you a consultation request.`;
+    }
+    if (n.type === "expert_booking_cancelled") {
+        return n.preview || n.message || "The consultation request was cancelled.";
+    }
+    if (n.type === "expert_booking_accepted") {
+        return n.preview || n.message || "Your consultation request was accepted.";
+    }
+    if (n.type === "expert_booking_declined") {
+        return n.preview || n.message || "Your consultation request was declined.";
+    }
+    if (n.type === "expert_booking_confirmed") {
+        return n.preview || n.message || "Your consultation has been confirmed.";
+    }
+    if (n.type === "expert_booking_completed") {
+        return n.preview || n.message || "Your consultation was marked as completed.";
+    }
+
+    if (n.type === "payment_success") {
+        if (n.meta?.kind === "expert_consultation") {
+            return n.preview || n.message || "Consultation payment successful.";
+        }
+        return n.preview || n.message || n.title || "Payment successful.";
+    }
+
+    if (n.type === "admin_broadcast") {
+        return n.message || n.preview || n.title || "System notification";
+    }
+
+    return n.message || n.preview || n.title || "New activity.";
 }
 /** Safer router.push wrapper */
 
 /** Compute where to navigate for a given notification */
 function routeForNotification(n: Notif, handle?: string): string | undefined {
-    const anyN = n as any;
+    if (n.deepLink && typeof n.deepLink === "string") {
+        return n.deepLink;
+    }
 
-    if (anyN.deepLink && typeof anyN.deepLink === "string") {
-        return anyN.deepLink;
+    const bookingId = n.bookingId || n.meta?.bookingId;
+
+    if (
+        n.type === "expert_booking_created" ||
+        n.type === "expert_booking_cancelled"
+    ) {
+        return "/account/expert/bookings";
+    }
+
+    if (
+        n.type === "expert_booking_accepted" ||
+        n.type === "expert_booking_declined" ||
+        n.type === "expert_booking_confirmed" ||
+        n.type === "expert_booking_completed"
+    ) {
+        return bookingId
+            ? `/account/bookings/${encodeURIComponent(bookingId)}`
+            : "/account/bookings";
+    }
+
+    if (
+        n.type === "payment_success" &&
+        n.meta?.kind === "expert_consultation"
+    ) {
+        return bookingId
+            ? `/account/bookings/${encodeURIComponent(bookingId)}`
+            : "/account/bookings";
     }
 
     if (n.type === "follow") {
-        if (anyN.handle) return `${anyN.handle}`;
-        if (anyN.byId) return `${anyN.handle}`;
-        return "/followers";
+        return n.handle ? `/${encodeURIComponent(n.handle.replace(/^@/, ""))}` : "/followers";
     }
+
     if (n.type === "profile_view") {
-        if (anyN.handle) return `${anyN.handle}`;
-        if (anyN.byId) return `${anyN.handle}`;
-        return "/";
+        return n.handle ? `/${encodeURIComponent(n.handle.replace(/^@/, ""))}` : "/";
     }
+
     if (n.type === "comment" || n.type === "like") {
-        if (anyN.deedId) return `${anyN.handle}/deed/${anyN.deedId}`;
-        if (anyN.listingId) return `/market/${anyN.listingId}`;
+        if (n.deedId && n.handle) {
+            return `/${encodeURIComponent(n.handle.replace(/^@/, ""))}/deed/${n.deedId}`;
+        }
         return "/activity";
     }
-    // ✅ NEW: content created by someone you follow
+
     if (n.type === "new_deed") {
-        if (anyN.deedId) return `${anyN.handle}/deed/${anyN.deedId}`;
+        if (n.deedId && n.handle) {
+            return `/${encodeURIComponent(n.handle.replace(/^@/, ""))}/deed/${n.deedId}`;
+        }
         return "/activity";
     }
 
     if (n.type === "new_event") {
-        // change route if yours is different
-        if (anyN.eventId) return `/nexus/events/${anyN.eventId}`;
-        return "/nexus/events";
+        return n.eventId ? `/nexus/events/${n.eventId}` : "/nexus/events";
     }
 
     if (n.type === "new_discussion") {
-        // change route if yours is different
-        if (anyN.discussionId) return `/nexus/discussions/${anyN.discussionId}`;
-        return "/nexus/discussions";
+        return n.discussionId
+            ? `/nexus/discussions/${n.discussionId}`
+            : "/nexus/discussions";
     }
-    if (n.type === "payment_success") {
-        const kind = (anyN?.meta?.kind || "").toString();
 
-        if (kind === "wallet_topup") return handle ? `/${handle}/earnings` : "/";
-        if (kind === "donation") return handle ? `/${handle}/earnings` : "/";
-        if (kind === "account_verification") return "/account/verification"; // change to your route
-        if (kind === "package_checkout") return `/seller/dashboard`;
+    if (n.type === "payment_success") {
+        const kind = n.meta?.kind || "";
+
+        if (kind === "wallet_topup" || kind === "donation") {
+            return handle ? `/${handle.replace(/^@/, "")}/earnings` : "/";
+        }
+        if (kind === "account_verification") return "/account/verification";
+        if (kind === "package_checkout") return "/seller/dashboard";
         return "/";
     }
 

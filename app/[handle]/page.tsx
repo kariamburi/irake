@@ -310,6 +310,8 @@ function ProfileHeroStorefront({
   onShare,
   reviewsSummary,
   showAdminBadge,
+  myBookingsBadge,
+  expertBookingsBadge,
 }: {
   profile: Profile;
   loading: boolean;
@@ -325,6 +327,8 @@ function ProfileHeroStorefront({
   onShare: () => void;
   reviewsSummary?: { rating: number; count: number };
   showAdminBadge?: boolean;
+  myBookingsBadge: number;
+  expertBookingsBadge: number;
 }) {
   const verificationStatus: VerificationStatus =
     (profile.verificationStatus as VerificationStatus) || "none";
@@ -717,10 +721,14 @@ function ProfessionalAccountSection({
   profile,
   isOwner,
   hasPublishedExpertProfile,
+  myBookingsBadge,
+  expertBookingsBadge,
 }: {
   profile: Profile;
   isOwner: boolean;
   hasPublishedExpertProfile: boolean;
+  myBookingsBadge: number;
+  expertBookingsBadge: number;
 }) {
   const verificationStatus: VerificationStatus =
     profile.verificationStatus || "none";
@@ -837,11 +845,28 @@ function ProfessionalAccountSection({
 
                   <Link
                     href="/account/expert/bookings"
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                    style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                    className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
+                    style={{
+                      borderColor: EKARI.hair,
+                      color: EKARI.text,
+                    }}
                   >
                     <IoCalendarOutline size={15} />
-                    Expert bookings
+
+                    <span>Expert bookings</span>
+
+                    {expertBookingsBadge > 0 ? (
+                      <span
+                        className="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white"
+                        style={{
+                          backgroundColor: EKARI.primary,
+                        }}
+                      >
+                        {expertBookingsBadge > 99
+                          ? "99+"
+                          : expertBookingsBadge}
+                      </span>
+                    ) : null}
                   </Link>
                 </>
               ) : (
@@ -861,11 +886,28 @@ function ProfessionalAccountSection({
 
               <Link
                 href="/account/bookings"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                style={{ borderColor: EKARI.hair, color: EKARI.text }}
+                className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
+                style={{
+                  borderColor: EKARI.hair,
+                  color: EKARI.text,
+                }}
               >
                 <IoListOutline size={15} />
-                My bookings
+
+                <span>My bookings</span>
+
+                {myBookingsBadge > 0 ? (
+                  <span
+                    className="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white"
+                    style={{
+                      backgroundColor: EKARI.primary,
+                    }}
+                  >
+                    {myBookingsBadge > 99
+                      ? "99+"
+                      : myBookingsBadge}
+                  </span>
+                ) : null}
               </Link>
 
               {isVerified ? (
@@ -3322,7 +3364,11 @@ export default function HandleProfilePage() {
 
   const isDesktop = useIsDesktop();
   const isMobile = useIsMobile();
+  const [myBookingsBadge, setMyBookingsBadge] =
+    React.useState(0);
 
+  const [expertBookingsBadge, setExpertBookingsBadge] =
+    React.useState(0);
   const goBack = React.useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push("/");
@@ -3396,7 +3442,60 @@ export default function HandleProfilePage() {
   const mutual = useMutualFollow(user?.uid, uid ?? undefined);
   const canSeeContacts = isOwner || (!!user && mutual);
   const { partners, mutualPartners } = usePartnerStats(uid ?? undefined, user?.uid);
+  React.useEffect(() => {
+    if (!user?.uid || !isOwner) {
+      setMyBookingsBadge(0);
+      setExpertBookingsBadge(0);
+      return;
+    }
 
+    const clientUnreadQuery = query(
+      collection(db, "expertBookings"),
+      where("clientId", "==", user.uid),
+      where("clientUnread", "==", true)
+    );
+
+    const expertUnreadQuery = query(
+      collection(db, "expertBookings"),
+      where("expertId", "==", user.uid),
+      where("expertUnread", "==", true)
+    );
+
+    const unsubscribeClient = onSnapshot(
+      clientUnreadQuery,
+      (snapshot) => {
+        setMyBookingsBadge(snapshot.size);
+      },
+      (error) => {
+        console.error(
+          "CLIENT_BOOKINGS_BADGE_FAILED",
+          error
+        );
+
+        setMyBookingsBadge(0);
+      }
+    );
+
+    const unsubscribeExpert = onSnapshot(
+      expertUnreadQuery,
+      (snapshot) => {
+        setExpertBookingsBadge(snapshot.size);
+      },
+      (error) => {
+        console.error(
+          "EXPERT_BOOKINGS_BADGE_FAILED",
+          error
+        );
+
+        setExpertBookingsBadge(0);
+      }
+    );
+
+    return () => {
+      unsubscribeClient();
+      unsubscribeExpert();
+    };
+  }, [user?.uid, isOwner]);
   const reviewsSummary =
     profile &&
       typeof profile.sellerReviewAvg === "number" &&
@@ -3461,6 +3560,8 @@ export default function HandleProfilePage() {
               partners={partners}
               mutualPartners={mutualPartners}
               likesValue={likesValue}
+              myBookingsBadge={myBookingsBadge}
+              expertBookingsBadge={expertBookingsBadge}
               onMessage={() => {
                 // reuse your existing message logic from old header:
                 if (!user?.uid) return requireAuth();
@@ -3510,6 +3611,8 @@ export default function HandleProfilePage() {
             <ProfessionalAccountSection
               profile={profile}
               isOwner={isOwner}
+              myBookingsBadge={myBookingsBadge}
+              expertBookingsBadge={expertBookingsBadge}
               hasPublishedExpertProfile={!!publicExpert}
             />
 

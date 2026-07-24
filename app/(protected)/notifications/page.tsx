@@ -145,19 +145,79 @@ type Notif = {
   | "follow"
   | "profile_view"
   | "payment_success"
+  | "new_deed"
+  | "new_event"
+  | "new_discussion"
+  | "admin_broadcast"
+  | "expert_booking_created"
+  | "expert_booking_cancelled"
+  | "expert_booking_accepted"
+  | "expert_booking_declined"
+  | "expert_booking_confirmed"
+  | "expert_booking_completed"
   | string;
   byName?: string;
   title?: string;
   preview?: string;
+  message?: string;
   createdAt?: any;
   seen?: boolean;
-  meta?: Record<string, any>;
-  message?: string;
   broadcastId?: string;
   byPhotoURL?: string | null;
   byUserId?: string;
   handle?: string;
+  bookingId?: string;
+  expertId?: string;
+  clientId?: string;
+  meta?: {
+    kind?: string;
+    bookingId?: string;
+    expertId?: string;
+    clientId?: string;
+    [key: string]: any;
+  };
 };
+
+function notificationPreview(n: Notif): string {
+  if (n.type === "like") return `${n.byName || "Someone"} liked your deed 👍`;
+  if (n.type === "comment") return `${n.byName || "Someone"} commented: ${n.preview || ""}`;
+  if (n.type === "profile_view") return `${n.byName || "Someone"} checked out your profile 👀`;
+  if (n.type === "new_deed") return `${n.byName || "Someone"} posted a new deed ✨`;
+  if (n.type === "new_event") return `${n.byName || "Someone"} created a new event 📅`;
+  if (n.type === "new_discussion") return `${n.byName || "Someone"} started a new discussion 💬`;
+
+  if (n.type === "expert_booking_created") {
+    return n.preview || n.message || `${n.byName || "A client"} sent a consultation request`;
+  }
+  if (n.type === "expert_booking_cancelled") {
+    return n.preview || n.message || "A consultation request was cancelled";
+  }
+  if (n.type === "expert_booking_accepted") {
+    return n.preview || n.message || "Your consultation request was accepted";
+  }
+  if (n.type === "expert_booking_declined") {
+    return n.preview || n.message || "Your consultation request was declined";
+  }
+  if (n.type === "expert_booking_confirmed") {
+    return n.preview || n.message || "Your consultation has been confirmed";
+  }
+  if (n.type === "expert_booking_completed") {
+    return n.preview || n.message || "Your consultation was marked as completed";
+  }
+
+  if (n.type === "payment_success") {
+    if (n.meta?.kind === "expert_consultation") {
+      return n.preview || n.message || "Consultation payment successful ✅";
+    }
+    return n.preview || n.message || n.title || "Payment successful ✅";
+  }
+
+  if (n.type === "admin_broadcast") {
+    return n.preview || n.message || n.title || "System notification";
+  }
+
+  return n.preview || n.message || n.title || "New activity on ekarihub 🔔";
+}
 
 export default function NotificationsPage() {
   const { user } = useAuth();
@@ -259,17 +319,7 @@ export default function NotificationsPage() {
       const n = docs.find((x) => x?.type !== "follow");
       if (!n) return setNotifPreview("");
 
-      if (n.type === "like")
-        setNotifPreview(`${n.byName || "Someone"} liked your deed 👍`);
-      else if (n.type === "comment")
-        setNotifPreview(`${n.byName || "Someone"} commented: ${n.preview || ""}`);
-      else if (n.type === "profile_view")
-        setNotifPreview(`${n.byName || "Someone"} checked out your profile 👀`);
-      else if (n.type === "payment_success")
-        setNotifPreview(n.preview || n.title || "Payment successful ✅");
-      else if (n.type === "admin_broadcast")
-        setNotifPreview(n.preview || n.message || n.title || "System notification");
-      else setNotifPreview(n.title || "New activity on ekarihub 🔔");
+      setNotifPreview(notificationPreview(n));
     });
 
     return () => {
