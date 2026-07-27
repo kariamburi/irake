@@ -8,7 +8,7 @@ import React, {
     useState,
     useCallback,
 } from "react";
-import { collection, getDocs, getFirestore } from "firebase/firestore";
+import { collection, getDocs, getFirestore, query, where } from "firebase/firestore";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 
@@ -90,7 +90,13 @@ export default function SoundSheetWeb({
             setLoading(true);
             try {
                 const db = getFirestore();
-                const snap = await getDocs(collection(db, "sounds"));
+                // const snap = await getDocs(collection(db, "sounds"));
+                const soundsQuery = query(
+                    collection(db, "sounds"),
+                    where("status", "==", "approved")
+                );
+
+                const snap = await getDocs(soundsQuery);
                 const rows: SoundDoc[] = snap.docs
                     .map((d) => {
                         const data = d.data() as any;
