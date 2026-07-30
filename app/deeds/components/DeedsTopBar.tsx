@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { IoCompassOutline, IoMenu, IoSearch } from "react-icons/io5";
+import { IoCompassOutline, IoMenu, IoPartlySunnyOutline, IoSearch } from "react-icons/io5";
 import { FeedTabKey } from "../data/deedsFeedWeb";
 
 const TABS: FeedTabKey[] = ["forYou", "following", "nearby"];
@@ -24,6 +24,7 @@ type Props = {
     onOpenSearch: () => void;
     onOpenProfile: () => void;
     onOpenDive?: () => void;
+    onOpenWeather?: () => void;
     isDesktop?: boolean;
 };
 
@@ -36,6 +37,7 @@ export function DeedsTopBar({
     onOpenSearch,
     onOpenProfile,
     onOpenDive,
+    onOpenWeather,
     isDesktop = false,
 }: Props) {
     return (
@@ -57,7 +59,7 @@ export function DeedsTopBar({
                                 <button
                                     type="button"
                                     onClick={onOpenSearch}
-                                    className="grid h-12 w-12 place-items-center rounded-full bg-black/28 text-white backdrop-blur-md"
+                                    className="grid h-12 w-12 place-items-center rounded-full text-white"
                                     aria-label="Search"
                                 >
                                     <IoSearch size={24} />
@@ -84,18 +86,30 @@ export function DeedsTopBar({
                                     />
                                 </button>
                             </div>
-
-                            {/**<button
-                                type="button"
-                                onClick={onOpenDive}
-                                className="flex h-12 items-center gap-2 rounded-full bg-black/28 px-4 text-white backdrop-blur-md"
-                                aria-label="Dive"
-                            >
-                                <IoCompassOutline size={19} />
-                                <span className="text-[15px] font-bold tracking-[0.01em]">
-                                    Dive
-                                </span>
-                            </button> */}
+                            <div className="flex gap-2 items-center justify-center">
+                                <button
+                                    type="button"
+                                    onClick={onOpenDive}
+                                    className="flex h-12 items-center gap-2 rounded-full px-4 text-white"
+                                    aria-label="Dive"
+                                >
+                                    <IoCompassOutline size={19} />
+                                    <span className="text-[15px] tracking-[0.01em]">
+                                        Dive
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onOpenWeather}
+                                    className="flex h-12 items-center gap-2 rounded-full  px-4 text-white"
+                                    aria-label="Dive"
+                                >
+                                    <IoPartlySunnyOutline size={19} />
+                                    <span className="text-[15px] tracking-[0.01em]">
+                                        Weather
+                                    </span>
+                                </button>
+                            </div>
                         </div>
 
                         <div className="mt-2 flex items-center justify-center gap-8 px-2">
@@ -134,7 +148,7 @@ export function DeedsTopBar({
                 ) : (
                     <div className="flex h-[58px] items-center justify-between px-4">
 
-                        {/**<button
+                        <button
                             type="button"
                             onClick={onOpenDive}
                             className="flex h-10 items-center gap-2 rounded-full bg-black/28 px-2 text-white backdrop-blur-md"
@@ -143,7 +157,7 @@ export function DeedsTopBar({
                             <IoCompassOutline size={19} />
                             <span className="text-[12px] font-bold tracking-[0.01em]">
                                 Dive
-                            </span>  </button> */}
+                            </span>  </button>
                         <div className="h-12" />
                         <div className="flex items-center gap-7">
                             {TABS.map((k) => {

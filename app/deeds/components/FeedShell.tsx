@@ -376,6 +376,7 @@ function FeedShellInner({
                                             feed.setActiveTab(k);
                                         }}
                                         onOpenSearch={() => router.push("/search")}
+                                        onOpenWeather={() => router.push("/weather")}
                                         onOpenProfile={() =>
                                             router.push(
                                                 uid
@@ -383,7 +384,7 @@ function FeedShellInner({
                                                     : "/getstarted?next=/deeds"
                                             )
                                         }
-                                        onOpenDive={() => router.push("/nexus")}
+                                        onOpenDive={() => router.push("/dive")}
                                         onOpenMenu={onOpenMenu}
                                     />
 

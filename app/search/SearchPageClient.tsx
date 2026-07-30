@@ -65,11 +65,10 @@ type Account = {
     photoURL?: string;
     firstName?: string;
     surname?: string;
-    handle: string; // stored WITH '@'
-    followers?: number;
+    handle: string;
+    followersCount?: number;
     storefrontEnabled?: boolean;
 };
-
 type Hashtag = {
     id: string;
     tag: string; // without '#'
@@ -1200,7 +1199,7 @@ export default function SearchPageClient() {
                                     {name || normalizedHandle}
                                 </p>
                                 <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
-                                    {handleLabel} · {fmtCompact(a.followers || 0)} followers
+                                    {handleLabel} · {fmtCompact(a.followersCount || 0)} followers
                                 </p>
                             </div>
                         </div>
@@ -1354,7 +1353,7 @@ export default function SearchPageClient() {
                             {name || normalizedHandle}
                         </p>
                         <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
-                            {handleLabel} · {fmtCompact(a.followers || 0)} followers
+                            {handleLabel} · {fmtCompact(a.followersCount || 0)} followers
                         </p>
                     </div>
                 </div>
