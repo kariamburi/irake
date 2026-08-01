@@ -59,6 +59,7 @@ import {
   IoStar,
   IoStarHalf,
   IoInformationCircleOutline,
+  IoNavigateOutline,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -2933,53 +2934,541 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
 
 
 
+
+type ExpertCurrency =
+  | "KES"
+  | "USD";
+
+type ExpertFeeType =
+  | "fixed"
+  | "starting_from"
+  | "free";
+
+type ExpertConsultationMethod =
+  | "phone"
+  | "whatsapp"
+  | "video"
+  | "chat"
+  | "physical";
+
+type ExpertCoordinates = {
+  latitude: number;
+  longitude: number;
+  geohash?: string | null;
+};
+
+type ExpertPlace = {
+  placeId: string | null;
+  label: string;
+
+  countryCode: string;
+  country: string;
+
+  region: string;
+  city: string;
+  locality: string;
+
+  coordinates:
+  | ExpertCoordinates
+  | null;
+
+  timezone: string | null;
+};
+
+type ExpertServiceArea = {
+  id: string;
+
+  type:
+  | "country"
+  | "region"
+  | "city"
+  | "radius";
+
+  label: string;
+
+  placeId: string | null;
+
+  countryCode: string;
+  country: string;
+
+  region: string;
+  city: string;
+
+  center:
+  | ExpertCoordinates
+  | null;
+
+  radiusKm: number | null;
+};
+
+type ExpertServiceCoverage = {
+  offersOnlineServices: boolean;
+  offersPhysicalVisits: boolean;
+
+  onlineCoverage:
+  | "local"
+  | "country"
+  | "worldwide";
+
+  serviceAreas: ExpertServiceArea[];
+};
+
+type ExpertVerificationStatus =
+  | "none"
+  | "payment_pending"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "expired";
 type PublicExpertProfile = {
   uid: string;
+
   handle?: string;
   displayName?: string;
   name?: string;
   photoURL?: string;
+
   headline?: string;
   expertBio?: string;
+
+  verificationStatus?:
+  ExpertVerificationStatus;
+
+  verified?: boolean;
+
   verificationRole?: string;
   verificationRoleLabel?: string;
+
+  verificationType?:
+  | "individual"
+  | "business"
+  | "company";
+
   organizationName?: string;
+
   specialties?: string[];
+
+  /**
+   * Temporary compatibility field for
+   * profiles published before global
+   * service coverage was introduced.
+   */
   countiesServed?: string[];
+
   languages?: string[];
-  consultationMethods?: string[];
-  primaryLocation?: {
-    county?: string;
-    town?: string;
-  };
+
+  consultationMethods?:
+  ExpertConsultationMethod[];
+
+  primaryLocation?: ExpertPlace;
+
+  serviceCoverage?:
+  ExpertServiceCoverage;
+
   pricing?: {
-    currency?: string;
+    currency?: ExpertCurrency;
+
     consultationFee?: number;
-    physicalVisitFeeFrom?: number | null;
-    feeType?: "fixed" | "starting_from" | "free";
-    consultationDurationMinutes?: number;
+
+    physicalVisitFeeFrom?:
+    number | null;
+
+    feeType?:
+    ExpertFeeType;
+
+    consultationDurationMinutes?:
+    number;
   };
+
   terms?: {
     summary?: string;
-    cancellationNoticeHours?: number;
+
+    cancellationNoticeHours?:
+    number;
+
     cancellationPolicy?: string;
-    allowsRescheduling?: boolean;
-    paymentRequiredBeforeBooking?: boolean;
+
+    allowsRescheduling?:
+    boolean;
+
+    paymentRequiredBeforeBooking?:
+    boolean;
   };
+
   rating?: {
     average?: number;
     count?: number;
   };
+
   completedConsultations?: number;
+
   acceptingBookings?: boolean;
+
   status?: string;
   isDiscoverable?: boolean;
 };
+function expertSafeNumber(
+  value: unknown
+): number | null {
+  const parsed = Number(value);
 
-function usePublicExpertProfile(uid?: string) {
+  return Number.isFinite(parsed)
+    ? parsed
+    : null;
+}
+
+function normalizeExpertStrings(
+  value: unknown
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Map(
+      value
+        .map((item) =>
+          String(item || "").trim()
+        )
+        .filter(Boolean)
+        .map((item) => [
+          item.toLowerCase(),
+          item,
+        ])
+    ).values()
+  );
+}
+
+function normalizeExpertPlace(
+  value: unknown
+): ExpertPlace {
+  const location =
+    value &&
+      typeof value === "object"
+      ? (value as Record<
+        string,
+        any
+      >)
+      : {};
+
+  const legacyTown =
+    String(
+      location.town || ""
+    ).trim();
+
+  const legacyCounty =
+    String(
+      location.county || ""
+    ).trim();
+
+  const latitude =
+    expertSafeNumber(
+      location.coordinates
+        ?.latitude
+    ) ??
+    expertSafeNumber(
+      location.latitude
+    );
+
+  const longitude =
+    expertSafeNumber(
+      location.coordinates
+        ?.longitude
+    ) ??
+    expertSafeNumber(
+      location.longitude
+    );
+
+  const city =
+    String(
+      location.city ||
+      legacyTown ||
+      ""
+    ).trim();
+
+  const region =
+    String(
+      location.region ||
+      legacyCounty ||
+      ""
+    ).trim();
+
+  const country =
+    String(
+      location.country ||
+      (legacyCounty
+        ? "Kenya"
+        : "")
+    ).trim();
+
+  return {
+    placeId:
+      String(
+        location.placeId ||
+        ""
+      ) || null,
+
+    label:
+      String(
+        location.label ||
+        [
+          city,
+          region,
+          country,
+        ]
+          .filter(Boolean)
+          .join(", ")
+      ).trim(),
+
+    countryCode:
+      String(
+        location.countryCode ||
+        (legacyCounty
+          ? "KE"
+          : "")
+      )
+        .trim()
+        .toUpperCase(),
+
+    country,
+    region,
+    city,
+
+    locality: String(
+      location.locality ||
+      ""
+    ).trim(),
+
+    coordinates:
+      latitude !== null &&
+        longitude !== null
+        ? {
+          latitude,
+          longitude,
+
+          geohash:
+            location.coordinates
+              ?.geohash ||
+            location.geohash ||
+            null,
+        }
+        : null,
+
+    timezone:
+      String(
+        location.timezone ||
+        (legacyCounty
+          ? "Africa/Nairobi"
+          : "")
+      ) || null,
+  };
+}
+
+function normalizeServiceCoverage(
+  value: unknown,
+  primaryLocation: ExpertPlace,
+  legacyCounties: string[]
+): ExpertServiceCoverage {
+  const coverage =
+    value &&
+      typeof value === "object"
+      ? (value as Record<
+        string,
+        any
+      >)
+      : {};
+
+  const serviceAreas =
+    Array.isArray(
+      coverage.serviceAreas
+    )
+      ? coverage.serviceAreas
+        .map(
+          (
+            area: any,
+            index: number
+          ): ExpertServiceArea | null => {
+            if (
+              !area ||
+              typeof area !==
+              "object"
+            ) {
+              return null;
+            }
+
+            const type =
+              area.type ===
+                "country" ||
+                area.type ===
+                "region" ||
+                area.type ===
+                "city" ||
+                area.type ===
+                "radius"
+                ? area.type
+                : "region";
+
+            const centerLatitude =
+              expertSafeNumber(
+                area.center
+                  ?.latitude
+              );
+
+            const centerLongitude =
+              expertSafeNumber(
+                area.center
+                  ?.longitude
+              );
+
+            return {
+              id:
+                String(
+                  area.id ||
+                  `area-${index}`
+                ),
+
+              type,
+
+              label:
+                String(
+                  area.label ||
+                  ""
+                ).trim(),
+
+              placeId:
+                String(
+                  area.placeId ||
+                  ""
+                ) || null,
+
+              countryCode:
+                String(
+                  area.countryCode ||
+                  ""
+                )
+                  .trim()
+                  .toUpperCase(),
+
+              country:
+                String(
+                  area.country ||
+                  ""
+                ).trim(),
+
+              region:
+                String(
+                  area.region ||
+                  ""
+                ).trim(),
+
+              city:
+                String(
+                  area.city ||
+                  ""
+                ).trim(),
+
+              center:
+                centerLatitude !==
+                  null &&
+                  centerLongitude !==
+                  null
+                  ? {
+                    latitude:
+                      centerLatitude,
+
+                    longitude:
+                      centerLongitude,
+
+                    geohash:
+                      area.center
+                        ?.geohash ||
+                      null,
+                  }
+                  : null,
+
+              radiusKm:
+                expertSafeNumber(
+                  area.radiusKm
+                ),
+            };
+          }
+        )
+        .filter(
+          (
+            area
+          ): area is ExpertServiceArea =>
+            area !== null
+        )
+      : [];
+
+  const migratedAreas =
+    serviceAreas.length > 0
+      ? serviceAreas
+      : legacyCounties.map(
+        (
+          county,
+          index
+        ): ExpertServiceArea => ({
+          id:
+            `legacy-county-${index}`,
+
+          type: "region",
+
+          label:
+            `${county}, Kenya`,
+
+          placeId: null,
+
+          countryCode: "KE",
+          country: "Kenya",
+
+          region: county,
+          city: "",
+
+          center: null,
+
+          radiusKm: null,
+        })
+      );
+
+  const onlineCoverage =
+    coverage.onlineCoverage ===
+      "local" ||
+      coverage.onlineCoverage ===
+      "country" ||
+      coverage.onlineCoverage ===
+      "worldwide"
+      ? coverage.onlineCoverage
+      : "worldwide";
+
+  return {
+    offersOnlineServices:
+      coverage
+        .offersOnlineServices !==
+      false,
+
+    offersPhysicalVisits:
+      coverage
+        .offersPhysicalVisits ===
+      true ||
+      migratedAreas.length > 0,
+
+    onlineCoverage,
+
+    serviceAreas:
+      migratedAreas,
+  };
+}
+function usePublicExpertProfile(
+  uid?: string
+) {
   const [expert, setExpert] =
-    React.useState<PublicExpertProfile | null>(null);
-  const [loading, setLoading] = React.useState(true);
+    React.useState<
+      PublicExpertProfile | null
+    >(null);
+
+  const [loading, setLoading] =
+    React.useState(true);
 
   React.useEffect(() => {
     if (!uid) {
@@ -2990,61 +3479,315 @@ function usePublicExpertProfile(uid?: string) {
 
     setLoading(true);
 
-    const unsubscribe = onSnapshot(
-      doc(db, "publicExperts", uid),
-      (snapshot) => {
-        if (!snapshot.exists()) {
+    const unsubscribe =
+      onSnapshot(
+        doc(
+          db,
+          "publicExperts",
+          uid
+        ),
+        (snapshot) => {
+          if (!snapshot.exists()) {
+            setExpert(null);
+            setLoading(false);
+            return;
+          }
+
+          const data =
+            snapshot.data() as Record<
+              string,
+              any
+            >;
+
+          if (
+            data.status !==
+            "active" ||
+            data.isDiscoverable !==
+            true
+          ) {
+            setExpert(null);
+            setLoading(false);
+            return;
+          }
+
+          const primaryLocation =
+            normalizeExpertPlace(
+              data.primaryLocation
+            );
+
+          const countiesServed =
+            normalizeExpertStrings(
+              data.countiesServed
+            );
+
+          const serviceCoverage =
+            normalizeServiceCoverage(
+              data.serviceCoverage,
+              primaryLocation,
+              countiesServed
+            );
+
+          const allowedMethods:
+            ExpertConsultationMethod[] =
+            [
+              "phone",
+              "whatsapp",
+              "video",
+              "chat",
+              "physical",
+            ];
+
+          const consultationMethods =
+            normalizeExpertStrings(
+              data.consultationMethods
+            ).filter(
+              (
+                method
+              ): method is ExpertConsultationMethod =>
+                allowedMethods.includes(
+                  method as ExpertConsultationMethod
+                )
+            );
+
+          const verificationStatus:
+            ExpertVerificationStatus =
+            data.verificationStatus ===
+              "payment_pending" ||
+              data.verificationStatus ===
+              "pending" ||
+              data.verificationStatus ===
+              "approved" ||
+              data.verificationStatus ===
+              "rejected" ||
+              data.verificationStatus ===
+              "expired"
+              ? data.verificationStatus
+              : data.verified === true
+                ? "approved"
+                : "none";
+
+          const feeType:
+            ExpertFeeType =
+            data.pricing
+              ?.feeType ===
+              "starting_from" ||
+              data.pricing
+                ?.feeType ===
+              "free"
+              ? data.pricing
+                .feeType
+              : "fixed";
+
+          const currency:
+            ExpertCurrency =
+            data.pricing
+              ?.currency ===
+              "USD"
+              ? "USD"
+              : "KES";
+
+          setExpert({
+            ...data,
+
+            uid:
+              data.uid ||
+              snapshot.id,
+
+            verificationStatus,
+
+            verified:
+              verificationStatus ===
+              "approved",
+
+            verificationType:
+              data.verificationType ===
+                "business" ||
+                data.verificationType ===
+                "company"
+                ? data.verificationType
+                : "individual",
+
+            specialties:
+              normalizeExpertStrings(
+                data.specialties
+              ),
+
+            countiesServed,
+
+            languages:
+              normalizeExpertStrings(
+                data.languages
+              ),
+
+            consultationMethods,
+
+            primaryLocation,
+
+            serviceCoverage,
+
+            pricing: {
+              currency,
+
+              consultationFee:
+                Number(
+                  data.pricing
+                    ?.consultationFee ||
+                  0
+                ),
+
+              physicalVisitFeeFrom:
+                expertSafeNumber(
+                  data.pricing
+                    ?.physicalVisitFeeFrom
+                ),
+
+              feeType,
+
+              consultationDurationMinutes:
+                Number(
+                  data.pricing
+                    ?.consultationDurationMinutes ||
+                  0
+                ),
+            },
+
+            terms: {
+              summary:
+                String(
+                  data.terms
+                    ?.summary ||
+                  ""
+                ),
+
+              cancellationNoticeHours:
+                Number(
+                  data.terms
+                    ?.cancellationNoticeHours ||
+                  0
+                ),
+
+              cancellationPolicy:
+                String(
+                  data.terms
+                    ?.cancellationPolicy ||
+                  ""
+                ),
+
+              allowsRescheduling:
+                data.terms
+                  ?.allowsRescheduling !==
+                false,
+
+              paymentRequiredBeforeBooking:
+                data.terms
+                  ?.paymentRequiredBeforeBooking !==
+                false,
+            },
+
+            rating: {
+              average:
+                Number(
+                  data.rating
+                    ?.average ||
+                  0
+                ),
+
+              count:
+                Number(
+                  data.rating
+                    ?.count ||
+                  0
+                ),
+            },
+
+            completedConsultations:
+              Number(
+                data.completedConsultations ||
+                0
+              ),
+          });
+
+          setLoading(false);
+        },
+        (error) => {
+          console.warn(
+            "public expert listener error:",
+            error?.message ||
+            error
+          );
+
           setExpert(null);
           setLoading(false);
-          return;
         }
+      );
 
-        const data =
-          snapshot.data() as Partial<PublicExpertProfile>;
-
-        if (
-          data.status !== "active" ||
-          data.isDiscoverable !== true
-        ) {
-          setExpert(null);
-          setLoading(false);
-          return;
-        }
-
-        setExpert({
-          ...data,
-          uid: snapshot.id,
-        } as PublicExpertProfile);
-
-        setLoading(false);
-      },
-      (error) => {
-        console.warn(
-          "public expert listener error:",
-          error?.message || error
-        );
-        setExpert(null);
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+    return () =>
+      unsubscribe();
   }, [uid]);
 
-  return { expert, loading };
+  return {
+    expert,
+    loading,
+  };
 }
 
-function expertMethodLabel(method: string) {
-  if (method === "whatsapp") return "WhatsApp";
-  if (method === "video") return "Video consultation";
-  if (method === "physical") return "Physical visit";
-  if (method === "phone") return "Phone call";
+function expertMethodLabel(
+  method: string
+) {
+  if (method === "whatsapp") {
+    return "WhatsApp";
+  }
+
+  if (method === "video") {
+    return "Video consultation";
+  }
+
+  if (method === "physical") {
+    return "Physical visit";
+  }
+
+  if (method === "phone") {
+    return "Phone call";
+  }
+
+  if (method === "chat") {
+    return "Ekarihub chat";
+  }
 
   return method
     .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (character) =>
-      character.toUpperCase()
+    .replace(
+      /\b\w/g,
+      (character) =>
+        character.toUpperCase()
     );
+}
+function formatExpertMoney(
+  amount: number,
+  currency:
+    ExpertCurrency = "KES"
+) {
+  const value =
+    Number(amount || 0);
+
+  try {
+    return new Intl.NumberFormat(
+      currency === "KES"
+        ? "en-KE"
+        : "en-US",
+      {
+        style: "currency",
+        currency,
+
+        maximumFractionDigits:
+          currency === "KES"
+            ? 0
+            : 2,
+      }
+    ).format(value);
+  } catch {
+    return `${currency} ${value.toLocaleString()}`;
+  }
 }
 function ExpertRatingDisplay({
   average,
@@ -3172,113 +3915,384 @@ function ExpertPublicSection({
   isOwner: boolean;
   onBook: () => void;
 }) {
-  const feeType = expert.pricing?.feeType || "fixed";
-  const consultationFee = Number(
-    expert.pricing?.consultationFee || 0
-  );
+  const feeType =
+    expert.pricing?.feeType ||
+    "fixed";
+
+  const currency: ExpertCurrency =
+    expert.pricing?.currency ===
+      "USD"
+      ? "USD"
+      : "KES";
+
+  const consultationFee =
+    Number(
+      expert.pricing
+        ?.consultationFee || 0
+    );
+
+  const physicalVisitFee =
+    expert.pricing
+      ?.physicalVisitFeeFrom != null
+      ? Number(
+        expert.pricing
+          .physicalVisitFeeFrom
+      )
+      : null;
 
   const feeText =
     feeType === "free"
       ? "Free consultation"
-      : feeType === "starting_from"
-        ? `From ${KES(consultationFee)}`
-        : KES(consultationFee);
+      : feeType ===
+        "starting_from"
+        ? `From ${formatExpertMoney(
+          consultationFee,
+          currency
+        )}`
+        : formatExpertMoney(
+          consultationFee,
+          currency
+        );
 
-  const locationText = [
-    expert.primaryLocation?.town,
-    expert.primaryLocation?.county,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const locationText =
+    expert.primaryLocation
+      ?.label ||
+    [
+      expert.primaryLocation?.city,
+      expert.primaryLocation?.region,
+      expert.primaryLocation?.country,
+    ]
+      .filter(Boolean)
+      .join(", ");
 
-  const ratingAverage = Number(
-    profile.sellerReviewAvg ??
-    expert.rating?.average ??
-    0
-  );
+  const onlineCoverageLabel =
+    expert.serviceCoverage
+      ?.onlineCoverage ===
+      "worldwide"
+      ? "Worldwide online"
+      : expert.serviceCoverage
+        ?.onlineCoverage ===
+        "country"
+        ? expert.primaryLocation
+          ?.country
+          ? `Online across ${expert.primaryLocation.country}`
+          : "Online nationwide"
+        : "Online near location";
 
-  const ratingCount = Number(
-    profile.sellerReviewCount ??
-    expert.rating?.count ??
-    0
-  );
+  const serviceAreaLabels =
+    Array.from(
+      new Set(
+        (
+          expert.serviceCoverage
+            ?.serviceAreas || []
+        )
+          .map((area) =>
+            String(
+              area.label || ""
+            ).trim()
+          )
+          .filter(Boolean)
+      )
+    );
+
+  const physicalServiceText =
+    serviceAreaLabels.join(", ");
+
+  const ratingAverage =
+    Number(
+      profile.sellerReviewAvg ??
+      expert.rating?.average ??
+      0
+    );
+
+  const ratingCount =
+    Number(
+      profile.sellerReviewCount ??
+      expert.rating?.count ??
+      0
+    );
+
+  const completedConsultations =
+    Number(
+      expert.completedConsultations ||
+      0
+    );
+
+  const consultationDuration =
+    Number(
+      expert.pricing
+        ?.consultationDurationMinutes ||
+      0
+    );
+
+  const verificationLabel =
+    expert.verified
+      ? "Verified expert"
+      : "Unverified expert";
+
+  const methodCount =
+    expert.consultationMethods
+      ?.length || 0;
 
   return (
-    <section className="mx-auto mb-6 max-w-5xl px-3 md:px-4">
+    <section className="mx-auto mb-5 max-w-5xl px-3 md:px-4">
       <div
-        className="overflow-hidden rounded-[28px] border bg-white shadow-[0_18px_55px_rgba(15,23,42,0.07)]"
-        style={{ borderColor: EKARI.hair }}
+        className="overflow-hidden rounded-[24px] border bg-white shadow-[0_14px_44px_rgba(15,23,42,0.06)]"
+        style={{
+          borderColor: EKARI.hair,
+        }}
       >
+        {/* Compact expert header */}
         <div
-          className="px-5 py-5 text-white md:px-7 md:py-6"
+          className="border-b px-4 py-4 md:px-6 md:py-5"
           style={{
-            background:
-              "linear-gradient(135deg, #233F39 0%, #31594F 55%, #C79257 140%)",
+            borderColor:
+              EKARI.hair,
+            backgroundColor:
+              "#FFFFFF",
           }}
         >
-          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div className="min-w-0">
+              {/* Status badges */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-black backdrop-blur">
-                  <IoShieldCheckmarkOutline size={15} />
-                  Verified ekariExpert
+                <span
+                  className={[
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black",
+                    expert.verified
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 bg-slate-50 text-slate-600",
+                  ].join(" ")}
+                >
+                  {expert.verified ? (
+                    <IoShieldCheckmarkOutline
+                      size={13}
+                    />
+                  ) : (
+                    <IoInformationCircleOutline
+                      size={13}
+                    />
+                  )}
+
+                  {verificationLabel}
                 </span>
 
-                {expert.acceptingBookings !== false ? (
-                  <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-black text-emerald-50">
+                {expert.acceptingBookings !==
+                  false ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black"
+                    style={{
+                      color:
+                        EKARI.forest,
+                      backgroundColor:
+                        "rgba(35,63,57,0.09)",
+                    }}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{
+                        backgroundColor:
+                          EKARI.green,
+                      }}
+                    />
+
                     Accepting clients
                   </span>
                 ) : (
-                  <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black text-white/80">
-                    Not accepting new clients
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-500">
+                    Not accepting clients
                   </span>
                 )}
+
+                {expert.serviceCoverage
+                  ?.offersOnlineServices ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
+                    <IoGlobeOutline
+                      size={13}
+                    />
+
+                    {onlineCoverageLabel}
+                  </span>
+                ) : null}
+
+                {expert.serviceCoverage
+                  ?.offersPhysicalVisits ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">
+                    <IoLocationOutline
+                      size={13}
+                    />
+
+                    Physical visits
+                  </span>
+                ) : null}
               </div>
 
-              <h2 className="mt-4 text-xl font-black leading-tight md:text-2xl">
+              <h2
+                className="mt-3 text-xl font-black leading-tight md:text-2xl"
+                style={{
+                  color: EKARI.text,
+                }}
+              >
                 {expert.headline ||
                   expert.verificationRoleLabel ||
                   expert.verificationRole ||
                   "Agricultural professional"}
               </h2>
 
-              {locationText ? (
-                <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-white/80">
-                  <IoLocationOutline size={16} />
-                  {locationText}
-                </p>
-              ) : null}
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold">
+                {locationText ? (
+                  <span
+                    className="inline-flex min-w-0 items-center gap-1.5"
+                    style={{
+                      color:
+                        EKARI.subtext,
+                    }}
+                  >
+                    <IoLocationOutline
+                      className="shrink-0"
+                      size={15}
+                    />
+
+                    <span className="truncate">
+                      {locationText}
+                    </span>
+                  </span>
+                ) : null}
+
+                {physicalServiceText ? (
+                  <span
+                    className="inline-flex min-w-0 items-center gap-1.5"
+                    style={{
+                      color:
+                        EKARI.subtext,
+                    }}
+                    title={
+                      physicalServiceText
+                    }
+                  >
+                    <IoNavigateOutline
+                      className="shrink-0"
+                      size={15}
+                    />
+
+                    <span className="truncate">
+                      Serves{" "}
+                      {
+                        physicalServiceText
+                      }
+                    </span>
+                  </span>
+                ) : null}
+
+                {methodCount > 0 ? (
+                  <span
+                    className="inline-flex items-center gap-1.5"
+                    style={{
+                      color:
+                        EKARI.subtext,
+                    }}
+                  >
+                    <IoChatbubblesOutline
+                      size={15}
+                    />
+
+                    {methodCount} consultation{" "}
+                    {methodCount === 1
+                      ? "method"
+                      : "methods"}
+                  </span>
+                ) : null}
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:min-w-[430px]">
-              <div className="col-span-3 rounded-2xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur md:col-span-1">
+            {/* Compact summary statistics */}
+            <div className="grid grid-cols-3 gap-2 sm:min-w-[370px]">
+              <div
+                className="rounded-2xl border px-3 py-3 text-center"
+                style={{
+                  borderColor:
+                    EKARI.hair,
+                  backgroundColor:
+                    "#F8FAFC",
+                }}
+              >
                 <ExpertRatingDisplay
-                  average={ratingAverage}
+                  average={
+                    ratingAverage
+                  }
                   count={ratingCount}
-                  light
                 />
 
-                <div className="mt-2 text-[11px] font-bold text-white/70">
+                <div
+                  className="mt-1 text-[10px] font-bold"
+                  style={{
+                    color:
+                      EKARI.subtext,
+                  }}
+                >
                   Rating
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur">
-                <div className="text-lg font-black">
-                  {Number(
-                    expert.completedConsultations || 0
-                  ).toLocaleString("en-KE")}
+              <div
+                className="rounded-2xl border px-3 py-3 text-center"
+                style={{
+                  borderColor:
+                    EKARI.hair,
+                  backgroundColor:
+                    "#F8FAFC",
+                }}
+              >
+                <div
+                  className="text-base font-black"
+                  style={{
+                    color:
+                      EKARI.text,
+                  }}
+                >
+                  {completedConsultations.toLocaleString(
+                    "en-KE"
+                  )}
                 </div>
-                <div className="mt-1 text-[11px] font-bold text-white/70">
+
+                <div
+                  className="mt-1 text-[10px] font-bold"
+                  style={{
+                    color:
+                      EKARI.subtext,
+                  }}
+                >
                   Consultations
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-3 text-center backdrop-blur">
-                <div className="truncate text-sm font-black">
+              <div
+                className="rounded-2xl border px-3 py-3 text-center"
+                style={{
+                  borderColor:
+                    EKARI.hair,
+                  backgroundColor:
+                    "rgba(199,146,87,0.08)",
+                }}
+              >
+                <div
+                  className="truncate text-sm font-black"
+                  style={{
+                    color:
+                      EKARI.text,
+                  }}
+                  title={feeText}
+                >
                   {feeText}
                 </div>
-                <div className="mt-1 text-[11px] font-bold text-white/70">
+
+                <div
+                  className="mt-1 text-[10px] font-bold"
+                  style={{
+                    color:
+                      EKARI.subtext,
+                  }}
+                >
                   Standard fee
                 </div>
               </div>
@@ -3286,19 +4300,26 @@ function ExpertPublicSection({
           </div>
         </div>
 
-        <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_320px] md:p-7">
-          <div className="min-w-0 space-y-6">
+        {/* Main expert details */}
+        <div className="grid gap-5 p-4 md:grid-cols-[minmax(0,1fr)_285px] md:p-6">
+          <div className="min-w-0 space-y-5">
             {expert.expertBio ? (
               <div>
                 <h3
                   className="text-sm font-black"
-                  style={{ color: EKARI.text }}
+                  style={{
+                    color: EKARI.text,
+                  }}
                 >
                   About this expert
                 </h3>
+
                 <p
-                  className="mt-2 whitespace-pre-line text-sm leading-7"
-                  style={{ color: EKARI.subtext }}
+                  className="mt-2 whitespace-pre-line text-sm leading-6"
+                  style={{
+                    color:
+                      EKARI.subtext,
+                  }}
                 >
                   {expert.expertBio}
                 </p>
@@ -3306,59 +4327,83 @@ function ExpertPublicSection({
             ) : null}
 
             {expert.specialties &&
-              expert.specialties.length > 0 ? (
+              expert.specialties.length >
+              0 ? (
               <div>
                 <h3
                   className="text-sm font-black"
-                  style={{ color: EKARI.text }}
+                  style={{
+                    color: EKARI.text,
+                  }}
                 >
                   Areas of expertise
                 </h3>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {expert.specialties.map((specialty) => (
-                    <span
-                      key={specialty}
-                      className="rounded-full border px-3 py-2 text-xs font-bold"
-                      style={{
-                        borderColor:
-                          "rgba(35,63,57,0.18)",
-                        backgroundColor:
-                          "rgba(35,63,57,0.06)",
-                        color: EKARI.forest,
-                      }}
-                    >
-                      {specialty}
-                    </span>
-                  ))}
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {expert.specialties.map(
+                    (specialty) => (
+                      <span
+                        key={
+                          specialty
+                        }
+                        className="rounded-full border px-3 py-1.5 text-xs font-bold"
+                        style={{
+                          borderColor:
+                            "rgba(35,63,57,0.18)",
+                          backgroundColor:
+                            "rgba(35,63,57,0.06)",
+                          color:
+                            EKARI.forest,
+                        }}
+                      >
+                        {specialty}
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
             ) : null}
 
             <div className="grid gap-5 sm:grid-cols-2">
-              {expert.consultationMethods &&
-                expert.consultationMethods.length > 0 ? (
+              {expert
+                .consultationMethods &&
+                expert
+                  .consultationMethods
+                  .length > 0 ? (
                 <div>
                   <h3
                     className="text-sm font-black"
-                    style={{ color: EKARI.text }}
+                    style={{
+                      color:
+                        EKARI.text,
+                    }}
                   >
                     Consultation methods
                   </h3>
-                  <div className="mt-3 space-y-2">
+
+                  <div className="mt-2 grid gap-2">
                     {expert.consultationMethods.map(
                       (method) => (
                         <div
-                          key={method}
+                          key={
+                            method
+                          }
                           className="flex items-center gap-2 text-sm font-semibold"
                           style={{
-                            color: EKARI.subtext,
+                            color:
+                              EKARI.subtext,
                           }}
                         >
                           <IoCheckmarkDone
-                            size={17}
-                            color={EKARI.green}
+                            size={16}
+                            color={
+                              EKARI.green
+                            }
                           />
-                          {expertMethodLabel(method)}
+
+                          {expertMethodLabel(
+                            method
+                          )}
                         </div>
                       )
                     )}
@@ -3367,38 +4412,78 @@ function ExpertPublicSection({
               ) : null}
 
               {expert.languages &&
-                expert.languages.length > 0 ? (
+                expert.languages.length >
+                0 ? (
                 <div>
                   <h3
                     className="text-sm font-black"
-                    style={{ color: EKARI.text }}
+                    style={{
+                      color:
+                        EKARI.text,
+                    }}
                   >
                     Languages
                   </h3>
+
                   <p
-                    className="mt-3 text-sm leading-6"
-                    style={{ color: EKARI.subtext }}
+                    className="mt-2 text-sm leading-6"
+                    style={{
+                      color:
+                        EKARI.subtext,
+                    }}
                   >
-                    {expert.languages.join(", ")}
+                    {expert.languages.join(
+                      ", "
+                    )}
                   </p>
                 </div>
               ) : null}
             </div>
 
-            {expert.countiesServed &&
-              expert.countiesServed.length > 0 ? (
+            {physicalServiceText ? (
               <div>
                 <h3
                   className="text-sm font-black"
-                  style={{ color: EKARI.text }}
+                  style={{
+                    color: EKARI.text,
+                  }}
                 >
-                  Counties served
+                  Physical service area
                 </h3>
+
                 <p
                   className="mt-2 text-sm leading-6"
-                  style={{ color: EKARI.subtext }}
+                  style={{
+                    color:
+                      EKARI.subtext,
+                  }}
                 >
-                  {expert.countiesServed.join(", ")}
+                  {physicalServiceText}
+                </p>
+              </div>
+            ) : expert.countiesServed &&
+              expert.countiesServed
+                .length > 0 ? (
+              <div>
+                <h3
+                  className="text-sm font-black"
+                  style={{
+                    color: EKARI.text,
+                  }}
+                >
+                  Service areas
+                </h3>
+
+                <p
+                  className="mt-2 text-sm leading-6"
+                  style={{
+                    color:
+                      EKARI.subtext,
+                  }}
+                >
+                  {expert.countiesServed.join(
+                    ", "
+                  )}
                 </p>
               </div>
             ) : null}
@@ -3407,24 +4492,32 @@ function ExpertPublicSection({
               <div
                 className="rounded-2xl border p-4"
                 style={{
-                  borderColor: EKARI.hair,
-                  backgroundColor: "#F8FAFC",
+                  borderColor:
+                    EKARI.hair,
+                  backgroundColor:
+                    "#F8FAFC",
                 }}
               >
                 <h3
                   className="text-sm font-black"
-                  style={{ color: EKARI.text }}
+                  style={{
+                    color: EKARI.text,
+                  }}
                 >
                   Consultation terms
                 </h3>
+
                 <p
                   className="mt-2 whitespace-pre-line text-sm leading-6"
-                  style={{ color: EKARI.subtext }}
+                  style={{
+                    color:
+                      EKARI.subtext,
+                  }}
                 >
                   {expert.terms.summary}
                 </p>
 
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-600">
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-semibold text-slate-600">
                   {expert.terms
                     .cancellationNoticeHours ? (
                     <span>
@@ -3437,80 +4530,103 @@ function ExpertPublicSection({
                     </span>
                   ) : null}
 
-                  {expert.terms.allowsRescheduling ? (
-                    <span>Rescheduling allowed</span>
+                  {expert.terms
+                    .allowsRescheduling ? (
+                    <span>
+                      Rescheduling allowed
+                    </span>
                   ) : null}
 
                   {expert.terms
                     .paymentRequiredBeforeBooking ? (
                     <span>
-                      Payment required before confirmation
+                      Payment before
+                      confirmation
                     </span>
                   ) : null}
                 </div>
 
-                {expert.terms.cancellationPolicy ? (
+                {expert.terms
+                  .cancellationPolicy ? (
                   <p className="mt-3 text-xs leading-5 text-slate-500">
-                    {expert.terms.cancellationPolicy}
+                    {
+                      expert.terms
+                        .cancellationPolicy
+                    }
                   </p>
                 ) : null}
               </div>
             ) : null}
           </div>
 
+          {/* Booking card */}
           <aside>
             <div
-              className="sticky top-20 rounded-3xl border p-5"
+              className="sticky top-20 rounded-[22px] border p-4"
               style={{
-                borderColor: EKARI.hair,
-                backgroundColor: "#FFFFFF",
+                borderColor:
+                  EKARI.hair,
+                backgroundColor:
+                  "#FFFFFF",
               }}
             >
-              <p
-                className="text-xs font-black uppercase tracking-wide"
-                style={{ color: EKARI.primary }}
-              >
-                Consultation
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p
+                    className="text-[10px] font-black uppercase tracking-[0.14em]"
+                    style={{
+                      color:
+                        EKARI.primary,
+                    }}
+                  >
+                    Consultation
+                  </p>
 
-              <div
-                className="mt-2 text-2xl font-black"
-                style={{ color: EKARI.text }}
-              >
-                {feeText}
+                  <div
+                    className="mt-1 text-xl font-black"
+                    style={{
+                      color: EKARI.text,
+                    }}
+                  >
+                    {feeText}
+                  </div>
+                </div>
+
+                {consultationDuration >
+                  0 ? (
+                  <span
+                    className="rounded-full px-2.5 py-1 text-[10px] font-black"
+                    style={{
+                      color:
+                        EKARI.forest,
+                      backgroundColor:
+                        "rgba(35,63,57,0.08)",
+                    }}
+                  >
+                    {
+                      consultationDuration
+                    }{" "}
+                    min
+                  </span>
+                ) : null}
               </div>
 
-              {expert.pricing
-                ?.consultationDurationMinutes ? (
-                <p
-                  className="mt-1 text-sm"
-                  style={{ color: EKARI.subtext }}
-                >
-                  {
-                    expert.pricing
-                      .consultationDurationMinutes
-                  }{" "}
-                  minutes
-                </p>
-              ) : null}
-
-              {expert.pricing?.physicalVisitFeeFrom !=
+              {physicalVisitFee !==
                 null ? (
                 <div
-                  className="mt-4 rounded-2xl p-3 text-sm"
+                  className="mt-3 rounded-xl px-3 py-2.5 text-xs"
                   style={{
                     backgroundColor:
                       "rgba(199,146,87,0.10)",
-                    color: EKARI.text,
+                    color:
+                      EKARI.text,
                   }}
                 >
                   Physical visits from{" "}
                   <strong>
-                    {KES(
-                      Number(
-                        expert.pricing
-                          .physicalVisitFeeFrom
-                      )
+                    {formatExpertMoney(
+                      physicalVisitFee,
+                      currency
                     )}
                   </strong>
                 </div>
@@ -3521,40 +4637,52 @@ function ExpertPublicSection({
                 onClick={onBook}
                 disabled={
                   isOwner ||
-                  expert.acceptingBookings === false
+                  expert.acceptingBookings ===
+                  false
                 }
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-black text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
                 style={{
-                  background:
-                    "linear-gradient(135deg, #233F39, #C79257)",
+                  backgroundColor:
+                    EKARI.forest,
                 }}
               >
-                <IoCalendarClearOutline size={18} />
+                <IoCalendarClearOutline
+                  size={17}
+                />
+
                 {isOwner
-                  ? "This is your expert profile"
-                  : expert.acceptingBookings === false
+                  ? "Your expert profile"
+                  : expert.acceptingBookings ===
+                    false
                     ? "Not accepting clients"
                     : "Book consultation"}
               </button>
 
               {!isOwner &&
-                expert.acceptingBookings !== false ? (
+                expert.acceptingBookings !==
+                false ? (
                 <p
-                  className="mt-3 text-center text-[11px] leading-5"
-                  style={{ color: EKARI.subtext }}
+                  className="mt-3 text-center text-[10px] leading-4"
+                  style={{
+                    color:
+                      EKARI.subtext,
+                  }}
                 >
-                  Choose a consultation method, date and time,
-                  then send your request to {profile.name || "this expert"}.
+                  Select a method, date
+                  and time, then send
+                  your request.
                 </p>
               ) : null}
 
               {isOwner ? (
                 <Link
                   href="/account/expert"
-                  className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border px-4 py-3 text-sm font-black"
+                  className="mt-3 inline-flex w-full items-center justify-center rounded-xl border px-4 py-2.5 text-xs font-black"
                   style={{
-                    borderColor: EKARI.hair,
-                    color: EKARI.forest,
+                    borderColor:
+                      EKARI.hair,
+                    color:
+                      EKARI.forest,
                   }}
                 >
                   Manage expert profile

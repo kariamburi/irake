@@ -42,16 +42,14 @@ import {
 
 import AppShell from "@/app/components/AppShell";
 import ExpertCard from "@/app/components/experts/ExpertCard";
-import {
-    EXPERT_SPECIALTIES,
-    KENYA_COUNTIES,
-} from "@/app/constants/expertConstants";
+
 import { db } from "@/lib/firebase";
 import { PublicExpert } from "../types/publicExpert";
 import MobileBottomTabs from "../components/navigation/MobileBottomTabs";
 import { useAuth } from "../hooks/useAuth";
 import { EkariSideMenuSheet } from "../components/EkariSideMenuSheet";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
+import { FALLBACK_EXPERT_SPECIALTIES } from "../constants/expertConstants";
 
 const EKARI = {
     forest: "#233F39",
@@ -71,6 +69,14 @@ type SortOption =
     | "price_low"
     | "price_high"
     | "newest";
+
+type ExpertSpecialtyGroup = {
+    id: string;
+    title: string;
+    items: string[];
+    order: number;
+    active: boolean;
+};
 
 function normalizeSearchText(
     value: unknown
@@ -93,6 +99,57 @@ function normalizeArray(
         )
         .filter(Boolean);
 }
+function safeNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function uniqueStrings(values: string[]): string[] {
+    return Array.from(
+        new Map(
+            values
+                .map((value) => String(value || "").trim())
+                .filter(Boolean)
+                .map((value) => [value.toLowerCase(), value])
+        ).values()
+    );
+}
+
+function getExpertLocationValues(expert: PublicExpert): string[] {
+    const profile = expert as any;
+    const primaryLocation = profile.primaryLocation || {};
+    const serviceAreas = Array.isArray(
+        profile.serviceCoverage?.serviceAreas
+    )
+        ? profile.serviceCoverage.serviceAreas
+        : [];
+
+    return uniqueStrings([
+        primaryLocation.label,
+        primaryLocation.locality,
+        primaryLocation.city,
+        primaryLocation.region,
+        primaryLocation.country,
+
+        // Legacy compatibility
+        primaryLocation.town,
+        primaryLocation.county,
+
+        ...serviceAreas.flatMap((area: any) => [
+            area?.label,
+            area?.city,
+            area?.region,
+            area?.country,
+        ]),
+
+        ...normalizeArray(profile.countiesServed),
+    ]);
+}
+
 function useIsDesktop() {
     return useMediaQuery("(min-width: 1024px)");
 }
@@ -100,182 +157,187 @@ function normalizePublicExpert(
     id: string,
     data: Record<string, any>
 ): PublicExpert {
+    const rawPrimaryLocation = data.primaryLocation || {};
+
+    const legacyLatitude = safeNumber(rawPrimaryLocation.latitude);
+    const legacyLongitude = safeNumber(rawPrimaryLocation.longitude);
+
+    const coordinateLatitude =
+        safeNumber(rawPrimaryLocation.coordinates?.latitude) ??
+        legacyLatitude;
+
+    const coordinateLongitude =
+        safeNumber(rawPrimaryLocation.coordinates?.longitude) ??
+        legacyLongitude;
+
+    const legacyCounty = String(
+        rawPrimaryLocation.county || ""
+    ).trim();
+
+    const legacyTown = String(
+        rawPrimaryLocation.town || ""
+    ).trim();
+
+    const primaryLocation = {
+        placeId:
+            String(rawPrimaryLocation.placeId || "") || null,
+
+        label: String(
+            rawPrimaryLocation.label ||
+            [
+                rawPrimaryLocation.city || legacyTown,
+                rawPrimaryLocation.region || legacyCounty,
+                rawPrimaryLocation.country,
+            ]
+                .filter(Boolean)
+                .join(", ")
+        ).trim(),
+
+        countryCode: String(
+            rawPrimaryLocation.countryCode || ""
+        )
+            .trim()
+            .toUpperCase(),
+
+        country: String(
+            rawPrimaryLocation.country || ""
+        ).trim(),
+
+        region: String(
+            rawPrimaryLocation.region || legacyCounty
+        ).trim(),
+
+        city: String(
+            rawPrimaryLocation.city || legacyTown
+        ).trim(),
+
+        locality: String(
+            rawPrimaryLocation.locality || ""
+        ).trim(),
+
+        coordinates:
+            coordinateLatitude !== null &&
+                coordinateLongitude !== null
+                ? {
+                    latitude: coordinateLatitude,
+                    longitude: coordinateLongitude,
+                    geohash:
+                        rawPrimaryLocation.coordinates?.geohash ||
+                        rawPrimaryLocation.geohash ||
+                        null,
+                }
+                : null,
+
+        timezone:
+            String(rawPrimaryLocation.timezone || "") || null,
+    };
+
+    const rawServiceCoverage = data.serviceCoverage || {};
+
+    const onlineCoverage =
+        rawServiceCoverage.onlineCoverage === "local" ||
+            rawServiceCoverage.onlineCoverage === "country" ||
+            rawServiceCoverage.onlineCoverage === "worldwide"
+            ? rawServiceCoverage.onlineCoverage
+            : "worldwide";
+
+    const serviceCoverage = {
+        offersOnlineServices:
+            rawServiceCoverage.offersOnlineServices !== false,
+
+        offersPhysicalVisits:
+            rawServiceCoverage.offersPhysicalVisits === true,
+
+        onlineCoverage,
+
+        serviceAreas: Array.isArray(
+            rawServiceCoverage.serviceAreas
+        )
+            ? rawServiceCoverage.serviceAreas
+            : [],
+    };
+
     return {
         uid: String(data.uid || id),
-
-        displayName: String(
-            data.displayName || ""
-        ),
-
-        firstName: String(
-            data.firstName || ""
-        ),
-
-        surname: String(
-            data.surname || ""
-        ),
-
+        displayName: String(data.displayName || ""),
+        firstName: String(data.firstName || ""),
+        surname: String(data.surname || ""),
         handle: String(data.handle || ""),
-        photoURL: String(
-            data.photoURL || ""
+        photoURL: String(data.photoURL || ""),
+        headline: String(data.headline || ""),
+        expertBio: String(data.expertBio || ""),
+
+        verificationStatus: String(
+            data.verificationStatus ||
+            (data.verified ? "approved" : "none")
         ),
 
-        headline: String(
-            data.headline || ""
+        verificationRole: String(data.verificationRole || ""),
+        verificationType: String(data.verificationType || ""),
+        organizationName: String(data.organizationName || ""),
+
+        specialties: normalizeArray(data.specialties),
+        countiesServed: normalizeArray(data.countiesServed),
+        languages: normalizeArray(data.languages),
+        consultationMethods: normalizeArray(
+            data.consultationMethods
         ),
 
-        expertBio: String(
-            data.expertBio || ""
-        ),
-
-        verificationRole: String(
-            data.verificationRole || ""
-        ),
-
-        verificationType: String(
-            data.verificationType || ""
-        ),
-
-        organizationName: String(
-            data.organizationName || ""
-        ),
-
-        specialties: normalizeArray(
-            data.specialties
-        ),
-
-        countiesServed: normalizeArray(
-            data.countiesServed
-        ),
-
-        languages: normalizeArray(
-            data.languages
-        ),
-
-        consultationMethods:
-            normalizeArray(
-                data.consultationMethods
-            ),
-
-        primaryLocation: {
-            county: String(
-                data.primaryLocation?.county ||
-                ""
-            ),
-
-            town: String(
-                data.primaryLocation?.town || ""
-            ),
-
-            latitude:
-                typeof data.primaryLocation
-                    ?.latitude === "number"
-                    ? data.primaryLocation.latitude
-                    : null,
-
-            longitude:
-                typeof data.primaryLocation
-                    ?.longitude === "number"
-                    ? data.primaryLocation.longitude
-                    : null,
-
-            geohash:
-                data.primaryLocation?.geohash
-                    ? String(
-                        data.primaryLocation.geohash
-                    )
-                    : null,
-        },
+        primaryLocation,
+        serviceCoverage,
 
         pricing: {
-            currency: "KES",
+            currency:
+                data.pricing?.currency === "USD" ? "USD" : "KES",
 
             consultationFee:
-                Number(
-                    data.pricing
-                        ?.consultationFee
-                ) || 0,
+                Number(data.pricing?.consultationFee) || 0,
 
             physicalVisitFeeFrom:
-                data.pricing
-                    ?.physicalVisitFeeFrom ===
-                    null ||
-                    data.pricing
-                        ?.physicalVisitFeeFrom ===
-                    undefined
+                data.pricing?.physicalVisitFeeFrom === null ||
+                    data.pricing?.physicalVisitFeeFrom === undefined
                     ? null
                     : Number(
-                        data.pricing
-                            .physicalVisitFeeFrom
+                        data.pricing.physicalVisitFeeFrom
                     ) || 0,
 
-            feeType: String(
-                data.pricing?.feeType ||
-                "fixed"
-            ),
+            feeType: String(data.pricing?.feeType || "fixed"),
 
             consultationDurationMinutes:
                 Number(
-                    data.pricing
-                        ?.consultationDurationMinutes
+                    data.pricing?.consultationDurationMinutes
                 ) || 45,
         },
 
         terms: {
-            summary: String(
-                data.terms?.summary || ""
-            ),
-
+            summary: String(data.terms?.summary || ""),
             cancellationNoticeHours:
-                Number(
-                    data.terms
-                        ?.cancellationNoticeHours
-                ) || 0,
-
+                Number(data.terms?.cancellationNoticeHours) || 0,
             cancellationPolicy: String(
-                data.terms
-                    ?.cancellationPolicy || ""
+                data.terms?.cancellationPolicy || ""
             ),
-
             allowsRescheduling:
-                data.terms
-                    ?.allowsRescheduling !== false,
-
+                data.terms?.allowsRescheduling !== false,
             paymentRequiredBeforeBooking:
-                data.terms
-                    ?.paymentRequiredBeforeBooking !==
-                false,
+                data.terms?.paymentRequiredBeforeBooking !== false,
         },
 
-        acceptingBookings:
-            data.acceptingBookings !== false,
-
-        verified:
-            data.verified === true,
+        acceptingBookings: data.acceptingBookings !== false,
+        verified: data.verified === true,
 
         rating: {
-            average:
-                Number(
-                    data.rating?.average
-                ) || 0,
-
-            count:
-                Number(data.rating?.count) ||
-                0,
+            average: Number(data.rating?.average) || 0,
+            count: Number(data.rating?.count) || 0,
         },
 
         completedConsultations:
-            Number(
-                data.completedConsultations
-            ) || 0,
+            Number(data.completedConsultations) || 0,
 
-        publishedAt:
-            data.publishedAt || null,
-
-        updatedAt:
-            data.updatedAt || null,
-    };
+        publishedAt: data.publishedAt || null,
+        updatedAt: data.updatedAt || null,
+    } as PublicExpert;
 }
+
 async function loadUserRatingStats(
     userIds: string[]
 ): Promise<Map<string, UserRatingStats>> {
@@ -424,6 +486,13 @@ function MarketplaceContent() {
         PublicExpert[]
     >([]);
 
+    const [specialtyGroups, setSpecialtyGroups] = useState<
+        ExpertSpecialtyGroup[]
+    >([]);
+
+    const [specialtiesLoading, setSpecialtiesLoading] =
+        useState(true);
+
     const [loading, setLoading] =
         useState(true);
 
@@ -555,6 +624,84 @@ function MarketplaceContent() {
         loadExperts();
     }, [loadExperts]);
 
+
+    useEffect(() => {
+        setSpecialtiesLoading(true);
+
+        const specialtiesQuery = query(
+            collection(db, "expert_specialty_groups"),
+            orderBy("order", "asc")
+        );
+
+        const unsubscribe = onSnapshot(
+            specialtiesQuery,
+            (snapshot) => {
+                const groups = snapshot.docs
+                    .map((documentSnapshot) => {
+                        const data = documentSnapshot.data();
+
+                        return {
+                            id: documentSnapshot.id,
+                            title: String(data.title || "").trim(),
+                            items: uniqueStrings(
+                                normalizeArray(data.items)
+                            ),
+                            order: Number(data.order || 0),
+                            active: data.active !== false,
+                        };
+                    })
+                    .filter(
+                        (group) =>
+                            group.active && group.items.length > 0
+                    );
+
+                setSpecialtyGroups(groups);
+                setSpecialtiesLoading(false);
+            },
+            (error) => {
+                console.error(
+                    "LOAD_EXPERT_SPECIALTIES_FAILED",
+                    error
+                );
+
+                setSpecialtyGroups([]);
+                setSpecialtiesLoading(false);
+            }
+        );
+
+        return unsubscribe;
+    }, []);
+
+    const databaseSpecialties = useMemo(
+        () =>
+            uniqueStrings(
+                specialtyGroups.flatMap((group) => group.items)
+            ),
+        [specialtyGroups]
+    );
+
+    const specialtyOptions = useMemo(() => {
+        const source =
+            databaseSpecialties.length > 0
+                ? databaseSpecialties
+                : [...FALLBACK_EXPERT_SPECIALTIES];
+
+        return uniqueStrings([
+            ...source,
+            ...experts.flatMap((expert) => expert.specialties),
+        ]);
+    }, [databaseSpecialties, experts]);
+
+    const locationOptions = useMemo(
+        () =>
+            uniqueStrings(
+                experts.flatMap(getExpertLocationValues)
+            ).sort((first, second) =>
+                first.localeCompare(second)
+            ),
+        [experts]
+    );
+
     useEffect(() => {
         if (!filtersOpen) return;
 
@@ -655,25 +802,19 @@ function MarketplaceContent() {
                     }
 
                     if (selectedCounty) {
-                        const primaryCounty =
-                            normalizeSearchText(
-                                expert.primaryLocation
-                                    ?.county
-                            );
-
-                        const servedCounties =
-                            expert.countiesServed.map(
+                        const expertLocations =
+                            getExpertLocationValues(expert).map(
                                 normalizeSearchText
                             );
 
-                        const matchesCounty =
-                            primaryCounty ===
-                            selectedCounty ||
-                            servedCounties.includes(
-                                selectedCounty
+                        const matchesLocation =
+                            expertLocations.some(
+                                (location) =>
+                                    location === selectedCounty ||
+                                    location.includes(selectedCounty)
                             );
 
-                        if (!matchesCounty) {
+                        if (!matchesLocation) {
                             return false;
                         }
                     }
@@ -703,11 +844,8 @@ function MarketplaceContent() {
                             expert.expertBio,
                             expert.verificationRole,
                             expert.organizationName,
-                            expert.primaryLocation
-                                ?.county,
-                            expert.primaryLocation?.town,
+                            ...getExpertLocationValues(expert),
                             ...expert.specialties,
-                            ...expert.countiesServed,
                             ...expert.languages,
                         ]
                             .join(" ")
@@ -923,11 +1061,7 @@ function MarketplaceContent() {
                             </h1>
 
                             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/75 md:text-base">
-                                Connect with verified
-                                agronomists, veterinarians,
-                                farm consultants and other
-                                agricultural professionals near
-                                you.
+                                Connect with agricultural professionals for crops, livestock, agribusiness, farm management and technical consultation.
                             </p>
 
                             <div className="mt-8 flex max-w-3xl overflow-hidden rounded-2xl border border-white/20 bg-white p-1.5 shadow-xl">
@@ -942,7 +1076,7 @@ function MarketplaceContent() {
                                             event.target.value
                                         )
                                     }
-                                    placeholder="Search by name, specialty, county or service..."
+                                    placeholder="Search by name, specialty, location or service..."
                                     className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 md:text-base"
                                 />
 
@@ -966,7 +1100,7 @@ function MarketplaceContent() {
                                         size={15}
                                         color={EKARI.gold}
                                     />
-                                    Verified profiles
+                                    Verified and independent experts
                                 </span>
 
                                 <span className="inline-flex items-center gap-1.5">
@@ -974,7 +1108,7 @@ function MarketplaceContent() {
                                         size={15}
                                         color={EKARI.gold}
                                     />
-                                    Experts across Kenya
+                                    Local and worldwide consultations
                                 </span>
 
                                 <span className="inline-flex items-center gap-1.5">
@@ -1222,8 +1356,8 @@ function MarketplaceContent() {
                                     className="mx-auto mt-2 max-w-md text-sm leading-6"
                                     style={{ color: EKARI.subtext }}
                                 >
-                                    Try another specialty, county or search phrase.
-                                    More verified experts will also appear as they join the marketplace.
+                                    Try another specialty, location or search phrase.
+                                    More experts will appear as they join the marketplace.
                                 </p>
 
                                 <button
@@ -1288,7 +1422,7 @@ function MarketplaceContent() {
                                         className="text-xs font-black uppercase tracking-wide"
                                         style={{ color: EKARI.subtext }}
                                     >
-                                        County
+                                        Service location
                                     </label>
 
                                     <div className="relative mt-2">
@@ -1304,10 +1438,10 @@ function MarketplaceContent() {
                                             className="w-full appearance-none rounded-2xl border bg-white py-3.5 pl-10 pr-9 text-sm font-semibold outline-none"
                                             style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                         >
-                                            <option value="">All counties</option>
-                                            {KENYA_COUNTIES.map((countyName) => (
-                                                <option key={countyName} value={countyName}>
-                                                    {countyName}
+                                            <option value="">All locations</option>
+                                            {locationOptions.map((locationName) => (
+                                                <option key={locationName} value={locationName}>
+                                                    {locationName}
                                                 </option>
                                             ))}
                                         </select>
@@ -1342,7 +1476,12 @@ function MarketplaceContent() {
                                             style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                         >
                                             <option value="">All specialties</option>
-                                            {EXPERT_SPECIALTIES.map((item) => (
+                                            {specialtiesLoading ? (
+                                                <option value="" disabled>
+                                                    Loading specialties…
+                                                </option>
+                                            ) : null}
+                                            {specialtyOptions.map((item) => (
                                                 <option key={item} value={item}>
                                                     {item}
                                                 </option>
@@ -1393,7 +1532,7 @@ function MarketplaceContent() {
                                         Trusted profiles
                                     </div>
                                     <p className="mt-2 text-xs leading-5" style={{ color: EKARI.subtext }}>
-                                        All experts shown here have completed ekarihub verification.
+                                        Verification badges identify experts whose identity or professional credentials have been reviewed by ekarihub.
                                     </p>
                                 </div>
                             </div>

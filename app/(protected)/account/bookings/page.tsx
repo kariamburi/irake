@@ -25,6 +25,7 @@ import {
     Loader2,
     MapPin,
     MessageCircle,
+    Phone,
     RefreshCcw,
     UserRound,
     Video,
@@ -43,7 +44,28 @@ type BookingStatus =
     | "completed"
     | "cancelled";
 
-type PaymentStatus = "unpaid" | "pending" | "paid" | "refunded";
+type PaymentStatus = "not_required" | "unpaid" | "pending" | "paid" | "refunded";
+
+type ExpertCurrency = "KES" | "USD";
+type ExpertFeeType = "fixed" | "starting_from" | "free";
+
+type ExpertCoordinates = {
+    latitude: number;
+    longitude: number;
+    geohash?: string | null;
+};
+
+type ExpertPlace = {
+    placeId?: string | null;
+    label?: string;
+    countryCode?: string;
+    country?: string;
+    region?: string;
+    city?: string;
+    locality?: string;
+    coordinates?: ExpertCoordinates | null;
+    timezone?: string | null;
+};
 
 type ExpertBooking = {
     id: string;
@@ -52,6 +74,13 @@ type ExpertBooking = {
     expertHandle?: string;
     expertPhotoURL?: string;
     expertHeadline?: string;
+    expertPrimaryLocation?: ExpertPlace | null;
+    expertServiceCoverage?: {
+        offersOnlineServices?: boolean;
+        offersPhysicalVisits?: boolean;
+        onlineCoverage?: "local" | "country" | "worldwide";
+        serviceAreas?: Array<{ label?: string }>;
+    } | null;
     clientId: string;
     clientName?: string;
     clientPhotoURL?: string;
@@ -59,10 +88,24 @@ type ExpertBooking = {
     consultationDate: string;
     consultationTime: string;
     consultationDurationMinutes?: number;
+    scheduledStart?: Timestamp | Date | null;
+    scheduledStartIso?: string | null;
+    clientTimezone?: string | null;
+    expertTimezone?: string | null;
     topic: string;
     message: string;
+    visitLocation?: string | null;
+    visitContactPhone?: string | null;
     fee: number;
-    currency: string;
+    feeType?: ExpertFeeType;
+    currency: ExpertCurrency;
+    pricingSnapshot?: {
+        fee?: number;
+        feeType?: ExpertFeeType;
+        currency?: ExpertCurrency;
+        physicalVisitFeeFrom?: number | null;
+        consultationDurationMinutes?: number | null;
+    } | null;
     status: BookingStatus;
     paymentStatus: PaymentStatus;
     createdAt?: Timestamp | null;
@@ -129,16 +172,26 @@ const STATUS_META: Record<
     },
 };
 
-function formatMoney(amount: number, currency = "KES") {
+function formatMoney(amount: number, currency: ExpertCurrency = "KES") {
     try {
-        return new Intl.NumberFormat("en-KE", {
+        return new Intl.NumberFormat(currency === "KES" ? "en-KE" : "en-US", {
             style: "currency",
             currency,
-            maximumFractionDigits: 0,
+            maximumFractionDigits: currency === "KES" ? 0 : 2,
         }).format(Number(amount || 0));
     } catch {
         return `${currency} ${Number(amount || 0).toLocaleString()}`;
     }
+}
+
+function formatMethod(method: string) {
+    return String(method || "")
+        .replace(/[_-]+/g, " ")
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatTimezone(timezone?: string | null) {
+    return timezone?.trim() || "Local time";
 }
 
 function formatDate(dateValue: string) {
@@ -171,8 +224,9 @@ function formatTime(timeValue: string) {
 function methodIcon(method: string) {
     const value = method.toLowerCase();
     if (value.includes("video") || value.includes("zoom") || value.includes("meet")) return Video;
-    if (value.includes("chat") || value.includes("message")) return MessageCircle;
-    if (value.includes("physical") || value.includes("office") || value.includes("in-person")) return MapPin;
+    if (value.includes("phone") || value.includes("call")) return Phone;
+    if (value.includes("chat") || value.includes("message") || value.includes("whatsapp")) return MessageCircle;
+    if (value.includes("physical") || value.includes("office") || value.includes("in-person") || value.includes("visit")) return MapPin;
     return UserRound;
 }
 
@@ -199,8 +253,16 @@ function normalizeStatus(value: unknown): BookingStatus {
 }
 
 function normalizePaymentStatus(value: unknown): PaymentStatus {
-    const supported: PaymentStatus[] = ["unpaid", "pending", "paid", "refunded"];
-    return supported.includes(value as PaymentStatus) ? (value as PaymentStatus) : "unpaid";
+    const supported: PaymentStatus[] = [
+        "not_required",
+        "unpaid",
+        "pending",
+        "paid",
+        "refunded",
+    ];
+    return supported.includes(value as PaymentStatus)
+        ? (value as PaymentStatus)
+        : "unpaid";
 }
 
 
@@ -274,8 +336,13 @@ export default function ClientBookingsPage() {
                         ...data,
                         status: normalizeStatus(data.status),
                         paymentStatus: normalizePaymentStatus(data.paymentStatus),
-                        fee: Number(data.fee || 0),
-                        currency: data.currency || "KES",
+                        fee: Number(data.fee || data.pricingSnapshot?.fee || 0),
+                        feeType:
+                            data.feeType === "free" ||
+                                data.feeType === "starting_from"
+                                ? data.feeType
+                                : "fixed",
+                        currency: data.currency === "USD" ? "USD" : "KES",
                     } as ExpertBooking;
                 });
 
@@ -396,6 +463,11 @@ export default function ClientBookingsPage() {
             setError(
                 "This consultation must be accepted by the expert before payment."
             );
+            return;
+        }
+
+        if (booking.fee <= 0 || booking.paymentStatus === "not_required") {
+            setError("No payment is required for this consultation.");
             return;
         }
 
@@ -698,7 +770,10 @@ function BookingCard({
     const StatusIcon = statusMeta.icon;
     const MethodIcon = methodIcon(booking.consultationMethod);
     const canCancel = ["pending", "accepted"].includes(booking.status);
-    const showPayButton = booking.status === "accepted" && booking.paymentStatus !== "paid";
+    const showPayButton =
+        booking.status === "accepted" &&
+        booking.fee > 0 &&
+        !["paid", "not_required"].includes(booking.paymentStatus);
 
     return (
         <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -740,7 +815,13 @@ function BookingCard({
 
                     <div className="rounded-2xl bg-slate-50 px-4 py-3 lg:text-right">
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Consultation fee</p>
-                        <p className="mt-1 text-xl font-bold text-slate-950">{formatMoney(booking.fee, booking.currency)}</p>
+                        <p className="mt-1 text-xl font-bold text-slate-950">
+                            {booking.feeType === "free" || booking.fee <= 0
+                                ? "Free"
+                                : booking.feeType === "starting_from"
+                                    ? `From ${formatMoney(booking.fee, booking.currency)}`
+                                    : formatMoney(booking.fee, booking.currency)}
+                        </p>
                         <PaymentBadge status={booking.paymentStatus} />
                     </div>
                 </div>
@@ -748,21 +829,49 @@ function BookingCard({
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <InfoTile icon={CalendarDays} label="Date" value={formatDate(booking.consultationDate)} />
                     <InfoTile icon={Clock3} label="Time" value={formatTime(booking.consultationTime)} />
-                    <InfoTile icon={MethodIcon} label="Method" value={booking.consultationMethod || "Not specified"} />
+                    <InfoTile icon={MethodIcon} label="Method" value={formatMethod(booking.consultationMethod || "Not specified")} />
                     <InfoTile
                         icon={CircleDollarSign}
                         label="Payment"
                         value={
-                            booking.paymentStatus === "paid"
-                                ? "Paid"
-                                : booking.paymentStatus === "pending"
-                                    ? "Processing"
-                                    : booking.paymentStatus === "refunded"
-                                        ? "Refunded"
-                                        : "Not paid"
+                            booking.paymentStatus === "not_required"
+                                ? "Not required"
+                                : booking.paymentStatus === "paid"
+                                    ? "Paid"
+                                    : booking.paymentStatus === "pending"
+                                        ? "Processing"
+                                        : booking.paymentStatus === "refunded"
+                                            ? "Refunded"
+                                            : "Not paid"
                         }
                     />
                 </div>
+
+                {booking.consultationMethod === "physical" && booking.visitLocation ? (
+                    <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <div className="flex items-start gap-3">
+                            <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                            <div className="min-w-0">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Visit location</p>
+                                <p className="mt-1 text-sm font-semibold leading-6 text-slate-900">{booking.visitLocation}</p>
+                                {booking.visitContactPhone ? (
+                                    <p className="mt-1 text-xs text-slate-600">Contact: {booking.visitContactPhone}</p>
+                                ) : null}
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
+
+                {(booking.expertTimezone || booking.clientTimezone) ? (
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                        {booking.expertTimezone ? (
+                            <span className="rounded-full bg-slate-100 px-3 py-1.5">Expert timezone: {formatTimezone(booking.expertTimezone)}</span>
+                        ) : null}
+                        {booking.clientTimezone ? (
+                            <span className="rounded-full bg-slate-100 px-3 py-1.5">Your booking timezone: {formatTimezone(booking.clientTimezone)}</span>
+                        ) : null}
+                    </div>
+                ) : null}
 
                 {booking.message ? (
                     <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -838,12 +947,14 @@ function InfoTile({ icon: Icon, label, value }: { icon: typeof CalendarDays; lab
 
 function PaymentBadge({ status }: { status: PaymentStatus }) {
     const styles: Record<PaymentStatus, string> = {
+        not_required: "border-emerald-200 bg-emerald-50 text-emerald-700",
         unpaid: "border-slate-200 bg-white text-slate-600",
         pending: "border-amber-200 bg-amber-50 text-amber-700",
         paid: "border-emerald-200 bg-emerald-50 text-emerald-700",
         refunded: "border-purple-200 bg-purple-50 text-purple-700",
     };
     const labels: Record<PaymentStatus, string> = {
+        not_required: "No payment required",
         unpaid: "Unpaid",
         pending: "Payment pending",
         paid: "Paid",

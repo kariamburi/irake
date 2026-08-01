@@ -15,6 +15,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
 import { IoAdd, IoTrashOutline, IoCreateOutline } from "react-icons/io5";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
+import { seedExpertSpecialties } from "./SeedExpertSpecialties";
 
 /* ---------- Brand ---------- */
 const EKARI = {
@@ -35,7 +36,10 @@ type TaxGroup = {
   active?: boolean;
 };
 
-type TabKey = "interests" | "roles";
+type TabKey =
+  | "interests"
+  | "roles"
+  | "expert_specialties";
 
 type BannerState =
   | { type: "success"; message: string }
@@ -54,11 +58,24 @@ function slugifyTitle(title: string): string {
 }
 
 /* ---------- Helper: parse items (textarea) ---------- */
-function parseItems(raw: string): string[] {
-  return raw
+function parseItems(
+  raw: string
+): string[] {
+  const items = raw
     .split(/[\n,]/g)
-    .map((s) => s.trim())
+    .map((item) =>
+      item.trim()
+    )
     .filter(Boolean);
+
+  return Array.from(
+    new Map(
+      items.map((item) => [
+        item.toLowerCase(),
+        item,
+      ])
+    ).values()
+  );
 }
 
 /* ---------- Helper: stringify items for textarea ---------- */
@@ -72,7 +89,10 @@ export default function TaxonomyAdminPage() {
 
   const [interestGroups, setInterestGroups] = useState<TaxGroup[]>([]);
   const [roleGroups, setRoleGroups] = useState<TaxGroup[]>([]);
-
+  const [
+    expertSpecialtyGroups,
+    setExpertSpecialtyGroups,
+  ] = useState<TaxGroup[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [itemsText, setItemsText] = useState("");
@@ -109,55 +129,206 @@ export default function TaxonomyAdminPage() {
     user &&
     (ADMIN_UID ? user.uid === ADMIN_UID : true); // if no ADMIN_UID, any logged-in user can access
 
+
+  /* ---------- Subscribe to Firestore ---------- */
   /* ---------- Subscribe to Firestore ---------- */
   useEffect(() => {
-    const q1 = query(collection(db, "interest_groups"), orderBy("order", "asc"));
-    const unsub1 = onSnapshot(q1, (snap) => {
-      const rows: TaxGroup[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as any;
-        rows.push({
-          id: d.id,
-          title: data.title ?? "",
-          items: data.items ?? [],
-          order: data.order ?? 0,
-          active: data.active ?? true,
-        });
-      });
-      setInterestGroups(rows);
-    });
+    const interestsQuery = query(
+      collection(
+        db,
+        "interest_groups"
+      ),
+      orderBy("order", "asc")
+    );
 
-    const q2 = query(collection(db, "role_groups"), orderBy("order", "asc"));
-    const unsub2 = onSnapshot(q2, (snap) => {
-      const rows: TaxGroup[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as any;
-        rows.push({
-          id: d.id,
-          title: data.title ?? "",
-          items: data.items ?? [],
-          order: data.order ?? 0,
-          active: data.active ?? true,
-        });
-      });
-      setRoleGroups(rows);
-    });
+    const unsubscribeInterests =
+      onSnapshot(
+        interestsQuery,
+        (snapshot) => {
+          const rows: TaxGroup[] = [];
+
+          snapshot.forEach(
+            (documentSnapshot) => {
+              const data =
+                documentSnapshot.data() as any;
+
+              rows.push({
+                id: documentSnapshot.id,
+                title:
+                  data.title ?? "",
+                items:
+                  Array.isArray(data.items)
+                    ? data.items
+                    : [],
+                order:
+                  data.order ?? 0,
+                active:
+                  data.active ?? true,
+              });
+            }
+          );
+
+          setInterestGroups(rows);
+        },
+        (error) => {
+          console.error(
+            "LOAD_INTEREST_GROUPS_FAILED",
+            error
+          );
+        }
+      );
+
+    const rolesQuery = query(
+      collection(
+        db,
+        "role_groups"
+      ),
+      orderBy("order", "asc")
+    );
+
+    const unsubscribeRoles =
+      onSnapshot(
+        rolesQuery,
+        (snapshot) => {
+          const rows: TaxGroup[] = [];
+
+          snapshot.forEach(
+            (documentSnapshot) => {
+              const data =
+                documentSnapshot.data() as any;
+
+              rows.push({
+                id: documentSnapshot.id,
+                title:
+                  data.title ?? "",
+                items:
+                  Array.isArray(data.items)
+                    ? data.items
+                    : [],
+                order:
+                  data.order ?? 0,
+                active:
+                  data.active ?? true,
+              });
+            }
+          );
+
+          setRoleGroups(rows);
+        },
+        (error) => {
+          console.error(
+            "LOAD_ROLE_GROUPS_FAILED",
+            error
+          );
+        }
+      );
+
+    const specialtiesQuery = query(
+      collection(
+        db,
+        "expert_specialty_groups"
+      ),
+      orderBy("order", "asc")
+    );
+
+    const unsubscribeSpecialties =
+      onSnapshot(
+        specialtiesQuery,
+        (snapshot) => {
+          const rows: TaxGroup[] = [];
+
+          snapshot.forEach(
+            (documentSnapshot) => {
+              const data =
+                documentSnapshot.data() as any;
+
+              rows.push({
+                id:
+                  documentSnapshot.id,
+
+                title:
+                  data.title ?? "",
+
+                items:
+                  Array.isArray(
+                    data.items
+                  )
+                    ? data.items
+                    : [],
+
+                order:
+                  data.order ?? 0,
+
+                active:
+                  data.active ?? true,
+              });
+            }
+          );
+
+          setExpertSpecialtyGroups(
+            rows
+          );
+        },
+        (error) => {
+          console.error(
+            "LOAD_EXPERT_SPECIALTIES_FAILED",
+            error
+          );
+        }
+      );
 
     return () => {
-      unsub1();
-      unsub2();
+      unsubscribeInterests();
+      unsubscribeRoles();
+      unsubscribeSpecialties();
     };
   }, []);
 
-  const currentGroups = tab === "interests" ? interestGroups : roleGroups;
-  const collectionName = tab === "interests" ? "interest_groups" : "role_groups";
-
+  const collectionName =
+    tab === "interests"
+      ? "interest_groups"
+      : tab === "roles"
+        ? "role_groups"
+        : "expert_specialty_groups";
+  const currentGroups =
+    tab === "interests"
+      ? interestGroups
+      : tab === "roles"
+        ? roleGroups
+        : expertSpecialtyGroups;
   /* ---------- Select group for editing ---------- */
-  function startNew() {
+  function getGroupsForTab(
+    targetTab: TabKey
+  ): TaxGroup[] {
+    if (targetTab === "interests") {
+      return interestGroups;
+    }
+
+    if (targetTab === "roles") {
+      return roleGroups;
+    }
+
+    return expertSpecialtyGroups;
+  }
+
+  function startNew(
+    targetTab: TabKey = tab
+  ) {
+    const groups =
+      getGroupsForTab(targetTab);
+
     setSelectedId(null);
     setTitle("");
     setItemsText("");
-    setOrder(String((currentGroups[currentGroups.length - 1]?.order ?? 0) + 1));
+
+    setOrder(
+      String(
+        (groups[
+          groups.length - 1
+        ]?.order ?? 0) + 1
+      )
+    );
+
     setActive(true);
     clearBanner();
   }
@@ -249,7 +420,11 @@ export default function TaxonomyAdminPage() {
 
   /* ---------- UI ---------- */
   const headerTitle =
-    tab === "interests" ? "Interest groups" : "Role groups";
+    tab === "interests"
+      ? "Interest groups"
+      : tab === "roles"
+        ? "Role groups"
+        : "Expert specialty groups";
 
   // banner styling
   const bannerBg =
@@ -270,7 +445,32 @@ export default function TaxonomyAdminPage() {
       : banner?.type === "success"
         ? "#BBF7D0"
         : "#BFDBFE";
+  const [loadingg, setLoadingg] = useState(false);
 
+  async function handleSeed() {
+    if (
+      !confirm(
+        "Populate expert specialties?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setLoadingg(true);
+
+      await seedExpertSpecialties();
+
+      alert(
+        "Expert specialties created successfully."
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Failed.");
+    } finally {
+      setLoadingg(false);
+    }
+  }
   return (
     <>
       <main
@@ -290,6 +490,7 @@ export default function TaxonomyAdminPage() {
               >
                 Taxonomy Admin
               </h1>
+
               <span
                 className="text-[11px] font-semibold px-2 py-1 rounded-full border"
                 style={{ borderColor: EKARI.hair, color: EKARI.dim }}
@@ -330,7 +531,7 @@ export default function TaxonomyAdminPage() {
                 }}
                 onClick={() => {
                   setTab("interests");
-                  startNew();
+                  startNew("interests");
                 }}
               >
                 Interests
@@ -344,10 +545,44 @@ export default function TaxonomyAdminPage() {
                 }}
                 onClick={() => {
                   setTab("roles");
-                  startNew();
+                  startNew("roles");
                 }}
               >
                 Roles
+              </button>
+              <button
+                type="button"
+                className="rounded-full border px-3 py-1.5 text-xs font-bold md:text-sm"
+                style={{
+                  borderColor:
+                    tab ===
+                      "expert_specialties"
+                      ? EKARI.forest
+                      : EKARI.hair,
+
+                  background:
+                    tab ===
+                      "expert_specialties"
+                      ? EKARI.forest
+                      : "#fff",
+
+                  color:
+                    tab ===
+                      "expert_specialties"
+                      ? "#fff"
+                      : EKARI.text,
+                }}
+                onClick={() => {
+                  setTab(
+                    "expert_specialties"
+                  );
+
+                  startNew(
+                    "expert_specialties"
+                  );
+                }}
+              >
+                Expert specialties
               </button>
             </div>
 
@@ -368,8 +603,8 @@ export default function TaxonomyAdminPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={startNew}
-                    className="flex items-center gap-1 text-xs font-bold rounded-full border px-3 py-1.5"
+                    onClick={() => startNew(tab)}
+                    className="flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-bold"
                     style={{
                       borderColor: EKARI.forest,
                       color: EKARI.forest,
@@ -470,7 +705,9 @@ export default function TaxonomyAdminPage() {
                   placeholder={
                     tab === "interests"
                       ? "e.g. Crops & Products"
-                      : "e.g. Primary Producer"
+                      : tab === "roles"
+                        ? "e.g. Agricultural professionals"
+                        : "e.g. Crop production"
                   }
                 />
               </div>
@@ -494,7 +731,9 @@ export default function TaxonomyAdminPage() {
                   placeholder={
                     tab === "interests"
                       ? "Maize\nTomato\nPotato\n…"
-                      : "Farmer\nBeekeeper\nAggregator\n…"
+                      : tab === "roles"
+                        ? "Farmer\nAgronomist\nVeterinarian\n…"
+                        : "Crop disease diagnosis\nSoil fertility management\nGreenhouse production\n…"
                   }
                 />
                 <div

@@ -13,8 +13,12 @@ import { useRouter } from "next/navigation";
 import { getApp } from "firebase/app";
 
 import {
+  collection,
   doc,
   getDoc,
+  onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -30,19 +34,24 @@ import {
   IoBriefcaseOutline,
   IoCallOutline,
   IoCheckmark,
+  IoChevronDownOutline,
   IoCloseOutline,
   IoGlobeOutline,
   IoInformationCircleOutline,
   IoLocationOutline,
+  IoMapOutline,
+  IoNavigateOutline,
   IoLogoWhatsapp,
   IoOpenOutline,
   IoPauseOutline,
   IoSaveOutline,
+  IoSearchOutline,
   IoShieldCheckmarkOutline,
   IoVideocamOutline,
 } from "react-icons/io5";
 
 import AppShell from "@/app/components/AppShell";
+import GlobalLocationPicker from "@/app/components/location/GlobalLocationPicker";
 import { useAuth } from "@/app/hooks/useAuth";
 import { db } from "@/lib/firebase";
 
@@ -50,14 +59,15 @@ import {
   CONSULTATION_METHODS,
   DEFAULT_EXPERT_PROFILE,
   EXPERT_LANGUAGES,
-  EXPERT_SPECIALTIES,
-  KENYA_COUNTIES,
 } from "@/app/constants/expertConstants";
 
 import {
   ConsultationMethod,
+  ExpertCurrency,
   ExpertFeeType,
+  ExpertPlace,
   ExpertProfile,
+  ExpertServiceArea,
 } from "@/app/types/expert";
 
 const EKARI = {
@@ -92,12 +102,17 @@ type UserSummary = {
   verificationRole: string;
   verificationType: "individual" | "business" | "company";
   organizationName: string;
-  county: string;
-  town: string;
-  latitude: number | null;
-  longitude: number | null;
+  profileLocation: ExpertPlace;
+  preferredCurrency: ExpertCurrency;
+  timezone: string;
 };
-
+type ExpertSpecialtyGroup = {
+  id: string;
+  title: string;
+  items: string[];
+  order: number;
+  active: boolean;
+};
 function safeNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -128,92 +143,155 @@ function normalizeExpertProfile(
   userSummary: UserSummary
 ): ExpertProfile {
   const defaults = DEFAULT_EXPERT_PROFILE(uid);
+  const rawPrimaryLocation = value?.primaryLocation as any;
+
+  const hasStructuredLocation =
+    typeof rawPrimaryLocation?.label === "string" ||
+    typeof rawPrimaryLocation?.country === "string" ||
+    !!rawPrimaryLocation?.coordinates;
+
+  const legacyCounty = String(
+    rawPrimaryLocation?.county || ""
+  ).trim();
+  const legacyTown = String(
+    rawPrimaryLocation?.town || ""
+  ).trim();
+  const legacyLatitude = safeNumber(
+    rawPrimaryLocation?.latitude
+  );
+  const legacyLongitude = safeNumber(
+    rawPrimaryLocation?.longitude
+  );
+
+  const migratedPrimaryLocation: ExpertPlace =
+    hasStructuredLocation
+      ? {
+        ...defaults.primaryLocation,
+        ...rawPrimaryLocation,
+        placeId: rawPrimaryLocation?.placeId || null,
+        label: String(rawPrimaryLocation?.label || "").trim(),
+        countryCode: String(
+          rawPrimaryLocation?.countryCode || ""
+        ).toUpperCase(),
+        country: String(rawPrimaryLocation?.country || "").trim(),
+        region: String(rawPrimaryLocation?.region || "").trim(),
+        city: String(rawPrimaryLocation?.city || "").trim(),
+        locality: String(rawPrimaryLocation?.locality || "").trim(),
+        coordinates: rawPrimaryLocation?.coordinates || null,
+        timezone: rawPrimaryLocation?.timezone || null,
+      }
+      : legacyCounty ||
+        legacyTown ||
+        legacyLatitude !== null ||
+        legacyLongitude !== null
+        ? {
+          placeId: null,
+          label: [legacyTown, legacyCounty, "Kenya"]
+            .filter(Boolean)
+            .join(", "),
+          countryCode: "KE",
+          country: "Kenya",
+          region: legacyCounty,
+          city: legacyTown,
+          locality: "",
+          coordinates:
+            legacyLatitude !== null && legacyLongitude !== null
+              ? {
+                latitude: legacyLatitude,
+                longitude: legacyLongitude,
+                geohash: rawPrimaryLocation?.geohash || null,
+              }
+              : null,
+          timezone: "Africa/Nairobi",
+        }
+        : userSummary.profileLocation;
+
+  const legacyCounties = normalizeStringArray(
+    value?.countiesServed
+  );
+
+  const migratedServiceAreas: ExpertServiceArea[] =
+    legacyCounties.map((county, index) => ({
+      id: `legacy-county-${index}`,
+      type: "region",
+      label: `${county}, Kenya`,
+      placeId: null,
+      countryCode: "KE",
+      country: "Kenya",
+      region: county,
+      city: "",
+      center: null,
+      radiusKm: null,
+    }));
+
+  const existingServiceAreas = Array.isArray(
+    value?.serviceCoverage?.serviceAreas
+  )
+    ? value.serviceCoverage.serviceAreas
+    : [];
 
   return {
     ...defaults,
     ...value,
-
     uid,
-
     status: value?.status || "draft",
-
-    // Public publishing will be handled by a secure backend
-    // function in the next implementation step.
     isDiscoverable: value?.isDiscoverable === true,
-
-    acceptingBookings:
-      value?.acceptingBookings !== false,
-
+    acceptingBookings: value?.acceptingBookings !== false,
     headline: value?.headline || "",
     expertBio: value?.expertBio || "",
-
     specialties: normalizeStringArray(value?.specialties),
-    countiesServed:
-      normalizeStringArray(value?.countiesServed).length > 0
-        ? normalizeStringArray(value?.countiesServed)
-        : userSummary.county
-          ? [userSummary.county]
-          : [],
-
+    countiesServed: legacyCounties,
     languages:
       normalizeStringArray(value?.languages).length > 0
         ? normalizeStringArray(value?.languages)
         : defaults.languages,
-
     consultationMethods:
       Array.isArray(value?.consultationMethods) &&
         value.consultationMethods.length > 0
         ? value.consultationMethods
         : defaults.consultationMethods,
-
-    primaryLocation: {
-      county:
-        value?.primaryLocation?.county ||
-        userSummary.county ||
-        "",
-      town:
-        value?.primaryLocation?.town ||
-        userSummary.town ||
-        "",
-      latitude:
-        safeNumber(value?.primaryLocation?.latitude) ??
-        userSummary.latitude,
-      longitude:
-        safeNumber(value?.primaryLocation?.longitude) ??
-        userSummary.longitude,
-      geohash:
-        value?.primaryLocation?.geohash || null,
+    primaryLocation: migratedPrimaryLocation,
+    serviceCoverage: {
+      ...defaults.serviceCoverage,
+      ...(value?.serviceCoverage || {}),
+      serviceAreas:
+        existingServiceAreas.length > 0
+          ? existingServiceAreas
+          : migratedServiceAreas,
     },
-
     pricing: {
       ...defaults.pricing,
       ...(value?.pricing || {}),
+      currency:
+        value?.pricing?.currency === "KES" ||
+          value?.pricing?.currency === "USD"
+          ? value.pricing.currency
+          : userSummary.preferredCurrency,
       consultationFee:
         safeNumber(value?.pricing?.consultationFee) ?? 0,
-      physicalVisitFeeFrom:
-        safeNumber(value?.pricing?.physicalVisitFeeFrom),
+      physicalVisitFeeFrom: safeNumber(
+        value?.pricing?.physicalVisitFeeFrom
+      ),
     },
-
     terms: {
       ...defaults.terms,
       ...(value?.terms || {}),
     },
-
     availability: {
       ...defaults.availability,
       ...(value?.availability || {}),
+      timezone:
+        value?.availability?.timezone ||
+        migratedPrimaryLocation.timezone ||
+        userSummary.timezone ||
+        "UTC",
     },
-
     rating: {
-      average:
-        safeNumber(value?.rating?.average) ?? 0,
-      count:
-        safeNumber(value?.rating?.count) ?? 0,
+      average: safeNumber(value?.rating?.average) ?? 0,
+      count: safeNumber(value?.rating?.count) ?? 0,
     },
-
     completedConsultations:
       safeNumber(value?.completedConsultations) ?? 0,
-
     createdAt: value?.createdAt || null,
     updatedAt: value?.updatedAt || null,
     publishedAt: value?.publishedAt || null,
@@ -226,33 +304,214 @@ function MultiSelectChips({
   label,
   helper,
   options,
+  groups,
   value,
   onChange,
   max,
+  prominentOptions = [],
 }: {
   label: string;
   helper?: string;
-  options: readonly string[];
+  options?: readonly string[];
+
+  groups?: Array<{
+    id: string;
+    title: string;
+    items: string[];
+  }>;
+
   value: string[];
   onChange: (value: string[]) => void;
   max?: number;
+  prominentOptions?: string[];
 }) {
+  const [search, setSearch] =
+    useState("");
+
+  const [expandedGroups, setExpandedGroups] =
+    useState<Set<string>>(
+      new Set()
+    );
+
   const selected = useMemo(
     () => new Set(value),
     [value]
   );
 
-  const toggle = (item: string) => {
+  const normalizedSearch =
+    search.trim().toLowerCase();
+
+  const toggle = (
+    item: string
+  ) => {
     if (selected.has(item)) {
-      onChange(value.filter((current) => current !== item));
+      onChange(
+        value.filter(
+          (current) =>
+            current !== item
+        )
+      );
+
       return;
     }
 
-    if (max && value.length >= max) {
+    if (
+      max &&
+      value.length >= max
+    ) {
       return;
     }
 
-    onChange([...value, item]);
+    onChange([
+      ...value,
+      item,
+    ]);
+  };
+
+  const toggleGroup = (
+    groupId: string
+  ) => {
+    setExpandedGroups(
+      (current) => {
+        const next =
+          new Set(current);
+
+        if (
+          next.has(groupId)
+        ) {
+          next.delete(groupId);
+        } else {
+          next.add(groupId);
+        }
+
+        return next;
+      }
+    );
+  };
+
+  const filteredGroups =
+    useMemo(() => {
+      if (
+        !groups ||
+        groups.length === 0
+      ) {
+        return [];
+      }
+
+      if (!normalizedSearch) {
+        return groups;
+      }
+
+      return groups
+        .map((group) => ({
+          ...group,
+
+          items:
+            group.items.filter(
+              (item) =>
+                item
+                  .toLowerCase()
+                  .includes(
+                    normalizedSearch
+                  ) ||
+                group.title
+                  .toLowerCase()
+                  .includes(
+                    normalizedSearch
+                  )
+            ),
+        }))
+        .filter(
+          (group) =>
+            group.items.length >
+            0
+        );
+    }, [
+      groups,
+      normalizedSearch,
+    ]);
+
+  const filteredOptions =
+    useMemo(() => {
+      if (!normalizedSearch) {
+        return options || [];
+      }
+
+      return (
+        options || []
+      ).filter((item) =>
+        item
+          .toLowerCase()
+          .includes(
+            normalizedSearch
+          )
+      );
+    }, [
+      options,
+      normalizedSearch,
+    ]);
+
+  const visibleProminentOptions =
+    useMemo(
+      () =>
+        prominentOptions
+          .filter(
+            (item) =>
+              !selected.has(item)
+          )
+          .slice(0, 8),
+      [
+        prominentOptions,
+        selected,
+      ]
+    );
+
+  const renderOption = (
+    item: string
+  ) => {
+    const active =
+      selected.has(item);
+
+    const disabled =
+      !active &&
+      !!max &&
+      value.length >= max;
+
+    return (
+      <button
+        key={item}
+        type="button"
+        disabled={disabled}
+        onClick={() =>
+          toggle(item)
+        }
+        className="rounded-full border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40"
+        style={{
+          borderColor: active
+            ? EKARI.forest
+            : EKARI.hair,
+
+          backgroundColor: active
+            ? EKARI.forest
+            : "#FFFFFF",
+
+          color: active
+            ? "#FFFFFF"
+            : EKARI.text,
+        }}
+      >
+        {active ? (
+          <span className="inline-flex items-center gap-1">
+            <IoCheckmark
+              size={13}
+            />
+            {item}
+          </span>
+        ) : (
+          item
+        )}
+      </button>
+    );
   };
 
   return (
@@ -261,7 +520,9 @@ function MultiSelectChips({
         <div>
           <h3
             className="text-sm font-black"
-            style={{ color: EKARI.text }}
+            style={{
+              color: EKARI.text,
+            }}
           >
             {label}
           </h3>
@@ -269,7 +530,10 @@ function MultiSelectChips({
           {helper ? (
             <p
               className="mt-1 text-xs"
-              style={{ color: EKARI.subtext }}
+              style={{
+                color:
+                  EKARI.subtext,
+              }}
             >
               {helper}
             </p>
@@ -279,69 +543,329 @@ function MultiSelectChips({
         <span
           className="shrink-0 rounded-full border px-3 py-1 text-xs font-bold"
           style={{
-            borderColor: EKARI.hair,
-            color: EKARI.subtext,
+            borderColor:
+              EKARI.hair,
+
+            color:
+              EKARI.subtext,
           }}
         >
           {value.length}
-          {max ? `/${max}` : ""}
+          {max
+            ? `/${max}`
+            : ""}
         </span>
       </div>
 
       {value.length > 0 ? (
         <div
-          className="mt-3 flex flex-wrap gap-2 rounded-2xl border p-3"
+          className="mt-4 rounded-2xl border p-3"
           style={{
-            borderColor: "rgba(199,146,87,0.3)",
-            backgroundColor: "rgba(199,146,87,0.06)",
+            borderColor:
+              "rgba(199,146,87,0.30)",
+
+            backgroundColor:
+              "rgba(199,146,87,0.06)",
           }}
         >
-          {value.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => toggle(item)}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-white"
-              style={{ backgroundColor: EKARI.forest }}
-            >
-              <IoCheckmark size={14} />
-              {item}
-              <IoCloseOutline size={14} />
-            </button>
-          ))}
+          <div
+            className="mb-2 text-[11px] font-black uppercase tracking-[0.12em]"
+            style={{
+              color:
+                EKARI.forest,
+            }}
+          >
+            Selected specialties
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {value.map(
+              (item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() =>
+                    toggle(item)
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-white"
+                  style={{
+                    backgroundColor:
+                      EKARI.forest,
+                  }}
+                >
+                  <IoCheckmark
+                    size={14}
+                  />
+
+                  {item}
+
+                  <IoCloseOutline
+                    size={14}
+                  />
+                </button>
+              )
+            )}
+          </div>
         </div>
       ) : null}
 
-      <div className="mt-3 flex max-h-56 flex-wrap gap-2 overflow-y-auto">
-        {options.map((item) => {
-          const active = selected.has(item);
-          const disabled =
-            !active && !!max && value.length >= max;
+      <div className="relative mt-4">
+        <IoSearchOutline
+          size={18}
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2"
+          color={EKARI.subtext}
+        />
 
-          return (
-            <button
-              key={item}
-              type="button"
-              disabled={disabled}
-              onClick={() => toggle(item)}
-              className="rounded-full border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40"
+        <input
+          value={search}
+          onChange={(event) =>
+            setSearch(
+              event.target.value
+            )
+          }
+          placeholder="Search specialties or categories"
+          className="h-12 w-full rounded-2xl border bg-white pl-11 pr-11 text-sm outline-none focus:ring-2"
+          style={{
+            borderColor:
+              EKARI.hair,
+            color: EKARI.text,
+          }}
+        />
+
+        {search ? (
+          <button
+            type="button"
+            onClick={() =>
+              setSearch("")
+            }
+            className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full hover:bg-slate-100"
+            aria-label="Clear search"
+          >
+            <IoCloseOutline
+              size={18}
+            />
+          </button>
+        ) : null}
+      </div>
+
+      {!normalizedSearch &&
+        visibleProminentOptions.length >
+        0 ? (
+        <div className="mt-5">
+          <div
+            className="mb-2 text-xs font-black"
+            style={{
+              color: EKARI.text,
+            }}
+          >
+            Popular specialties
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {visibleProminentOptions.map(
+              renderOption
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {normalizedSearch ? (
+        <div className="mt-5">
+          <div
+            className="mb-3 text-xs font-black"
+            style={{
+              color: EKARI.text,
+            }}
+          >
+            Search results
+          </div>
+
+          {filteredGroups.length >
+            0 ? (
+            <div className="space-y-5">
+              {filteredGroups.map(
+                (group) => (
+                  <div
+                    key={group.id}
+                  >
+                    <div
+                      className="mb-2 text-[11px] font-black uppercase tracking-[0.12em]"
+                      style={{
+                        color:
+                          EKARI.forest,
+                      }}
+                    >
+                      {group.title}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {group.items.map(
+                        renderOption
+                      )}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          ) : filteredOptions.length >
+            0 ? (
+            <div className="flex flex-wrap gap-2">
+              {filteredOptions.map(
+                renderOption
+              )}
+            </div>
+          ) : (
+            <div
+              className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm"
               style={{
-                borderColor: active
-                  ? EKARI.forest
-                  : EKARI.hair,
-                backgroundColor: active
-                  ? EKARI.forest
-                  : "#FFFFFF",
-                color: active
-                  ? "#FFFFFF"
-                  : EKARI.text,
+                borderColor:
+                  EKARI.hair,
+
+                color:
+                  EKARI.subtext,
               }}
             >
-              {item}
-            </button>
-          );
-        })}
-      </div>
+              No specialty matched
+              “{search}”.
+            </div>
+          )}
+        </div>
+      ) : groups &&
+        groups.length > 0 ? (
+        <div className="mt-6">
+          <div
+            className="mb-3 text-xs font-black"
+            style={{
+              color: EKARI.text,
+            }}
+          >
+            Browse by category
+          </div>
+
+          <div className="space-y-2">
+            {groups.map(
+              (group) => {
+                const expanded =
+                  expandedGroups.has(
+                    group.id
+                  );
+
+                const selectedCount =
+                  group.items.filter(
+                    (item) =>
+                      selected.has(
+                        item
+                      )
+                  ).length;
+
+                return (
+                  <div
+                    key={group.id}
+                    className="overflow-hidden rounded-2xl border"
+                    style={{
+                      borderColor:
+                        EKARI.hair,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleGroup(
+                          group.id
+                        )
+                      }
+                      className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className="block text-sm font-black"
+                          style={{
+                            color:
+                              EKARI.text,
+                          }}
+                        >
+                          {
+                            group.title
+                          }
+                        </span>
+
+                        <span
+                          className="mt-0.5 block text-[11px]"
+                          style={{
+                            color:
+                              EKARI.subtext,
+                          }}
+                        >
+                          {
+                            group.items
+                              .length
+                          }{" "}
+                          specialties
+                        </span>
+                      </span>
+
+                      {selectedCount >
+                        0 ? (
+                        <span
+                          className="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-[10px] font-black text-white"
+                          style={{
+                            backgroundColor:
+                              EKARI.forest,
+                          }}
+                        >
+                          {
+                            selectedCount
+                          }
+                        </span>
+                      ) : null}
+
+                      <IoChevronDownOutline
+                        size={18}
+                        color={
+                          EKARI.subtext
+                        }
+                        className={[
+                          "transition-transform duration-200",
+                          expanded
+                            ? "rotate-180"
+                            : "",
+                        ].join(
+                          " "
+                        )}
+                      />
+                    </button>
+
+                    {expanded ? (
+                      <div
+                        className="border-t px-4 py-4"
+                        style={{
+                          borderColor:
+                            EKARI.hair,
+
+                          backgroundColor:
+                            EKARI.soft,
+                        }}
+                      >
+                        <div className="flex flex-wrap gap-2">
+                          {group.items.map(
+                            renderOption
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 flex max-h-56 flex-wrap gap-2 overflow-y-auto">
+          {(options || []).map(
+            renderOption
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -427,6 +951,92 @@ export default function ExpertSettingsPage() {
         userData.profileLocation ||
         {};
 
+      const latitude =
+        safeNumber(userData.latitude) ??
+        safeNumber(location.latitude) ??
+        safeNumber(location.lat);
+
+      const longitude =
+        safeNumber(userData.longitude) ??
+        safeNumber(location.longitude) ??
+        safeNumber(location.lng) ??
+        safeNumber(location.lon);
+
+      const city = String(
+        userData.town ||
+        userData.city ||
+        location.town ||
+        location.city ||
+        ""
+      ).trim();
+
+      const region = String(
+        userData.county ||
+        location.county ||
+        location.region ||
+        location.state ||
+        ""
+      ).trim();
+
+      const country = String(
+        userData.country ||
+        location.country ||
+        ""
+      ).trim();
+
+      const profileLocation: ExpertPlace = {
+        placeId:
+          String(
+            location.placeId ||
+            location.place_id ||
+            ""
+          ) || null,
+        label: String(
+          location.formattedAddress ||
+          location.address ||
+          location.label ||
+          location.name ||
+          [city, region, country]
+            .filter(Boolean)
+            .join(", ")
+        ).trim(),
+        countryCode: String(
+          userData.countryCode ||
+          location.countryCode ||
+          ""
+        ).toUpperCase(),
+        country,
+        region,
+        city,
+        locality: String(
+          location.locality ||
+          location.subLocality ||
+          ""
+        ).trim(),
+        coordinates:
+          latitude !== null && longitude !== null
+            ? {
+              latitude,
+              longitude,
+              geohash: location.geohash || null,
+            }
+            : null,
+        timezone: String(
+          userData.timezone ||
+          location.timezone ||
+          Intl.DateTimeFormat().resolvedOptions().timeZone ||
+          "UTC"
+        ),
+      };
+
+      const preferredCurrency: ExpertCurrency =
+        String(
+          userData.preferredCurrency ||
+          "USD"
+        ).toUpperCase() === "KES"
+          ? "KES"
+          : "USD";
+
       const summary: UserSummary = {
         uid: user.uid,
         name,
@@ -451,28 +1061,9 @@ export default function ExpertSettingsPage() {
         organizationName: String(
           verification.organizationName || ""
         ),
-        county: String(
-          userData.county ||
-          location.county ||
-          ""
-        ),
-        town: String(
-          userData.town ||
-          userData.city ||
-          location.town ||
-          location.city ||
-          location.name ||
-          ""
-        ),
-        latitude:
-          safeNumber(userData.latitude) ??
-          safeNumber(location.latitude) ??
-          safeNumber(location.lat),
-        longitude:
-          safeNumber(userData.longitude) ??
-          safeNumber(location.longitude) ??
-          safeNumber(location.lng) ??
-          safeNumber(location.lon),
+        profileLocation,
+        preferredCurrency,
+        timezone: profileLocation.timezone || "UTC",
       };
 
       setUserSummary(summary);
@@ -516,6 +1107,87 @@ export default function ExpertSettingsPage() {
     loadData();
   }, [user, router, loadData]);
 
+  const [
+    specialtyGroups,
+    setSpecialtyGroups,
+  ] = useState<ExpertSpecialtyGroup[]>([]);
+
+  const [
+    specialtiesLoading,
+    setSpecialtiesLoading,
+  ] = useState(true);
+
+  const [
+    specialtiesError,
+    setSpecialtiesError,
+  ] = useState<string | null>(null);
+  useEffect(() => {
+    const specialtiesQuery = query(
+      collection(
+        db,
+        "expert_specialty_groups"
+      ),
+      orderBy("order", "asc")
+    );
+
+    setSpecialtiesLoading(true);
+    setSpecialtiesError(null);
+
+    const unsubscribe = onSnapshot(
+      specialtiesQuery,
+      (snapshot) => {
+        const rows: ExpertSpecialtyGroup[] =
+          snapshot.docs.map(
+            (documentSnapshot) => {
+              const data =
+                documentSnapshot.data();
+
+              return {
+                id: documentSnapshot.id,
+
+                title: String(
+                  data.title || ""
+                ).trim(),
+
+                items:
+                  normalizeStringArray(
+                    data.items
+                  ),
+
+                order:
+                  safeNumber(
+                    data.order
+                  ) ?? 0,
+
+                active:
+                  data.active !== false,
+              };
+            }
+          );
+
+        setSpecialtyGroups(rows);
+        setSpecialtiesLoading(false);
+        setSpecialtiesError(null);
+      },
+      (error) => {
+        console.error(
+          "LOAD_EXPERT_SPECIALTIES_FAILED",
+          error
+        );
+
+        setSpecialtyGroups([]);
+        setSpecialtiesLoading(false);
+
+        setSpecialtiesError(
+          "Could not load the latest specialties. Default specialties are being shown."
+        );
+      }
+    );
+
+    return unsubscribe;
+  }, []);
+
+
   const isVerified =
     userSummary?.verificationStatus === "approved";
   const isVerificationPending =
@@ -523,6 +1195,83 @@ export default function ExpertSettingsPage() {
     "pending" ||
     userSummary?.verificationStatus ===
     "payment_pending";
+
+  const databaseSpecialties = useMemo(() => {
+    const values = specialtyGroups
+      .filter(
+        (group) =>
+          group.active &&
+          group.title.length > 0
+      )
+      .flatMap(
+        (group) => group.items
+      )
+      .map(
+        (specialty) =>
+          specialty.trim()
+      )
+      .filter(Boolean);
+
+    return Array.from(
+      new Map(
+        values.map((specialty) => [
+          specialty.toLowerCase(),
+          specialty,
+        ])
+      ).values()
+    );
+  }, [specialtyGroups]);
+
+  const activeSpecialtyGroups =
+    useMemo(
+      () =>
+        specialtyGroups
+          .filter(
+            (group) =>
+              group.active &&
+              group.items.length >
+              0
+          )
+          .map((group) => ({
+            id: group.id,
+            title: group.title,
+            items: group.items,
+          })),
+      [specialtyGroups]
+    );
+  const availableSpecialties =
+    useMemo(() => {
+      /*
+       * Use Firestore values when available.
+       * Retain currently saved specialties even when an
+       * admin has renamed or disabled an option.
+       */
+      const baseOptions =
+        databaseSpecialties;
+
+      const selectedSpecialties =
+        expertProfile?.specialties || [];
+
+      return Array.from(
+        new Map(
+          [
+            ...selectedSpecialties,
+            ...baseOptions,
+          ].map((specialty) => [
+            specialty
+              .trim()
+              .toLowerCase(),
+
+            specialty.trim(),
+          ])
+        ).values()
+      ).filter(Boolean);
+    }, [
+      databaseSpecialties,
+      expertProfile?.specialties,
+    ]);
+
+
   const updateProfile = <
     K extends keyof ExpertProfile,
   >(
@@ -586,12 +1335,22 @@ export default function ExpertSettingsPage() {
       return "Please select at least one specialty.";
     }
 
-    if (expertProfile.countiesServed.length === 0) {
-      return "Please select at least one county that you serve.";
+    if (!expertProfile.primaryLocation.label.trim()) {
+      return "Please select your primary location.";
     }
 
-    if (!expertProfile.primaryLocation.county) {
-      return "Please select your primary county.";
+    if (
+      !expertProfile.serviceCoverage.offersOnlineServices &&
+      !expertProfile.serviceCoverage.offersPhysicalVisits
+    ) {
+      return "Select online consultations, physical visits, or both.";
+    }
+
+    if (
+      expertProfile.serviceCoverage.offersPhysicalVisits &&
+      expertProfile.serviceCoverage.serviceAreas.length === 0
+    ) {
+      return "Add at least one physical service area.";
     }
 
     if (expertProfile.languages.length === 0) {
@@ -611,11 +1370,16 @@ export default function ExpertSettingsPage() {
       return "Consultation fee cannot be negative.";
     }
 
+    const maximumConsultationFee =
+      expertProfile.pricing.currency === "KES"
+        ? 100000
+        : 1000;
+
     if (
       expertProfile.pricing.consultationFee >
-      100000
+      maximumConsultationFee
     ) {
-      return "Consultation fee cannot exceed KES 100,000.";
+      return `Consultation fee cannot exceed ${expertProfile.pricing.currency} ${maximumConsultationFee.toLocaleString()}.`;
     }
 
     if (!expertProfile.terms.summary.trim()) {
@@ -624,6 +1388,89 @@ export default function ExpertSettingsPage() {
 
     return null;
   };
+
+  const buildEditablePayload = useCallback(() => {
+    if (!expertProfile) {
+      throw new Error("Expert profile is unavailable.");
+    }
+
+    return {
+      acceptingBookings: expertProfile.acceptingBookings,
+      headline: expertProfile.headline.trim(),
+      expertBio: expertProfile.expertBio.trim(),
+      specialties: expertProfile.specialties,
+      languages: expertProfile.languages,
+      consultationMethods: expertProfile.consultationMethods,
+      primaryLocation: {
+        ...expertProfile.primaryLocation,
+        placeId: expertProfile.primaryLocation.placeId || null,
+        label: expertProfile.primaryLocation.label.trim(),
+        countryCode: expertProfile.primaryLocation.countryCode
+          .trim()
+          .toUpperCase(),
+        country: expertProfile.primaryLocation.country.trim(),
+        region: expertProfile.primaryLocation.region.trim(),
+        city: expertProfile.primaryLocation.city.trim(),
+        locality: expertProfile.primaryLocation.locality.trim(),
+        timezone:
+          expertProfile.primaryLocation.timezone ||
+          expertProfile.availability.timezone ||
+          userSummary?.timezone ||
+          "UTC",
+      },
+      serviceCoverage: {
+        ...expertProfile.serviceCoverage,
+        serviceAreas:
+          expertProfile.serviceCoverage.serviceAreas,
+      },
+      // Temporary legacy mirror for older clients.
+      countiesServed:
+        expertProfile.serviceCoverage.serviceAreas
+          .filter(
+            (area) =>
+              area.countryCode === "KE" &&
+              area.region
+          )
+          .map((area) => area.region),
+      pricing: {
+        currency: expertProfile.pricing.currency,
+        consultationFee:
+          expertProfile.pricing.feeType === "free"
+            ? 0
+            : Number(expertProfile.pricing.consultationFee),
+        physicalVisitFeeFrom:
+          expertProfile.serviceCoverage.offersPhysicalVisits
+            ? expertProfile.pricing.physicalVisitFeeFrom
+            : null,
+        feeType: expertProfile.pricing.feeType,
+        consultationDurationMinutes: Number(
+          expertProfile.pricing.consultationDurationMinutes
+        ),
+      },
+      terms: {
+        summary: expertProfile.terms.summary.trim(),
+        cancellationNoticeHours: Number(
+          expertProfile.terms.cancellationNoticeHours
+        ),
+        cancellationPolicy:
+          expertProfile.terms.cancellationPolicy.trim(),
+        allowsRescheduling:
+          expertProfile.terms.allowsRescheduling,
+        paymentRequiredBeforeBooking:
+          expertProfile.terms.paymentRequiredBeforeBooking,
+      },
+      availability: {
+        timezone:
+          expertProfile.availability.timezone ||
+          expertProfile.primaryLocation.timezone ||
+          userSummary?.timezone ||
+          "UTC",
+        scheduleConfigured:
+          expertProfile.availability.scheduleConfigured,
+      },
+      updatedAt: serverTimestamp(),
+    };
+  }, [expertProfile, userSummary?.timezone]);
 
   const handleSave = async (
     event: FormEvent
@@ -661,108 +1508,7 @@ export default function ExpertSettingsPage() {
       const existingSnapshot =
         await getDoc(expertReference);
 
-      const editablePayload = {
-        acceptingBookings:
-          expertProfile.acceptingBookings,
-
-        headline:
-          expertProfile.headline.trim(),
-
-        expertBio:
-          expertProfile.expertBio.trim(),
-
-        specialties:
-          expertProfile.specialties,
-
-        countiesServed:
-          expertProfile.countiesServed,
-
-        languages:
-          expertProfile.languages,
-
-        consultationMethods:
-          expertProfile.consultationMethods,
-
-        primaryLocation: {
-          county:
-            expertProfile.primaryLocation.county,
-
-          town:
-            expertProfile.primaryLocation.town.trim(),
-
-          latitude:
-            expertProfile.primaryLocation.latitude,
-
-          longitude:
-            expertProfile.primaryLocation.longitude,
-
-          geohash:
-            expertProfile.primaryLocation.geohash ||
-            null,
-        },
-
-        pricing: {
-          currency: "KES",
-
-          consultationFee:
-            expertProfile.pricing.feeType === "free"
-              ? 0
-              : Number(
-                expertProfile.pricing
-                  .consultationFee
-              ),
-
-          physicalVisitFeeFrom:
-            expertProfile.consultationMethods.includes(
-              "physical"
-            )
-              ? expertProfile.pricing
-                .physicalVisitFeeFrom
-              : null,
-
-          feeType:
-            expertProfile.pricing.feeType,
-
-          consultationDurationMinutes:
-            Number(
-              expertProfile.pricing
-                .consultationDurationMinutes
-            ),
-        },
-
-        terms: {
-          summary:
-            expertProfile.terms.summary.trim(),
-
-          cancellationNoticeHours:
-            Number(
-              expertProfile.terms
-                .cancellationNoticeHours
-            ),
-
-          cancellationPolicy:
-            expertProfile.terms
-              .cancellationPolicy.trim(),
-
-          allowsRescheduling:
-            expertProfile.terms
-              .allowsRescheduling,
-
-          paymentRequiredBeforeBooking:
-            expertProfile.terms
-              .paymentRequiredBeforeBooking,
-        },
-
-        availability: {
-          timezone: "Africa/Nairobi",
-
-          scheduleConfigured:
-            expertProfile.availability
-              .scheduleConfigured,
-        },
-
-        updatedAt: serverTimestamp(),
-      };
+      const editablePayload = buildEditablePayload();
 
       if (existingSnapshot.exists()) {
         await updateDoc(
@@ -880,108 +1626,10 @@ export default function ExpertSettingsPage() {
         );
       }
 
-      await updateDoc(expertReference, {
-        headline:
-          expertProfile.headline.trim(),
-
-        expertBio:
-          expertProfile.expertBio.trim(),
-
-        specialties:
-          expertProfile.specialties,
-
-        countiesServed:
-          expertProfile.countiesServed,
-
-        languages:
-          expertProfile.languages,
-
-        consultationMethods:
-          expertProfile.consultationMethods,
-
-        acceptingBookings:
-          expertProfile.acceptingBookings,
-
-        primaryLocation: {
-          county:
-            expertProfile.primaryLocation.county,
-
-          town:
-            expertProfile.primaryLocation.town.trim(),
-
-          latitude:
-            expertProfile.primaryLocation.latitude,
-
-          longitude:
-            expertProfile.primaryLocation.longitude,
-
-          geohash:
-            expertProfile.primaryLocation.geohash ||
-            null,
-        },
-
-        pricing: {
-          currency: "KES",
-
-          consultationFee:
-            expertProfile.pricing.feeType === "free"
-              ? 0
-              : Number(
-                expertProfile.pricing
-                  .consultationFee
-              ),
-
-          physicalVisitFeeFrom:
-            expertProfile.consultationMethods.includes(
-              "physical"
-            )
-              ? expertProfile.pricing
-                .physicalVisitFeeFrom
-              : null,
-
-          feeType:
-            expertProfile.pricing.feeType,
-
-          consultationDurationMinutes:
-            Number(
-              expertProfile.pricing
-                .consultationDurationMinutes
-            ),
-        },
-
-        terms: {
-          summary:
-            expertProfile.terms.summary.trim(),
-
-          cancellationNoticeHours:
-            Number(
-              expertProfile.terms
-                .cancellationNoticeHours
-            ),
-
-          cancellationPolicy:
-            expertProfile.terms
-              .cancellationPolicy.trim(),
-
-          allowsRescheduling:
-            expertProfile.terms
-              .allowsRescheduling,
-
-          paymentRequiredBeforeBooking:
-            expertProfile.terms
-              .paymentRequiredBeforeBooking,
-        },
-
-        availability: {
-          timezone: "Africa/Nairobi",
-
-          scheduleConfigured:
-            expertProfile.availability
-              .scheduleConfigured,
-        },
-
-        updatedAt: serverTimestamp(),
-      });
+      await updateDoc(
+        expertReference,
+        buildEditablePayload()
+      );
 
     };
 
@@ -1336,21 +1984,75 @@ export default function ExpertSettingsPage() {
 
           <section
             className="rounded-3xl border bg-white p-5 shadow-sm md:p-7"
-            style={{ borderColor: EKARI.hair }}
+            style={{
+              borderColor: EKARI.hair,
+            }}
           >
-            <MultiSelectChips
-              label="Specialties"
-              helper="Select up to eight areas in which you provide professional advice."
-              options={EXPERT_SPECIALTIES}
-              value={expertProfile.specialties}
-              max={8}
-              onChange={(specialties) =>
-                updateProfile(
-                  "specialties",
-                  specialties
-                )
-              }
-            />
+            {specialtiesLoading ? (
+              <div className="space-y-4">
+                <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
+
+                <div className="h-4 w-72 max-w-full animate-pulse rounded bg-slate-100" />
+
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({
+                    length: 10,
+                  }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-9 w-32 animate-pulse rounded-full bg-slate-100"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {specialtiesError ? (
+                  <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                    {specialtiesError}
+                  </div>
+                ) : null}
+
+                <MultiSelectChips
+                  label="Specialties"
+                  helper="Select up to eight professional services that clients can book you for."
+                  groups={
+                    activeSpecialtyGroups
+                  }
+                  options={
+                    availableSpecialties
+                  }
+                  value={
+                    expertProfile.specialties
+                  }
+                  max={8}
+                  onChange={(specialties) =>
+                    updateProfile(
+                      "specialties",
+                      specialties
+                    )
+                  }
+                />
+
+                {databaseSpecialties.length >
+                  0 ? (
+                  <div
+                    className="mt-4 text-xs"
+                    style={{
+                      color: EKARI.subtext,
+                    }}
+                  >
+                    Showing{" "}
+                    <strong>
+                      {
+                        databaseSpecialties.length
+                      }
+                    </strong>{" "}
+                    specialties managed by ekarihub.
+                  </div>
+                ) : null}
+              </>
+            )}
           </section>
 
           <section
@@ -1361,8 +2063,7 @@ export default function ExpertSettingsPage() {
               <div
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
                 style={{
-                  backgroundColor:
-                    "rgba(35,63,57,0.08)",
+                  backgroundColor: "rgba(35,63,57,0.08)",
                   color: EKARI.forest,
                 }}
               >
@@ -1379,101 +2080,289 @@ export default function ExpertSettingsPage() {
 
                 <p
                   className="mt-1 text-sm"
-                  style={{
-                    color: EKARI.subtext,
-                  }}
+                  style={{ color: EKARI.subtext }}
                 >
-                  This information will be used to
-                  connect you with nearby clients.
+                  Select your primary location and define where you offer online consultations or physical visits.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
+            <GlobalLocationPicker
+              value={expertProfile.primaryLocation}
+              profileLocation={userSummary.profileLocation}
+              onChange={(primaryLocation) => {
+                updateProfile("primaryLocation", primaryLocation);
+                updateProfile("availability", {
+                  ...expertProfile.availability,
+                  timezone:
+                    primaryLocation.timezone ||
+                    expertProfile.availability.timezone ||
+                    userSummary.timezone ||
+                    "UTC",
+                });
+              }}
+            />
+
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const enabled =
+                    !expertProfile.serviceCoverage.offersOnlineServices;
+
+                  updateProfile("serviceCoverage", {
+                    ...expertProfile.serviceCoverage,
+                    offersOnlineServices: enabled,
+                  });
+                }}
+                className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
+                style={{
+                  borderColor:
+                    expertProfile.serviceCoverage.offersOnlineServices
+                      ? EKARI.forest
+                      : EKARI.hair,
+                  backgroundColor:
+                    expertProfile.serviceCoverage.offersOnlineServices
+                      ? "rgba(35,63,57,0.06)"
+                      : "#FFFFFF",
+                }}
+              >
+                <span
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+                  style={{
+                    backgroundColor:
+                      expertProfile.serviceCoverage.offersOnlineServices
+                        ? EKARI.forest
+                        : "#F3F4F6",
+                    color:
+                      expertProfile.serviceCoverage.offersOnlineServices
+                        ? "#FFFFFF"
+                        : EKARI.text,
+                  }}
+                >
+                  <IoVideocamOutline size={20} />
+                </span>
+
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-black">
+                    Online consultations
+                  </span>
+                  <span
+                    className="mt-1 block text-xs leading-5"
+                    style={{ color: EKARI.subtext }}
+                  >
+                    Serve clients through phone, WhatsApp or video.
+                  </span>
+                </span>
+
+                {expertProfile.serviceCoverage.offersOnlineServices ? (
+                  <IoCheckmark size={20} color={EKARI.forest} />
+                ) : null}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const enabled =
+                    !expertProfile.serviceCoverage.offersPhysicalVisits;
+
+                  let serviceAreas =
+                    expertProfile.serviceCoverage.serviceAreas;
+
+                  if (
+                    enabled &&
+                    serviceAreas.length === 0 &&
+                    expertProfile.primaryLocation.coordinates
+                  ) {
+                    serviceAreas = [
+                      {
+                        id: "primary-radius",
+                        type: "radius",
+                        label: `Within 25 km of ${expertProfile.primaryLocation.label ||
+                          expertProfile.primaryLocation.city ||
+                          "primary location"
+                          }`,
+                        placeId:
+                          expertProfile.primaryLocation.placeId,
+                        countryCode:
+                          expertProfile.primaryLocation.countryCode,
+                        country:
+                          expertProfile.primaryLocation.country,
+                        region:
+                          expertProfile.primaryLocation.region,
+                        city: expertProfile.primaryLocation.city,
+                        center:
+                          expertProfile.primaryLocation.coordinates,
+                        radiusKm: 25,
+                      },
+                    ];
+                  }
+
+                  updateProfile("serviceCoverage", {
+                    ...expertProfile.serviceCoverage,
+                    offersPhysicalVisits: enabled,
+                    serviceAreas,
+                  });
+                }}
+                className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
+                style={{
+                  borderColor:
+                    expertProfile.serviceCoverage.offersPhysicalVisits
+                      ? EKARI.forest
+                      : EKARI.hair,
+                  backgroundColor:
+                    expertProfile.serviceCoverage.offersPhysicalVisits
+                      ? "rgba(35,63,57,0.06)"
+                      : "#FFFFFF",
+                }}
+              >
+                <span
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+                  style={{
+                    backgroundColor:
+                      expertProfile.serviceCoverage.offersPhysicalVisits
+                        ? EKARI.forest
+                        : "#F3F4F6",
+                    color:
+                      expertProfile.serviceCoverage.offersPhysicalVisits
+                        ? "#FFFFFF"
+                        : EKARI.text,
+                  }}
+                >
+                  <IoMapOutline size={20} />
+                </span>
+
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-black">
+                    Physical farm visits
+                  </span>
+                  <span
+                    className="mt-1 block text-xs leading-5"
+                    style={{ color: EKARI.subtext }}
+                  >
+                    Travel to farms, businesses or client locations.
+                  </span>
+                </span>
+
+                {expertProfile.serviceCoverage.offersPhysicalVisits ? (
+                  <IoCheckmark size={20} color={EKARI.forest} />
+                ) : null}
+              </button>
+            </div>
+
+            {expertProfile.serviceCoverage.offersOnlineServices ? (
+              <div className="mt-5">
                 <label className="text-sm font-black">
-                  Primary county
+                  Online consultation coverage
                 </label>
 
                 <select
-                  value={
-                    expertProfile.primaryLocation
-                      .county
-                  }
+                  value={expertProfile.serviceCoverage.onlineCoverage}
                   onChange={(event) =>
-                    updateProfile(
-                      "primaryLocation",
-                      {
-                        ...expertProfile.primaryLocation,
-                        county: event.target.value,
-                      }
-                    )
+                    updateProfile("serviceCoverage", {
+                      ...expertProfile.serviceCoverage,
+                      onlineCoverage: event.target.value as
+                        | "local"
+                        | "country"
+                        | "worldwide",
+                    })
                   }
                   className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
-                  style={{
-                    borderColor: EKARI.hair,
-                  }}
+                  style={{ borderColor: EKARI.hair }}
                 >
-                  <option value="">
-                    Select county
+                  <option value="local">
+                    Near my primary location
                   </option>
-
-                  {KENYA_COUNTIES.map((county) => (
-                    <option
-                      key={county}
-                      value={county}
-                    >
-                      {county}
-                    </option>
-                  ))}
+                  <option value="country">
+                    Anywhere in my country
+                  </option>
+                  <option value="worldwide">
+                    Worldwide
+                  </option>
                 </select>
               </div>
+            ) : null}
 
-              <div>
-                <label className="text-sm font-black">
-                  Town or area
-                </label>
+            {expertProfile.serviceCoverage.offersPhysicalVisits ? (
+              <div
+                className="mt-5 rounded-2xl border p-4"
+                style={{
+                  borderColor: EKARI.hair,
+                  backgroundColor: EKARI.soft,
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <IoNavigateOutline
+                    size={20}
+                    color={EKARI.forest}
+                  />
 
-                <input
-                  value={
-                    expertProfile.primaryLocation
-                      .town
-                  }
-                  onChange={(event) =>
-                    updateProfile(
-                      "primaryLocation",
-                      {
-                        ...expertProfile.primaryLocation,
-                        town: event.target.value,
+                  <div className="min-w-0 flex-1">
+                    <label className="text-sm font-black">
+                      Physical visit radius
+                    </label>
+                    <p
+                      className="mt-1 text-xs"
+                      style={{ color: EKARI.subtext }}
+                    >
+                      Choose how far you can normally travel from your primary location.
+                    </p>
+
+                    <select
+                      value={
+                        expertProfile.serviceCoverage.serviceAreas.find(
+                          (area) => area.id === "primary-radius"
+                        )?.radiusKm || 25
                       }
-                    )
-                  }
-                  placeholder="Example: Ol Kalou"
-                  className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm outline-none"
-                  style={{
-                    borderColor: EKARI.hair,
-                  }}
-                />
-              </div>
-            </div>
+                      onChange={(event) => {
+                        const radiusKm = Number(event.target.value);
+                        const place = expertProfile.primaryLocation;
 
-            <div className="mt-6">
-              <MultiSelectChips
-                label="Counties served"
-                helper="Select all counties where you can provide consultations or physical services."
-                options={KENYA_COUNTIES}
-                value={
-                  expertProfile.countiesServed
-                }
-                max={15}
-                onChange={(countiesServed) =>
-                  updateProfile(
-                    "countiesServed",
-                    countiesServed
-                  )
-                }
-              />
-            </div>
+                        const radiusArea: ExpertServiceArea = {
+                          id: "primary-radius",
+                          type: "radius",
+                          label: `Within ${radiusKm} km of ${place.label ||
+                            place.city ||
+                            "primary location"
+                            }`,
+                          placeId: place.placeId,
+                          countryCode: place.countryCode,
+                          country: place.country,
+                          region: place.region,
+                          city: place.city,
+                          center: place.coordinates,
+                          radiusKm,
+                        };
+
+                        const otherAreas =
+                          expertProfile.serviceCoverage.serviceAreas.filter(
+                            (area) => area.id !== "primary-radius"
+                          );
+
+                        updateProfile("serviceCoverage", {
+                          ...expertProfile.serviceCoverage,
+                          serviceAreas: [radiusArea, ...otherAreas],
+                        });
+                      }}
+                      className="mt-3 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none"
+                      style={{ borderColor: EKARI.hair }}
+                    >
+                      {[10, 25, 50, 100, 200].map((radius) => (
+                        <option key={radius} value={radius}>
+                          Within {radius} km
+                        </option>
+                      ))}
+                    </select>
+
+                    {!expertProfile.primaryLocation.coordinates ? (
+                      <p className="mt-2 text-xs font-semibold text-amber-700">
+                        Select a GPS, searched or map location to enable accurate radius matching.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section
@@ -1621,6 +2510,38 @@ export default function ExpertSettingsPage() {
               starting fee.
             </p>
 
+            <div className="mt-5">
+              <label className="text-sm font-black">
+                Consultation currency
+              </label>
+
+              <div className="mt-2 inline-flex rounded-2xl border bg-white p-1" style={{ borderColor: EKARI.hair }}>
+                {(["KES", "USD"] as ExpertCurrency[]).map((currency) => {
+                  const active = expertProfile.pricing.currency === currency;
+
+                  return (
+                    <button
+                      key={currency}
+                      type="button"
+                      onClick={() =>
+                        updateProfile("pricing", {
+                          ...expertProfile.pricing,
+                          currency,
+                        })
+                      }
+                      className="rounded-xl px-5 py-2.5 text-xs font-black transition"
+                      style={{
+                        backgroundColor: active ? EKARI.forest : "transparent",
+                        color: active ? "#FFFFFF" : EKARI.text,
+                      }}
+                    >
+                      {currency}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <div>
                 <label className="text-sm font-black">
@@ -1708,14 +2629,14 @@ export default function ExpertSettingsPage() {
                           EKARI.soft,
                       }}
                     >
-                      KES
+                      {expertProfile.pricing.currency}
                     </span>
 
                     <input
                       type="number"
                       min={0}
-                      max={100000}
-                      step={50}
+                      max={expertProfile.pricing.currency === "KES" ? 100000 : 1000}
+                      step={expertProfile.pricing.currency === "KES" ? 50 : 1}
                       value={
                         expertProfile.pricing
                           .consultationFee
@@ -1756,13 +2677,13 @@ export default function ExpertSettingsPage() {
                           EKARI.soft,
                       }}
                     >
-                      KES
+                      {expertProfile.pricing.currency}
                     </span>
 
                     <input
                       type="number"
                       min={0}
-                      step={100}
+                      step={expertProfile.pricing.currency === "KES" ? 100 : 1}
                       value={
                         expertProfile.pricing
                           .physicalVisitFeeFrom ??
@@ -1915,7 +2836,7 @@ export default function ExpertSettingsPage() {
                         event.target.checked,
                     })
                   }
-                  className="mt-1 h-4 w-4"
+                  className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#233F39]"
                 />
 
                 <span>
@@ -1948,7 +2869,7 @@ export default function ExpertSettingsPage() {
                         event.target.checked,
                     })
                   }
-                  className="mt-1 h-4 w-4"
+                  className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#233F39]"
                 />
 
                 <span>
@@ -1986,7 +2907,7 @@ export default function ExpertSettingsPage() {
                     event.target.checked
                   )
                 }
-                className="mt-1 h-5 w-5"
+                className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#233F39]"
               />
 
               <span>
