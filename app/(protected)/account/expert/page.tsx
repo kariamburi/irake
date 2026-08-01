@@ -518,7 +518,11 @@ export default function ExpertSettingsPage() {
 
   const isVerified =
     userSummary?.verificationStatus === "approved";
-
+  const isVerificationPending =
+    userSummary?.verificationStatus ===
+    "pending" ||
+    userSummary?.verificationStatus ===
+    "payment_pending";
   const updateProfile = <
     K extends keyof ExpertProfile,
   >(
@@ -637,13 +641,6 @@ export default function ExpertSettingsPage() {
       return;
     }
 
-    if (!isVerified) {
-      setErrorMessage(
-        "Your account must be verified before you can create an expert profile."
-      );
-
-      return;
-    }
 
     const validationError = validateProfile();
 
@@ -847,7 +844,7 @@ export default function ExpertSettingsPage() {
         error?.code === "firestore/permission-denied"
       ) {
         setErrorMessage(
-          "Firebase denied permission to save this expert profile. Confirm that the expertProfiles rules are deployed and that your verification status is approved."
+          "Firebase denied permission to save this expert profile. Confirm that the expertProfiles rules allow authenticated users to create and update their own profile."
         );
       } else {
         setErrorMessage(
@@ -999,13 +996,6 @@ export default function ExpertSettingsPage() {
       return;
     }
 
-    if (!isVerified) {
-      setErrorMessage(
-        "Your account must be verified before publishing an expert profile."
-      );
-      return;
-    }
-
     const validationError = validateProfile();
 
     if (validationError) {
@@ -1125,10 +1115,26 @@ export default function ExpertSettingsPage() {
 
             {isVerified ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                <IoShieldCheckmarkOutline size={14} />
-                Verified
+                <IoShieldCheckmarkOutline
+                  size={14}
+                />
+                Verified expert
               </span>
-            ) : null}
+            ) : isVerificationPending ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+                <IoInformationCircleOutline
+                  size={14}
+                />
+                Verification pending
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
+                <IoInformationCircleOutline
+                  size={14}
+                />
+                Unverified expert
+              </span>
+            )}
           </div>
 
           <p
@@ -1169,7 +1175,7 @@ export default function ExpertSettingsPage() {
       ) : null}
 
       {!loading && userSummary && !isVerified ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 md:p-7">
+        <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 md:p-7">
           <div className="flex items-start gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-700">
               <IoInformationCircleOutline
@@ -1177,15 +1183,17 @@ export default function ExpertSettingsPage() {
               />
             </div>
 
-            <div>
+            <div className="min-w-0 flex-1">
               <h2 className="font-black text-amber-900">
-                Verification required
+                {isVerificationPending
+                  ? "Verification pending"
+                  : "Unverified expert profile"}
               </h2>
 
               <p className="mt-1 text-sm leading-6 text-amber-800">
-                Only approved verified professionals,
-                businesses and companies can configure
-                ekariExpert services.
+                {isVerificationPending
+                  ? "You can create, publish and manage your expert profile while your verification request is being reviewed."
+                  : "You can create and publish your expert profile without verification. Your public profile will display an Unverified expert badge until verification is approved."}
               </p>
 
               <p className="mt-2 text-xs font-semibold text-amber-800">
@@ -1202,7 +1210,9 @@ export default function ExpertSettingsPage() {
                 }
                 className="mt-4 rounded-full bg-amber-700 px-5 py-2.5 text-sm font-bold text-white"
               >
-                Go to verification
+                {isVerificationPending
+                  ? "View verification status"
+                  : "Get verified"}
               </button>
             </div>
           </div>
@@ -1211,7 +1221,7 @@ export default function ExpertSettingsPage() {
 
       {!loading &&
         userSummary &&
-        isVerified &&
+
         expertProfile ? (
         <form
           onSubmit={handleSave}

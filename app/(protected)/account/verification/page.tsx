@@ -18,6 +18,7 @@ import {
   IoIdCardOutline,
   IoCameraOutline,
   IoChevronBack,
+  IoBriefcaseOutline,
 } from "react-icons/io5";
 
 import AppShell from "@/app/components/AppShell";
@@ -596,8 +597,12 @@ export default function VerificationPage() {
         Account verification
       </h1>
       <p className="mt-2 text-sm" style={{ color: EKARI.subtext }}>
-        Help ekarihub members trust your expertise or organization by verifying your profile.
-        Upload ID and selfie, add supporting documents, then pay a one-time verification fee.
+        Verification is optional, but it helps
+        ekarihub members trust your identity,
+        expertise or organization. You can create
+        and publish an expert profile before
+        verification. Approved accounts receive a
+        verified badge.
       </p>
 
       <div className="mt-5">
@@ -634,7 +639,62 @@ export default function VerificationPage() {
           </ul>
         </div>
       )}
+      {status !== "approved" && (
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="flex items-start gap-3">
+            <div
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
+              style={{
+                backgroundColor:
+                  "rgba(35,63,57,0.08)",
+                color: EKARI.forest,
+              }}
+            >
+              <IoBriefcaseOutline size={21} />
+            </div>
 
+            <div className="min-w-0 flex-1">
+              <div
+                className="text-sm font-black"
+                style={{ color: EKARI.text }}
+              >
+                Expert profile does not require
+                verification
+              </div>
+
+              <p
+                className="mt-1 text-xs leading-5"
+                style={{
+                  color: EKARI.subtext,
+                }}
+              >
+                You can create your expert profile,
+                list services and receive
+                consultation requests now. Until
+                verification is approved, your
+                profile will show an Unverified
+                expert badge.
+              </p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    "/account/expert"
+                  )
+                }
+                className="mt-4 rounded-full px-5 py-2.5 text-xs font-black text-white"
+                style={{
+                  backgroundColor:
+                    EKARI.forest,
+                }}
+              >
+                Create expert profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {status === "approved" && (
         <div
           className="mt-8 rounded-2xl border p-5"
@@ -656,9 +716,10 @@ export default function VerificationPage() {
               </div>
 
               <p className="mt-1 text-xs leading-5">
-                You can now configure your professional
-                services, consultation fees, service
-                locations and client terms.
+                Your expert profile can now display a
+                verified badge. Verification helps clients
+                distinguish reviewed identities from
+                unverified expert profiles.
               </p>
 
               <button
@@ -671,7 +732,7 @@ export default function VerificationPage() {
                   backgroundColor: EKARI.forest,
                 }}
               >
-                Set up expert services
+                Manage expert services
               </button>
             </div>
           </div>

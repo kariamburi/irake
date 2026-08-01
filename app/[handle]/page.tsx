@@ -58,6 +58,7 @@ import {
   IoRepeatOutline,
   IoStar,
   IoStarHalf,
+  IoInformationCircleOutline,
 } from "react-icons/io5";
 import { DeedDoc, toDeed, resolveUidByHandle } from "@/lib/fire-queries";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -718,7 +719,6 @@ function ProfileHeroStorefront({
   );
 }
 
-
 function ProfessionalAccountSection({
   profile,
   isOwner,
@@ -734,75 +734,150 @@ function ProfessionalAccountSection({
 }) {
   const verificationStatus: VerificationStatus =
     profile.verificationStatus || "none";
-  const isVerified = verificationStatus === "approved";
 
-  if (!isOwner && !isVerified) return null;
+  const isVerified =
+    verificationStatus === "approved";
 
-  const typeLabel =
+  const isVerificationPending =
+    verificationStatus === "pending" ||
+    verificationStatus === "payment_pending";
+
+  const isRejected =
+    verificationStatus === "rejected";
+
+  /*
+   * Owners always see this section so that they can
+   * create or manage an expert profile.
+   *
+   * Visitors only see it when a public expert profile
+   * has been published.
+   */
+  if (
+    !isOwner &&
+    !hasPublishedExpertProfile
+  ) {
+    return null;
+  }
+
+  const accountType =
     profile.verificationType === "business"
-      ? "Verified business"
+      ? "Business"
       : profile.verificationType === "company"
-        ? "Verified company"
-        : "Verified individual";
+        ? "Company"
+        : "Individual";
+
+  const badgeLabel = isVerified
+    ? `Verified ${accountType.toLowerCase()}`
+    : isVerificationPending
+      ? "Verification pending"
+      : "Unverified expert";
 
   const professionalLabel =
     profile.verificationOrganizationName ||
     profile.verificationRoleLabel ||
-    "Verified professional";
+    (hasPublishedExpertProfile
+      ? "Ekari Expert"
+      : "Create your expert profile");
 
   const storefrontExpired =
     !!profile.storefrontUntil &&
     profile.storefrontUntil <= Date.now();
 
-  const verificationMessage =
-    verificationStatus === "pending"
-      ? "Your verification request is awaiting review."
-      : verificationStatus === "rejected"
-        ? "Your verification request needs attention."
-        : "Complete verification to unlock a trusted professional profile and expert services.";
+  const description = isVerified
+    ? "Identity and professional information have been reviewed by ekarihub."
+    : isVerificationPending
+      ? "This expert profile can remain active while the verification request is being reviewed."
+      : isRejected
+        ? "This expert profile is active, but the previous verification request was not approved."
+        : hasPublishedExpertProfile
+          ? "This expert has not yet completed ekarihub verification. Review their experience, ratings and consultation terms before booking."
+          : "Create an expert profile to publish your services and receive consultation requests. Verification is optional.";
 
   return (
     <section className="mx-auto mb-6 max-w-5xl px-3 md:px-4">
       <div
         className="overflow-hidden rounded-[26px] border bg-white shadow-[0_14px_44px_rgba(15,23,42,0.06)]"
-        style={{ borderColor: EKARI.hair }}
+        style={{
+          borderColor: EKARI.hair,
+        }}
       >
         <div className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-6">
           <div className="flex min-w-0 items-start gap-4">
             <div
               className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl"
               style={{
-                backgroundColor: isVerified ? "#E6F1EE" : "#FFF7ED",
-                color: isVerified ? EKARI.forest : "#B45309",
+                backgroundColor: isVerified
+                  ? "#E6F1EE"
+                  : isVerificationPending
+                    ? "#FFFBEB"
+                    : "#F8FAFC",
+
+                color: isVerified
+                  ? EKARI.forest
+                  : isVerificationPending
+                    ? "#B45309"
+                    : "#64748B",
               }}
             >
-              {verificationStatus === "pending" ? (
+              {isVerified ? (
+                <IoShieldCheckmarkOutline
+                  size={24}
+                />
+              ) : isVerificationPending ? (
                 <IoTimeOutline size={23} />
               ) : (
-                <IoShieldCheckmarkOutline size={24} />
+                <IoInformationCircleOutline
+                  size={23}
+                />
               )}
             </div>
 
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-black" style={{ color: EKARI.text }}>
-                  {isVerified ? "Professional account" : "Build professional trust"}
+                <h2
+                  className="text-base font-black"
+                  style={{ color: EKARI.text }}
+                >
+                  {hasPublishedExpertProfile
+                    ? "Expert profile"
+                    : "Become an Ekari Expert"}
                 </h2>
 
-                {isVerified ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
-                    <IoShieldCheckmarkOutline size={13} />
-                    {typeLabel}
-                  </span>
-                ) : null}
+                <span
+                  className={[
+                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-black",
 
-                {isOwner && profile.isAdmin ? (
+                    isVerified
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : isVerificationPending
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-slate-200 bg-slate-50 text-slate-600",
+                  ].join(" ")}
+                >
+                  {isVerified ? (
+                    <IoShieldCheckmarkOutline
+                      size={13}
+                    />
+                  ) : isVerificationPending ? (
+                    <IoTimeOutline size={13} />
+                  ) : (
+                    <IoInformationCircleOutline
+                      size={13}
+                    />
+                  )}
+
+                  {badgeLabel}
+                </span>
+
+                {isOwner &&
+                  profile.isAdmin ? (
                   <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-600">
                     Admin
                   </span>
                 ) : null}
 
-                {isOwner && storefrontExpired ? (
+                {isOwner &&
+                  storefrontExpired ? (
                   <Link
                     href="/seller/dashboard?tab=packages"
                     className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-black text-rose-700 hover:bg-rose-100"
@@ -812,79 +887,86 @@ function ProfessionalAccountSection({
                 ) : null}
               </div>
 
-              {isVerified ? (
-                <>
-                  <p className="mt-1.5 text-sm font-bold" style={{ color: EKARI.forest }}>
-                    {professionalLabel}
-                  </p>
-                  <p className="mt-1 text-xs leading-5" style={{ color: EKARI.subtext }}>
-                    Identity and professional credentials have been reviewed by ekarihub.
-                    {isOwner && !hasPublishedExpertProfile
-                      ? " Complete your expert settings to start receiving consultation requests."
-                      : ""}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-1.5 text-sm leading-6" style={{ color: EKARI.subtext }}>
-                  {verificationMessage}
-                </p>
-              )}
+              <p
+                className="mt-1.5 text-sm font-bold"
+                style={{
+                  color: isVerified
+                    ? EKARI.forest
+                    : EKARI.text,
+                }}
+              >
+                {professionalLabel}
+              </p>
+
+              <p
+                className="mt-1 text-xs leading-5"
+                style={{
+                  color: EKARI.subtext,
+                }}
+              >
+                {description}
+
+                {isVerified &&
+                  isOwner &&
+                  !hasPublishedExpertProfile
+                  ? " Complete your expert settings to start receiving consultation requests."
+                  : ""}
+              </p>
             </div>
           </div>
 
           {isOwner ? (
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap md:justify-end">
-              {isVerified ? (
-                <>
-                  <Link
-                    href="/account/expert"
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-black text-white"
-                    style={{ backgroundColor: EKARI.forest }}
-                  >
-                    <IoPencilOutline size={15} />
-                    Expert settings
-                  </Link>
+              <Link
+                href="/account/expert"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-black text-white"
+                style={{
+                  backgroundColor:
+                    EKARI.forest,
+                }}
+              >
+                <IoPencilOutline size={15} />
 
-                  <Link
-                    href="/account/expert/bookings"
-                    className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                    style={{
-                      borderColor: EKARI.hair,
-                      color: EKARI.text,
-                    }}
-                  >
-                    <IoCalendarOutline size={15} />
+                {hasPublishedExpertProfile
+                  ? "Expert settings"
+                  : "Create expert profile"}
+              </Link>
 
-                    <span>Expert bookings</span>
-
-                    {expertBookingsBadge > 0 ? (
-                      <span
-                        className="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white"
-                        style={{
-                          backgroundColor: EKARI.primary,
-                        }}
-                      >
-                        {expertBookingsBadge > 99
-                          ? "99+"
-                          : expertBookingsBadge}
-                      </span>
-                    ) : null}
-                  </Link>
-                </>
-              ) : (
+              {hasPublishedExpertProfile ? (
                 <Link
-                  href="/account/verification"
-                  className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-xs font-black text-white"
-                  style={{ backgroundColor: EKARI.forest }}
+                  href="/account/expert/bookings"
+                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
+                  style={{
+                    borderColor:
+                      EKARI.hair,
+                    color: EKARI.text,
+                  }}
                 >
-                  <IoShieldCheckmarkOutline size={16} />
-                  {verificationStatus === "pending"
-                    ? "View verification"
-                    : verificationStatus === "rejected"
-                      ? "Review verification"
-                      : "Get verified"}
+                  <IoCalendarOutline
+                    size={15}
+                  />
+
+                  <span>
+                    Expert bookings
+                  </span>
+
+                  {expertBookingsBadge >
+                    0 ? (
+                    <span
+                      className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white"
+                      style={{
+                        backgroundColor:
+                          EKARI.primary,
+                      }}
+                    >
+                      {expertBookingsBadge >
+                        99
+                        ? "99+"
+                        : expertBookingsBadge}
+                    </span>
+                  ) : null}
                 </Link>
-              )}
+              ) : null}
 
               <Link
                 href="/account/bookings"
@@ -900,9 +982,10 @@ function ProfessionalAccountSection({
 
                 {myBookingsBadge > 0 ? (
                   <span
-                    className="inline-flex min-w-5 h-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white"
+                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white"
                     style={{
-                      backgroundColor: EKARI.primary,
+                      backgroundColor:
+                        EKARI.primary,
                     }}
                   >
                     {myBookingsBadge > 99
@@ -912,15 +995,40 @@ function ProfessionalAccountSection({
                 ) : null}
               </Link>
 
-              {isVerified ? (
-                <Link
-                  href="/account/verification"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                  style={{ borderColor: EKARI.hair, color: EKARI.subtext }}
-                >
-                  Verification
-                </Link>
-              ) : null}
+              <Link
+                href="/account/verification"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
+                style={{
+                  borderColor: isVerified
+                    ? EKARI.hair
+                    : "#FCD34D",
+
+                  color: isVerified
+                    ? EKARI.subtext
+                    : "#92400E",
+
+                  backgroundColor:
+                    isVerified
+                      ? "white"
+                      : "#FFFBEB",
+                }}
+              >
+                {isVerificationPending ? (
+                  <IoTimeOutline size={15} />
+                ) : (
+                  <IoShieldCheckmarkOutline
+                    size={15}
+                  />
+                )}
+
+                {isVerified
+                  ? "Verification"
+                  : isVerificationPending
+                    ? "Verification status"
+                    : isRejected
+                      ? "Verify again"
+                      : "Get verified"}
+              </Link>
             </div>
           ) : null}
         </div>
@@ -933,7 +1041,12 @@ function ProfessionalAccountSection({
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
 const makeThreadId = (a: string, b: string) => [a, b].sort().join("_");
-type VerificationStatus = "none" | "pending" | "approved" | "rejected";
+type VerificationStatus =
+  | "none"
+  | "payment_pending"
+  | "pending"
+  | "approved"
+  | "rejected";
 // 👇 add this
 type VerificationType = "individual" | "business" | "company";
 type Profile = {
