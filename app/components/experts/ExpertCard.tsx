@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
     IoArrowForward,
     IoCallOutline,
+    IoChatbubbleEllipsesOutline,
     IoCheckmarkCircle,
     IoLocationOutline,
     IoLogoWhatsapp,
@@ -43,13 +44,32 @@ function getInitials(name: string): string {
 
 function formatMoney(
     amount: number,
-    currency = "KES"
+    currency:
+        | "KES"
+        | "USD" = "KES"
 ): string {
-    return new Intl.NumberFormat("en-KE", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-    }).format(Math.max(0, amount));
+    const value = Math.max(
+        0,
+        Number(amount) || 0
+    );
+
+    try {
+        return new Intl.NumberFormat(
+            currency === "KES"
+                ? "en-KE"
+                : "en-US",
+            {
+                style: "currency",
+                currency,
+                maximumFractionDigits:
+                    currency === "KES"
+                        ? 0
+                        : 2,
+            }
+        ).format(value);
+    } catch {
+        return `${currency} ${value.toLocaleString()}`;
+    }
 }
 
 function getPriceLabel(
@@ -78,17 +98,59 @@ function getPriceLabel(
 function getLocationLabel(
     expert: PublicExpert
 ): string {
-    const town =
-        expert.primaryLocation?.town?.trim();
+    const location =
+        expert.primaryLocation;
 
-    const county =
-        expert.primaryLocation?.county?.trim();
+    const directLabel =
+        String(
+            location?.label || ""
+        ).trim();
 
-    if (town && county) {
-        return `${town}, ${county}`;
+    if (directLabel) {
+        return directLabel;
     }
 
-    return town || county || "Kenya";
+    const locality =
+        String(
+            location?.locality || ""
+        ).trim();
+
+    const city =
+        String(
+            location?.city || ""
+        ).trim();
+
+    const region =
+        String(
+            location?.region || ""
+        ).trim();
+
+    const country =
+        String(
+            location?.country || ""
+        ).trim();
+
+    const parts = [
+        locality,
+        city,
+        region,
+        country,
+    ].filter(Boolean);
+
+    const uniqueParts =
+        parts.filter(
+            (value, index, values) =>
+                values.findIndex(
+                    (item) =>
+                        item.toLowerCase() ===
+                        value.toLowerCase()
+                ) === index
+        );
+
+    return (
+        uniqueParts.join(", ") ||
+        "Location not specified"
+    );
 }
 function ExpertRating({
     average,
@@ -253,7 +315,20 @@ function ConsultationIcons({
                     <IoVideocamOutline size={15} />
                 </span>
             ) : null}
-
+            {visibleMethods.includes("chat") ? (
+                <span
+                    title="Ekarihub chat"
+                    className="grid h-8 w-8 place-items-center rounded-full border bg-white"
+                    style={{
+                        borderColor: EKARI.hair,
+                        color: EKARI.forest,
+                    }}
+                >
+                    <IoChatbubbleEllipsesOutline
+                        size={15}
+                    />
+                </span>
+            ) : null}
             {visibleMethods.includes("physical") ? (
                 <span
                     title="Physical farm visit"
@@ -266,6 +341,7 @@ function ConsultationIcons({
                     <IoLocationOutline size={15} />
                 </span>
             ) : null}
+
         </div>
     );
 }
@@ -390,7 +466,8 @@ export default function ExpertCard({
                                         {displayName}
                                     </h2>
 
-                                    {expert.verified ? (
+                                    {expert.verificationStatus ===
+                                        "approved" ? (
                                         <IoCheckmarkCircle
                                             size={18}
                                             className="shrink-0"
@@ -404,7 +481,9 @@ export default function ExpertCard({
                                     className="mt-1 truncate text-xs font-bold"
                                     style={{ color: EKARI.gold }}
                                 >
-                                    {expert.headline || expert.verificationRole ||
+                                    {expert.headline ||
+                                        expert.verificationRole ||
+                                        expert.specialties?.[0] ||
                                         expert.organizationName ||
                                         "Agricultural professional"}
                                 </p>
