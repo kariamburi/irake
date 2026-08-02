@@ -43,6 +43,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
     { href: "/admin/wallets", label: "Creator withdrawals" },
     { href: "/admin/settings", label: "Settings" },
     { href: "/admin/verification", label: "Verification" },
+    { href: "/admin/experts", label: "Experts" },
     { href: "/admin/support-tickets", label: "Support tickets" },
     { href: "/admin/sounds", label: "Sounds library" },
     { href: "/admin/usermanagement", label: "User management" },
@@ -73,6 +74,13 @@ function getAdminTitle(pathname: string): string {
     if (pathname.startsWith("/admin/wallets")) return "Creator withdrawals";
     if (pathname.startsWith("/admin/settings")) return "Settings";
     if (pathname.startsWith("/admin/verification")) return "Verification";
+    if (
+        pathname.startsWith(
+            "/admin/experts"
+        )
+    ) {
+        return "Expert management";
+    }
     if (pathname.startsWith("/admin/support-tickets")) return "Support tickets";
     if (pathname.startsWith("/admin/sounds")) return "Sounds library";
 
