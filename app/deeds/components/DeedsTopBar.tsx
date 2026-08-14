@@ -1,8 +1,17 @@
 "use client";
 
-import React from "react";
-import { IoCompassOutline, IoMenu, IoPartlySunnyOutline, IoSearch } from "react-icons/io5";
+import React, { useMemo } from "react";
+import {
+    IoCloudOutline,
+    IoLocationOutline,
+    IoSearch,
+    IoSunnyOutline,
+} from "react-icons/io5";
+
 import { FeedTabKey } from "../data/deedsFeedWeb";
+import { useWeather } from "@/app/hooks/useWeather";
+import { useWeatherLocation } from "@/app/hooks/useWeatherLocation";
+import EkariAvatar from "@/app/components/EkariAvatar";
 
 const TABS: FeedTabKey[] = [
     "trending",
@@ -18,207 +27,521 @@ const LABEL: Record<FeedTabKey, string> = {
     nearby: "Nearby",
 };
 
-function isPublicTab(tab: FeedTabKey) {
-    return tab === "trending" || tab === "forYou";
-}
-
 type Props = {
     uid?: string | null;
+
     profile?: {
         photoURL?: string | null;
         handle?: string | null;
     } | null;
+
     activeTab: FeedTabKey;
+
     onChangeTab: (tab: FeedTabKey) => void;
+
     onOpenMenu?: () => void;
+
     onOpenSearch: () => void;
+
     onOpenProfile: () => void;
+
     onOpenDive?: () => void;
+
     onOpenWeather?: () => void;
+
     isDesktop?: boolean;
 };
+
+/* =========================================================
+   SMALL HELPERS
+========================================================= */
+
+function firstNumber(...values: unknown[]): number | null {
+    for (const value of values) {
+        if (
+            value === null ||
+            value === undefined ||
+            value === ""
+        ) {
+            continue;
+        }
+
+        const n = Number(value);
+
+        if (Number.isFinite(n)) {
+            return n;
+        }
+    }
+
+    return null;
+}
+
+function getWeatherCode(weather: any) {
+    const current =
+        weather?.current ??
+        weather?.currentWeather ??
+        weather?.now ??
+        {};
+
+    const daily = Array.isArray(weather?.daily)
+        ? weather.daily[0]
+        : weather?.daily ?? {};
+
+    return firstNumber(
+        current?.weather_code,
+        current?.weatherCode,
+        current?.code,
+        daily?.weatherCode,
+        daily?.weather_code
+    );
+}
+
+function getWeatherTemperature(weather: any) {
+    const current =
+        weather?.current ??
+        weather?.currentWeather ??
+        weather?.now ??
+        {};
+
+    return firstNumber(
+        current?.temp_c,
+        current?.temperature,
+        current?.temperatureC,
+        current?.temperature2m,
+        current?.temperature_2m,
+        current?.temp,
+        weather?.temp_c
+    );
+}
+
+function isSunnyWeather(code: number | null) {
+    if (code === null) return false;
+
+    return code === 0 || code === 1;
+}
+
+/* =========================================================
+   COMPONENT
+========================================================= */
 
 export function DeedsTopBar({
     uid,
     profile,
     activeTab,
     onChangeTab,
-    onOpenMenu,
     onOpenSearch,
     onOpenProfile,
-    onOpenDive,
     onOpenWeather,
     isDesktop = false,
 }: Props) {
-    return (
-        <div className="sticky top-0 z-50">
-            <div className="relative w-full">
-                {!isDesktop ? (
-                    <div className="px-3 pt-2 pb-1">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={onOpenMenu}
-                                    className="grid h-9 w-9 place-items-center text-white"
-                                    aria-label="Open menu"
-                                >
-                                    <IoMenu size={20} />
-                                </button>
+    /* =====================================================
+       MOBILE WEATHER
+    ===================================================== */
 
-                                <button
-                                    type="button"
-                                    onClick={onOpenSearch}
-                                    className="grid h-12 w-12 place-items-center rounded-full text-white"
-                                    aria-label="Search"
+    const {
+        location,
+        initialized: locationInitialized,
+    } = useWeatherLocation();
+
+    const {
+        weather,
+        loading: weatherLoading,
+    } = useWeather(
+        location
+            ? {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                locationName: location.locationName,
+            }
+            : null
+    );
+
+    const weatherView = useMemo(() => {
+        const temperature =
+            getWeatherTemperature(weather);
+
+        const code =
+            getWeatherCode(weather);
+
+        return {
+            temperature,
+            code,
+        };
+    }, [weather]);
+
+    const cleanHandle =
+        (profile?.handle || "")
+            .trim()
+            .replace(/^@/, "");
+
+    /* =====================================================
+       TAB RENDERER
+    ===================================================== */
+
+    const renderTabs = (
+        mobile: boolean
+    ) => (
+        <div
+            className={[
+                "flex items-center",
+                mobile
+                    ? "w-full justify-between gap-1 px-2"
+                    : "gap-6",
+            ].join(" ")}
+        >
+            {TABS.map((tab) => {
+                const isActive =
+                    activeTab === tab;
+
+                const locked =
+                    !uid &&
+                    tab !== "forYou" &&
+                    tab !== "trending";
+
+                return (
+                    <button
+                        key={tab}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                            if (locked) {
+                                return;
+                            }
+
+                            onChangeTab(tab);
+                        }}
+                        className={[
+                            "relative",
+                            "flex",
+                            "items-center",
+                            "justify-center",
+                            "whitespace-nowrap",
+                            "transition-all",
+                            "duration-200",
+
+                            mobile
+                                ? [
+                                    "min-w-0",
+                                    "flex-1",
+                                    "pb-[10px]",
+                                    "text-[15px]",
+                                    "sm:text-[16px]",
+                                ].join(" ")
+                                : [
+                                    "pb-[7px]",
+                                    "text-[16px]",
+                                ].join(" "),
+
+                            isActive
+                                ? tab === "trending"
+                                    ? "font-black text-[#F3A526]"
+                                    : "font-black text-white"
+                                : "font-bold text-white/55",
+
+                            locked
+                                ? "cursor-default opacity-40"
+                                : "hover:text-white",
+                        ].join(" ")}
+                        style={{
+                            textShadow:
+                                "0 2px 8px rgba(0,0,0,0.45)",
+                        }}
+                    >
+                        {LABEL[tab]}
+
+                        {isActive ? (
+                            <span
+                                className={[
+                                    "absolute",
+                                    "bottom-0",
+                                    "left-1/2",
+                                    "h-[3px]",
+                                    "-translate-x-1/2",
+                                    "rounded-full",
+
+                                    tab === "trending"
+                                        ? "w-7 bg-[#F3A526]"
+                                        : "w-7 bg-white",
+                                ].join(" ")}
+                            />
+                        ) : null}
+                    </button>
+                );
+            })}
+        </div>
+    );
+
+    return (
+        <header
+            className={[
+                "sticky",
+                "top-0",
+                "z-[60]",
+                "w-full",
+            ].join(" ")}
+        >
+            {/* =================================================
+                MOBILE
+            ================================================= */}
+            {!isDesktop ? (
+                <div
+                    className={[
+                        "relative",
+                        "w-full",
+                        "px-3",
+                        "pt-[max(8px,env(safe-area-inset-top))]",
+                        "pb-1",
+                    ].join(" ")}
+                >
+                    {/* subtle dark fade behind header */}
+                    <div
+                        aria-hidden="true"
+                        className="
+                            pointer-events-none
+                            absolute
+                            inset-x-0
+                            top-0
+                            h-[124px]
+                            bg-gradient-to-b
+                            from-black/60
+                            via-black/25
+                            to-transparent
+                        "
+                    />
+
+                    {/* =================================================
+                        TOP ROW
+                    ================================================= */}
+                    <div className="relative z-10 flex h-[52px] items-center justify-between">
+                        {/* LEFT */}
+                        <div className="flex items-center gap-2">
+                            {/* SEARCH */}
+                            <button
+                                type="button"
+                                onClick={onOpenSearch}
+                                aria-label="Search"
+                                title="Search"
+                                className={[
+                                    "grid",
+                                    "h-11",
+                                    "w-11",
+                                    "place-items-center",
+                                    "rounded-full",
+                                    "border",
+                                    "border-white/25",
+                                    "bg-black/22",
+                                    "text-white",
+                                    "backdrop-blur-md",
+                                    "transition-all",
+                                    "duration-200",
+                                    "active:scale-95",
+                                ].join(" ")}
+                            >
+                                <IoSearch size={22} />
+                            </button>
+
+                            {/* PROFILE */}
+                            <button
+                                type="button"
+                                onClick={onOpenProfile}
+                                aria-label="Open profile"
+                                title={
+                                    cleanHandle
+                                        ? `@${cleanHandle}`
+                                        : "Profile"
+                                }
+                                className="
+                                    relative
+                                    rounded-full
+                                    transition
+                                    active:scale-95
+                                "
+                            >
+                                <div
+                                    className="
+                                        rounded-full
+                                        border-2
+                                        border-white/55
+                                        bg-black/20
+                                        shadow-[0_6px_20px_rgba(0,0,0,0.28)]
+                                    "
                                 >
-                                    <IoSearch size={24} />
-                                </button>
-                                {/**<button
-                                    type="button"
-                                    onClick={onOpenDive}
-                                    className="grid h-12 w-12 place-items-center rounded-full bg-black/28 text-white backdrop-blur-md"
-                                    aria-label="Search"
-                                >
-                                    <IoCompassOutline size={24} />
-                                </button>*/}
-                                <button
-                                    type="button"
-                                    onClick={onOpenProfile}
-                                    className="h-11 w-11 overflow-hidden rounded-full border border-white/25 bg-white/10"
-                                    aria-label="Profile"
-                                >
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={profile?.photoURL ?? "/avatar-placeholder.png"}
-                                        alt="Profile"
-                                        className="h-full w-full object-cover"
+                                    <EkariAvatar
+                                        src={
+                                            profile?.photoURL ??
+                                            null
+                                        }
+                                        handle={
+                                            cleanHandle ||
+                                            "user"
+                                        }
+                                        alt={
+                                            cleanHandle
+                                                ? `@${cleanHandle}`
+                                                : "Profile"
+                                        }
+                                        size={44}
                                     />
-                                </button>
-                            </div>
-                            <div className="flex gap-2 items-center justify-center">
-                                <button
-                                    type="button"
-                                    onClick={onOpenDive}
-                                    className="flex h-12 items-center gap-2 rounded-full px-4 text-white"
-                                    aria-label="Dive"
-                                >
-                                    <IoCompassOutline size={19} />
-                                    <span className="text-[15px] tracking-[0.01em]">
-                                        Dive
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={onOpenWeather}
-                                    className="flex h-12 items-center gap-2 rounded-full  px-4 text-white"
-                                    aria-label="Dive"
-                                >
-                                    <IoPartlySunnyOutline size={19} />
-                                    <span className="text-[15px] tracking-[0.01em]">
+                                </div>
+                            </button>
+                        </div>
+
+                        {/* RIGHT: WEATHER PILL */}
+                        <button
+                            type="button"
+                            onClick={onOpenWeather}
+                            aria-label="Open weather"
+                            title="Farm weather"
+                            className={[
+                                "flex",
+                                "h-10",
+                                "max-w-[160px]",
+                                "items-center",
+                                "gap-2",
+                                "rounded-full",
+                                "border",
+                                "border-white/25",
+                                "bg-black/25",
+                                "px-3",
+                                "text-white",
+                                "shadow-[0_6px_20px_rgba(0,0,0,0.18)]",
+                                "backdrop-blur-md",
+                                "transition",
+                                "active:scale-[0.97]",
+                            ].join(" ")}
+                        >
+                            {!locationInitialized ||
+                                weatherLoading ? (
+                                <>
+                                    <IoCloudOutline
+                                        size={17}
+                                        className="text-white/75"
+                                    />
+
+                                    <span className="text-[12px] font-bold text-white/70">
                                         Weather
                                     </span>
-                                </button>
-                            </div>
-                        </div>
+                                </>
+                            ) : weatherView.temperature !==
+                                null ? (
+                                <>
+                                    {isSunnyWeather(
+                                        weatherView.code
+                                    ) ? (
+                                        <IoSunnyOutline
+                                            size={18}
+                                            className="text-[#F3A526]"
+                                        />
+                                    ) : (
+                                        <IoCloudOutline
+                                            size={18}
+                                            className="text-sky-300"
+                                        />
+                                    )}
 
-                        <div className="mt-2 flex items-center justify-center gap-4 px-2 sm:gap-6">
-                            {TABS.map((k) => {
-                                const isActive = activeTab === k;
-                                const locked = !uid && !isPublicTab(k);
+                                    <span className="text-[13px] font-black">
+                                        {Math.round(
+                                            weatherView.temperature
+                                        )}
+                                        °C
+                                    </span>
 
-                                return (
-                                    <button
-                                        key={k}
-                                        type="button"
-                                        onClick={() => {
-                                            if (locked) return;
-                                            onChangeTab(k);
-                                        }}
-                                        className={[
-                                            "relative whitespace-nowrap pb-1 text-[15px] tracking-[0.01em] transition sm:text-[17px]",
-                                            isActive
-                                                ? "font-extrabold text-white"
-                                                : "font-bold text-white/72",
-                                            locked ? "opacity-60" : "",
-                                        ].join(" ")}
-                                        style={{
-                                            textShadow: "0 2px 6px rgba(0,0,0,0.35)",
-                                        }}
-                                    >
-                                        {LABEL[k]}
-                                        {isActive ? (
-                                            <span className="absolute inset-x-0 -bottom-0.5 mx-auto h-[2px] w-7 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.30)]" />
-                                        ) : null}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                    {location?.locationName ? (
+                                        <span
+                                            className="
+                                                hidden
+                                                max-w-[66px]
+                                                truncate
+                                                text-[10px]
+                                                font-bold
+                                                text-white/65
+                                                min-[380px]:block
+                                            "
+                                        >
+                                            {location.locationName}
+                                        </span>
+                                    ) : null}
+                                </>
+                            ) : (
+                                <>
+                                    <IoLocationOutline
+                                        size={17}
+                                        className="text-[#F3A526]"
+                                    />
+
+                                    <span className="text-[11px] font-bold">
+                                        Weather
+                                    </span>
+                                </>
+                            )}
+                        </button>
                     </div>
-                ) : (
-                    <div className="flex h-[58px] items-center justify-between px-4">
 
-                        {/** <button
-                            type="button"
-                            onClick={onOpenDive}
-                            className="flex h-10 items-center gap-2 rounded-full bg-black/28 px-2 text-white backdrop-blur-md"
-                            aria-label="Dive"
-                        >
-                            <IoCompassOutline size={19} />
-                            <span className="text-[12px] font-bold tracking-[0.01em]">
-                                Dive
-                            </span>  </button>*/}
+                    {/* =================================================
+                        TABS
+                    ================================================= */}
+                    <div className="relative z-10 mt-2">
+                        {renderTabs(true)}
+                    </div>
+                </div>
+            ) : (
+                /* =====================================================
+                   DESKTOP
+                   Keep desktop clean and close to existing appearance.
+                ===================================================== */
+                <div
+                    className="
+                        relative
+                        flex
+                        h-[64px]
+                        w-full
+                        items-center
+                        px-4
+                    "
+                >
+                    {/* SEARCH */}
+                    <div className="flex w-[52px] items-center">
                         <button
                             type="button"
                             onClick={onOpenSearch}
-                            className="grid h-10 w-10 place-items-center rounded-full text-white transition-all duration-200 ease-out hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95"
+                            className="
+                                grid
+                                h-10
+                                w-10
+                                place-items-center
+                                rounded-full
+                                border
+                                border-white/20
+                                bg-black/18
+                                text-white
+                                backdrop-blur-md
+                                transition
+                                hover:bg-white/10
+                                active:scale-95
+                            "
                             aria-label="Search"
-                            style={{
-                                textShadow: "0 2px 6px rgba(0,0,0,0.35)",
-                            }}
                         >
                             <IoSearch size={20} />
                         </button>
-                        <div className="h-12" />
-                        <div className="flex items-center gap-5 xl:gap-6">
-                            {TABS.map((k) => {
-                                const isActive = activeTab === k;
-                                const locked = !uid && !isPublicTab(k);
-
-                                return (
-                                    <button
-                                        key={k}
-                                        type="button"
-                                        onClick={() => {
-                                            if (locked) return;
-                                            onChangeTab(k);
-                                        }}
-                                        className={[
-                                            "relative whitespace-nowrap pb-1 text-[16px] tracking-[0.01em] transition xl:text-[17px]",
-                                            isActive
-                                                ? "font-extrabold text-white"
-                                                : "font-bold text-white/70",
-                                            locked ? "opacity-60" : "",
-                                        ].join(" ")}
-                                        style={{
-                                            textShadow: "0 2px 6px rgba(0,0,0,0.35)",
-                                        }}
-                                    >
-                                        {LABEL[k]}
-                                        {isActive ? (
-                                            <span className="absolute inset-x-0 -bottom-0.5 mx-auto h-[2px] w-7 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.30)]" />
-                                        ) : null}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        <div className="flex w-12 items-center justify-end">
-
-                        </div>
                     </div>
-                )}
-            </div>
-        </div>
+
+                    {/* CENTER TABS */}
+                    <div
+                        className="
+                            absolute
+                            left-1/2
+                            top-1/2
+                            -translate-x-1/2
+                            -translate-y-1/2
+                        "
+                    >
+                        {renderTabs(false)}
+                    </div>
+
+                    {/* BALANCE */}
+                    <div className="ml-auto w-[52px]" />
+                </div>
+            )}
+        </header>
     );
 }

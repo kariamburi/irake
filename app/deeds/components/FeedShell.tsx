@@ -372,7 +372,7 @@ function FeedShellInner({
 
     return (
         <GlobalMuteProviderWeb initialMuted={true}>
-            <div className="relative h-[100svh] w-full overflow-hidden bg-[#0B1D12] text-white">
+            <div className="use-desktop-mobile-rail relative h-[100svh] w-full overflow-hidden bg-[#0B1D12] text-white">
                 <div className="flex h-full w-full">
                     <div className="relative h-full min-w-0 flex-1 overflow-hidden">
                         <div className="flex h-full w-full items-stretch justify-center">
@@ -500,31 +500,41 @@ function FeedShellInner({
                                     </div>
                                 ) : null}
 
-                                {isDesktop ? (
-                                    <div className="pointer-events-none absolute inset-y-0 right-2 z-[45] hidden w-[64px] lg:flex">
-                                        <div className="pointer-events-auto flex h-full w-full items-center justify-center">
-                                            <DesktopDeedRailWeb
-                                                item={activeDeed}
-                                                uid={uid}
-                                                following={following}
-                                                commented={
-                                                    activeDeed
-                                                        ? !!commentedMap[activeDeed.id]
-                                                        : false
-                                                }
-                                                onOpenComments={openComments}
-                                                onPrev={goPrev}
-                                                onNext={goNext}
-                                                canGoPrev={canGoPrev}
-                                                canGoNext={canGoNext}
-                                                onSupportClick={handleSupportClick}
-                                                onUserBlocked={handleUserBlocked}
-                                                isSuspended={isSuspended}
-                                                suspendedReason={suspendedReason}
-                                            />
-                                        </div>
+                                {/* Shared deed action rail.
+                                    Desktop keeps previous/next navigation.
+                                    Mobile reuses the SAME button design but hides the
+                                    previous/next navigation controls. */}
+                                <div
+                                    className={[
+                                        "pointer-events-none absolute z-[45] w-[64px]",
+                                        isDesktop
+                                            ? "inset-y-0 right-2 hidden lg:flex"
+                                            : "right-1.5 top-[118px] bottom-[88px] flex sm:right-2",
+                                    ].join(" ")}
+                                >
+                                    <div className="pointer-events-auto flex h-full w-full items-center justify-center">
+                                        <DesktopDeedRailWeb
+                                            item={activeDeed}
+                                            uid={uid}
+                                            following={following}
+                                            commented={
+                                                activeDeed
+                                                    ? !!commentedMap[activeDeed.id]
+                                                    : false
+                                            }
+                                            onOpenComments={openComments}
+                                            onPrev={goPrev}
+                                            onNext={goNext}
+                                            canGoPrev={canGoPrev}
+                                            canGoNext={canGoNext}
+                                            onSupportClick={handleSupportClick}
+                                            onUserBlocked={handleUserBlocked}
+                                            isSuspended={isSuspended}
+                                            suspendedReason={suspendedReason}
+                                            compactMobile={!isDesktop}
+                                        />
                                     </div>
-                                ) : null}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -605,6 +615,17 @@ function FeedShellInner({
                     </div>
                 ) : null}
             </div>
+            {/* The old overlay rail is still part of DeedOverlayWeb.
+                Hide only that rail on mobile now that FeedShell owns the
+                shared desktop-style rail. */}
+            <style jsx global>{`
+                @media (max-width: 1023px) {
+                    .use-desktop-mobile-rail .deed-mobile-overlay-rail {
+                        display: none !important;
+                    }
+                }
+            `}</style>
+
             {donateDeed && (<DonateDialogWeb
                 open={donateOpen}
                 onClose={() => setDonateOpen(false)}

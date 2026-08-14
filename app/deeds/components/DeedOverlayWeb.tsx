@@ -309,7 +309,7 @@ export function DeedOverlayWeb({
         <>
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/82 via-black/18 to-black/8 md:from-black/72 md:via-black/10 md:to-transparent" />
 
-            <div className="pointer-events-none absolute inset-0 z-20 md:hidden">
+            <div className="deed-mobile-overlay-rail pointer-events-none absolute inset-0 z-20 md:hidden">
                 <div className="pointer-events-auto absolute bottom-[104px] right-2 flex flex-col items-center gap-3">
                     <div className="relative">
                         <button

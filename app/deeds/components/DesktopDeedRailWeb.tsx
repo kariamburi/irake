@@ -50,6 +50,17 @@ type Props = {
     suspendedReason?: string | null;
 
     authordeeds?: boolean;
+
+    /**
+     * Mobile feed reuses this desktop action rail so the buttons
+     * remain visually identical across breakpoints.
+     *
+     * When true:
+     * - component is visible below lg
+     * - previous/next navigation buttons are hidden
+     * - only creator + engagement actions are shown
+     */
+    compactMobile?: boolean;
 };
 
 function cleanId(value: unknown): string {
@@ -79,6 +90,7 @@ export function DesktopDeedRailWeb({
     suspendedReason,
 
     authordeeds,
+    compactMobile = false,
 }: Props) {
     const router = useRouter();
 
@@ -407,32 +419,62 @@ export function DesktopDeedRailWeb({
     };
 
     const glassNavigationClass = [
-        "group grid h-11 w-11 place-items-center",
-        "rounded-full border border-white/20",
-        "bg-[#173C2E]/90",
+        "group grid h-12 w-12 place-items-center",
+        "rounded-full border",
+        "border-white/25",
+        "bg-black/45",
         "text-white",
         "backdrop-blur-xl",
-        "shadow-[0_8px_24px_rgba(0,0,0,0.35)]",
-        "transition-all duration-200 ease-out",
+        "shadow-[0_7px_20px_rgba(0,0,0,0.25)]",
+        "transition-all duration-300 ease-out",
     ].join(" ");
 
     return (
         <>
-            <div className="relative hidden h-full w-full lg:block">
-                {/* MAIN ACTION RAIL */}
+            <div
+                className={[
+                    "h-full w-full flex-col items-center py-2",
+                    compactMobile
+                        ? "flex justify-center"
+                        : "hidden justify-between lg:flex",
+                ].join(" ")}
+            >
+                {!compactMobile ? (
+                    <>
+                        {/* PREVIOUS */}
+                        <button
+                            type="button"
+                            onClick={onPrev}
+                            disabled={!canGoPrev}
+                            aria-label="Previous deed"
+                            className={[
+                                glassNavigationClass,
+
+                                canGoPrev
+                                    ? "hover:scale-[1.08] hover:bg-white/12 hover:shadow-[0_12px_28px_rgba(0,0,0,0.34)] active:scale-95"
+                                    : "cursor-not-allowed opacity-35",
+                            ].join(" ")}
+                        >
+                            <IoChevronUp
+                                size={23}
+                                className="transition-transform duration-200 ease-out group-hover:-translate-y-[2px]"
+                            />
+                        </button>
+
+                    </>
+                ) : null}
+
+                {/* CENTER ACTIONS */}
                 <div
                     className="
-                        absolute
-                        inset-y-0
-                        right-0
-                        flex
-                        w-full
-                        flex-col
-                        items-center
-                        justify-center
-                        gap-3
-                        py-2
-                    "
+            flex
+            flex-1
+            flex-col
+            items-center
+            justify-center
+            gap-3
+            py-2
+          "
                 >
                     {/* CREATOR AVATAR */}
                     <div className="relative">
@@ -519,7 +561,7 @@ export function DesktopDeedRailWeb({
                                     "border-[1.5px]",
                                     "border-white",
 
-                                    "bg-[#c69258]",
+                                    "bg-[#F3A526]",
 
                                     "text-white",
 
@@ -640,83 +682,28 @@ export function DesktopDeedRailWeb({
                     />
                 </div>
 
-                {/* FLOATING DEED NAVIGATION */}
-                <div
-                    className="
-                        pointer-events-none
-                        absolute
-                        right-[58px]
-                        top-1/2
-                        z-20
-                        -translate-y-1/2
-                    "
-                >
-                    <div
-                        className="
-                            pointer-events-auto
-                            flex
-                            flex-col
-                            gap-2
-                            rounded-[22px]
-                            border
-                            border-white/10
-                            bg-black/20
-                            p-1.5
-                            shadow-[0_12px_30px_rgba(0,0,0,0.24)]
-                            backdrop-blur-md
-                        "
-                    >
-                        <button
-                            type="button"
-                            onClick={onPrev}
-                            disabled={!canGoPrev}
-                            aria-label="Previous deed"
-                            title="Previous deed"
-                            className={[
-                                glassNavigationClass,
-                                canGoPrev
-                                    ? "hover:-translate-y-[1px] hover:scale-[1.06] hover:bg-[#1F4A3B] active:scale-95"
-                                    : "cursor-not-allowed opacity-30",
-                            ].join(" ")}
-                        >
-                            <IoChevronUp
-                                size={22}
-                                className="
-                                    transition-transform
-                                    duration-200
-                                    ease-out
-                                    group-hover:-translate-y-[2px]
-                                "
-                            />
-                        </button>
-
-                        <div className="mx-auto h-px w-5 bg-white/10" />
-
+                {!compactMobile ? (
+                    <>
+                        {/* NEXT */}
                         <button
                             type="button"
                             onClick={onNext}
                             disabled={!canGoNext}
                             aria-label="Next deed"
-                            title="Next deed"
                             className={[
                                 glassNavigationClass,
+
                                 canGoNext
-                                    ? "hover:translate-y-[1px] hover:scale-[1.06] hover:bg-[#1F4A3B] active:scale-95"
-                                    : "cursor-not-allowed opacity-30",
+                                    ? "hover:scale-[1.08] hover:bg-white/12 hover:shadow-[0_12px_28px_rgba(0,0,0,0.34)] active:scale-95"
+                                    : "cursor-not-allowed opacity-35",
                             ].join(" ")}
                         >
                             <IoChevronDown
-                                size={22}
-                                className="
-                                    transition-transform
-                                    duration-200
-                                    ease-out
-                                    group-hover:translate-y-[2px]
-                                "
+                                size={23}
+                                className="transition-transform duration-200 ease-out group-hover:translate-y-[2px]"
                             />
-                        </button>
-                    </div>
-                </div>
+                        </button>                    </>
+                ) : null}
             </div>
 
             {/* ============================== */}
@@ -904,7 +891,7 @@ export function DesktopDeedRailWeb({
 
                                             reportReason ===
                                                 reason
-                                                ? "border-[#c69258] bg-orange-50"
+                                                ? "border-[#F3A526] bg-orange-50"
                                                 : "border-slate-200 bg-white",
                                         ].join(" ")}
                                     >
@@ -950,7 +937,7 @@ export function DesktopDeedRailWeb({
                                 className="
                   flex-1
                   rounded-xl
-                  bg-[#c69258]
+                  bg-[#F3A526]
                   px-4
                   py-3
                   font-black
