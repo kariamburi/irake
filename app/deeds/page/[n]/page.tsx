@@ -1,7 +1,8 @@
 // app/deeds/page/[n]/page.tsx
-import HomeFeedClientPage from "@/app/HomeFeedClientPage";
+
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import HomeFeedClientPage from "../../HomeFeedClientPage";
 
 
 type Props = {
@@ -86,5 +87,5 @@ export default async function DeedsPaginatedPage({ params }: Props) {
         notFound();
     }
 
-    return <HomeFeedClientPage forcedArchivePage={pageNumber} archiveMode="deeds" />;
+    return <HomeFeedClientPage />;
 }
