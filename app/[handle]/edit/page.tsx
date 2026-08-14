@@ -64,7 +64,7 @@ import { createPortal } from "react-dom";
 const EKARI = {
   forest: "#173C2E",
   leaf: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   sand: "#F8F7F2",
   paper: "#FBFAF6",
   hair: "#DDD8CC",
@@ -1032,7 +1032,7 @@ export default function EditProfilePage() {
               </button>
 
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                   Profile settings
                 </div>
 
@@ -1079,7 +1079,7 @@ export default function EditProfilePage() {
               >
                 <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
                   <div className="relative">
-                    <div className="rounded-full bg-gradient-to-br from-[#F39A22] to-[#173C2E] p-[3px] shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
+                    <div className="rounded-full bg-gradient-to-br from-[#c69258] to-[#173C2E] p-[3px] shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
                       <div className="rounded-full bg-[#FBFAF6] p-[3px]">
                         <SafeProfileAvatar
                           src={photoURL}
@@ -1524,7 +1524,7 @@ export default function EditProfilePage() {
         {avatarPreview ? (
           <div className="space-y-4">
             <div className="flex justify-center">
-              <div className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-[#F39A22] bg-slate-100 shadow-sm">
+              <div className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-[#c69258] bg-slate-100 shadow-sm">
                 {avatarPreviewCropped ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -2072,7 +2072,7 @@ function ToggleItemRow({
     <div className="flex min-h-[76px] items-center justify-between gap-3 rounded-[14px] border border-[#E4DED2] bg-white px-3.5 py-3 transition hover:border-[#CFC8BB]">
       <div className="flex min-w-0 items-start gap-2.5">
         {icon ? (
-          <span className="mt-0.5 text-[#F39A22]">
+          <span className="mt-0.5 text-[#c69258]">
             {icon}
           </span>
         ) : null}
@@ -2275,7 +2275,7 @@ function BottomSheet({
           >
             <div className="flex items-center justify-between border-b border-[#E4DED2] px-4 py-3.5">
               <div>
-                <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#F39A22]">
+                <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#c69258]">
                   Profile settings
                 </div>
 

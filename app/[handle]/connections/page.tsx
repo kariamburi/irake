@@ -50,7 +50,7 @@ const EKARI = {
   text: "#111827",
   subtext: "#64748B",
   hair: "#DDD8CC",
-  primary: "#F39A22",
+  primary: "#c69258",
 };
 
 type TabKey = "following" | "followers" | "partners" | "mutual";
@@ -620,7 +620,7 @@ export default function HandleConnectionsPage() {
                 className={[
                   "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
                   active
-                    ? "bg-[#F39A22] text-white"
+                    ? "bg-[#c69258] text-white"
                     : "bg-[#EFECE5] text-slate-500",
                 ].join(" ")}
               >
@@ -679,7 +679,7 @@ export default function HandleConnectionsPage() {
           </button>
 
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               ekarihub community
             </div>
 
@@ -863,7 +863,7 @@ export default function HandleConnectionsPage() {
 
       <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
         <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#c69258]">
             <IoSparklesOutline size={17} />
           </span>
 
@@ -1184,7 +1184,7 @@ function Row({
               pillLabel ===
                 "Following"
                 ? "border border-[#D9D3C7] bg-white text-slate-600 hover:bg-[#F3F1EB]"
-                : "bg-[#F39A22] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]",
+                : "bg-[#c69258] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]",
             ].join(" ")}
           >
             {pillLabel}
@@ -1207,7 +1207,7 @@ function MiniStat({
   return (
     <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[#F39A22]">
+        <span className="text-[#c69258]">
           {icon}
         </span>
 

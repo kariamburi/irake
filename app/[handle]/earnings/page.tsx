@@ -46,7 +46,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const EKARI = {
   forest: "#173C2E",
   forest2: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   sand: "#F8F7F2",
   paper: "#FBFAF6",
   ink: "#111827",
@@ -952,7 +952,7 @@ export default function EarningsPage() {
             className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#173C2E] text-white text-lg shadow-sm"
             style={{
               background:
-                "linear-gradient(135deg, #173C2E, #F39A22)",
+                "linear-gradient(135deg, #173C2E, #c69258)",
             }}
           >
             💸
@@ -1204,7 +1204,7 @@ export default function EarningsPage() {
           </button>
 
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               Creator wallet
             </div>
 
@@ -1774,7 +1774,7 @@ export default function EarningsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Creator wallet
                   </div>
 
@@ -1836,7 +1836,7 @@ export default function EarningsPage() {
                 type="button"
                 onClick={handleConfirmTopup}
                 disabled={topupLoading}
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[11px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] px-4 text-[11px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
               >
                 {topupLoading ? (
                   <>
@@ -1875,7 +1875,7 @@ export default function EarningsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Withdrawal request
                   </div>
 
@@ -2115,7 +2115,7 @@ export default function EarningsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Creator wallet
                   </div>
 
@@ -2177,7 +2177,7 @@ export default function EarningsPage() {
                 type="button"
                 onClick={handleConfirmTopup}
                 disabled={topupLoading}
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[11px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] px-4 text-[11px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
               >
                 {topupLoading ? (
                   <>
@@ -2216,7 +2216,7 @@ export default function EarningsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Withdrawal request
                   </div>
 

@@ -24,7 +24,7 @@ import { getAuthSafe } from "@/lib/firebase";
 
 const EKARI = {
   forest: "#173C2E",
-  gold: "#F39A22",
+  gold: "#c69258",
   text: "#0F172A",
   dim: "#64748B",
   hair: "#DDD8CC",
@@ -204,7 +204,7 @@ export default function ResetPasswordPage() {
           />
 
           <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-          <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+          <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#c69258]/[0.08]" />
 
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -240,7 +240,7 @@ export default function ResetPasswordPage() {
               <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/65">
                 <IoSparklesOutline
                   size={12}
-                  className="text-[#F39A22]"
+                  className="text-[#c69258]"
                 />
                 Create new password
               </div>
@@ -285,7 +285,7 @@ export default function ResetPasswordPage() {
         {/* RIGHT */}
         <section className="relative flex h-full  overflow-y-auto overflow-x-hidden flex-col bg-[#F8F7F2] px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10 xl:px-14">
           <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
-          <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+          <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#c69258]/[0.035]" />
 
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -319,7 +319,7 @@ export default function ResetPasswordPage() {
             </div>
 
             <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
-              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                 Password reset
               </div>
 
@@ -554,14 +554,14 @@ export default function ResetPasswordPage() {
                 By continuing, you agree to our{" "}
                 <Link
                   href="/terms"
-                  className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                  className="font-black text-[#173C2E] transition hover:text-[#c69258]"
                 >
                   Terms and Conditions
                 </Link>{" "}
                 and{" "}
                 <Link
                   href="/privacy"
-                  className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                  className="font-black text-[#173C2E] transition hover:text-[#c69258]"
                 >
                   Privacy Policy
                 </Link>
@@ -592,7 +592,7 @@ function FeatureRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#c69258]">
         {icon}
       </div>
 

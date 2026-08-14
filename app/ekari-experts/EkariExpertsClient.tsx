@@ -1092,7 +1092,7 @@ function MarketplaceContent() {
                     className="relative overflow-hidden bg-[#173C2E]"
                 >
                     <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-                    <div className="pointer-events-none absolute -bottom-24 right-20 h-52 w-52 rounded-full bg-[#F39A22]/10" />
+                    <div className="pointer-events-none absolute -bottom-24 right-20 h-52 w-52 rounded-full bg-[#c69258]/10" />
 
                     <div className="mx-auto max-w-[940px] px-5 pb-5 pt-5">
                         <div className="lg:hidden">
@@ -1109,7 +1109,7 @@ function MarketplaceContent() {
 
                         <div className="mt-2 flex items-start gap-6 lg:mt-0">
                             <div className="min-w-0 flex-1">
-                                <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                     ekariExperts
                                 </div>
 
@@ -1126,7 +1126,7 @@ function MarketplaceContent() {
 
                             <div className="hidden shrink-0 items-start gap-6 xl:flex">
                                 <div className="text-center">
-                                    <div className="text-[24px] font-black leading-none text-[#F39A22]">
+                                    <div className="text-[24px] font-black leading-none text-[#c69258]">
                                         {expertStats.verifiedCount}
                                     </div>
                                     <div className="mt-1 text-[10px] font-semibold text-white/40">
@@ -1135,7 +1135,7 @@ function MarketplaceContent() {
                                 </div>
 
                                 <div className="text-center">
-                                    <div className="text-[24px] font-black leading-none text-[#F39A22]">
+                                    <div className="text-[24px] font-black leading-none text-[#c69258]">
                                         {expertStats.locations}
                                     </div>
                                     <div className="mt-1 text-[10px] font-semibold text-white/40">
@@ -1144,7 +1144,7 @@ function MarketplaceContent() {
                                 </div>
 
                                 <div className="text-center">
-                                    <div className="text-[24px] font-black leading-none text-[#F39A22]">
+                                    <div className="text-[24px] font-black leading-none text-[#c69258]">
                                         {expertStats.averageRating > 0
                                             ? expertStats.averageRating.toFixed(
                                                 1
@@ -1200,7 +1200,7 @@ function MarketplaceContent() {
                             <span className="inline-flex items-center gap-1.5">
                                 <IoShieldCheckmarkOutline
                                     size={14}
-                                    className="text-[#F39A22]"
+                                    className="text-[#c69258]"
                                 />
                                 Verified profiles
                             </span>
@@ -1208,7 +1208,7 @@ function MarketplaceContent() {
                             <span className="inline-flex items-center gap-1.5">
                                 <IoLocationOutline
                                     size={14}
-                                    className="text-[#F39A22]"
+                                    className="text-[#c69258]"
                                 />
                                 Experts across Kenya
                             </span>
@@ -1216,7 +1216,7 @@ function MarketplaceContent() {
                             <span className="inline-flex items-center gap-1.5">
                                 <IoStarOutline
                                     size={14}
-                                    className="text-[#F39A22]"
+                                    className="text-[#c69258]"
                                 />
                                 Reviews and ratings
                             </span>
@@ -1286,14 +1286,14 @@ function MarketplaceContent() {
                                 "border border-[#D9D3C7] bg-white px-4",
                                 "text-[12px] font-black text-slate-600",
                                 "transition-all duration-200",
-                                "hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                                "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
                                 "active:scale-[0.98]",
                             ].join(" ")}
                         >
                             <IoFilterOutline size={15} />
                             Filter experts
                             {activeFilterCount > 0 ? (
-                                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#F39A22] px-1 text-[9px] text-white">
+                                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#c69258] px-1 text-[9px] text-white">
                                     {activeFilterCount}
                                 </span>
                             ) : null}

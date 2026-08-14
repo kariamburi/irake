@@ -31,7 +31,7 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 const EKARI = {
   forest: "#173C2E",
   forestSoft: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   sand: "#F8F7F2",
   paper: "#FBFAF6",
   text: "#111827",
@@ -607,7 +607,7 @@ export default function VerificationPage() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                 Account trust
               </div>
 
@@ -825,7 +825,7 @@ export default function VerificationPage() {
                       className="h-full rounded-full transition-all duration-300"
                       style={{
                         width: `${progressPercent}%`,
-                        backgroundImage: "linear-gradient(90deg, #173C2E, #F39A22)",
+                        backgroundImage: "linear-gradient(90deg, #173C2E, #c69258)",
                       }}
                     />
                   </div>
@@ -992,7 +992,7 @@ export default function VerificationPage() {
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-4 text-center text-xs text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]">
+                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-4 text-center text-xs text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
                             <span className="mb-1 flex items-center gap-2">
                               <IoCloudUploadOutline size={18} className="opacity-80" />
                               <span className="font-semibold">(National ID/ Driving Lisence/ Passport) front side</span>
@@ -1018,7 +1018,7 @@ export default function VerificationPage() {
                             )}
                           </label>
 
-                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-4 text-center text-xs text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]">
+                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-4 text-center text-xs text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
                             <span className="mb-1 flex items-center gap-2">
                               <IoCloudUploadOutline size={18} className="opacity-80" />
                               <span className="font-semibold">(National ID/ Driving Lisence/ Passport) back side</span>
@@ -1106,7 +1106,7 @@ export default function VerificationPage() {
                       </p>
 
                       <div className="mt-1 flex flex-col gap-3">
-                        <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-6 text-center text-xs text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]">
+                        <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-6 text-center text-xs text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
                           <IoCloudUploadOutline size={20} className="mb-1 opacity-80" />
                           <span className="font-semibold">Upload documents</span>
                           <span className="mt-0.5 text-[11px] text-slate-500">
@@ -1271,7 +1271,7 @@ export default function VerificationPage() {
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
 
                       >
                         {submitting ? "Preparing checkout…" : "Submit & pay via Paystack"}

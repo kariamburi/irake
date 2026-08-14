@@ -60,7 +60,7 @@ function Benefit({
             variants={item}
             className="flex items-start gap-3"
         >
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#c69258]">
                 {icon}
             </div>
 
@@ -115,7 +115,7 @@ export default function OnboardingPage() {
                     />
 
                     <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-                    <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+                    <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#c69258]/[0.08]" />
 
                     <motion.div
                         variants={container}
@@ -155,7 +155,7 @@ export default function OnboardingPage() {
                                 <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/65">
                                     <IoSparklesOutline
                                         size={12}
-                                        className="text-[#F39A22]"
+                                        className="text-[#c69258]"
                                     />
                                     Welcome to ekarihub
                                 </span>
@@ -202,7 +202,7 @@ export default function OnboardingPage() {
                                 <div className="flex items-start gap-3">
                                     <IoShieldCheckmarkOutline
                                         size={18}
-                                        className="mt-0.5 shrink-0 text-[#F39A22]"
+                                        className="mt-0.5 shrink-0 text-[#c69258]"
                                     />
 
                                     <div>
@@ -229,7 +229,7 @@ export default function OnboardingPage() {
 
                 <section className="relative flex min-h-[100svh] flex-col bg-[#F8F7F2] px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10 xl:px-14">
                     <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
-                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#c69258]/[0.035]" />
 
                     <motion.div
                         variants={container}
@@ -266,7 +266,7 @@ export default function OnboardingPage() {
 
                         <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
                             <motion.div variants={item}>
-                                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                     Get started
                                 </div>
 
@@ -293,7 +293,7 @@ export default function OnboardingPage() {
                                 className="group mt-6 w-full rounded-[18px] bg-[#173C2E] p-4 text-left text-white shadow-[0_12px_28px_rgba(23,60,46,0.14)] transition-all duration-200 hover:bg-[#214C3A] hover:shadow-[0_15px_34px_rgba(23,60,46,0.18)]"
                             >
                                 <div className="flex items-center gap-3">
-                                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white/[0.09] text-[#F39A22]">
+                                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white/[0.09] text-[#c69258]">
                                         <IoPersonAddOutline size={20} />
                                     </span>
 
@@ -367,7 +367,7 @@ export default function OnboardingPage() {
                                 }
                                 className="group flex w-full items-center gap-3 rounded-[18px] border border-[#DDD8CC] bg-[#F3F1EB]/65 p-4 text-left transition-all duration-200 hover:bg-[#F3F1EB]"
                             >
-                                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white text-[#F39A22] shadow-[0_5px_15px_rgba(15,23,42,0.04)]">
+                                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white text-[#c69258] shadow-[0_5px_15px_rgba(15,23,42,0.04)]">
                                     <IoPlayOutline size={19} />
                                 </span>
 
@@ -426,14 +426,14 @@ export default function OnboardingPage() {
                                 By continuing, you agree to our{" "}
                                 <Link
                                     href="/terms"
-                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                    className="font-black text-[#173C2E] transition hover:text-[#c69258]"
                                 >
                                     Terms
                                 </Link>{" "}
                                 and{" "}
                                 <Link
                                     href="/privacy"
-                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                    className="font-black text-[#173C2E] transition hover:text-[#c69258]"
                                 >
                                     Privacy Policy
                                 </Link>

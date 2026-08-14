@@ -130,7 +130,7 @@ type ProductDoc = {
 const EKARI = {
     forest: "#173C2E",
     forestSoft: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     sand: "#F8F7F2",
     paper: "#FBFAF6",
     text: "#0F172A",
@@ -743,7 +743,7 @@ export default function ProductDetailsClient({
                         disabled={msgLoading}
                         className={[
                             "inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl",
-                            "bg-[#F39A22] px-4 text-[11px] font-black text-white",
+                            "bg-[#c69258] px-4 text-[11px] font-black text-white",
                             "shadow-[0_8px_18px_rgba(243,154,34,0.16)]",
                             "transition-all duration-200",
                             msgLoading
@@ -777,7 +777,7 @@ export default function ProductDetailsClient({
                         onClick={() =>
                             router.push(storeUrl)
                         }
-                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-[#173C2E] transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]"
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-[#173C2E] transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]"
                         title="Visit seller store"
                     >
                         <IoStorefrontOutline
@@ -794,7 +794,7 @@ export default function ProductDetailsClient({
                     {normalizedPhone ? (
                         <a
                             href={`tel:${normalizedPhone}`}
-                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]"
+                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]"
                             title="Call seller"
                         >
                             <IoCallOutline
@@ -808,7 +808,7 @@ export default function ProductDetailsClient({
                             href={whatsappHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]"
+                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]"
                             title="WhatsApp seller"
                         >
                             <IoLogoWhatsapp
@@ -822,7 +822,7 @@ export default function ProductDetailsClient({
                             href={websiteHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]"
+                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]"
                             title="Seller website"
                         >
                             <IoGlobeOutline
@@ -838,7 +838,7 @@ export default function ProductDetailsClient({
     const BuyerSafetyCard = () => (
         <section className="rounded-[18px] border border-[#E8D8B9] bg-[#FFF9EE] p-4">
             <div className="flex items-start gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#F39A22]/12 text-[#B66A0C]">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#c69258]/12 text-[#B66A0C]">
                     <IoShieldCheckmark
                         size={17}
                     />
@@ -850,7 +850,7 @@ export default function ProductDetailsClient({
                             Buyer safety
                         </h3>
 
-                        <span className="rounded-full bg-[#F39A22]/15 px-2 py-0.5 text-[8px] font-black text-[#9A5A08]">
+                        <span className="rounded-full bg-[#c69258]/15 px-2 py-0.5 text-[8px] font-black text-[#9A5A08]">
                             Stay safe
                         </span>
                     </div>
@@ -879,7 +879,7 @@ export default function ProductDetailsClient({
         return (
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
                 <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#c69258]">
                         <IoSparklesOutline
                             size={17}
                         />
@@ -936,7 +936,7 @@ export default function ProductDetailsClient({
                                             perkLoading !==
                                             null
                                         }
-                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0] disabled:opacity-50"
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0] disabled:opacity-50"
                                     >
                                         {perkLoading ===
                                             "boost" ? (
@@ -944,7 +944,7 @@ export default function ProductDetailsClient({
                                         ) : (
                                             <IoRocketOutline
                                                 size={15}
-                                                className="text-[#F39A22]"
+                                                className="text-[#c69258]"
                                             />
                                         )}
                                         Boost
@@ -1008,7 +1008,7 @@ export default function ProductDetailsClient({
                 )}
 
                 <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
-                    <div className="flex items-center gap-2 text-[#F39A22]">
+                    <div className="flex items-center gap-2 text-[#c69258]">
                         <IoCartOutline
                             size={15}
                         />
@@ -1083,7 +1083,7 @@ export default function ProductDetailsClient({
                         onClick={() =>
                             router.back()
                         }
-                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-700 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0] active:scale-95"
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-700 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0] active:scale-95"
                         aria-label="Back"
                     >
                         <IoArrowBack
@@ -1098,7 +1098,7 @@ export default function ProductDetailsClient({
                     </span>
 
                     <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                             ekariMarket
                         </div>
 
@@ -1110,7 +1110,7 @@ export default function ProductDetailsClient({
                     <button
                         type="button"
                         onClick={shareProduct}
-                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-700 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0] active:scale-95"
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-700 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0] active:scale-95"
                         aria-label="Share product"
                         title="Share"
                     >
@@ -1276,7 +1276,7 @@ export default function ProductDetailsClient({
                                         </span>
 
                                         {showFeatured ? (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#F39A22] px-2.5 py-1 text-[9px] font-black text-white shadow-sm">
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#c69258] px-2.5 py-1 text-[9px] font-black text-white shadow-sm">
                                                 <IoStar
                                                     size={
                                                         11
@@ -1444,7 +1444,7 @@ export default function ProductDetailsClient({
                             </span>
 
                             {showFeatured ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-[#F39A22] px-2.5 py-1 text-[9px] font-black text-white">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#c69258] px-2.5 py-1 text-[9px] font-black text-white">
                                     <IoStar size={11} />
                                     Featured
                                 </span>
@@ -1518,7 +1518,7 @@ export default function ProductDetailsClient({
                             <div className="mb-3 flex items-center gap-2">
                                 <IoInformationCircleOutline
                                     size={14}
-                                    className="text-[#F39A22]"
+                                    className="text-[#c69258]"
                                 />
 
                                 <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">

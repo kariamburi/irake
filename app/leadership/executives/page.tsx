@@ -18,7 +18,7 @@ import { Topbar } from "@/app/components/Topbar";
 const EKARI = {
   forest: "#173C2E",
   leaf: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   page: "#F8F7F2",
   surface: "#FBFAF6",
   border: "#DDD8CC",
@@ -77,7 +77,7 @@ export default function ExecutivesPage() {
         />
 
         <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-        <div className="pointer-events-none absolute -bottom-28 left-[32%] h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+        <div className="pointer-events-none absolute -bottom-28 left-[32%] h-72 w-72 rounded-full bg-[#c69258]/[0.08]" />
 
         <div className="relative mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
           <motion.div
@@ -97,7 +97,7 @@ export default function ExecutivesPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
                 <IoRibbonOutline
                   size={12}
-                  className="text-[#F39A22]"
+                  className="text-[#c69258]"
                 />
                 Executive team
               </span>
@@ -105,13 +105,13 @@ export default function ExecutivesPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
                 <IoPeopleOutline
                   size={12}
-                  className="text-[#F39A22]"
+                  className="text-[#c69258]"
                 />
                 Leadership
               </span>
             </div>
 
-            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               People shaping ekarihub
             </div>
 
@@ -137,7 +137,7 @@ export default function ExecutivesPage() {
               <button
                 type="button"
                 onClick={() => router.push("/about")}
-                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105 active:scale-[0.98]"
+                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#c69258] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105 active:scale-[0.98]"
               >
                 About ekarihub
                 <IoArrowForwardOutline size={13} />
@@ -153,7 +153,7 @@ export default function ExecutivesPage() {
       <section className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 md:py-8 lg:px-8">
         <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
               Executive leadership
             </div>
 
@@ -170,7 +170,7 @@ export default function ExecutivesPage() {
           <div className="inline-flex w-fit items-center gap-2 rounded-[12px] border border-[#DDD8CC] bg-[#FBFAF6] px-3 py-2">
             <IoSparklesOutline
               size={13}
-              className="text-[#F39A22]"
+              className="text-[#c69258]"
             />
             <span className="text-[8px] font-black text-slate-500">
               {EXECUTIVES.length} executive
@@ -220,7 +220,7 @@ export default function ExecutivesPage() {
                 />
 
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent px-4 pb-3 pt-12">
-                  <div className="text-[8px] font-black uppercase tracking-[0.08em] text-[#F39A22]">
+                  <div className="text-[8px] font-black uppercase tracking-[0.08em] text-[#c69258]">
                     Executive
                   </div>
                 </div>
@@ -248,7 +248,7 @@ export default function ExecutivesPage() {
         <div className="mt-6 rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-2xl">
-              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                 Leadership
               </div>
 

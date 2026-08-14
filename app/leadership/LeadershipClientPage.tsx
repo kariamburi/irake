@@ -18,7 +18,7 @@ import { Topbar } from "../components/Topbar";
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     page: "#F8F7F2",
     surface: "#FBFAF6",
     border: "#DDD8CC",
@@ -55,7 +55,7 @@ export default function LeadershipClientPage() {
                 />
 
                 <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-                <div className="pointer-events-none absolute -bottom-28 left-[30%] h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+                <div className="pointer-events-none absolute -bottom-28 left-[30%] h-72 w-72 rounded-full bg-[#c69258]/[0.08]" />
 
                 <div className="relative mx-auto grid w-full max-w-[1280px] gap-8 px-5 py-10 sm:px-7 md:py-14 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center lg:px-8">
                     <motion.div
@@ -75,7 +75,7 @@ export default function LeadershipClientPage() {
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
                                 <IoRibbonOutline
                                     size={12}
-                                    className="text-[#F39A22]"
+                                    className="text-[#c69258]"
                                 />
                                 Leadership
                             </span>
@@ -83,13 +83,13 @@ export default function LeadershipClientPage() {
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
                                 <IoSparklesOutline
                                     size={12}
-                                    className="text-[#F39A22]"
+                                    className="text-[#c69258]"
                                 />
                                 Vision + Innovation
                             </span>
                         </div>
 
-                        <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                        <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                             Meet our leadership
                         </div>
 
@@ -119,7 +119,7 @@ export default function LeadershipClientPage() {
                                 onClick={() =>
                                     router.push("/leadership/executives")
                                 }
-                                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105 active:scale-[0.98]"
+                                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#c69258] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105 active:scale-[0.98]"
                             >
                                 Meet the executive team
                                 <IoArrowForwardOutline size={13} />
@@ -161,7 +161,7 @@ export default function LeadershipClientPage() {
                             />
 
                             <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent px-4 pb-4 pt-16">
-                                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                     Purpose-led leadership
                                 </div>
 
@@ -179,7 +179,7 @@ export default function LeadershipClientPage() {
             ========================================================= */}
             <section className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 md:py-8 lg:px-8">
                 <div className="mb-4 max-w-2xl">
-                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                         Leadership philosophy
                     </div>
 
@@ -220,7 +220,7 @@ export default function LeadershipClientPage() {
                 <div className="mt-5 overflow-hidden rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6]">
                     <div className="flex flex-col gap-4 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
                         <div className="max-w-2xl">
-                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                 Executive team
                             </div>
 
@@ -284,7 +284,7 @@ function PrincipleCard({
                 </span>
 
                 <div className="min-w-0">
-                    <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                         {eyebrow}
                     </div>
 

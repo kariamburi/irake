@@ -96,7 +96,7 @@ async function assertNotSuspended(uid: string) {
 const EKARI = {
   forest: "#173C2E",
   leaf: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   sand: "#F8F7F2",
   paper: "#FBFAF6",
   hair: "#DDD8CC",
@@ -1501,7 +1501,7 @@ export default function UploadPage() {
             />
 
             <button
-              className="relative mx-auto mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-[#F39A22] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] active:scale-[0.98]"
+              className="relative mx-auto mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-[#c69258] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] active:scale-[0.98]"
               style={{
                 background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
                 boxShadow: `0 16px 40px -24px rgba(243,154,34,0.65)`,

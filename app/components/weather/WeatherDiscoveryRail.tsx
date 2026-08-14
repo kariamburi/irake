@@ -66,7 +66,7 @@ function RailCard({
             ].join(" ")}
         >
             <div className="mb-3 flex items-center gap-2">
-                <span className="text-[#F39A22]">{icon}</span>
+                <span className="text-[#c69258]">{icon}</span>
                 <h2 className="text-[11px] font-black uppercase tracking-[0.09em] text-slate-400">
                     {title}
                 </h2>
@@ -166,7 +166,7 @@ export default function WeatherDiscoveryRail({
                                         <span className="inline-flex items-center gap-1">
                                             <Sunrise
                                                 size={12}
-                                                className="text-[#F39A22]"
+                                                className="text-[#c69258]"
                                             />
                                             {formatTime(day.sunrise)}
                                         </span>
@@ -176,7 +176,7 @@ export default function WeatherDiscoveryRail({
                                         <span className="inline-flex items-center gap-1">
                                             <Sunset
                                                 size={12}
-                                                className="text-[#F39A22]"
+                                                className="text-[#c69258]"
                                             />
                                             {formatTime(day.sunset)}
                                         </span>

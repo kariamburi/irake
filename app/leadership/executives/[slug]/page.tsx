@@ -22,7 +22,7 @@ import { Topbar } from "@/app/components/Topbar";
 const EKARI = {
   forest: "#173C2E",
   leaf: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   page: "#F8F7F2",
   surface: "#FBFAF6",
   border: "#DDD8CC",
@@ -75,13 +75,13 @@ export default function ExecProfilePage() {
                 className={[
                   "grid h-12 w-12 place-items-center",
                   "rounded-[14px] bg-white/[0.08]",
-                  "text-[#F39A22]",
+                  "text-[#c69258]",
                 ].join(" ")}
               >
                 <IoPersonOutline size={21} />
               </div>
 
-              <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                 Executive profile
               </div>
 
@@ -101,7 +101,7 @@ export default function ExecProfilePage() {
                 }
                 className={[
                   "mt-5 inline-flex h-10 items-center gap-2",
-                  "rounded-[12px] bg-[#F39A22] px-4",
+                  "rounded-[12px] bg-[#c69258] px-4",
                   "text-[9px] font-black text-[#173C2E]",
                 ].join(" ")}
               >
@@ -165,7 +165,7 @@ export default function ExecProfilePage() {
             "pointer-events-none absolute",
             "-bottom-32 left-[30%]",
             "h-80 w-80 rounded-full",
-            "bg-[#F39A22]/[0.08]",
+            "bg-[#c69258]/[0.08]",
           ].join(" ")}
         />
 
@@ -227,7 +227,7 @@ export default function ExecProfilePage() {
                   "px-4 pb-4 pt-20",
                 ].join(" ")}
               >
-                <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                   Executive leadership
                 </div>
 
@@ -288,7 +288,7 @@ export default function ExecProfilePage() {
               >
                 <IoRibbonOutline
                   size={11}
-                  className="text-[#F39A22]"
+                  className="text-[#c69258]"
                 />
                 Executive
               </span>
@@ -306,13 +306,13 @@ export default function ExecProfilePage() {
               >
                 <IoBriefcaseOutline
                   size={11}
-                  className="text-[#F39A22]"
+                  className="text-[#c69258]"
                 />
                 Leadership
               </span>
             </div>
 
-            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               Meet the leadership
             </div>
 
@@ -337,7 +337,7 @@ export default function ExecProfilePage() {
                 "px-3 py-2",
               ].join(" ")}
             >
-              <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#F39A22]/15 text-[#F39A22]">
+              <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-[#c69258]/15 text-[#c69258]">
                 <IoBriefcaseOutline size={13} />
               </span>
 
@@ -461,7 +461,7 @@ export default function ExecProfilePage() {
               </span>
 
               <div>
-                <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                   Executive profile
                 </div>
 
@@ -571,7 +571,7 @@ export default function ExecProfilePage() {
                     "place-items-center",
                     "rounded-[12px]",
                     "bg-[#FFF2DF]",
-                    "text-[#F39A22]",
+                    "text-[#c69258]",
                   ].join(" ")}
                 >
                   <IoSparklesOutline size={17} />
@@ -659,7 +659,7 @@ export default function ExecProfilePage() {
                   "place-items-center",
                   "rounded-[12px]",
                   "bg-white/10",
-                  "text-[#F39A22]",
+                  "text-[#c69258]",
                 ].join(" ")}
               >
                 <IoRibbonOutline size={17} />

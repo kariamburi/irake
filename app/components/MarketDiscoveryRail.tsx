@@ -50,7 +50,7 @@ function RailCard({
             ].join(" ")}
         >
             <div className="mb-3 flex items-center gap-2">
-                <span className="text-[#F39A22]">{icon}</span>
+                <span className="text-[#c69258]">{icon}</span>
                 <h2 className="text-[11px] font-black uppercase tracking-[0.09em] text-slate-500">
                     {title}
                 </h2>
@@ -200,7 +200,7 @@ export default function MarketDiscoveryRail({
                                             "transition-all duration-200 hover:translate-x-1 hover:bg-black/[0.025]",
                                         ].join(" ")}
                                     >
-                                        <span className="w-4 shrink-0 text-[11px] font-black text-[#F39A22]">
+                                        <span className="w-4 shrink-0 text-[11px] font-black text-[#c69258]">
                                             {index + 1}
                                         </span>
 
@@ -262,10 +262,10 @@ export default function MarketDiscoveryRail({
                                                 )
                                             }
                                             className={[
-                                                "rounded-full border border-[#F39A22] px-2.5 py-1",
-                                                "text-[10px] font-black text-[#E88712]",
+                                                "rounded-full border border-[#c69258] px-2.5 py-1",
+                                                "text-[10px] font-black text-[#c69258]",
                                                 "transition-all duration-200",
-                                                "hover:bg-[#F39A22] hover:text-white active:scale-95",
+                                                "hover:bg-[#c69258] hover:text-white active:scale-95",
                                             ].join(" ")}
                                         >
                                             View
@@ -295,7 +295,7 @@ export default function MarketDiscoveryRail({
                             onClick={onSell}
                             className={[
                                 "mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl",
-                                "bg-[#F39A22] text-sm font-black text-white",
+                                "bg-[#c69258] text-sm font-black text-white",
                                 "shadow-[0_10px_24px_rgba(243,154,34,0.18)]",
                                 "transition-all duration-250 ease-out",
                                 "hover:-translate-y-0.5 hover:bg-[#E98C12]",
@@ -324,7 +324,7 @@ export default function MarketDiscoveryRail({
                                 "border border-[#D7D2C7] bg-white",
                                 "text-[12px] font-extrabold text-[#173C2E]",
                                 "transition-all duration-200",
-                                "hover:border-[#F39A22]/60 hover:bg-[#FFF9F0]",
+                                "hover:border-[#c69258]/60 hover:bg-[#FFF9F0]",
                                 "active:scale-[0.98]",
                             ].join(" ")}
                         >

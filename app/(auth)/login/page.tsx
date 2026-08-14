@@ -45,7 +45,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     sand: "#F8F7F2",
     card: "#FBFAF6",
     text: "#0F172A",
@@ -510,7 +510,7 @@ export default function LoginPage() {
 
                     <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
 
-                    <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+                    <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#c69258]/[0.08]" />
 
                     <motion.div
                         initial={{
@@ -564,7 +564,7 @@ export default function LoginPage() {
 
                             <div className="mt-7 space-y-5">
                                 <div className="flex items-start gap-3">
-                                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+                                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#c69258]">
                                         <IoPeopleOutline size={18} />
                                     </div>
 
@@ -579,7 +579,7 @@ export default function LoginPage() {
                                 </div>
 
                                 <div className="flex items-start gap-3">
-                                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+                                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#c69258]">
                                         <IoLeafOutline size={18} />
                                     </div>
 
@@ -594,7 +594,7 @@ export default function LoginPage() {
                                 </div>
 
                                 <div className="flex items-start gap-3">
-                                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+                                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#c69258]">
                                         <IoSparklesOutline size={18} />
                                     </div>
 
@@ -622,7 +622,7 @@ export default function LoginPage() {
                 <section className="relative flex h-full  overflow-y-auto overflow-x-hidden flex-col bg-[#F8F7F2] px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10 xl:px-14">
                     <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
 
-                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#c69258]/[0.035]" />
 
                     <motion.div
                         initial={{
@@ -664,7 +664,7 @@ export default function LoginPage() {
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
-                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                 Account access
                             </div>
 
@@ -688,7 +688,7 @@ export default function LoginPage() {
                                 }
                                 className="group mt-6 flex w-full items-center gap-3 rounded-[18px] bg-[#173C2E] p-4 text-left text-white shadow-[0_12px_28px_rgba(23,60,46,0.14)] transition-all duration-200 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white/[0.09] text-[#F39A22]">
+                                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white/[0.09] text-[#c69258]">
                                     <IoPhonePortraitOutline size={20} />
                                 </span>
 
@@ -972,7 +972,7 @@ export default function LoginPage() {
 
                                 <Link
                                     href="/signup"
-                                    className="inline-flex items-center gap-1 font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                    className="inline-flex items-center gap-1 font-black text-[#173C2E] transition hover:text-[#c69258]"
                                 >
                                     Create an account
                                     <IoPersonAddOutline size={12} />
@@ -983,14 +983,14 @@ export default function LoginPage() {
                                 By continuing, you agree to ekarihub&apos;s{" "}
                                 <Link
                                     href="/terms"
-                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                    className="font-black text-[#173C2E] transition hover:text-[#c69258]"
                                 >
                                     Terms
                                 </Link>{" "}
                                 and{" "}
                                 <Link
                                     href="/privacy"
-                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                    className="font-black text-[#173C2E] transition hover:text-[#c69258]"
                                 >
                                     Privacy Policy
                                 </Link>

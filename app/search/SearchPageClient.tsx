@@ -106,7 +106,7 @@ type LiveSuggestion =
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     page: "#F8F7F2",
     surface: "#FBFAF6",
     text: "#0F172A",
@@ -1849,7 +1849,7 @@ export default function SearchPageClient() {
                         <div className="sticky top-0 z-40 border-b border-[#DDD8CC] bg-[#F8F7F2]/95 backdrop-blur-xl">
                             <div className="mx-auto w-full max-w-[980px] px-3 pb-3 pt-3 sm:px-5 lg:px-6">
                                 <div className="mb-2 hidden lg:block">
-                                    <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                         Discover ekarihub
                                     </div>
 
@@ -1916,7 +1916,7 @@ export default function SearchPageClient() {
                                                         {selected ? (
                                                             <motion.span
                                                                 layoutId="search-tab-indicator"
-                                                                className="absolute inset-x-3 -bottom-[3px] h-[2px] rounded-full bg-[#F39A22]"
+                                                                className="absolute inset-x-3 -bottom-[3px] h-[2px] rounded-full bg-[#c69258]"
                                                             />
                                                         ) : null}
                                                     </button>
@@ -2003,7 +2003,7 @@ export default function SearchPageClient() {
 
                                     <section>
                                         <div className="mb-3 flex items-center gap-2">
-                                            <span className="grid h-8 w-8 place-items-center rounded-[11px] bg-[#FFF2DF] text-[#F39A22]">
+                                            <span className="grid h-8 w-8 place-items-center rounded-[11px] bg-[#FFF2DF] text-[#c69258]">
                                                 <IoTrendingUpOutline size={15} />
                                             </span>
 
@@ -2032,7 +2032,7 @@ export default function SearchPageClient() {
                                                         "hover:shadow-[0_8px_22px_rgba(15,23,42,0.035)]",
                                                     ].join(" ")}
                                                 >
-                                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#FFF2DF] text-[#F39A22]">
+                                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#FFF2DF] text-[#c69258]">
                                                         <IoTrendingUpOutline size={14} />
                                                     </span>
 
@@ -2066,7 +2066,7 @@ export default function SearchPageClient() {
                                                 "shadow-[0_10px_24px_rgba(23,60,46,0.12)]",
                                             ].join(" ")}
                                         >
-                                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 text-[#F39A22]">
+                                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 text-[#c69258]">
                                                 <IoSparklesOutline size={18} />
                                             </span>
 
@@ -2147,7 +2147,7 @@ export default function SearchPageClient() {
                     ================================================= */}
                     <aside className="hidden w-[292px] shrink-0 border-l border-[#DDD8CC] bg-[#FBFAF6] lg:block xl:w-[310px]">
                         <div className="sticky top-0 max-h-[100svh] overflow-y-auto px-4 py-5 xl:px-5">
-                            <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                            <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                 Discover
                             </div>
 
@@ -2165,7 +2165,7 @@ export default function SearchPageClient() {
                                 <div className="mb-2.5 flex items-center gap-2">
                                     <IoTrendingUpOutline
                                         size={14}
-                                        className="text-[#F39A22]"
+                                        className="text-[#c69258]"
                                     />
 
                                     <span className="text-[9px] font-black text-slate-700">
@@ -2208,7 +2208,7 @@ export default function SearchPageClient() {
                                     "transition hover:bg-[#214C3A]",
                                 ].join(" ")}
                             >
-                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 text-[#F39A22]">
+                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 text-[#c69258]">
                                     <IoSparklesOutline size={18} />
                                 </span>
 

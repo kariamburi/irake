@@ -327,7 +327,7 @@ export default function VerificationCallbackPage() {
                     </button>
 
                     <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                             Account trust
                         </div>
 
@@ -440,7 +440,7 @@ export default function VerificationCallbackPage() {
                             <div className="flex items-center gap-2">
                                 <IoReceiptOutline
                                     size={15}
-                                    className="text-[#F39A22]"
+                                    className="text-[#c69258]"
                                 />
 
                                 <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">

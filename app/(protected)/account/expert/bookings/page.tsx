@@ -39,7 +39,7 @@ import { db } from "@/lib/firebase";
 const EKARI = {
     forest: "#173C2E",
     forestSoft: "#214C3A",
-    orange: "#F39A22",
+    orange: "#c69258",
     canvas: "#F8F7F2",
     paper: "#FBFAF6",
     text: "#111827",
@@ -632,7 +632,7 @@ export default function ExpertBookingsPage() {
                             </button>
 
                             <div className="min-w-0 flex-1">
-                                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                     ekari Expert
                                 </div>
 
@@ -708,7 +708,7 @@ export default function ExpertBookingsPage() {
                                                 className={[
                                                     "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
                                                     active
-                                                        ? "bg-[#F39A22] text-white"
+                                                        ? "bg-[#c69258] text-white"
                                                         : "bg-[#EFECE5] text-slate-500",
                                                 ].join(
                                                     " "
@@ -1001,7 +1001,7 @@ export default function ExpertBookingsPage() {
                                                                         size={
                                                                             12
                                                                         }
-                                                                        className="text-[#F39A22]"
+                                                                        className="text-[#c69258]"
                                                                     />
                                                                     Consultation topic
                                                                 </div>
@@ -1334,7 +1334,7 @@ function Info({
     return (
         <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
             <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.07em] text-slate-400">
-                <span className="text-[#F39A22]">
+                <span className="text-[#c69258]">
                     {icon}
                 </span>
                 {label}

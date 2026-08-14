@@ -19,7 +19,7 @@ import AppShell from "@/app/components/AppShell";
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     page: "#F8F7F2",
     surface: "#FBFAF6",
     border: "#DDD8CC",
@@ -130,7 +130,7 @@ export default function WalletTopupReturnPage() {
                             />
 
                             <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/[0.04]" />
-                            <div className="pointer-events-none absolute -bottom-20 left-[32%] h-44 w-44 rounded-full bg-[#F39A22]/[0.08]" />
+                            <div className="pointer-events-none absolute -bottom-20 left-[32%] h-44 w-44 rounded-full bg-[#c69258]/[0.08]" />
 
                             <div className="relative">
                                 <div className="flex items-start justify-between gap-4">
@@ -143,7 +143,7 @@ export default function WalletTopupReturnPage() {
                                     </span>
                                 </div>
 
-                                <div className="mt-5 text-[9px] font-black uppercase tracking-[0.11em] text-[#F39A22]">
+                                <div className="mt-5 text-[9px] font-black uppercase tracking-[0.11em] text-[#c69258]">
                                     Payment status
                                 </div>
 
@@ -158,7 +158,7 @@ export default function WalletTopupReturnPage() {
                                 {reference ? (
                                     <div className="mt-5 rounded-[14px] border border-white/10 bg-white/[0.06] p-3.5">
                                         <div className="flex items-start gap-3">
-                                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-white/10 text-[#F39A22]">
+                                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-white/10 text-[#c69258]">
                                                 <IoReceiptOutline
                                                     size={
                                                         15
@@ -189,7 +189,7 @@ export default function WalletTopupReturnPage() {
                             {status ===
                                 "pending" ? (
                                 <div className="flex items-start gap-3">
-                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#FFF2DF] text-[#F39A22]">
+                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#FFF2DF] text-[#c69258]">
                                         <IoTimeOutline
                                             size={17}
                                             className="animate-pulse"
@@ -342,7 +342,7 @@ function StatusIcon({
     }
 
     return (
-        <span className="grid h-12 w-12 place-items-center rounded-[14px] bg-[#F39A22]/15 text-[#F39A22]">
+        <span className="grid h-12 w-12 place-items-center rounded-[14px] bg-[#c69258]/15 text-[#c69258]">
             <IoTimeOutline
                 size={23}
                 className="animate-pulse"
@@ -379,7 +379,7 @@ function ActionCard({
                 className={[
                     "grid h-9 w-9 shrink-0 place-items-center rounded-[11px]",
                     primary
-                        ? "bg-white/10 text-[#F39A22]"
+                        ? "bg-white/10 text-[#c69258]"
                         : "bg-[#E8ECE8] text-[#173C2E]",
                 ].join(" ")}
             >

@@ -461,13 +461,13 @@ export default function ExpertCard({
                                     "approved" ? (
                                     <IoCheckmarkCircle
                                         size={16}
-                                        className="shrink-0 text-[#F39A22]"
+                                        className="shrink-0 text-[#c69258]"
                                         title="Verified expert"
                                     />
                                 ) : null}
                             </Link>
 
-                            <p className="mt-1 truncate text-[13px] font-extrabold text-[#E88712]">
+                            <p className="mt-1 truncate text-[13px] font-extrabold text-[#c69258]">
                                 {expert.headline ||
                                     expert.verificationRole ||
                                     expert.specialties?.[0] ||
@@ -478,7 +478,7 @@ export default function ExpertCard({
 
                         <div
                             className={[
-                                "shrink-0 rounded-full border border-[#F39A22]/45",
+                                "shrink-0 rounded-full border border-[#c69258]/45",
                                 "bg-[#FFF8ED] px-2.5 py-1",
                                 "text-[11px] font-black text-[#9A5A08]",
                             ].join(" ")}
@@ -495,7 +495,7 @@ export default function ExpertCard({
                         <span className="inline-flex items-center gap-1">
                             <IoLocationOutline
                                 size={14}
-                                className="text-[#F39A22]"
+                                className="text-[#c69258]"
                             />
                             {getLocationLabel(expert)}
                         </span>
@@ -563,7 +563,7 @@ export default function ExpertCard({
                             href="/bonga"
                             className={[
                                 "inline-flex min-h-10 items-center justify-center rounded-xl",
-                                "bg-[#F39A22] px-4",
+                                "bg-[#c69258] px-4",
                                 "text-[12px] font-black text-white",
                                 "transition-all duration-200",
                                 "hover:-translate-y-0.5 hover:bg-[#E98C12]",
@@ -580,7 +580,7 @@ export default function ExpertCard({
                                 "border border-[#D7D2C7] bg-white px-4",
                                 "text-[12px] font-black text-slate-600",
                                 "transition-all duration-200",
-                                "hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]",
+                                "hover:border-[#c69258]/50 hover:bg-[#FFF9F0]",
                                 "active:scale-[0.98]",
                             ].join(" ")}
                         >

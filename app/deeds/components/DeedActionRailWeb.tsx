@@ -40,7 +40,7 @@ type Props = {
 
 const EKARI_THEME = {
     forest: "#233F39",
-    gold: "#F3A526",
+    gold: "#c69258",
     goldSoft: "#D79A36",
     green: "#16A34A",
     white: "#FFFFFF",
@@ -167,7 +167,7 @@ function ActionButton({
                     <span
                         className={[
                             "pointer-events-none absolute inset-[-3px] rounded-full",
-                            "border border-[#F3A526]/25 opacity-45",
+                            "border border-[#c69258]/25 opacity-45",
                             "transition-all duration-500 ease-out",
                             "group-hover:inset-[-6px] group-hover:opacity-90",
                         ].join(" ")}

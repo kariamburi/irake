@@ -519,7 +519,7 @@ export function DesktopDeedRailWeb({
                                     "border-[1.5px]",
                                     "border-white",
 
-                                    "bg-[#F3A526]",
+                                    "bg-[#c69258]",
 
                                     "text-white",
 
@@ -904,7 +904,7 @@ export function DesktopDeedRailWeb({
 
                                             reportReason ===
                                                 reason
-                                                ? "border-[#F3A526] bg-orange-50"
+                                                ? "border-[#c69258] bg-orange-50"
                                                 : "border-slate-200 bg-white",
                                         ].join(" ")}
                                     >
@@ -950,7 +950,7 @@ export function DesktopDeedRailWeb({
                                 className="
                   flex-1
                   rounded-xl
-                  bg-[#F3A526]
+                  bg-[#c69258]
                   px-4
                   py-3
                   font-black

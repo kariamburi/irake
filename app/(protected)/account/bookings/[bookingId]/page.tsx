@@ -675,7 +675,7 @@ export default function BookingDetailsPage() {
               </button>
 
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                   ekari Expert
                 </div>
 
@@ -1095,7 +1095,7 @@ export default function BookingDetailsPage() {
                     type="button"
                     onClick={startPayment}
                     disabled={paying}
-                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#F39A22] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#c69258] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
                   >
                     {paying ? (
                       <>
@@ -1242,7 +1242,7 @@ function Detail({
   return (
     <div className="rounded-[14px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
       <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
-        <Icon className="h-3.5 w-3.5 text-[#F39A22]" />
+        <Icon className="h-3.5 w-3.5 text-[#c69258]" />
         {label}
       </div>
 

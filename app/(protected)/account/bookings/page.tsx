@@ -711,7 +711,7 @@ export default function ClientBookingsPage() {
                         </button>
 
                         <div className="min-w-0 flex-1">
-                            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                 ekari Expert
                             </div>
 
@@ -733,7 +733,7 @@ export default function ClientBookingsPage() {
                                             "/ekari-experts"
                                         )
                                     }
-                                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
                                 >
                                     Find an expert
                                 </button>
@@ -785,7 +785,7 @@ export default function ClientBookingsPage() {
                                             className={[
                                                 "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
                                                 selected
-                                                    ? "bg-[#F39A22] text-white"
+                                                    ? "bg-[#c69258] text-white"
                                                     : "bg-[#EFECE5] text-slate-500",
                                             ].join(
                                                 " "
@@ -1456,7 +1456,7 @@ function BookingCard({
                             type="button"
                             onClick={onPay}
                             disabled={paying}
-                            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {paying ? (
                                 <>
@@ -1502,7 +1502,7 @@ function InfoTile({
     return (
         <div className="rounded-[13px] bg-[#F3F1EB] px-3 py-3">
             <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.07em] text-slate-400">
-                <Icon className="h-3.5 w-3.5 text-[#F39A22]" />
+                <Icon className="h-3.5 w-3.5 text-[#c69258]" />
                 {label}
             </div>
 

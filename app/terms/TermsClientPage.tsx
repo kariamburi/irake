@@ -12,7 +12,7 @@ import { IoArrowForwardOutline, IoChevronUpOutline, IoDocumentTextOutline, IoLoc
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     page: "#F8F7F2",
     surface: "#FBFAF6",
     hair: "#DDD8CC",
@@ -642,7 +642,7 @@ export default function TermsPage() {
                     }}
                 />
                 <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-                <div className="pointer-events-none absolute -bottom-24 left-[34%] h-64 w-64 rounded-full bg-[#F39A22]/[0.08]" />
+                <div className="pointer-events-none absolute -bottom-24 left-[34%] h-64 w-64 rounded-full bg-[#c69258]/[0.08]" />
 
                 <div className="relative mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
                     <motion.div
@@ -653,16 +653,16 @@ export default function TermsPage() {
                     >
                         <div className="flex flex-wrap gap-2">
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
-                                <IoDocumentTextOutline size={12} className="text-[#F39A22]" />
+                                <IoDocumentTextOutline size={12} className="text-[#c69258]" />
                                 Legal
                             </span>
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
-                                <IoShieldCheckmarkOutline size={12} className="text-[#F39A22]" />
+                                <IoShieldCheckmarkOutline size={12} className="text-[#c69258]" />
                                 Terms & conditions
                             </span>
                         </div>
 
-                        <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                        <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                             ekarihub legal
                         </div>
 
@@ -677,7 +677,7 @@ export default function TermsPage() {
                         <div className="mt-6 flex flex-wrap gap-2">
                             <a
                                 href="#introduction"
-                                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
+                                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#c69258] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
                             >
                                 Read the terms
                                 <IoArrowForwardOutline size={13} />
@@ -699,7 +699,7 @@ export default function TermsPage() {
                     <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
                         <div className="overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
                             <div className="border-b border-[#E5E0D6] px-4 py-3.5">
-                                <div className="text-[8px] font-black uppercase tracking-[0.11em] text-[#F39A22]">
+                                <div className="text-[8px] font-black uppercase tracking-[0.11em] text-[#c69258]">
                                     In this document
                                 </div>
                                 <h2 className="mt-1 text-[12px] font-black text-slate-800">Contents</h2>
@@ -796,7 +796,7 @@ export default function TermsPage() {
                         >
                             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                 <div className="max-w-2xl">
-                                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                         ekarihub apps
                                     </div>
                                     <h3 className="mt-1 text-[17px] font-black tracking-[-0.03em] text-slate-900">

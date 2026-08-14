@@ -1391,7 +1391,7 @@ export default function MarketPage() {
                                     onClick={openSellModal}
                                     className={[
                                         "inline-flex h-11 items-center gap-2 rounded-full",
-                                        "bg-[#F39A22] px-5",
+                                        "bg-[#c69258] px-5",
                                         "text-[13px] font-black text-white",
                                         "shadow-[0_10px_24px_rgba(243,154,34,0.18)]",
                                         "transition-all duration-250 ease-out",
@@ -1412,7 +1412,7 @@ export default function MarketPage() {
                                     "flex h-12 min-w-0 flex-1 items-center gap-3 rounded-[20px]",
                                     "border border-[#DCD6CA] bg-white px-4",
                                     "transition-all duration-200",
-                                    "focus-within:border-[#F39A22]/55",
+                                    "focus-within:border-[#c69258]/55",
                                     "focus-within:shadow-[0_0_0_3px_rgba(243,154,34,0.08)]",
                                 ].join(" ")}
                             >
@@ -1450,7 +1450,7 @@ export default function MarketPage() {
                                     "border border-[#DCD6CA] bg-white px-4",
                                     "text-[12px] font-extrabold text-slate-600",
                                     "transition-all duration-200",
-                                    "hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]",
+                                    "hover:border-[#c69258]/50 hover:bg-[#FFF9F0]",
                                     "active:scale-[0.98]",
                                 ].join(" ")}
                             >
@@ -1468,7 +1468,7 @@ export default function MarketPage() {
                                     "border border-[#DCD6CA] bg-white px-4",
                                     "text-[12px] font-extrabold text-slate-600",
                                     "transition-all duration-200",
-                                    "hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]",
+                                    "hover:border-[#c69258]/50 hover:bg-[#FFF9F0]",
                                     "active:scale-[0.98]",
                                 ].join(" ")}
                             >
@@ -1582,7 +1582,7 @@ export default function MarketPage() {
 
                             <div className="hidden items-center gap-6 sm:flex">
                                 <div className="text-center">
-                                    <div className="text-[19px] font-black text-[#F39A22]">
+                                    <div className="text-[19px] font-black text-[#c69258]">
                                         {formatDesktopPrice(
                                             desktopFeaturedItem
                                         )}
@@ -1595,7 +1595,7 @@ export default function MarketPage() {
                                 <span
                                     className={[
                                         "grid h-12 w-12 place-items-center rounded-full",
-                                        "bg-[#F39A22]/15 text-[#F39A22]",
+                                        "bg-[#c69258]/15 text-[#c69258]",
                                         "transition-transform duration-300",
                                         "group-hover:translate-x-1",
                                     ].join(" ")}

@@ -81,7 +81,7 @@ const EKARI = {
   text: "#111827",
   subtext: "#6B7280",
   hair: "#DDD8CC",
-  primary: "#F39A22",
+  primary: "#c69258",
   green: "#16A34A",
 };
 /* ---------- helpers (add near your other helpers) ---------- */
@@ -119,7 +119,7 @@ function StatPill({
       title={label}
       type={onClick ? "button" : undefined}
     >
-      <span className="hidden text-[#F39A22] sm:inline-flex">{icon}</span>
+      <span className="hidden text-[#c69258] sm:inline-flex">{icon}</span>
 
       <span className="text-[17px] font-black leading-none text-slate-900">
         {value}
@@ -175,7 +175,7 @@ function IconBtn({
     "border border-[#D9D3C7] bg-[#FBFAF6] text-slate-600",
     "shadow-[0_6px_16px_rgba(15,23,42,0.04)]",
     "transition-all duration-200 ease-out",
-    "hover:-translate-y-0.5 hover:border-[#F39A22]/55 hover:bg-[#FFF9F0] hover:text-[#173C2E]",
+    "hover:-translate-y-0.5 hover:border-[#c69258]/55 hover:bg-[#FFF9F0] hover:text-[#173C2E]",
     "active:translate-y-0 active:scale-95",
   ].join(" ");
 
@@ -477,7 +477,7 @@ function ProfileHeroStorefront({
                 "transition-all duration-200",
                 followState.isFollowing
                   ? "border border-white/20 bg-white/10 text-white hover:bg-white/15"
-                  : "bg-[#F39A22] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]",
+                  : "bg-[#c69258] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]",
               ].join(" ")}
               disabled={followState.isFollowing === null}
             >
@@ -493,7 +493,7 @@ function ProfileHeroStorefront({
             disabled={isOwner || profile.isSuspended}
             className={[
               "inline-flex h-10 items-center gap-2 rounded-xl px-4",
-              "bg-[#F39A22] text-[12px] font-black text-white",
+              "bg-[#c69258] text-[12px] font-black text-white",
               "transition-all duration-200",
               "hover:-translate-y-0.5 hover:bg-[#E98C12]",
               "disabled:cursor-not-allowed disabled:opacity-45",
@@ -707,7 +707,7 @@ function ProfileHeroStorefront({
               onClick={() =>
                 profile.isSuspended ? null : onMessage()
               }
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F39A22] text-[12px] font-black text-white disabled:opacity-50"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#c69258] text-[12px] font-black text-white disabled:opacity-50"
               disabled={isOwner || profile.isSuspended}
               type="button"
             >
@@ -784,8 +784,8 @@ function ProfileHeroStorefront({
             />
           </div>
 
-          <div className="inline-flex items-center gap-1 rounded-full border border-[#F39A22]/35 bg-[#FFF8ED] px-3 py-1.5 text-[11px] font-black text-[#8A5109]">
-            <IoStarOutline size={14} className="text-[#F39A22]" />
+          <div className="inline-flex items-center gap-1 rounded-full border border-[#c69258]/35 bg-[#FFF8ED] px-3 py-1.5 text-[11px] font-black text-[#8A5109]">
+            <IoStarOutline size={14} className="text-[#c69258]" />
             {reviewsText} Rating
           </div>
         </div>
@@ -797,42 +797,42 @@ function ProfileHeroStorefront({
           <div className="mx-auto flex max-w-[1040px] gap-2 overflow-x-auto px-4 py-2.5 no-scrollbar">
             <Link
               href={`/${handleSlug}/earnings`}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
             >
-              <IoCashOutline size={14} className="text-[#F39A22]" />
+              <IoCashOutline size={14} className="text-[#c69258]" />
               Earnings
             </Link>
 
             <Link
               href="/seller/dashboard?tab=packages"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
             >
-              <IoGridOutline size={14} className="text-[#F39A22]" />
+              <IoGridOutline size={14} className="text-[#c69258]" />
               Seller dashboard
             </Link>
 
             <Link
               href={`/store/${profile.id}?src=mystore`}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
             >
-              <IoListOutline size={14} className="text-[#F39A22]" />
+              <IoListOutline size={14} className="text-[#c69258]" />
               My listings
             </Link>
 
             {/**  <Link
               href="/nexus/events/saved"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
             >
-              <IoBookmarkOutline size={14} className="text-[#F39A22]" />
+              <IoBookmarkOutline size={14} className="text-[#c69258]" />
               Saved events
             </Link>*/}
 
             {showAdminBadge ? (
               <Link
                 href="/admin/overview"
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
               >
-                <IoAnalyticsOutline size={14} className="text-[#F39A22]" />
+                <IoAnalyticsOutline size={14} className="text-[#c69258]" />
                 Admin dashboard
               </Link>
             ) : null}
@@ -1022,13 +1022,13 @@ function ProfessionalAccountSection({
                 {hasPublishedExpertProfile ? (
                   <Link
                     href="/account/expert/bookings"
-                    className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[11px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+                    className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[11px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
                   >
                     <IoCalendarOutline size={14} />
                     Expert bookings
 
                     {expertBookingsBadge > 0 ? (
-                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#F39A22] px-1 text-[9px] text-white">
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#c69258] px-1 text-[9px] text-white">
                         {expertBookingsBadge > 99
                           ? "99+"
                           : expertBookingsBadge}
@@ -1039,13 +1039,13 @@ function ProfessionalAccountSection({
 
                 <Link
                   href="/account/bookings"
-                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[11px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[11px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
                 >
                   <IoListOutline size={14} />
                   My bookings
 
                   {myBookingsBadge > 0 ? (
-                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#F39A22] px-1 text-[9px] text-white">
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#c69258] px-1 text-[9px] text-white">
                       {myBookingsBadge > 99
                         ? "99+"
                         : myBookingsBadge}

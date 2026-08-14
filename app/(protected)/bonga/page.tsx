@@ -53,7 +53,7 @@ import SmartAvatar from "@/app/components/SmartAvatar";
 const EKARI = {
   forest: "#173C2E",
   forestSoft: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   sand: "#F8F7F2",
   paper: "#FBFAF6",
   text: "#0F172A",
@@ -1293,7 +1293,7 @@ export default function BongaThreadPage() {
       <header className="shrink-0 bg-[#173C2E] px-4 pb-4 pt-4 text-white">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               ekarihub messaging
             </div>
 
@@ -1309,7 +1309,7 @@ export default function BongaThreadPage() {
             </p>
           </div>
 
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/[0.08] text-[#F39A22]">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/[0.08] text-[#c69258]">
             <IoChatbubblesOutline size={20} />
           </span>
         </div>
@@ -1401,7 +1401,7 @@ export default function BongaThreadPage() {
                     />
 
                     {hasUnread ? (
-                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#F8F7F2] bg-[#F39A22]" />
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#F8F7F2] bg-[#c69258]" />
                     ) : null}
                   </div>
 
@@ -1436,7 +1436,7 @@ export default function BongaThreadPage() {
                       </p>
 
                       {hasUnread ? (
-                        <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[#F39A22] px-1.5 text-[9px] font-black text-white">
+                        <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[#c69258] px-1.5 text-[9px] font-black text-white">
                           {(item.unread ?? 0) > 99
                             ? "99+"
                             : item.unread}
@@ -1463,7 +1463,7 @@ export default function BongaThreadPage() {
         <aside className="hidden h-full w-[330px] shrink-0 flex-col overflow-hidden border-r border-[#DDD8CC] bg-[#F8F7F2] md:flex xl:w-[350px]">
           <div className="shrink-0 border-b border-white/10 bg-[#173C2E] px-4 py-4 text-white">
             <div className="flex items-center gap-2">
-              <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/[0.08] text-[#F39A22]">
+              <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/[0.08] text-[#c69258]">
                 <IoChatbubblesOutline size={18} />
               </div>
               <div className="min-w-0">
@@ -2071,7 +2071,7 @@ export default function BongaThreadPage() {
                   <button
                     onClick={onSend}
                     disabled={(!input.trim() && !pending?.id) || sending}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#F39A22] text-white shadow-[0_8px_18px_rgba(243,154,34,0.20)] transition hover:-translate-y-0.5 hover:bg-[#E98C12] active:translate-y-0 active:scale-95 disabled:opacity-50"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#c69258] text-white shadow-[0_8px_18px_rgba(243,154,34,0.20)] transition hover:-translate-y-0.5 hover:bg-[#E98C12] active:translate-y-0 active:scale-95 disabled:opacity-50"
                     title="Send"
                     type="button"
                   >

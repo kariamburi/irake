@@ -476,7 +476,7 @@ export default function WeatherPage() {
                     >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex min-w-0 items-center gap-3">
-                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#E8ECE8] text-[#F39A22]">
+                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#E8ECE8] text-[#c69258]">
                                     <MapPin size={17} />
                                 </span>
 
@@ -515,7 +515,7 @@ export default function WeatherPage() {
                                         "border border-[#D7D2C7] bg-white px-3.5",
                                         "text-[10px] font-black text-slate-600",
                                         "transition-all duration-200",
-                                        "hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                                        "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
                                         "disabled:cursor-not-allowed disabled:opacity-60",
                                     ].join(" ")}
                                 >
@@ -538,7 +538,7 @@ export default function WeatherPage() {
                                         "border border-[#D7D2C7] bg-white px-3.5",
                                         "text-[10px] font-black text-slate-600",
                                         "transition-all duration-200",
-                                        "hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                                        "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
                                     ].join(" ")}
                                 >
                                     <MapPin size={14} />
@@ -745,7 +745,7 @@ export default function WeatherPage() {
                     className="relative overflow-hidden bg-[#173C2E]"
                 >
                     <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/[0.035]" />
-                    <div className="pointer-events-none absolute bottom-[-80px] right-20 h-48 w-48 rounded-full bg-[#F39A22]/10" />
+                    <div className="pointer-events-none absolute bottom-[-80px] right-20 h-48 w-48 rounded-full bg-[#c69258]/10" />
 
                     <div className="mx-auto max-w-[940px] px-5 pb-5 pt-5">
                         <div className="flex items-start justify-between gap-5">
@@ -807,7 +807,7 @@ export default function WeatherPage() {
                         {location ? (
                             <div className="mt-4 flex items-center justify-between gap-4 rounded-[16px] bg-white/[0.09] px-4 py-3 backdrop-blur-sm">
                                 <div className="flex min-w-0 items-center gap-3">
-                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#F39A22]">
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#c69258]">
                                         <MapPin size={21} />
                                     </span>
 

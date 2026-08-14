@@ -74,7 +74,7 @@ import {
 const EKARI = {
   forest: "#173C2E",
   forestSoft: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   canvas: "#F8F7F2",
   paper: "#FBFAF6",
   text: "#111827",
@@ -1848,7 +1848,7 @@ export default function ExpertSettingsPage() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                 ekari Expert
               </div>
 

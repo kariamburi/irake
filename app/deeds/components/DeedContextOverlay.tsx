@@ -257,7 +257,7 @@ export default function DeedContextOverlay({
                          * Market styling
                          */
                         "border",
-                        "border-[#F3A526]/70",
+                        "border-[#c69258]/70",
                         "bg-[#E99A18]",
 
                         /*
@@ -291,7 +291,7 @@ export default function DeedContextOverlay({
                          */
                         "hover:-translate-y-0.5",
                         "hover:scale-[1.03]",
-                        "hover:bg-[#F3A526]",
+                        "hover:bg-[#c69258]",
                         "hover:shadow-xl",
 
                         /*

@@ -25,7 +25,7 @@ import { useAuth } from "../hooks/useAuth";
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     sand: "#F8F7F2",
     paper: "#FBFAF6",
     text: "#0F172A",
@@ -133,7 +133,7 @@ function InfoCard({
                 </div>
 
                 <div className="min-w-0">
-                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                         {eyebrow}
                     </div>
 
@@ -296,7 +296,7 @@ export default function AboutPage() {
                 />
 
                 <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-                <div className="pointer-events-none absolute -bottom-24 left-[32%] h-64 w-64 rounded-full bg-[#F39A22]/[0.08]" />
+                <div className="pointer-events-none absolute -bottom-24 left-[32%] h-64 w-64 rounded-full bg-[#c69258]/[0.08]" />
 
                 <div className="relative mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
                     <motion.div
@@ -329,7 +329,7 @@ export default function AboutPage() {
 
                             <motion.div
                                 variants={item}
-                                className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]"
+                                className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]"
                             >
                                 About ekarihub
                             </motion.div>
@@ -361,7 +361,7 @@ export default function AboutPage() {
                             >
                                 <Link
                                     href="/"
-                                    className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
+                                    className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#c69258] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
                                 >
                                     Explore deeds
                                     <IoArrowForwardOutline size={13} />
@@ -475,7 +475,7 @@ export default function AboutPage() {
                         variants={item}
                         className="max-w-2xl"
                     >
-                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                             What we do
                         </div>
 
@@ -558,7 +558,7 @@ export default function AboutPage() {
                         variants={item}
                         className="rounded-[20px] border border-[#DDD8CC] bg-[#173C2E] p-5 text-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
                     >
-                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                             Why ekarihub
                         </div>
 
@@ -594,7 +594,7 @@ export default function AboutPage() {
                         variants={item}
                         className="rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
                     >
-                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                             How it works
                         </div>
 
@@ -658,7 +658,7 @@ export default function AboutPage() {
                                 </span>
 
                                 <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                    <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                         Sustainability
                                     </div>
 
@@ -730,7 +730,7 @@ export default function AboutPage() {
                 >
                     <div className="flex flex-col gap-4 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
                         <div className="max-w-2xl">
-                            <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                            <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                 Grow with ekarihub
                             </div>
 

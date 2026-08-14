@@ -709,7 +709,7 @@ export default function DiscoveryRail({ activeDeed }: Props) {
                   </span>
                 </span>
 
-                <span className="shrink-0 text-[11px] font-black text-[#F3A526] transition-transform duration-300 ease-out group-hover/expert:translate-x-0.5">
+                <span className="shrink-0 text-[11px] font-black text-[#c69258] transition-transform duration-300 ease-out group-hover/expert:translate-x-0.5">
                   Book
                 </span>
               </button>
@@ -742,7 +742,7 @@ export default function DiscoveryRail({ activeDeed }: Props) {
                     }
                     className="group/listing flex w-full items-center gap-2.5 py-2 text-left transition-all duration-250 ease-out first:pt-0 last:pb-0 hover:translate-x-1 hover:bg-white/[0.02]"
                   >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[#F3A526]/15 text-[#F3A526] transition-all duration-300 ease-out group-hover/listing:scale-110 group-hover/listing:bg-[#F3A526]/20">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[#c69258]/15 text-[#c69258] transition-all duration-300 ease-out group-hover/listing:scale-110 group-hover/listing:bg-[#c69258]/20">
                       <IoLeafOutline size={17} />
                     </span>
 
@@ -755,7 +755,7 @@ export default function DiscoveryRail({ activeDeed }: Props) {
                       </span>
                     </span>
 
-                    <span className="shrink-0 whitespace-nowrap text-[10px] font-black text-[#F3A526] transition-transform duration-300 ease-out group-hover/listing:translate-x-0.5">
+                    <span className="shrink-0 whitespace-nowrap text-[10px] font-black text-[#c69258] transition-transform duration-300 ease-out group-hover/listing:translate-x-0.5">
                       {formatKes(item.price, item.currency)}
                     </span>
                   </button>
@@ -784,7 +784,7 @@ export default function DiscoveryRail({ activeDeed }: Props) {
                     }
                     className="group/tag flex w-full items-center gap-2 text-left transition-transform duration-250 ease-out hover:translate-x-1"
                   >
-                    <span className="w-3 shrink-0 text-[10px] font-black text-[#F3A526] transition-transform duration-300 ease-out group-hover/tag:scale-110">
+                    <span className="w-3 shrink-0 text-[10px] font-black text-[#c69258] transition-transform duration-300 ease-out group-hover/tag:scale-110">
                       {index + 1}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-white/70 transition-colors duration-300 group-hover/tag:text-white">

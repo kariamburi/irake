@@ -45,7 +45,7 @@ export const dynamic = "force-dynamic";
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     sand: "#F8F7F2",
     paper: "#FBFAF6",
     hair: "#DDD8CC",
@@ -211,7 +211,7 @@ function PremiumButton({
     const classes = [
         "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[10px] font-black transition",
         variant === "primary"
-            ? "bg-[#F39A22] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]"
+            ? "bg-[#c69258] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]"
             : "border border-[#D9D3C7] bg-white text-[#173C2E] hover:bg-[#EEF3EE]",
         className,
     ].join(" ");
@@ -462,7 +462,7 @@ function Tip({
 }) {
     return (
         <div className="flex gap-3 rounded-[14px] border border-[#E4DED2] bg-white p-3.5">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#c69258]">
                 <IoSparklesOutline size={16} />
             </div>
 
@@ -539,7 +539,7 @@ function MiniAreaChart({
                 <polyline
                     points={pts}
                     fill="none"
-                    stroke="#F39A22"
+                    stroke="#c69258"
                     strokeWidth={2.4}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -563,7 +563,7 @@ function StatPill({
             className="inline-flex items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-slate-600"
             title={title}
         >
-            <span className="text-[#F39A22]">
+            <span className="text-[#c69258]">
                 {icon}
             </span>
             {nfmt(value)}
@@ -583,7 +583,7 @@ function RailStat({
     return (
         <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
             <div className="flex items-center justify-between gap-2">
-                <span className="text-[#F39A22]">
+                <span className="text-[#c69258]">
                     {icon}
                 </span>
 
@@ -803,7 +803,7 @@ export default function StudioHomePage() {
                     </button>
 
                     <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                             Deed studio
                         </div>
 
@@ -894,7 +894,7 @@ export default function StudioHomePage() {
                         <div className="p-4 sm:p-5">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#F39A22]">
+                                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#c69258]">
                                         Performance
                                     </div>
 
@@ -980,7 +980,7 @@ export default function StudioHomePage() {
                                                 </div>
                                             </div>
 
-                                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#FFF4E3] text-[#c69258]">
                                                 <IoTrendingUpOutline size={14} />
                                             </span>
                                         </div>
@@ -1200,7 +1200,7 @@ export default function StudioHomePage() {
 
                     <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
                         <div className="flex items-start gap-3">
-                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#c69258]">
                                 <IoSparklesOutline size={17} />
                             </span>
 

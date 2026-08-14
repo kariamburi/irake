@@ -74,7 +74,7 @@ const PAGE_SIZE = 20;
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     sand: "#F8F7F2",
     paper: "#FBFAF6",
     text: "#0F172A",
@@ -421,7 +421,7 @@ export default function PostsPage() {
                     </button>
 
                     <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                             Deed studio
                         </div>
 
@@ -438,7 +438,7 @@ export default function PostsPage() {
 
                             <Link
                                 href="/studio/upload"
-                                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
                             >
                                 <IoSparklesOutline size={14} />
                                 New deed
@@ -457,7 +457,7 @@ export default function PostsPage() {
             <PremiumSurface className="p-4 sm:p-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                     <div className="min-w-0">
-                        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#F39A22]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#c69258]">
                             Content library
                         </div>
 
@@ -626,7 +626,7 @@ export default function PostsPage() {
                                 {!q && privacyFilter === "all" ? (
                                     <Link
                                         href="/studio/upload"
-                                        className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white"
+                                        className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white"
                                     >
                                         <IoSparklesOutline size={13} />
                                         Create a deed
@@ -809,7 +809,7 @@ function PostRowPremium({
             className={[
                 "mb-2 w-full min-w-0 overflow-visible rounded-[16px] border bg-white transition",
                 selected
-                    ? "border-[#F39A22] ring-2 ring-[#F39A22]/10"
+                    ? "border-[#c69258] ring-2 ring-[#c69258]/10"
                     : "border-[#E4DED2] hover:border-[#CFC8BB]",
             ].join(" ")}
         >
@@ -1124,7 +1124,7 @@ function MiniMetric({
     return (
         <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
             <div className="flex items-center justify-between gap-2">
-                <span className="text-[#F39A22]">
+                <span className="text-[#c69258]">
                     {icon}
                 </span>
 

@@ -92,7 +92,7 @@ export default function DeleteAccountClientPage() {
         />
 
         <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-        <div className="pointer-events-none absolute -bottom-24 left-[36%] h-64 w-64 rounded-full bg-[#F39A22]/[0.08]" />
+        <div className="pointer-events-none absolute -bottom-24 left-[36%] h-64 w-64 rounded-full bg-[#c69258]/[0.08]" />
 
         <div className="relative mx-auto max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
           <motion.div
@@ -102,7 +102,7 @@ export default function DeleteAccountClientPage() {
             className="max-w-[760px]"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-white/65">
-              <IoShieldCheckmarkOutline size={12} className="text-[#F39A22]" />
+              <IoShieldCheckmarkOutline size={12} className="text-[#c69258]" />
               Account & privacy
             </div>
 
@@ -118,7 +118,7 @@ export default function DeleteAccountClientPage() {
             <div className="mt-6 flex flex-wrap gap-2">
               <a
                 href="#how-to-request"
-                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
+                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#c69258] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
               >
                 How to delete
                 <IoArrowForwardOutline size={13} />
@@ -141,7 +141,7 @@ export default function DeleteAccountClientPage() {
           <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
             <div className="overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
               <div className="border-b border-[#E5E0D6] px-4 py-3.5">
-                <div className="text-[8px] font-black uppercase tracking-[0.11em] text-[#F39A22]">
+                <div className="text-[8px] font-black uppercase tracking-[0.11em] text-[#c69258]">
                   In this guide
                 </div>
                 <h2 className="mt-1 text-[12px] font-black text-slate-800">
@@ -216,12 +216,12 @@ export default function DeleteAccountClientPage() {
               className="scroll-mt-6 rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:p-6"
             >
               <div className="flex items-start gap-3.5">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-[#FFF2DF] text-[#F39A22]">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-[#FFF2DF] text-[#c69258]">
                   <IoTrashOutline size={19} />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Step 01
                   </div>
 
@@ -290,7 +290,7 @@ export default function DeleteAccountClientPage() {
                 </div>
 
                 <div>
-                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Step 02
                   </div>
                   <h2 className="mt-1 text-[18px] font-black tracking-[-0.025em] text-slate-900 sm:text-[20px]">
@@ -327,12 +327,12 @@ export default function DeleteAccountClientPage() {
               className="scroll-mt-6 rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:p-6"
             >
               <div className="flex items-start gap-3.5">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-[#FFF2DF] text-[#F39A22]">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-[#FFF2DF] text-[#c69258]">
                   <IoTimeOutline size={19} />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Step 03
                   </div>
 
@@ -344,7 +344,7 @@ export default function DeleteAccountClientPage() {
                     <div className="flex items-start gap-3">
                       <IoTimeOutline
                         size={17}
-                        className="mt-0.5 shrink-0 text-[#F39A22]"
+                        className="mt-0.5 shrink-0 text-[#c69258]"
                       />
 
                       <p className="text-[10px] font-semibold leading-5 text-slate-600 sm:text-[11px]">
@@ -382,7 +382,7 @@ export default function DeleteAccountClientPage() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Support
                   </div>
 
@@ -461,7 +461,7 @@ function ProcessCard({
   return (
     <div className="rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+        <span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
           {number}
         </span>
 

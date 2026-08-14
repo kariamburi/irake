@@ -37,7 +37,7 @@ import { useRouter } from "next/navigation";
 const EKARI = {
   forest: "#173C2E",
   forestSoft: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   sand: "#F8F7F2",
   paper: "#FBFAF6",
   text: "#0F172A",
@@ -334,7 +334,7 @@ function MobilePlanPicker({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+            <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c69258]">
               Seller packages
             </div>
 
@@ -565,7 +565,7 @@ function PlanCheckoutDialogWeb({
 
           <div className="mb-3 flex items-start gap-3">
             <div className="flex-1">
-              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                 Upgrade plan
               </p>
               <h2 className="mt-1 text-[18px] font-black tracking-[-0.025em] text-slate-900">
@@ -953,7 +953,7 @@ export default function SellerDashboardPage() {
               <IoArrowBack size={19} />
             </button>
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                 ekariMarket seller
               </div>
 
@@ -1354,7 +1354,7 @@ export default function SellerDashboardPage() {
                 className={[
                   "h-full rounded-full",
                   computed.nearLimit
-                    ? "bg-[#F39A22]"
+                    ? "bg-[#c69258]"
                     : "bg-[#173C2E]",
                 ].join(" ")}
               />
@@ -1380,7 +1380,7 @@ export default function SellerDashboardPage() {
           <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
             <IoRocketOutline
               size={15}
-              className="text-[#F39A22]"
+              className="text-[#c69258]"
             />
 
             <div className="mt-2 text-[19px] font-black text-[#173C2E]">
@@ -1395,7 +1395,7 @@ export default function SellerDashboardPage() {
           <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
             <IoStarOutline
               size={15}
-              className="text-[#F39A22]"
+              className="text-[#c69258]"
             />
 
             <div className="mt-2 text-[19px] font-black text-[#173C2E]">
@@ -1411,7 +1411,7 @@ export default function SellerDashboardPage() {
 
       <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
         <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#c69258]">
             <IoWalletOutline size={17} />
           </span>
 

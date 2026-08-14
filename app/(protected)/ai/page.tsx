@@ -32,7 +32,7 @@ import { collection, query, where, orderBy, limit, getDocs } from "firebase/fire
 const EKARI = {
   forest: "#173C2E",
   forestSoft: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   sand: "#F8F7F2",
   paper: "#FBFAF6",
   hair: "#DDD8CC",
@@ -728,7 +728,7 @@ export default function Page() {
                       className={[
                         "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl",
                         active
-                          ? "bg-white/10 text-[#F39A22]"
+                          ? "bg-white/10 text-[#c69258]"
                           : "bg-[#E8ECE8] text-[#173C2E]",
                       ].join(" ")}
                     >
@@ -767,7 +767,7 @@ export default function Page() {
             "border border-[#D9D3C7] bg-[#FBFAF6]",
             "text-[11px] font-black text-slate-600",
             "transition-all duration-200",
-            "hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+            "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
             "active:scale-[0.98]",
           ].join(" ")}
         >
@@ -825,7 +825,7 @@ export default function Page() {
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#F39A22]/15 text-[#F39A22]">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#c69258]/15 text-[#c69258]">
                   <Sparkles size={16} />
                 </span>
 
@@ -893,11 +893,11 @@ export default function Page() {
                         "flex min-h-16 items-start gap-2 rounded-2xl border border-[#E4DED2]",
                         "bg-white p-3 text-left",
                         "transition-all duration-200",
-                        "hover:border-[#F39A22]/45 hover:bg-[#FFF9F0]",
+                        "hover:border-[#c69258]/45 hover:bg-[#FFF9F0]",
                         "active:scale-[0.98]",
                       ].join(" ")}
                     >
-                      <span className="mt-0.5 text-[#F39A22]">
+                      <span className="mt-0.5 text-[#c69258]">
                         {item.icon}
                       </span>
 
@@ -954,9 +954,9 @@ export default function Page() {
               <div className="flex justify-start">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#E4DED2] bg-[#FBFAF6] px-3 py-1.5 text-[10px] font-semibold text-slate-400">
                   <span className="flex gap-0.5">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#F39A22]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#F39A22] [animation-delay:0.1s]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#F39A22] [animation-delay:0.2s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258] [animation-delay:0.1s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258] [animation-delay:0.2s]" />
                   </span>
 
                   {isTyping ? "ekari AI is typing…" : "ekari AI is thinking…"}
@@ -1016,7 +1016,7 @@ export default function Page() {
                 className={[
                   "grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl",
                   "border border-[#D9D3C7] bg-white text-[#173C2E]",
-                  "transition-all duration-200 hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                  "transition-all duration-200 hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
                 ].join(" ")}
                 title="Attach image"
               >
@@ -1039,7 +1039,7 @@ export default function Page() {
                   "border border-[#D9D3C7] bg-white px-3.5 py-2.5",
                   "text-sm text-slate-800 outline-none placeholder:text-slate-400",
                   "transition-all duration-200",
-                  "focus:border-[#F39A22]/60 focus:ring-2 focus:ring-[#F39A22]/10",
+                  "focus:border-[#c69258]/60 focus:ring-2 focus:ring-[#c69258]/10",
                 ].join(" ")}
                 rows={1}
                 onInput={(e) => {
@@ -1060,7 +1060,7 @@ export default function Page() {
                 disabled={sending || (!input.trim() && !pendingImage && !pendingFile)}
                 className={[
                   "grid h-11 w-11 shrink-0 place-items-center rounded-xl",
-                  "bg-[#F39A22] text-white",
+                  "bg-[#c69258] text-white",
                   "shadow-[0_8px_18px_rgba(243,154,34,0.20)]",
                   "transition-all duration-200",
                   "hover:-translate-y-0.5 hover:bg-[#E98C12]",
@@ -1153,7 +1153,7 @@ export default function Page() {
                 className="relative shrink-0 overflow-hidden bg-[#173C2E]"
               >
                 <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/[0.035]" />
-                <div className="pointer-events-none absolute -bottom-24 right-28 h-48 w-48 rounded-full bg-[#F39A22]/10" />
+                <div className="pointer-events-none absolute -bottom-24 right-28 h-48 w-48 rounded-full bg-[#c69258]/10" />
 
                 <div className="flex items-center gap-4 px-5 py-4">
                   <button
@@ -1169,12 +1169,12 @@ export default function Page() {
                     <ArrowLeft size={18} />
                   </button>
 
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F39A22]/15 text-[#F39A22]">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#c69258]/15 text-[#c69258]">
                     <Sparkles size={19} />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-black uppercase tracking-[0.11em] text-[#F39A22]">
+                    <div className="text-[10px] font-black uppercase tracking-[0.11em] text-[#c69258]">
                       Ekarihub Intelligence
                     </div>
 
@@ -1254,11 +1254,11 @@ export default function Page() {
                             className={[
                               "group rounded-2xl border border-[#E4DED2] bg-white p-3 text-left",
                               "transition-all duration-200 ease-out",
-                              "hover:-translate-y-0.5 hover:border-[#F39A22]/45 hover:bg-[#FFF9F0]",
+                              "hover:-translate-y-0.5 hover:border-[#c69258]/45 hover:bg-[#FFF9F0]",
                               "active:translate-y-0 active:scale-[0.98]",
                             ].join(" ")}
                           >
-                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22] transition-transform duration-200 group-hover:scale-105">
+                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#FFF4E3] text-[#c69258] transition-transform duration-200 group-hover:scale-105">
                               {item.icon}
                             </span>
 
@@ -1315,9 +1315,9 @@ export default function Page() {
                     <div className="flex justify-start">
                       <div className="inline-flex items-center gap-2 rounded-full border border-[#E4DED2] bg-[#FBFAF6] px-3 py-1.5 text-[10px] font-semibold text-slate-400">
                         <span className="flex gap-0.5">
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#F39A22]" />
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#F39A22] [animation-delay:0.1s]" />
-                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#F39A22] [animation-delay:0.2s]" />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258]" />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258] [animation-delay:0.1s]" />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258] [animation-delay:0.2s]" />
                         </span>
 
                         {isTyping
@@ -1379,7 +1379,7 @@ export default function Page() {
                         "grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl",
                         "border border-[#D9D3C7] bg-white text-[#173C2E]",
                         "transition-all duration-200",
-                        "hover:-translate-y-0.5 hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                        "hover:-translate-y-0.5 hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
                         "active:translate-y-0",
                       ].join(" ")}
                       title="Attach image"
@@ -1403,7 +1403,7 @@ export default function Page() {
                         "border border-[#D9D3C7] bg-white px-4 py-2.5",
                         "text-[13px] font-medium text-slate-800 outline-none placeholder:text-slate-400",
                         "transition-all duration-200",
-                        "focus:border-[#F39A22]/60 focus:ring-2 focus:ring-[#F39A22]/10",
+                        "focus:border-[#c69258]/60 focus:ring-2 focus:ring-[#c69258]/10",
                       ].join(" ")}
                       rows={1}
                       onInput={(e) => {
@@ -1428,7 +1428,7 @@ export default function Page() {
                       }
                       className={[
                         "grid h-11 w-11 shrink-0 place-items-center rounded-xl",
-                        "bg-[#F39A22] text-white",
+                        "bg-[#c69258] text-white",
                         "shadow-[0_8px_18px_rgba(243,154,34,0.20)]",
                         "transition-all duration-200",
                         "hover:-translate-y-0.5 hover:bg-[#E98C12]",

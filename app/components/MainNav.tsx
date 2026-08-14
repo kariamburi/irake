@@ -30,7 +30,7 @@ const EKARI = {
     text: "#F7F3E8",
     subtext: "#9DB2A6",
     hair: "rgba(255,255,255,0.10)",
-    gold: "#F3A526",
+    gold: "#c69258",
 } as const;
 
 function cn(...xs: (string | false | null | undefined)[]) {
@@ -100,7 +100,7 @@ export function NavItem({
                 "border-l-[3px] px-4 py-1.5",
                 "transition-colors duration-200",
                 isActive
-                    ? "border-l-[#F3A526] bg-white/[0.10]"
+                    ? "border-l-[#c69258] bg-white/[0.10]"
                     : "border-l-transparent hover:bg-white/[0.055]",
             )}
             style={{
@@ -118,7 +118,7 @@ export function NavItem({
                 </span>
 
                 {showBadge ? (
-                    <span className="absolute -right-2 -top-1.5 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-[#F3A526] px-1 text-[9px] font-black text-[#173C2E]">
+                    <span className="absolute -right-2 -top-1.5 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-[#c69258] px-1 text-[9px] font-black text-[#173C2E]">
                         {badgeText}
                     </span>
                 ) : null}
@@ -416,7 +416,7 @@ export function LeftNavDesktop({
                         href="/getstarted"
                         className={[
                             "flex h-11 w-full items-center justify-center",
-                            "rounded-xl bg-[#F3A526]",
+                            "rounded-xl bg-[#c69258]",
                             "text-[11px] font-black text-[#173C2E]",
                             "transition hover:bg-[#F8B33E]",
                             "active:scale-[0.98]",

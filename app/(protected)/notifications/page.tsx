@@ -55,7 +55,7 @@ export const dynamic = "force-dynamic";
 const EKARI = {
   forest: "#173C2E",
   forestSoft: "#214C3A",
-  orange: "#F39A22",
+  orange: "#c69258",
   canvas: "#F8F7F2",
   paper: "#FBFAF6",
   text: "#0F172A",
@@ -1023,7 +1023,7 @@ function NotificationRow({
 
       {n.seen === false ? (
         <span
-          className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#F39A22]"
+          className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#c69258]"
           aria-label="Unread"
         />
       ) : null}
@@ -1109,7 +1109,7 @@ function FollowerItem({
           size={46}
         />
 
-        <span className="absolute -bottom-1 -right-1 grid h-[19px] w-[19px] place-items-center rounded-full border-2 border-[#FBFAF6] bg-[#F39A22] text-white">
+        <span className="absolute -bottom-1 -right-1 grid h-[19px] w-[19px] place-items-center rounded-full border-2 border-[#FBFAF6] bg-[#c69258] text-white">
           <IoPersonAdd
             size={10}
           />
@@ -1195,7 +1195,7 @@ function FollowerItem({
       )}
 
       {row.seen === false ? (
-        <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#F39A22]" />
+        <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#c69258]" />
       ) : null}
     </motion.li>
   );
@@ -2153,7 +2153,7 @@ export default function NotificationsPage() {
             ) : null}
 
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                 ekarihub updates
               </div>
 
@@ -2279,7 +2279,7 @@ export default function NotificationsPage() {
                         className={clsx(
                           "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
                           active
-                            ? "bg-[#F39A22] text-white"
+                            ? "bg-[#c69258] text-white"
                             : "bg-[#EFECE5] text-slate-500"
                         )}
                       >

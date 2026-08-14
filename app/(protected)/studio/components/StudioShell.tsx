@@ -74,7 +74,7 @@ export default function StudioShell({
                         </span>
 
                         <div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#F39A22]">
+                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#c69258]">
                                 Studio
                             </div>
                             <div className="text-[11px] font-black text-slate-700">
@@ -104,7 +104,7 @@ export default function StudioShell({
                                     {active ? (
                                         <motion.span
                                             layoutId="studio-tab-indicator"
-                                            className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#F39A22]"
+                                            className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#c69258]"
                                             transition={{
                                                 type: "spring",
                                                 stiffness: 420,
@@ -121,7 +121,7 @@ export default function StudioShell({
 
                     <Link
                         href={ctaHref}
-                        className="hidden h-9 items-center gap-1.5 rounded-xl bg-[#F39A22] px-3.5 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] sm:inline-flex"
+                        className="hidden h-9 items-center gap-1.5 rounded-xl bg-[#c69258] px-3.5 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] sm:inline-flex"
                     >
                         <IoAddOutline size={14} />
                         {ctaLabel.replace(/^\+\s*/, "")}
@@ -161,7 +161,7 @@ export default function StudioShell({
                                 }}
                             >
                                 <div>
-                                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                         ekarihub
                                     </div>
                                     <div className="mt-0.5 text-[16px] font-black text-slate-900">
@@ -182,7 +182,7 @@ export default function StudioShell({
                                 <Link
                                     href={ctaHref}
                                     onClick={() => setNavOpen(false)}
-                                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F39A22] text-[11px] font-black text-white"
+                                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] text-[11px] font-black text-white"
                                 >
                                     <IoAddOutline size={15} />
                                     {ctaLabel.replace(/^\+\s*/, "")}

@@ -55,7 +55,7 @@ type Ticket = {
 const EKARI = {
   forest: "#173C2E",
   leaf: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   page: "#F8F7F2",
   surface: "#FBFAF6",
   hair: "#DDD8CC",
@@ -154,7 +154,7 @@ function TextArea(
 function ContactCard() {
   return (
     <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
-      <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+      <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
         Contact us
       </div>
 
@@ -198,7 +198,7 @@ function ContactCard() {
 function ResponseTimeCard() {
   return (
     <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
-      <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+      <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
         Response time
       </div>
 
@@ -389,23 +389,23 @@ export default function SupportPage() {
         />
 
         <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-        <div className="pointer-events-none absolute -bottom-24 left-[32%] h-64 w-64 rounded-full bg-[#F39A22]/[0.08]" />
+        <div className="pointer-events-none absolute -bottom-24 left-[32%] h-64 w-64 rounded-full bg-[#c69258]/[0.08]" />
 
         <div className="relative mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
           <div className="max-w-[820px]">
             <div className="flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
-                <IoMailOutline size={12} className="text-[#F39A22]" />
+                <IoMailOutline size={12} className="text-[#c69258]" />
                 Support
               </span>
 
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
-                <IoDocumentTextOutline size={12} className="text-[#F39A22]" />
+                <IoDocumentTextOutline size={12} className="text-[#c69258]" />
                 Help center
               </span>
             </div>
 
-            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               We&apos;re here to help
             </div>
 
@@ -436,7 +436,7 @@ export default function SupportPage() {
                   href={`/support/${key}`}
                   className="group flex items-center gap-3 rounded-[14px] border border-white/10 bg-white/[0.06] p-3 transition hover:bg-white/[0.11]"
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-white/10 text-[#F39A22]">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-white/10 text-[#c69258]">
                     <Icon size={15} />
                   </span>
 
@@ -472,7 +472,7 @@ export default function SupportPage() {
             <section className="rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Support request
                   </div>
 
@@ -614,7 +614,7 @@ export default function SupportPage() {
             <section className="overflow-hidden rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
               <div className="flex items-center justify-between gap-3 border-b border-[#E8E3D8] px-5 py-4 sm:px-6">
                 <div>
-                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Support history
                   </div>
 
@@ -704,7 +704,7 @@ export default function SupportPage() {
             <ResponseTimeCard />
 
             <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
-              <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+              <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                 Quick links
               </div>
 

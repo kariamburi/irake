@@ -24,7 +24,7 @@ import SmartAvatar from "../components/SmartAvatar";
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     page: "#F8F7F2",
     surface: "#FBFAF6",
     sand: "#FFFFFF",
@@ -100,7 +100,7 @@ function PageGlowBg() {
             />
             <div
                 aria-hidden
-                className="pointer-events-none fixed -bottom-40 -left-24 -z-10 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]"
+                className="pointer-events-none fixed -bottom-40 -left-24 -z-10 h-80 w-80 rounded-full bg-[#c69258]/[0.035]"
             />
         </>
     );
@@ -251,7 +251,7 @@ function SuggestionTabs({
                                             ? "suggestion-tabs-mobile"
                                             : "suggestion-tabs-desktop"
                                     }
-                                    className="absolute inset-x-3 -bottom-[2px] h-[2px] rounded-full bg-[#F39A22]"
+                                    className="absolute inset-x-3 -bottom-[2px] h-[2px] rounded-full bg-[#c69258]"
                                 />
                             ) : null}
                         </button>
@@ -971,7 +971,7 @@ export default function SuggestionsPageClient() {
                     <header className="mb-5">
                         <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
-                                <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                     Discover
                                 </div>
 
@@ -1055,7 +1055,7 @@ export default function SuggestionsPageClient() {
                         <div className="sticky top-5 space-y-4">
                             <div className="rounded-[17px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
                                 <div className="flex items-start gap-3">
-                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#FFF2DF] text-[#F39A22]">
+                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#FFF2DF] text-[#c69258]">
                                         <IoSparklesOutline size={18} />
                                     </span>
 
@@ -1072,7 +1072,7 @@ export default function SuggestionsPageClient() {
                             </div>
 
                             <div className="rounded-[17px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
-                                <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                     Explore more
                                 </div>
 
@@ -1104,7 +1104,7 @@ export default function SuggestionsPageClient() {
                                 href="/search"
                                 className="group flex w-full items-center gap-3 rounded-[17px] bg-[#173C2E] p-4 text-white shadow-[0_10px_24px_rgba(23,60,46,0.12)] transition hover:bg-[#214C3A]"
                             >
-                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 text-[#F39A22]">
+                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 text-[#c69258]">
                                     <IoSearch size={17} />
                                 </span>
 

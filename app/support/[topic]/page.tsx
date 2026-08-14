@@ -23,7 +23,7 @@ import { Footer } from "@/app/components/Footer";
 const EKARI = {
   forest: "#173C2E",
   leaf: "#214C3A",
-  gold: "#F39A22",
+  gold: "#c69258",
   page: "#F8F7F2",
   surface: "#FBFAF6",
   border: "#DDD8CC",
@@ -123,7 +123,7 @@ export default function SupportTopicPage() {
         />
 
         <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
-        <div className="pointer-events-none absolute -bottom-28 left-[33%] h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+        <div className="pointer-events-none absolute -bottom-28 left-[33%] h-72 w-72 rounded-full bg-[#c69258]/[0.08]" />
 
         <div className="relative mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
           <button
@@ -140,7 +140,7 @@ export default function SupportTopicPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
                 <Icon
                   size={12}
-                  className="text-[#F39A22]"
+                  className="text-[#c69258]"
                 />
                 {topic.label}
               </span>
@@ -148,13 +148,13 @@ export default function SupportTopicPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
                 <IoShieldCheckmarkOutline
                   size={12}
-                  className="text-[#F39A22]"
+                  className="text-[#c69258]"
                 />
                 Support guide
               </span>
             </div>
 
-            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               Help center
             </div>
 
@@ -169,7 +169,7 @@ export default function SupportTopicPage() {
             <div className="mt-6 flex flex-wrap gap-2">
               <Link
                 href="/support"
-                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
+                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#c69258] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
               >
                 Submit a ticket
                 <IoArrowForwardOutline size={13} />
@@ -201,7 +201,7 @@ export default function SupportTopicPage() {
                 </span>
 
                 <div>
-                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Helpful steps
                   </div>
 
@@ -231,7 +231,7 @@ export default function SupportTopicPage() {
             <section className="rounded-[20px] border border-[#DDD8CC] bg-[#173C2E] p-5 text-white shadow-[0_10px_28px_rgba(23,60,46,0.12)] sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="max-w-2xl">
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Still need help?
                   </div>
 
@@ -246,7 +246,7 @@ export default function SupportTopicPage() {
 
                 <Link
                   href="/support"
-                  className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[12px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
+                  className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[12px] bg-[#c69258] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
                 >
                   Submit a ticket
                   <IoArrowForwardOutline size={13} />
@@ -258,7 +258,7 @@ export default function SupportTopicPage() {
           {/* RIGHT RAIL */}
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-5 lg:self-start">
             <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
-              <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+              <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                 Contact us
               </div>
 
@@ -289,7 +289,7 @@ export default function SupportTopicPage() {
 
             <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
               <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#FFF2DF] text-[#F39A22]">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#FFF2DF] text-[#c69258]">
                   <IoTimeOutline size={17} />
                 </span>
 
@@ -306,7 +306,7 @@ export default function SupportTopicPage() {
             </div>
 
             <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
-              <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+              <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                 Explore support
               </div>
 

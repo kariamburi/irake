@@ -65,7 +65,7 @@ import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 const EKARI = {
     forest: "#173C2E",
     leaf: "#214C3A",
-    gold: "#F39A22",
+    gold: "#c69258",
     sand: "#F8F7F2",
     hair: "#DDD8CC",
     text: "#0F172A",
@@ -284,7 +284,7 @@ function SmartPicker({
         hair: "#DDD8CC",
         text: "#0F172A",
         forest: "#173C2E",
-        gold: "#F39A22",
+        gold: "#c69258",
         dim: "#64748B",
     },
     groups,
@@ -776,7 +776,7 @@ function SmartPicker({
                                 className="h-12 w-full rounded-2xl text-sm font-black text-white transition active:scale-[0.99]"
                                 style={{
                                     background:
-                                        "linear-gradient(135deg, #F39A22, #173C2E)",
+                                        "linear-gradient(135deg, #c69258, #173C2E)",
                                     boxShadow:
                                         "0 12px 30px rgba(23,60,46,0.22)",
                                 }}
@@ -1689,7 +1689,7 @@ export default function OnboardingWizardPage() {
                     />
 
                     <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/[0.035]" />
-                    <div className="pointer-events-none absolute -bottom-28 -left-24 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+                    <div className="pointer-events-none absolute -bottom-28 -left-24 h-72 w-72 rounded-full bg-[#c69258]/[0.08]" />
 
                     <div className="relative mx-auto flex h-full w-full min-w-0 max-w-[430px] flex-col">
                         <div className="flex items-center justify-between gap-3">
@@ -1720,7 +1720,7 @@ export default function OnboardingWizardPage() {
                         <div className="mt-5 lg:hidden">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
-                                    <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                    <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                         Step {step} of 5
                                     </div>
 
@@ -1729,7 +1729,7 @@ export default function OnboardingWizardPage() {
                                     </div>
                                 </div>
 
-                                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+                                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-white/10 bg-white/[0.07] text-[#c69258]">
                                     <CurrentStepIcon size={20} />
                                 </div>
                             </div>
@@ -1747,7 +1747,7 @@ export default function OnboardingWizardPage() {
                                                 "h-1.5 rounded-full transition-all duration-200",
                                                 item <=
                                                     step
-                                                    ? "bg-[#F39A22]"
+                                                    ? "bg-[#c69258]"
                                                     : "bg-white/12",
                                             ].join(
                                                 " "
@@ -1760,7 +1760,7 @@ export default function OnboardingWizardPage() {
 
                         {/* Desktop progress */}
                         <div className="hidden flex-1 flex-col justify-center py-8 lg:flex">
-                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                 Complete your account
                             </div>
 
@@ -1838,7 +1838,7 @@ export default function OnboardingWizardPage() {
                                                     className={[
                                                         "grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border",
                                                         active
-                                                            ? "border-[#F39A22]/30 bg-[#F39A22]/12 text-[#F39A22]"
+                                                            ? "border-[#c69258]/30 bg-[#c69258]/12 text-[#c69258]"
                                                             : done
                                                                 ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
                                                                 : "border-white/10 bg-white/[0.05] text-white/45",
@@ -1892,7 +1892,7 @@ export default function OnboardingWizardPage() {
                             <div className="flex items-start gap-2.5">
                                 <IoSparklesOutline
                                     size={16}
-                                    className="mt-0.5 shrink-0 text-[#F39A22]"
+                                    className="mt-0.5 shrink-0 text-[#c69258]"
                                 />
 
                                 <div>
@@ -1914,7 +1914,7 @@ export default function OnboardingWizardPage() {
                 ===================================================== */}
                 <section className="relative min-w-0 overflow-x-clip bg-[#F8F7F2] lg:min-h-[100dvh]">
                     <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
-                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#c69258]/[0.035]" />
 
                     <div className="relative mx-auto w-full max-w-[880px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
                         <motion.div
@@ -1935,7 +1935,7 @@ export default function OnboardingWizardPage() {
                             {/* Current step heading */}
                             <div className="mb-5 flex items-start justify-between gap-4">
                                 <div className="min-w-0">
-                                    <div className="text-[9px] font-black uppercase tracking-[0.11em] text-[#F39A22]">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.11em] text-[#c69258]">
                                         Step {step} of 5
                                     </div>
 

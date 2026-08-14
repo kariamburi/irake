@@ -100,7 +100,7 @@ function RailCard({
             ].join(" ")}
         >
             <div className="mb-3 flex items-center gap-2">
-                <span className="text-[#F39A22]">{icon}</span>
+                <span className="text-[#c69258]">{icon}</span>
                 <h2 className="text-[11px] font-black uppercase tracking-[0.09em] text-slate-500">
                     {title}
                 </h2>
@@ -159,13 +159,13 @@ export default function ExpertDiscoveryRail({
                                     {getExpertName(featuredExpert)}
                                 </div>
 
-                                <div className="mt-1 line-clamp-2 text-[11px] font-bold text-[#E88712]">
+                                <div className="mt-1 line-clamp-2 text-[11px] font-bold text-[#c69258]">
                                     {featuredExpert.headline ||
                                         featuredExpert.specialties?.[0] ||
                                         "Agricultural professional"}
                                 </div>
 
-                                <div className="mt-2 flex items-center gap-1 text-[#F39A22]">
+                                <div className="mt-2 flex items-center gap-1 text-[#c69258]">
                                     <IoStar size={14} />
                                     <span className="text-[11px] font-black text-slate-700">
                                         {Number(
@@ -292,7 +292,7 @@ export default function ExpertDiscoveryRail({
                                 "border border-[#D7D2C7] bg-white",
                                 "text-[11px] font-black text-[#173C2E]",
                                 "transition-all duration-200",
-                                "hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                                "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
                                 "active:scale-[0.98]",
                             ].join(" ")}
                         >
