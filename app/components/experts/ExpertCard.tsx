@@ -1,7 +1,10 @@
 "use client";
 
+import React from "react";
+
 import { PublicExpert } from "@/app/types/publicExpert";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import {
     IoArrowForward,
     IoCallOutline,
@@ -360,6 +363,10 @@ export default function ExpertCard({
     const displayName =
         expert.displayName?.trim() ||
         expert.organizationName?.trim() ||
+        [expert.firstName, expert.surname]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
         "ekari Expert";
 
     const rating =
@@ -374,267 +381,138 @@ export default function ExpertCard({
     const specialties = Array.isArray(
         expert.specialties
     )
-        ? expert.specialties.slice(0, 3)
+        ? expert.specialties.slice(0, 4)
         : [];
 
-    const remainingSpecialties =
-        Math.max(
-            0,
-            (expert.specialties?.length || 0) -
-            specialties.length
-        );
+    const [imageFailed, setImageFailed] =
+        React.useState(false);
+
+    React.useEffect(() => {
+        setImageFailed(false);
+    }, [expert.photoURL]);
 
     return (
-        <article
-            className="group flex h-full flex-col overflow-hidden rounded-3xl border bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg"
-            style={{ borderColor: EKARI.hair }}
+        <motion.article
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+                duration: 0.28,
+                ease: "easeOut",
+            }}
+            className={[
+                "group rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6]",
+                "px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.045)]",
+                "transition-all duration-300 ease-out",
+                "hover:-translate-y-[2px]",
+                "hover:border-[#CBC4B7]",
+                "hover:shadow-[0_18px_38px_rgba(15,23,42,0.08)]",
+            ].join(" ")}
         >
-            <div
-                className="h-1.5 w-full"
-                style={{
-                    background:
-                        "linear-gradient(90deg, #233F39, #C79257)",
-                }}
-            />
-
-            <div className="flex flex-1 flex-col p-4">
-                <div className="flex items-start gap-3">
-                    <Link
-                        href={profilePath}
-                        className="relative shrink-0"
-                        aria-label={`View ${displayName}'s profile`}
+            <div className="flex items-start gap-4">
+                <Link
+                    href={profilePath}
+                    className="relative shrink-0"
+                    aria-label={`View ${displayName}'s profile`}
+                >
+                    <div
+                        className={[
+                            "grid h-[84px] w-[84px] place-items-center overflow-hidden rounded-full",
+                            "bg-[#E8ECE8] text-lg font-black text-[#173C2E]",
+                            "ring-1 ring-black/[0.05]",
+                        ].join(" ")}
                     >
-                        {expert.photoURL ? (
+                        {expert.photoURL && !imageFailed ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={expert.photoURL}
                                 alt={displayName}
                                 loading="lazy"
                                 referrerPolicy="no-referrer"
-                                className="h-20 w-20 rounded-2xl border object-cover"
-                                style={{
-                                    borderColor: EKARI.hair,
-                                    backgroundColor: EKARI.soft,
-                                }}
-                                onError={(event) => {
-                                    event.currentTarget.style.display =
-                                        "none";
-
-                                    const fallback =
-                                        event.currentTarget
-                                            .nextElementSibling as HTMLElement | null;
-
-                                    if (fallback) {
-                                        fallback.style.display =
-                                            "grid";
-                                    }
-                                }}
+                                className="h-full w-full object-cover"
+                                onError={() =>
+                                    setImageFailed(true)
+                                }
                             />
-                        ) : null}
+                        ) : (
+                            getInitials(displayName)
+                        )}
+                    </div>
 
+                    {expert.acceptingBookings ? (
                         <span
-                            className="h-20 w-20 place-items-center rounded-2xl text-xl font-black text-white"
-                            style={{
-                                display: expert.photoURL
-                                    ? "none"
-                                    : "grid",
-                                background:
-                                    "linear-gradient(135deg, #233F39, #C79257)",
-                            }}
-                        >
-                            {getInitials(displayName)}
-                        </span>
+                            title="Accepting clients"
+                            className="absolute bottom-1 right-0 h-4 w-4 rounded-full border-[3px] border-[#FBFAF6] bg-emerald-500"
+                        />
+                    ) : null}
+                </Link>
 
-                        {expert.acceptingBookings ? (
-                            <span
-                                title="Accepting clients"
-                                className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-white bg-emerald-500"
-                            />
-                        ) : null}
-                    </Link>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <Link
+                                href={profilePath}
+                                className="inline-flex max-w-full items-center gap-1.5"
+                            >
+                                <h2 className="truncate text-[17px] font-black tracking-[-0.02em] text-slate-900 transition group-hover:text-[#173C2E]">
+                                    {displayName}
+                                </h2>
 
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                                <Link
-                                    href={profilePath}
-                                    className="flex items-center gap-1.5"
-                                >
-                                    <h2
-                                        className="truncate text-sm font-black transition group-hover:underline"
-                                        style={{ color: EKARI.text }}
-                                    >
-                                        {displayName}
-                                    </h2>
+                                {expert.verificationStatus ===
+                                    "approved" ? (
+                                    <IoCheckmarkCircle
+                                        size={16}
+                                        className="shrink-0 text-[#F39A22]"
+                                        title="Verified expert"
+                                    />
+                                ) : null}
+                            </Link>
 
-                                    {expert.verificationStatus ===
-                                        "approved" ? (
-                                        <IoCheckmarkCircle
-                                            size={18}
-                                            className="shrink-0"
-                                            color="#1D9BF0"
-                                            title="Verified expert"
-                                        />
-                                    ) : null}
-                                </Link>
-
-                                <p
-                                    className="mt-1 truncate text-xs font-bold"
-                                    style={{ color: EKARI.gold }}
-                                >
-                                    {expert.headline ||
-                                        expert.verificationRole ||
-                                        expert.specialties?.[0] ||
-                                        expert.organizationName ||
-                                        "Agricultural professional"}
-                                </p>
-                            </div>
-
-
+                            <p className="mt-1 truncate text-[13px] font-extrabold text-[#E88712]">
+                                {expert.headline ||
+                                    expert.verificationRole ||
+                                    expert.specialties?.[0] ||
+                                    expert.organizationName ||
+                                    "Agricultural professional"}
+                            </p>
                         </div>
 
                         <div
-                            className="mt-2 flex items-center gap-1 text-xs"
-                            style={{ color: EKARI.subtext }}
+                            className={[
+                                "shrink-0 rounded-full border border-[#F39A22]/45",
+                                "bg-[#FFF8ED] px-2.5 py-1",
+                                "text-[11px] font-black text-[#9A5A08]",
+                            ].join(" ")}
                         >
+                            ★ {rating.toFixed(1)} ·{" "}
+                            {ratingCount}{" "}
+                            {ratingCount === 1
+                                ? "review"
+                                : "reviews"}
+                        </div>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-semibold text-slate-400">
+                        <span className="inline-flex items-center gap-1">
                             <IoLocationOutline
                                 size={14}
-                                className="shrink-0"
+                                className="text-[#F39A22]"
                             />
+                            {getLocationLabel(expert)}
+                        </span>
 
-                            <span className="truncate">
-                                {getLocationLabel(expert)}
-                            </span>
-                        </div>
-                        <div className="mt-2">
-                            <ExpertRating
-                                average={rating}
-                                count={ratingCount}
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <Link
-                    href={profilePath}
-                    className="mt-5 block"
-                >
-                    <h3
-                        className="line-clamp-2 min-h-12 text-base font-black leading-6"
-                        style={{ color: EKARI.text }}
-                    >
-                        {expert.headline ||
-                            "Agricultural expert consultation"}
-                    </h3>
-                </Link>
-
-                {expert.expertBio ? (
-                    <p
-                        className="mt-2 line-clamp-3 text-sm leading-6"
-                        style={{ color: EKARI.subtext }}
-                    >
-                        {expert.expertBio}
-                    </p>
-                ) : null}
-
-                {specialties.length > 0 ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        {specialties.map((specialty: any) => (
-                            <span
-                                key={specialty}
-                                className="rounded-full border px-3 py-1.5 text-[11px] font-bold"
-                                style={{
-                                    borderColor:
-                                        "rgba(35,63,57,0.15)",
-                                    backgroundColor:
-                                        "rgba(35,63,57,0.06)",
-                                    color: EKARI.forest,
-                                }}
-                            >
-                                {specialty}
-                            </span>
-                        ))}
-
-                        {remainingSpecialties > 0 ? (
-                            <span
-                                className="rounded-full border px-3 py-1.5 text-[11px] font-bold"
-                                style={{
-                                    borderColor: EKARI.hair,
-                                    color: EKARI.subtext,
-                                }}
-                            >
-                                +{remainingSpecialties} more
-                            </span>
-                        ) : null}
-                    </div>
-                ) : null}
-
-                <div className="mt-auto pt-5">
-                    <div
-                        className="flex items-center justify-between gap-3 border-t pt-4"
-                        style={{ borderColor: EKARI.hair }}
-                    >
-                        <div>
-                            <div
-                                className="text-sm font-black"
-                                style={{ color: EKARI.forest }}
-                            >
-                                {getPriceLabel(expert)}
-                            </div>
-
-                            {expert.pricing
-                                ?.consultationDurationMinutes ? (
-                                <div
-                                    className="mt-0.5 text-[11px]"
-                                    style={{
-                                        color: EKARI.subtext,
-                                    }}
-                                >
-                                    {
-                                        expert.pricing
-                                            .consultationDurationMinutes
-                                    }{" "}
-                                    minute consultation
-                                </div>
-                            ) : null}
-                        </div>
-
-                        <ConsultationIcons
-                            methods={
-                                expert.consultationMethods || []
-                            }
-                        />
-                    </div>
-
-                    <div className="mt-4 flex items-center gap-3">
-                        <Link
-                            href={profilePath}
-                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black text-white"
-                            style={{
-                                backgroundColor: EKARI.forest,
-                            }}
-                        >
-                            View profile
-                            <IoArrowForward size={16} />
-                        </Link>
-                    </div>
-
-                    <div
-                        className="mt-3 flex min-h-5 items-center justify-between gap-2 text-[11px]"
-                        style={{ color: EKARI.subtext }}
-                    >
                         <span className="inline-flex items-center gap-1">
-                            <IoPeopleOutline size={13} />
-
-                            {completedConsultations > 0
-                                ? `${completedConsultations} consultations`
-                                : "New expert"}
+                            <IoPeopleOutline size={14} />
+                            {completedConsultations} consultation
+                            {completedConsultations === 1
+                                ? ""
+                                : "s"}
                         </span>
 
                         <span
                             className={
                                 expert.acceptingBookings
-                                    ? "font-bold text-emerald-700"
-                                    : ""
+                                    ? "font-bold text-emerald-600"
+                                    : "text-slate-400"
                             }
                         >
                             {expert.acceptingBookings
@@ -642,8 +520,90 @@ export default function ExpertCard({
                                 : "Not accepting clients"}
                         </span>
                     </div>
+
+                    {expert.expertBio ? (
+                        <p className="mt-3 line-clamp-3 text-[13px] leading-5 text-slate-600">
+                            {expert.expertBio}
+                        </p>
+                    ) : null}
+
+                    {specialties.length ? (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                            {specialties.map((specialty) => (
+                                <span
+                                    key={specialty}
+                                    className={[
+                                        "rounded-full border border-[#B9DDAA]",
+                                        "bg-[#F4FBF0] px-2.5 py-1",
+                                        "text-[10px] font-bold text-[#3F751D]",
+                                    ].join(" ")}
+                                >
+                                    {specialty}
+                                </span>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <Link
+                            href={profilePath}
+                            className={[
+                                "inline-flex min-h-10 items-center justify-center rounded-xl",
+                                "bg-[#173C2E] px-4",
+                                "text-[12px] font-black text-white",
+                                "transition-all duration-200",
+                                "hover:-translate-y-0.5 hover:bg-[#214C3A]",
+                                "active:translate-y-0 active:scale-[0.98]",
+                            ].join(" ")}
+                        >
+                            Book consultation
+                        </Link>
+
+                        <Link
+                            href="/bonga"
+                            className={[
+                                "inline-flex min-h-10 items-center justify-center rounded-xl",
+                                "bg-[#F39A22] px-4",
+                                "text-[12px] font-black text-white",
+                                "transition-all duration-200",
+                                "hover:-translate-y-0.5 hover:bg-[#E98C12]",
+                                "active:translate-y-0 active:scale-[0.98]",
+                            ].join(" ")}
+                        >
+                            Bonga
+                        </Link>
+
+                        <Link
+                            href={profilePath}
+                            className={[
+                                "inline-flex min-h-10 items-center justify-center rounded-xl",
+                                "border border-[#D7D2C7] bg-white px-4",
+                                "text-[12px] font-black text-slate-600",
+                                "transition-all duration-200",
+                                "hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]",
+                                "active:scale-[0.98]",
+                            ].join(" ")}
+                        >
+                            View full profile
+                        </Link>
+
+                        <div className="ml-auto hidden sm:block">
+                            <div className="text-right text-[11px] font-black text-[#173C2E]">
+                                {getPriceLabel(expert)}
+                            </div>
+
+                            <div className="mt-1">
+                                <ConsultationIcons
+                                    methods={
+                                        expert.consultationMethods ||
+                                        []
+                                    }
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </article>
+        </motion.article>
     );
 }

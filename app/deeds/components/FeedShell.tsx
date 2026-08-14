@@ -8,6 +8,7 @@ import { useDeedsFeedWeb } from "../hooks/useDeedsFeedWeb";
 import { GlobalMuteProviderWeb } from "../hooks/useGlobalMuteWeb";
 import { DeedsScrollerWeb } from "./DeedsScrollerWeb";
 import RightRail from "@/app/components/RightRail";
+import DiscoveryRail from "@/app/components/DiscoveryRail";
 import { DesktopDeedRailWeb } from "./DesktopDeedRailWeb";
 import { DeedsTopBar } from "./DeedsTopBar";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
@@ -67,7 +68,7 @@ export function FeedShell(props: Props) {
 
     return (
         <FeedShellInner
-            key={`${persistedTab}-${instanceKey}`}
+            key={`feed-${instanceKey}`}
             {...props}
             initialTab={persistedTab}
             onTabChangePersist={setPersistedTab}
@@ -120,7 +121,20 @@ function FeedShellInner({
 
     const showLoading = loading || (currentFeed.loading && !currentFeed.initialized);
 
+    /*
+     * A channel switch should feel like an in-place data transition,
+     * not a page remount. This flag is used only for a subtle overlay.
+     */
+    const channelSwitching =
+        currentFeed.loading &&
+        !currentFeed.initialized &&
+        !!activeDeed;
+
     const emptyText = useMemo(() => {
+        if (feed.activeTab === "trending") {
+            return "No trending deeds yet.";
+        }
+
         if (feed.activeTab === "following") {
             return uid
                 ? "Follow creators to see their latest deeds."
@@ -165,12 +179,19 @@ function FeedShellInner({
         return currentFeed.items.filter((item) => !blockedAuthorIds.has(item.authorId));
     }, [currentFeed.items, blockedAuthorIds]);
     useEffect(() => {
-        if (activeDeed) return;
         if (!visibleItems.length) return;
 
+        const activeStillExists =
+            !!activeDeed &&
+            visibleItems.some((item) => item.id === activeDeed.id);
+
+        if (activeStillExists) return;
+
+        const firstItem = visibleItems[0];
+
         setActiveIndex(0);
-        setActiveDeedId(visibleItems[0].id);
-        setActiveDeed(visibleItems[0]);
+        setActiveDeedId(firstItem.id);
+        setActiveDeed(firstItem);
     }, [visibleItems, activeDeed]);
     const handleUserBlocked = (authorId: string) => {
         setBlockedAuthorIds((prev) => {
@@ -329,8 +350,19 @@ function FeedShellInner({
 
     useEffect(() => {
         setActiveIndex(0);
-        setActiveDeedId(visibleItems[0]?.id ?? null);
-        setActiveDeed(visibleItems[0] ?? null);
+
+        /*
+         * Do not clear activeDeed while the next channel is fetching.
+         * Keeping the previous deed here prevents DiscoveryRail from
+         * flashing/rebuilding during Trending / For You / Following / Nearby switches.
+         *
+         * As soon as the new channel has items, the visibleItems effect above
+         * replaces activeDeed with the first deed in the new channel.
+         */
+        if (visibleItems[0]) {
+            setActiveDeedId(visibleItems[0].id);
+            setActiveDeed(visibleItems[0]);
+        }
 
         const root = scrollerRef.current;
         if (root) {
@@ -340,15 +372,22 @@ function FeedShellInner({
 
     return (
         <GlobalMuteProviderWeb initialMuted={true}>
-            <div className="relative h-[100svh] w-full overflow-hidden text-white">
+            <div className="relative h-[100svh] w-full overflow-hidden bg-[#0B1D12] text-white">
                 <div className="flex h-full w-full">
                     <div className="relative h-full min-w-0 flex-1 overflow-hidden">
-                        <div className="mx-auto flex h-full w-full max-w-[980px] items-stretch justify-center gap-4 xl:gap-6">
-                            <div className="relative flex h-full w-full items-stretch justify-center gap-4 lg:min-w-0 xl:gap-6">
+                        <div className="flex h-full w-full items-stretch justify-center">
+                            <div
+                                className={[
+                                    "relative h-full w-full transition-all duration-300 ease-out",
+                                    desktopRailOpen
+                                        ? "lg:w-[600px] lg:min-w-[600px] lg:max-w-[600px]"
+                                        : "lg:w-[646px] lg:min-w-[646px] lg:max-w-[646px]",
+                                ].join(" ")}
+                            >
                                 <section
                                     ref={scrollerRef}
                                     tabIndex={0}
-                                    className="h-[100svh] w-full overflow-y-scroll outline-none no-scrollbar lg:w-[420px] xl:w-[460px]"
+                                    className="relative h-[100svh] w-full overflow-y-scroll outline-none no-scrollbar"
                                     style={{
                                         scrollSnapType: "y mandatory",
                                         overscrollBehaviorY: "contain",
@@ -366,7 +405,10 @@ function FeedShellInner({
                                         activeTab={feed.activeTab}
                                         isDesktop={isDesktop}
                                         onChangeTab={(k) => {
-                                            const locked = !uid && k !== "forYou";
+                                            const locked =
+                                                !uid &&
+                                                k !== "forYou" &&
+                                                k !== "trending";
                                             if (locked) {
                                                 router.push("/getstarted?next=/deeds");
                                                 return;
@@ -388,7 +430,7 @@ function FeedShellInner({
                                         onOpenMenu={onOpenMenu}
                                     />
 
-                                    {showLoading && (
+                                    {showLoading && !activeDeed && (
                                         <DeedStageShell>
                                             <div className="text-sm text-white/80">
                                                 <BouncingBallLoader />
@@ -450,34 +492,52 @@ function FeedShellInner({
                                     )}
                                 </section>
 
+                                {channelSwitching ? (
+                                    <div className="pointer-events-none absolute inset-0 z-[42] flex items-center justify-center bg-black/[0.08] backdrop-blur-[1px] transition-opacity duration-200">
+                                        <div className="rounded-full border border-white/10 bg-black/45 px-4 py-3 shadow-lg backdrop-blur-md">
+                                            <BouncingBallLoader />
+                                        </div>
+                                    </div>
+                                ) : null}
+
                                 {isDesktop ? (
-                                    <div className="hidden w-[96px] items-center justify-center lg:flex xl:w-[108px]">
-                                        <DesktopDeedRailWeb
-                                            item={activeDeed}
-                                            uid={uid}
-                                            following={following}
-                                            commented={activeDeed ? !!commentedMap[activeDeed.id] : false}
-                                            onOpenComments={openComments}
-                                            onPrev={goPrev}
-                                            onNext={goNext}
-                                            canGoPrev={canGoPrev}
-                                            canGoNext={canGoNext}
-                                            onSupportClick={handleSupportClick}
-                                            onUserBlocked={handleUserBlocked}
-                                            isSuspended={isSuspended}
-                                            suspendedReason={suspendedReason}
-                                        />
+                                    <div className="pointer-events-none absolute inset-y-0 right-2 z-[45] hidden w-[64px] lg:flex">
+                                        <div className="pointer-events-auto flex h-full w-full items-center justify-center">
+                                            <DesktopDeedRailWeb
+                                                item={activeDeed}
+                                                uid={uid}
+                                                following={following}
+                                                commented={
+                                                    activeDeed
+                                                        ? !!commentedMap[activeDeed.id]
+                                                        : false
+                                                }
+                                                onOpenComments={openComments}
+                                                onPrev={goPrev}
+                                                onNext={goNext}
+                                                canGoPrev={canGoPrev}
+                                                canGoNext={canGoNext}
+                                                onSupportClick={handleSupportClick}
+                                                onUserBlocked={handleUserBlocked}
+                                                isSuspended={isSuspended}
+                                                suspendedReason={suspendedReason}
+                                            />
+                                        </div>
                                     </div>
                                 ) : null}
                             </div>
                         </div>
                     </div>
 
+                    {isDesktop && !desktopRailOpen ? (
+                        <DiscoveryRail activeDeed={activeDeed} />
+                    ) : null}
+
                     {isDesktop ? (
                         <div
                             className={[
                                 "hidden h-full shrink-0 bg-white transition-all duration-300 lg:block",
-                                desktopRailOpen ? "w-[400px]" : "w-0",
+                                desktopRailOpen ? "w-[360px]" : "w-0",
                             ].join(" ")}
                         >
                             <RightRail

@@ -9,11 +9,11 @@ import React, {
 
 /* Brand */
 const EKARI = {
-    forest: "#233F39",
-    gold: "#C79257",
-    hair: "#E5E7EB",
+    forest: "#173C2E",
+    gold: "#F39A22",
+    hair: "#DDD8CC",
     text: "#0F172A",
-    dim: "#6B7280",
+    dim: "#64748B",
 };
 
 type Mode = "video" | "videoWithMusic" | "photo" | "photoWithMusic";
@@ -333,12 +333,12 @@ export default function PreviewMixerPlayer({
         <div className="w-full">
             {/* Stage: keeps aspect; expands but never overflows view */}
             <div
-                className="relative mx-auto w-full overflow-hidden rounded-2xl"
+                className="relative mx-auto w-full overflow-hidden rounded-[18px] border border-white/10 shadow-[0_18px_45px_rgba(0,0,0,0.28)]"
                 style={{
                     background: "#000",
                     aspectRatio: String(aspect),
-                    maxHeight: "90svh",
-                    height: "min(90svh, 800px)", // portrait-friendly
+                    maxHeight: "78svh",
+                    height: "min(78svh, 720px)", // portrait-friendly
                 }}
             >
                 {mode === "video" || mode === "videoWithMusic" ? (
@@ -381,11 +381,11 @@ export default function PreviewMixerPlayer({
                         type="button"
                         aria-label={isPlaying ? "Pause" : "Play"}
                         onClick={isPlaying ? pause : play}
-                        className="pointer-events-auto h-16 w-16 rounded-full shadow-lg backdrop-blur-sm transition active:scale-95"
+                        className="pointer-events-auto grid h-14 w-14 place-items-center rounded-full border border-white/20 shadow-lg backdrop-blur-sm transition hover:scale-105 active:scale-95"
                         style={{
                             background: isPlaying
-                                ? `${EKARI.gold}E6`
-                                : `${EKARI.forest}E6`,
+                                ? "rgba(243,154,34,0.92)"
+                                : "rgba(23,60,46,0.92)",
                             color: "#fff",
                             border: "2px solid #ffffff66",
                         }}
@@ -425,7 +425,7 @@ export default function PreviewMixerPlayer({
                     )}
 
                     <div
-                        className="rounded-xl px-3 pb-3 pt-2"
+                        className="rounded-[14px] px-3 pb-3 pt-2 backdrop-blur-sm"
                         style={{
                             background:
                                 "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.25), rgba(0,0,0,0))",

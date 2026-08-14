@@ -42,6 +42,7 @@ import {
 } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { motion, AnimatePresence } from "framer-motion";
 
 /* ---------- Types ---------- */
 export type Deed = {
@@ -71,13 +72,15 @@ const PAGE_SIZE = 20;
 
 /* ---------- brand ---------- */
 const EKARI = {
-    forest: "#233F39",
-    gold: "#C79257",
-    sand: "#FFFFFF",
+    forest: "#173C2E",
+    leaf: "#214C3A",
+    gold: "#F39A22",
+    sand: "#F8F7F2",
+    paper: "#FBFAF6",
     text: "#0F172A",
-    dim: "#6B7280",
-    hair: "#E5E7EB",
-    sub: "#5C6B66",
+    dim: "#64748B",
+    hair: "#DDD8CC",
+    sub: "#64748B",
 };
 
 /* ---------- responsive helpers ---------- */
@@ -157,30 +160,30 @@ function hexToRgba(hex: string, alpha: number) {
 function PremiumSurface({
     children,
     className,
-    style,
 }: {
     children: React.ReactNode;
     className?: string;
     style?: React.CSSProperties;
 }) {
     return (
-        <div
+        <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
             className={clsx(
-                "rounded-3xl border bg-white/80 backdrop-blur-xl",
-                "shadow-[0_18px_60px_rgba(15,23,42,0.10)]",
+                "rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6]",
+                "shadow-[0_10px_28px_rgba(15,23,42,0.025)]",
                 className
             )}
-            style={style}
         >
             {children}
-        </div>
+        </motion.div>
     );
 }
 
 function Pill({
     children,
     className,
-    style,
 }: {
     children: React.ReactNode;
     className?: string;
@@ -189,19 +192,40 @@ function Pill({
     return (
         <span
             className={clsx(
-                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-extrabold border",
+                "inline-flex items-center gap-1 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-slate-600",
                 className
             )}
-            style={style}
         >
             {children}
         </span>
     );
 }
 
-function nfmt(n: number) {
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+function nfmt(
+    input: number | string | null | undefined
+) {
+    const n = Number(input ?? 0);
+
+    if (!Number.isFinite(n)) {
+        return "0";
+    }
+
+    if (n >= 1_000_000) {
+        return (
+            (n / 1_000_000)
+                .toFixed(1)
+                .replace(/\.0$/, "") + "M"
+        );
+    }
+
+    if (n >= 1_000) {
+        return (
+            (n / 1_000)
+                .toFixed(1)
+                .replace(/\.0$/, "") + "K"
+        );
+    }
+
     return String(n);
 }
 
@@ -220,8 +244,7 @@ export default function PostsPage() {
 
     const premiumBg = useMemo<React.CSSProperties>(
         () => ({
-            background:
-                "radial-gradient(900px circle at 10% 0%, rgba(199,146,87,0.22), rgba(255,255,255,0) 55%), radial-gradient(900px circle at 90% 20%, rgba(35,63,57,0.16), rgba(255,255,255,0) 60%), linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,1))",
+            background: "#F8F7F2",
         }),
         []
     );
@@ -370,229 +393,260 @@ export default function PostsPage() {
         }
     }
 
-    /* ---------- Header (premium) ---------- */
+    /* ---------- Header ---------- */
     const Header = (
-        <div
-            className={clsx("sticky top-0 z-50")}
-            style={{
-                background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.82))",
-                backdropFilter: "blur(14px)",
-                borderBottom: "1px solid rgba(199,146,87,0.18)",
-            }}
+        <motion.header
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="relative overflow-hidden bg-[#173C2E] text-white"
         >
-            <div className={clsx(isDesktop ? "px-4 max-w-[1180px] mx-auto" : "px-3")}>
-                <div className="h-[72px] flex items-center justify-between gap-3">
+            <div
+                className="pointer-events-none absolute inset-0 opacity-[0.07]"
+                style={{
+                    backgroundImage:
+                        "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+                }}
+            />
+
+            <div className={clsx(isDesktop ? "mx-auto max-w-[1180px] px-4 sm:px-5 md:px-6" : "px-3")}>
+                <div className="relative flex min-h-[92px] items-center gap-3 py-4">
                     <button
+                        type="button"
                         onClick={goBack}
-                        className="h-11 w-11 rounded-2xl border bg-white/80 backdrop-blur-xl shadow-sm grid place-items-center transition hover:bg-white focus:outline-none focus:ring-2 active:scale-[0.98]"
-                        style={{ borderColor: "rgba(199,146,87,0.22)", ...ringStyle }}
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
                         aria-label="Go back"
                     >
-                        <ArrowLeft size={18} style={{ color: EKARI.text }} />
+                        <ArrowLeft size={18} />
                     </button>
 
-                    <div className="flex-1 min-w-0">
-                        <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
-                            Studio
+                    <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                            Deed studio
                         </div>
-                        <div className="text-[12px] mt-1 font-semibold truncate" style={{ color: EKARI.dim }}>
-                            Deeds • {filtered.length} visible
+
+                        <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <h1 className="text-[22px] font-black tracking-[-0.03em] sm:text-[25px]">
+                                    Your deeds
+                                </h1>
+
+                                <p className="mt-1 text-[10px] font-medium text-white/50 sm:text-[11px]">
+                                    Manage, edit and review the performance of your published content.
+                                </p>
+                            </div>
+
+                            <Link
+                                href="/studio/upload"
+                                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                            >
+                                <IoSparklesOutline size={14} />
+                                New deed
+                            </Link>
                         </div>
                     </div>
-
-                    <Link
-                        href="/studio/upload"
-                        className="h-11 px-4 rounded-full border bg-white/80 backdrop-blur-xl shadow-sm flex items-center gap-2 font-extrabold text-[13px] transition hover:bg-white active:scale-[0.98]"
-                        style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
-                    >
-                        <span
-                            className="h-8 w-8 rounded-2xl grid place-items-center border"
-                            style={{
-                                borderColor: "rgba(199,146,87,0.18)",
-                                background: "linear-gradient(135deg, rgba(199,146,87,0.22), rgba(35,63,57,0.06))",
-                            }}
-                        >
-                            <IoSparklesOutline size={16} style={{ color: EKARI.forest }} />
-                        </span>
-                        Upload
-                    </Link>
                 </div>
             </div>
-        </div>
+        </motion.header>
     );
 
     /* ---------- Body ---------- */
     const Body = (
-        <div className={clsx(isDesktop ? "max-w-[1180px] mx-auto px-4 pb-10" : "px-3 pb-10")}>
-            {/* Toolbar */}
-            <div className={clsx(isDesktop ? "pt-4" : "pt-3")}>
-                <PremiumSurface
-                    className="px-4 py-4"
-                    style={{
-                        borderColor: "rgba(199,146,87,0.20)",
-                        background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.72))",
-                    }}
-                >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                            <div className="text-[18px] font-black" style={{ color: EKARI.text }}>
-                                Deeds
-                            </div>
-                            <div className="text-[12px] font-semibold mt-0.5" style={{ color: EKARI.sub }}>
-                                Manage visibility, analytics and cleanup
-                            </div>
+        <div className={clsx(isDesktop ? "mx-auto max-w-[1180px] px-4 pb-10 pt-4 sm:px-5 md:px-6" : "px-3 pb-10 pt-3")}>
+            {/* Overview + filters */}
+            <PremiumSurface className="p-4 sm:p-5">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                    <div className="min-w-0">
+                        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#F39A22]">
+                            Content library
                         </div>
 
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            {/* Privacy filter pills */}
-                            <div className="flex flex-wrap items-center gap-2">
-                                {(["all", "public", "followers", "private"] as const).map((p) => {
-                                    const active = privacyFilter === p;
-                                    return (
-                                        <button
-                                            key={p}
-                                            onClick={() => setPrivacyFilter(p)}
-                                            className={clsx(
-                                                "rounded-full px-3 py-1 text-[12px] font-extrabold border transition active:scale-[0.99]",
-                                                active ? "bg-white" : "bg-white/50 hover:bg-white"
-                                            )}
-                                            style={{
-                                                borderColor: active ? "rgba(199,146,87,0.35)" : "rgba(199,146,87,0.18)",
-                                                color: EKARI.text,
-                                                boxShadow: active ? "0 10px 30px rgba(15,23,42,0.08)" : undefined,
-                                            }}
-                                        >
-                                            {p === "all" ? "All" : p === "followers" ? "Followers" : cap(p)}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                        <h2 className="mt-1 text-[17px] font-black tracking-[-0.02em] text-slate-900">
+                            Manage deeds
+                        </h2>
 
-                            {/* Search */}
-                            <div
-                                className="flex items-center gap-2 rounded-2xl border px-3 py-2 bg-white/70 backdrop-blur-xl shadow-sm"
-                                style={{ borderColor: "rgba(199,146,87,0.18)" }}
-                            >
-                                <IoSearchOutline className="opacity-70" />
-                                <input
-                                    value={q}
-                                    onChange={(e) => setQ(e.target.value)}
-                                    placeholder="Search post description…"
-                                    className="w-full sm:w-64 bg-transparent text-sm outline-none"
-                                />
-                            </div>
-                        </div>
+                        <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                            Change visibility, open analytics, edit content or remove deeds you no longer need.
+                        </p>
                     </div>
 
-                    {/* Bulk bar */}
-                    {selectedIds.length > 0 && (
-                        <div className="mt-3 rounded-2xl border px-3 py-2 flex items-center justify-between gap-2 bg-white/70">
-                            <div className="text-[12px] font-extrabold" style={{ color: EKARI.text }}>
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                        <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-[#DDD8CC] bg-[#F8F7F2] p-1 no-scrollbar">
+                            {(["all", "public", "followers", "private"] as const).map((p) => {
+                                const active = privacyFilter === p;
+
+                                return (
+                                    <button
+                                        key={p}
+                                        type="button"
+                                        onClick={() => setPrivacyFilter(p)}
+                                        className={[
+                                            "shrink-0 rounded-lg px-3 py-2 text-[9px] font-black transition",
+                                            active
+                                                ? "bg-[#173C2E] text-white shadow-sm"
+                                                : "text-slate-500 hover:bg-white hover:text-[#173C2E]",
+                                        ].join(" ")}
+                                    >
+                                        {p === "all" ? "All" : p === "followers" ? "Followers" : cap(p)}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex h-10 min-w-0 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3 transition focus-within:border-[#173C2E]/45 md:w-[260px]">
+                            <IoSearchOutline size={15} className="shrink-0 text-slate-400" />
+
+                            <input
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                                placeholder="Search deed caption…"
+                                className="min-w-0 flex-1 bg-transparent text-[10px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <MiniMetric
+                        label="Visible"
+                        value={filtered.length}
+                        icon={<IoEyeOutline size={14} />}
+                    />
+                    <MiniMetric
+                        label="Selected"
+                        value={selectedIds.length}
+                        icon={<IoCheckmark size={14} />}
+                    />
+                    <MiniMetric
+                        label="Views"
+                        value={rows.reduce(
+                            (sum, r) =>
+                                sum +
+                                Number(
+                                    r.stats?.views ?? 0
+                                ),
+                            0
+                        )}
+                        icon={<IoTrendingUpOutline size={14} />}
+                    />
+                    <MiniMetric
+                        label="Likes"
+                        value={rows.reduce(
+                            (sum, r) =>
+                                sum +
+                                Number(
+                                    r.stats?.likes ?? 0
+                                ),
+                            0
+                        )}
+                        icon={<IoHeartOutline size={14} />}
+                    />
+                </div>
+
+                <AnimatePresence>
+                    {selectedIds.length > 0 ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: -3 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -3 }}
+                            className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#F3D7B2] bg-[#FFF7EB] px-3 py-2.5"
+                        >
+                            <div className="text-[10px] font-black text-[#9A5A08]">
                                 {selectedIds.length} selected
                             </div>
+
                             <div className="flex items-center gap-2">
                                 <button
-                                    className="rounded-full px-3 py-1.5 text-[12px] font-extrabold border bg-white hover:bg-white/90 transition"
-                                    onClick={() => setConfirmBulk(true)}
-                                    style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
-                                >
-                                    Delete selected
-                                </button>
-                                <button
-                                    className="rounded-full px-3 py-1.5 text-[12px] font-extrabold border bg-white/50 hover:bg-white transition"
+                                    type="button"
                                     onClick={() => setSelected({})}
-                                    style={{ borderColor: "rgba(199,146,87,0.18)", color: EKARI.dim }}
+                                    className="h-8 rounded-lg border border-[#E8D7BF] bg-white px-3 text-[9px] font-black text-slate-500"
                                 >
                                     Clear
                                 </button>
-                            </div>
-                        </div>
-                    )}
-                </PremiumSurface>
-            </div>
 
-            {/* List container */}
-            <div className={clsx(isDesktop ? "mt-4" : "mt-3")}>
-                <PremiumSurface
-                    className="p-2 overflow-x-hidden"
-                    style={{
-                        borderColor: "rgba(199,146,87,0.20)",
-                        background: "linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.72))",
-                    }}
-                >
-                    {/* Desktop header (✅ responsive grid, no horizontal scroll) */}
-                    <div
-                        className="hidden md:block px-2 py-1"
-                        style={{ color: EKARI.dim }}
-                    >
-                        <div
-                            className={clsx(
-                                "grid w-full items-center gap-3 px-3 py-2 text-[11px] font-extrabold"
-                            )}
-                            style={{ borderBottom: "1px solid rgba(199,146,87,0.14)" }}
-                        >
-                            {/* md: hide Likes/Comments to save width; lg: show them */}
-                            <div className="grid w-full grid-cols-[24px_minmax(180px,1fr)_110px_70px_120px] xl:grid-cols-[24px_minmax(220px,1fr)_110px_70px_70px_80px_90px_120px] items-center gap-2">
-                                <div className="flex items-center justify-center">
-                                    <input
-                                        type="checkbox"
-                                        aria-label="Select all"
-                                        checked={allOnPageSelected}
-                                        onChange={toggleSelectAll}
-                                    />
-                                </div>
-                                <div>Deed (created)</div>
-                                <div className="text-center">Privacy</div>
-                                <div className="text-center">Views</div>
-                                <div className="hidden lg:block text-center">Likes</div>
-                                <div className="hidden lg:block text-center">Comments</div>
-                                <div className="text-center">Status</div>
-                                <div className="text-center">Actions</div>
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmBulk(true)}
+                                    className="h-8 rounded-lg bg-rose-600 px-3 text-[9px] font-black text-white transition hover:bg-rose-700"
+                                >
+                                    Delete selected
+                                </button>
                             </div>
+                        </motion.div>
+                    ) : null}
+                </AnimatePresence>
+            </PremiumSurface>
+
+            {/* List */}
+            <div className="mt-4">
+                <PremiumSurface className="overflow-hidden">
+                    <div className="hidden border-b border-[#E4DED2] bg-[#F8F7F2] px-3 py-2.5 md:block">
+                        <div className="grid w-full grid-cols-[24px_minmax(180px,1fr)_110px_70px_120px] items-center gap-2 text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 xl:grid-cols-[24px_minmax(220px,1fr)_110px_70px_70px_80px_90px_120px]">
+                            <div className="flex items-center justify-center">
+                                <input
+                                    type="checkbox"
+                                    aria-label="Select all"
+                                    checked={allOnPageSelected}
+                                    onChange={toggleSelectAll}
+                                    className="accent-[#173C2E]"
+                                />
+                            </div>
+
+                            <div>Deed</div>
+                            <div className="text-center">Privacy</div>
+                            <div className="text-center">Views</div>
+                            <div className="hidden text-center lg:block">Likes</div>
+                            <div className="hidden text-center lg:block">Comments</div>
+                            <div className="text-center">Status</div>
+                            <div className="text-center">Actions</div>
                         </div>
                     </div>
 
-                    {/* Rows */}
                     {loading ? (
-                        <div className="flex items-center justify-center p-10">
+                        <div className="flex min-h-[320px] items-center justify-center">
                             <TikBallsLoader />
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="px-6 py-12 text-center">
-                            <div
-                                className="mx-auto h-14 w-14 rounded-3xl grid place-items-center mb-3 border"
-                                style={{
-                                    borderColor: "rgba(199,146,87,0.20)",
-                                    background: "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
-                                }}
-                            >
-                                <IoSparklesOutline size={24} style={{ color: EKARI.forest }} />
-                            </div>
-                            <div className="text-[16px] font-black" style={{ color: EKARI.text }}>
-                                No deeds yet
-                            </div>
-                            <div className="mt-1 text-sm font-semibold" style={{ color: EKARI.dim }}>
-                                Upload your first deed to start building your profile.
-                            </div>
-                            <div className="mt-5">
-                                <Link
-                                    href="/studio/upload"
-                                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-extrabold border bg-white hover:bg-white/90 transition"
-                                    style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
-                                >
-                                    <IoSparklesOutline />
-                                    Upload a deed
-                                </Link>
+                        <div className="grid min-h-[340px] place-items-center px-6 text-center">
+                            <div>
+                                <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+                                    <IoSparklesOutline size={23} />
+                                </div>
+
+                                <div className="mt-4 text-[15px] font-black text-slate-900">
+                                    No deeds found
+                                </div>
+
+                                <p className="mx-auto mt-1 max-w-sm text-[10px] font-medium leading-4 text-slate-400">
+                                    {q || privacyFilter !== "all"
+                                        ? "Try changing your search or visibility filter."
+                                        : "Create your first deed and start building your profile."}
+                                </p>
+
+                                {!q && privacyFilter === "all" ? (
+                                    <Link
+                                        href="/studio/upload"
+                                        className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white"
+                                    >
+                                        <IoSparklesOutline size={13} />
+                                        Create a deed
+                                    </Link>
+                                ) : null}
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-2 p-2">
+                        <div className="p-2">
                             {filtered.map((r) => (
                                 <PostRowPremium
                                     key={r.id}
                                     row={r}
                                     selected={!!selected[r.id]}
-                                    onToggleSelect={() => setSelected((prev) => ({ ...prev, [r.id]: !prev[r.id] }))}
+                                    onToggleSelect={() =>
+                                        setSelected((prev) => ({
+                                            ...prev,
+                                            [r.id]: !prev[r.id],
+                                        }))
+                                    }
                                     onChangePrivacy={updateVisibility}
                                     onDelete={() => requestDelete(r.id)}
                                 />
@@ -600,23 +654,21 @@ export default function PostsPage() {
                         </div>
                     )}
 
-                    {/* Load more */}
-                    {cursor && (
-                        <div className="pt-2 pb-1 text-center">
+                    {cursor ? (
+                        <div className="border-t border-[#EAE6DD] px-3 py-3 text-center">
                             <button
-                                className="rounded-full border px-5 py-2 text-[13px] font-extrabold bg-white/70 hover:bg-white transition disabled:opacity-60"
+                                type="button"
                                 onClick={loadMore}
                                 disabled={moreLoading}
-                                style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
+                                className="h-9 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[9px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:opacity-50"
                             >
                                 {moreLoading ? "Loading…" : "Load more"}
                             </button>
                         </div>
-                    )}
+                    ) : null}
                 </PremiumSurface>
             </div>
 
-            {/* Delete confirm modal (single) */}
             <ConfirmModal
                 open={!!confirmId}
                 title="Delete deed?"
@@ -633,7 +685,6 @@ export default function PostsPage() {
                 }}
             />
 
-            {/* Bulk delete modal */}
             <ConfirmModal
                 open={confirmBulk}
                 title="Delete selected deeds?"
@@ -650,34 +701,53 @@ export default function PostsPage() {
                 }}
             />
 
-            {toast && <Toast text={toast} />}
+            {toast ? <Toast text={toast} /> : null}
         </div>
     );
 
-    // MOBILE: fixed inset, NO bottom tabs
+    // MOBILE
     if (isMobile) {
         return (
-            <div className="fixed inset-0 flex flex-col" style={premiumBg}>
+            <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-[#F8F7F2]">
                 {Header}
-                <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
+
+                <div
+                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain"
+                    style={{
+                        WebkitOverflowScrolling: "touch",
+                        touchAction: "pan-y",
+                    }}
+                >
+                    {Body}
+                </div>
             </div>
         );
     }
 
-    // DESKTOP: AppShell + StudioShell
+    // DESKTOP
     return (
         <AppShell>
-            <StudioShell title="Deeds" ctaHref="/studio/upload" ctaLabel="Upload">
-                <div className="min-h-screen w-full" style={premiumBg}>
+            <div
+                className="h-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F8F7F2]"
+                style={{
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-y",
+                }}
+            >
+                <StudioShell
+                    title="Deeds"
+                    ctaHref="/studio/upload"
+                    ctaLabel="Upload"
+                >
                     {Header}
                     {Body}
-                </div>
-            </StudioShell>
+                </StudioShell>
+            </div>
         </AppShell>
     );
 }
 
-/* ---------- Premium Row ---------- */
+/* ---------- Deed Row ---------- */
 function PostRowPremium({
     row,
     selected,
@@ -688,7 +758,10 @@ function PostRowPremium({
     row: Deed;
     selected: boolean;
     onToggleSelect: () => void;
-    onChangePrivacy: (id: string, v: "public" | "followers" | "private") => void;
+    onChangePrivacy: (
+        id: string,
+        v: "public" | "followers" | "private"
+    ) => void;
     onDelete: () => void;
 }) {
     const [openMenu, setOpenMenu] = useState(false);
@@ -701,10 +774,25 @@ function PostRowPremium({
                 ? new Date(row.createdAtMs)
                 : null;
 
-    const dateStr = created ? created.toLocaleString() : "—";
-    const views = nfmt(row.stats?.views ?? 0);
-    const likes = nfmt(row.stats?.likes ?? 0);
-    const comments = nfmt(row.stats?.comments ?? 0);
+    const dateStr = created
+        ? created.toLocaleString()
+        : "—";
+
+    const views = nfmt(
+        Number(
+            row.stats?.views ?? 0
+        )
+    );
+    const likes = nfmt(
+        Number(
+            row.stats?.likes ?? 0
+        )
+    );
+    const comments = nfmt(
+        Number(
+            row.stats?.comments ?? 0
+        )
+    );
 
     const poster =
         row.media?.find((m) => m.thumbUrl)?.thumbUrl ||
@@ -713,126 +801,197 @@ function PostRowPremium({
         "/video-placeholder.jpg";
 
     return (
-        <div
-            className={clsx(
-                "w-full min-w-0 rounded-3xl border bg-white/70 backdrop-blur-xl shadow-sm",
-                "transition hover:shadow-[0_18px_60px_rgba(15,23,42,0.10)]",
-                selected ? "ring-2" : ""
-            )}
-            style={{
-                borderColor: "rgba(199,146,87,0.20)",
-                ["--tw-ring-color" as any]: hexToRgba(EKARI.gold, 0.55),
-            }}
+        <motion.div
+            layout
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.16 }}
+            className={[
+                "mb-2 w-full min-w-0 overflow-visible rounded-[16px] border bg-white transition",
+                selected
+                    ? "border-[#F39A22] ring-2 ring-[#F39A22]/10"
+                    : "border-[#E4DED2] hover:border-[#CFC8BB]",
+            ].join(" ")}
         >
-            {/* DESKTOP layout (✅ responsive grid, no horizontal scroll) */}
-            <div className="hidden md:block px-1">
-                <div className="grid w-full grid-cols-[24px_minmax(180px,1fr)_110px_70px_120px] xl:grid-cols-[24px_minmax(220px,1fr)_110px_70px_70px_80px_90px_120px] items-center gap-2 px-3 py-3">
+            {/* Desktop */}
+            <div className="hidden px-1 md:block">
+                <div className="grid w-full grid-cols-[24px_minmax(180px,1fr)_110px_70px_120px] items-center gap-2 px-3 py-3 xl:grid-cols-[24px_minmax(220px,1fr)_110px_70px_70px_80px_90px_120px]">
                     <div className="flex items-center justify-center">
-                        <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label="Select row" />
+                        <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={onToggleSelect}
+                            aria-label="Select row"
+                            className="accent-[#173C2E]"
+                        />
                     </div>
 
                     <button
-                        onClick={() => router.push(`/${row.authorUsername}/deed/${row.id}`)}
-                        className="flex min-w-0 items-center gap-3 text-left overflow-hidden"
+                        type="button"
+                        onClick={() =>
+                            router.push(
+                                `/${row.authorUsername}/deed/${row.id}`
+                            )
+                        }
+                        className="flex min-w-0 items-center gap-3 overflow-hidden text-left"
                     >
-                        <UniformThumbPremium src={poster} dateStr={dateStr} />
+                        <UniformThumbPremium
+                            src={poster}
+                            dateStr={dateStr}
+                        />
+
                         <div className="min-w-0 overflow-hidden">
-                            <div className="text-[12px] font-extrabold text-slate-700 truncate">
-                                {row.caption?.trim() ? row.caption : "—"}
+                            <div className="truncate text-[11px] font-black text-slate-800">
+                                {row.caption?.trim()
+                                    ? row.caption
+                                    : "Untitled deed"}
                             </div>
-                            <div className="text-[11px] font-semibold text-slate-500 truncate">{dateStr}</div>
+
+                            <div className="mt-0.5 truncate text-[9px] font-semibold text-slate-400">
+                                {dateStr}
+                            </div>
                         </div>
                     </button>
 
                     <div className="relative flex items-center justify-center">
                         <button
-                            onClick={() => setOpenMenu((v) => !v)}
-                            className="inline-flex items-center justify-center gap-1 rounded-full border px-3 py-1 text-[12px] font-extrabold bg-white/70 hover:bg-white transition whitespace-nowrap"
-                            style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
+                            type="button"
+                            onClick={() => setOpenMenu((value) => !value)}
+                            className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[9px] font-black text-slate-600 transition hover:bg-[#F3F1EB]"
                         >
                             {cap(row.visibility || "public")}
-                            <IoChevronDown />
+                            <IoChevronDown size={12} />
                         </button>
 
-                        {openMenu && (
-                            <div
-                                className="absolute right-0 z-20 mt-14 w-40 overflow-hidden rounded-2xl border bg-white/90 backdrop-blur-xl shadow-lg"
-                                style={{ borderColor: "rgba(199,146,87,0.22)" }}
-                            >
-                                {(["public", "followers", "private"] as const).map((v) => (
-                                    <button
-                                        key={v}
-                                        onClick={() => {
-                                            onChangePrivacy(row.id, v as any);
-                                            setOpenMenu(false);
-                                        }}
-                                        className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] font-extrabold hover:bg-black/5"
-                                        style={{ color: EKARI.text }}
-                                    >
-                                        <span className="capitalize">{v}</span>
-                                        {row.visibility === v && <IoCheckmark />}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <AnimatePresence>
+                            {openMenu ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -3 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -3 }}
+                                    className="absolute right-0 top-10 z-30 w-40 overflow-hidden rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_14px_34px_rgba(15,23,42,0.12)]"
+                                >
+                                    {(["public", "followers", "private"] as const).map((v) => (
+                                        <button
+                                            key={v}
+                                            type="button"
+                                            onClick={() => {
+                                                onChangePrivacy(row.id, v);
+                                                setOpenMenu(false);
+                                            }}
+                                            className="flex w-full items-center justify-between border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[9px] font-black text-slate-600 transition last:border-b-0 hover:bg-[#F3F1EB]"
+                                        >
+                                            <span className="capitalize">
+                                                {v}
+                                            </span>
+                                            {row.visibility === v ? (
+                                                <IoCheckmark className="text-[#173C2E]" />
+                                            ) : null}
+                                        </button>
+                                    ))}
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
                     </div>
 
-                    <div className="text-center text-[12px] font-extrabold text-slate-700">{views}</div>
+                    <div className="text-center text-[10px] font-black text-slate-700">
+                        {views}
+                    </div>
 
-                    <div className="hidden xl:block text-center text-[12px] font-extrabold text-slate-700">{likes}</div>
-                    <div className="hidden xl:block text-center text-[12px] font-extrabold text-slate-700">{comments}</div>
+                    <div className="hidden text-center text-[10px] font-black text-slate-700 xl:block">
+                        {likes}
+                    </div>
+
+                    <div className="hidden text-center text-[10px] font-black text-slate-700 xl:block">
+                        {comments}
+                    </div>
 
                     <div className="text-center">
                         <StatusBadge s={row.status} />
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center gap-1 min-w-0">
-                        <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
-                        <IconBtn title="Comments" href={`/${row.authorUsername}/deed/${row.id}`} variant="ghost" />
+                    <div className="flex min-w-0 flex-wrap items-center justify-center gap-1">
+                        <IconBtn
+                            title="Edit"
+                            href={`/studio/upload?editDeedId=${row.id}`}
+                        />
+                        <IconBtn
+                            title="Analytics"
+                            href={`/studio/analytics/${row.id}`}
+                            variant="ghost"
+                        />
+                        <IconBtn
+                            title="Comments"
+                            href={`/${row.authorUsername}/deed/${row.id}`}
+                            variant="ghost"
+                        />
+
                         <button
-                            className="rounded-full p-2 hover:bg-black/5 shrink-0"
+                            type="button"
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                             title="Delete"
                             onClick={onDelete}
                         >
-                            <IoTrashOutline />
+                            <IoTrashOutline size={14} />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* MOBILE layout (card) */}
-            <div className="md:hidden px-3 py-3">
+            {/* Mobile */}
+            <div className="px-3 py-3 md:hidden">
                 <div className="flex items-start gap-3">
                     <div className="pt-1">
-                        <input type="checkbox" checked={selected} onChange={onToggleSelect} aria-label="Select row" />
+                        <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={onToggleSelect}
+                            aria-label="Select row"
+                            className="accent-[#173C2E]"
+                        />
                     </div>
 
                     <button
-                        onClick={() => router.push(`/${row.authorUsername}/deed/${row.id}`)}
-                        className="flex-1 min-w-0 flex items-center gap-3 text-left"
+                        type="button"
+                        onClick={() =>
+                            router.push(
+                                `/${row.authorUsername}/deed/${row.id}`
+                            )
+                        }
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     >
-                        <UniformThumbPremium src={poster} dateStr={dateStr} />
-                        <div className="min-w-0">
-                            <div className="text-[13px] font-black text-slate-800 truncate">
-                                {row.caption?.trim() ? row.caption : "Untitled deed"}
-                            </div>
-                            <div className="text-[11px] font-semibold text-slate-500 truncate mt-0.5">{dateStr}</div>
+                        <UniformThumbPremium
+                            src={poster}
+                            dateStr={dateStr}
+                        />
 
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <Pill
-                                    className="bg-white/70"
-                                    style={{ borderColor: "rgba(199,146,87,0.18)", color: EKARI.text }}
-                                >
+                        <div className="min-w-0">
+                            <div className="truncate text-[12px] font-black text-slate-800">
+                                {row.caption?.trim()
+                                    ? row.caption
+                                    : "Untitled deed"}
+                            </div>
+
+                            <div className="mt-0.5 truncate text-[9px] font-semibold text-slate-400">
+                                {dateStr}
+                            </div>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                <Pill>
                                     {cap(row.visibility || "public")}
                                 </Pill>
 
-                                <Pill className="bg-slate-50" style={{ borderColor: "rgba(15,23,42,0.06)" }}>
-                                    <IoEyeOutline className="opacity-70" /> {views}
+                                <Pill>
+                                    <IoEyeOutline size={11} />
+                                    {views}
                                 </Pill>
-                                <Pill className="bg-slate-50" style={{ borderColor: "rgba(15,23,42,0.06)" }}>
-                                    <IoHeartOutline className="opacity-70" /> {likes}
+
+                                <Pill>
+                                    <IoHeartOutline size={11} />
+                                    {likes}
                                 </Pill>
-                                <Pill className="bg-slate-50" style={{ borderColor: "rgba(15,23,42,0.06)" }}>
+
+                                <Pill>
                                     💬 {comments}
                                 </Pill>
 
@@ -842,69 +1001,141 @@ function PostRowPremium({
                     </button>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between gap-2">
-                    <button
-                        onClick={() => setOpenMenu((v) => !v)}
-                        className="flex items-center gap-2 rounded-full border px-3 py-2 text-[12px] font-extrabold bg-white/70 hover:bg-white transition"
-                        style={{ borderColor: "rgba(199,146,87,0.22)", color: EKARI.text }}
-                    >
-                        <span
-                            className="h-8 w-8 rounded-2xl grid place-items-center border"
-                            style={{
-                                borderColor: "rgba(199,146,87,0.18)",
-                                background: "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
-                            }}
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#EEEAE2] pt-3">
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setOpenMenu((value) => !value)}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[9px] font-black text-slate-600"
                         >
-                            <IoChevronDown style={{ color: EKARI.forest }} />
-                        </span>
-                        Privacy
-                    </button>
+                            Privacy
+                            <IoChevronDown size={12} />
+                        </button>
+
+                        <AnimatePresence>
+                            {openMenu ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -3 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -3 }}
+                                    className="absolute bottom-10 left-0 z-30 w-40 overflow-hidden rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_14px_34px_rgba(15,23,42,0.12)]"
+                                >
+                                    {(["public", "followers", "private"] as const).map((v) => (
+                                        <button
+                                            key={v}
+                                            type="button"
+                                            onClick={() => {
+                                                onChangePrivacy(row.id, v);
+                                                setOpenMenu(false);
+                                            }}
+                                            className="flex w-full items-center justify-between border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[9px] font-black text-slate-600 last:border-b-0"
+                                        >
+                                            <span className="capitalize">
+                                                {v}
+                                            </span>
+                                            {row.visibility === v ? (
+                                                <IoCheckmark className="text-[#173C2E]" />
+                                            ) : null}
+                                        </button>
+                                    ))}
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
+                    </div>
 
                     <div className="flex items-center gap-1">
-                        <IconBtn title="Edit" href={`/studio/upload?editDeedId=${row.id}`} />
-                        <IconBtn title="Analytics" href={`/studio/analytics/${row.id}`} variant="ghost" />
-                        <IconBtn title="Comments" href={`/${row.authorUsername}/deed/${row.id}`} variant="ghost" />
-                        <button className="rounded-full p-2 hover:bg-black/5" title="Delete" onClick={onDelete}>
-                            <IoTrashOutline />
+                        <IconBtn
+                            title="Edit"
+                            href={`/studio/upload?editDeedId=${row.id}`}
+                        />
+                        <IconBtn
+                            title="Analytics"
+                            href={`/studio/analytics/${row.id}`}
+                            variant="ghost"
+                        />
+                        <IconBtn
+                            title="Comments"
+                            href={`/${row.authorUsername}/deed/${row.id}`}
+                            variant="ghost"
+                        />
+
+                        <button
+                            type="button"
+                            className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                            title="Delete"
+                            onClick={onDelete}
+                        >
+                            <IoTrashOutline size={14} />
                         </button>
                     </div>
                 </div>
-
-                {openMenu && (
-                    <div
-                        className="mt-2 overflow-hidden rounded-2xl border bg-white/90 backdrop-blur-xl shadow-lg"
-                        style={{ borderColor: "rgba(199,146,87,0.22)" }}
-                    >
-                        {(["public", "followers", "private"] as const).map((v) => (
-                            <button
-                                key={v}
-                                onClick={() => {
-                                    onChangePrivacy(row.id, v as any);
-                                    setOpenMenu(false);
-                                }}
-                                className="flex w-full items-center justify-between px-3 py-3 text-left text-[12px] font-extrabold hover:bg-black/5"
-                                style={{ color: EKARI.text }}
-                            >
-                                <span className="capitalize">{v}</span>
-                                {row.visibility === v && <IoCheckmark />}
-                            </button>
-                        ))}
-                    </div>
-                )}
             </div>
+        </motion.div>
+    );
+}
+
+/* ---------- Thumbnail ---------- */
+function UniformThumbPremium({
+    src,
+    dateStr,
+}: {
+    src: string;
+    dateStr: string;
+}) {
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        setFailed(false);
+    }, [src]);
+
+    return (
+        <div className="relative h-[78px] w-[66px] flex-none overflow-hidden rounded-xl bg-[#E8ECE8] ring-1 ring-black/5">
+            {!failed ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={src}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                    onError={() => setFailed(true)}
+                />
+            ) : (
+                <div className="grid h-full w-full place-items-center text-[#173C2E]">
+                    <IoSparklesOutline size={18} />
+                </div>
+            )}
+
+            <span className="absolute left-1.5 top-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[8px] font-black text-white backdrop-blur">
+                <IoTimeOutline className="-mt-0.5 inline" />{" "}
+                {dateStr.split(",")[0] ?? ""}
+            </span>
         </div>
     );
 }
 
-/* ---------- Premium thumbnail ---------- */
-function UniformThumbPremium({ src, dateStr }: { src: string; dateStr: string }) {
+function MiniMetric({
+    label,
+    value,
+    icon,
+}: {
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+}) {
     return (
-        <div className="relative flex-none w-[96px] h-[112px] overflow-hidden rounded-2xl bg-slate-900 ring-1 ring-black/5 shadow-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[10px] font-extrabold text-white backdrop-blur">
-                <IoTimeOutline className="-mt-0.5 inline" /> {dateStr.split(",")[0] ?? ""}
-            </span>
+        <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-[#F39A22]">
+                    {icon}
+                </span>
+
+                <span className="text-[17px] font-black tracking-[-0.03em] text-[#173C2E]">
+                    {nfmt(value)}
+                </span>
+            </div>
+
+            <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+                {label}
+            </div>
         </div>
     );
 }
@@ -918,13 +1149,27 @@ function IconBtn({
     href: string;
     variant?: "solid" | "ghost";
 }) {
+    const isSolid =
+        variant === "solid";
+
     return (
         <Link
             href={href}
             title={title}
-            className={variant === "ghost" ? "rounded-full p-2 hover:bg-black/5" : "rounded-full p-2 hover:bg-black/5"}
+            className={[
+                "grid h-8 w-8 place-items-center rounded-lg transition",
+                isSolid && title === "Edit"
+                    ? "bg-[#EEF3EE] text-[#173C2E] hover:bg-[#E2ECE4]"
+                    : "text-slate-400 hover:bg-[#F3F1EB] hover:text-slate-700",
+            ].join(" ")}
         >
-            {title === "Edit" ? <IoPencilOutline /> : title === "Analytics" ? <IoTrendingUpOutline /> : <IoChatbubbleEllipsesOutline />}
+            {title === "Edit" ? (
+                <IoPencilOutline size={14} />
+            ) : title === "Analytics" ? (
+                <IoTrendingUpOutline size={14} />
+            ) : (
+                <IoChatbubbleEllipsesOutline size={14} />
+            )}
         </Link>
     );
 }

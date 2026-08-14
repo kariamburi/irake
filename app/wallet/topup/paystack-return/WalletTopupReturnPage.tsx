@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import AppShell from "@/app/components/AppShell";
+import AppShell from "@/app/components/AppShell_";
 
 const EKARI = {
     forest: "#233F39",

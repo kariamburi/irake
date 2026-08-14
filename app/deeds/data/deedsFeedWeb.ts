@@ -76,7 +76,7 @@ export type Deed = {
     aspectRatioValue?: number | null;
 };
 
-export type FeedTabKey = "forYou" | "following" | "nearby";
+export type FeedTabKey = "trending" | "forYou" | "following" | "nearby";
 
 export type FeedCursor = {
     createdAtMs: number;
@@ -290,13 +290,10 @@ function mapDeedDoc(
 
     const muxPlaybackId =
         normalizeString(d.muxPlaybackId) ??
-            normalizeString(d.playbackId) ??
-            normalizeString(d?.mux?.playbackId) ??
-            normalizeString(firstVideoMedia?.muxPlaybackId) ??
-            normalizeString(firstVideoMedia?.playbackId) ??
-            normalizeString(d.type) === "video"
-            ? normalizeString(d?.muxPlaybackId)
-            : undefined;
+        normalizeString(d.playbackId) ??
+        normalizeString(d?.mux?.playbackId) ??
+        normalizeString(firstVideoMedia?.muxPlaybackId) ??
+        normalizeString(firstVideoMedia?.playbackId);
 
     const mediaUrl =
         normalizeString(d.mediaUrl) ??
@@ -616,6 +613,151 @@ async function collectValidItems(params: {
     };
 }
 
+
+function trendingScore(item: Deed, nowMs = Date.now()): number {
+    const stats = item.stats ?? {
+        views: 0,
+        likes: 0,
+        saves: 0,
+    };
+
+    const views = Number(stats.views ?? 0);
+    const likes = Number(stats.likes ?? 0);
+    const comments = Number(stats.comments ?? 0);
+    const shares = Number(stats.shares ?? 0);
+    const saves = Number(stats.saves ?? stats.bookmarks ?? 0);
+    const completions = Number(stats.completions ?? 0);
+
+    /*
+     * Engagement weights:
+     * - shares/comments signal stronger intent
+     * - likes/saves are medium-strength signals
+     * - views are deliberately low-weight so viral impressions alone
+     *   do not permanently dominate Trending
+     */
+    const engagementScore =
+        shares * 8 +
+        comments * 6 +
+        likes * 4 +
+        saves * 3 +
+        completions * 1.5 +
+        views * 0.08;
+
+    /*
+     * Freshness boost.
+     * A new deed gets a meaningful lift, but strong engagement can still
+     * keep a slightly older deed trending.
+     */
+    const createdAtMs = tsToMs(item.createdAt);
+    const ageHours =
+        createdAtMs > 0
+            ? Math.max(0, (nowMs - createdAtMs) / 3_600_000)
+            : 24 * 30;
+
+    const freshnessScore =
+        60 / (1 + ageHours / 24);
+
+    return engagementScore + freshnessScore;
+}
+
+async function fetchTrendingPage(
+    cursor: FeedCursor = null,
+    limitCount = 10,
+    uid?: string | null
+): Promise<FeedPageResult<FeedCursor>> {
+    const blockedUserIds = await getBlockedUserIds(uid);
+
+    /*
+     * Firestore cannot order directly by our computed engagement score.
+     * We therefore read a bounded recent window, rank it locally, and
+     * paginate by the oldest document scanned in that window.
+     */
+    const scanSize = Math.max(limitCount * 8, 80);
+
+    const constraints: QueryConstraint[] = [
+        where("visibility", "==", "public"),
+        orderBy("createdAt", "desc"),
+        orderBy(documentId(), "desc"),
+    ];
+
+    if (cursor?.createdAtMs != null && cursor?.id) {
+        constraints.push(
+            startAfter(
+                new Date(cursor.createdAtMs),
+                cursor.id
+            ) as unknown as QueryConstraint
+        );
+    }
+
+    constraints.push(limit(scanSize));
+
+    const snap = await getDocs(
+        query(collection(db, "deeds"), ...constraints)
+    );
+
+    if (snap.empty) {
+        return {
+            items: [],
+            cursor,
+            hasMore: false,
+        };
+    }
+
+    const nowMs = Date.now();
+
+    const items = snap.docs
+        .map((docSnap) => mapDeedDoc(docSnap))
+        .filter((item): item is Deed => {
+            if (!item) return false;
+            if (blockedUserIds.has(item.authorId)) return false;
+            return true;
+        })
+        .sort((a, b) => {
+            const scoreDiff =
+                trendingScore(b, nowMs) -
+                trendingScore(a, nowMs);
+
+            if (scoreDiff !== 0) {
+                return scoreDiff;
+            }
+
+            const timeDiff =
+                tsToMs(b.createdAt) -
+                tsToMs(a.createdAt);
+
+            if (timeDiff !== 0) {
+                return timeDiff;
+            }
+
+            return b.id.localeCompare(a.id);
+        })
+        .slice(0, limitCount);
+
+    /*
+     * Cursor follows the raw Firestore scan rather than the ranked result.
+     * That lets the next request continue into an older time window
+     * without repeatedly scanning the same documents.
+     */
+    const lastScannedDoc =
+        snap.docs[snap.docs.length - 1];
+
+    const nextCursor: FeedCursor =
+        lastScannedDoc
+            ? {
+                createdAtMs: tsToMs(
+                    lastScannedDoc.get("createdAt")
+                ),
+                id: lastScannedDoc.id,
+            }
+            : cursor;
+
+    return {
+        items,
+        cursor: nextCursor,
+        hasMore: snap.docs.length >= scanSize,
+    };
+}
+
 async function fetchForYouPage(
     cursor: FeedCursor = null,
     limitCount = 10,
@@ -817,6 +959,10 @@ export async function fetchChannelPage({
     limitCount = 10,
     uid = null,
 }: FetchChannelPageParams): Promise<FeedPageResult<any>> {
+
+    if (tab === "trending") {
+        return fetchTrendingPage(cursor, limitCount, uid);
+    }
 
     if (tab === "forYou") {
         return fetchForYouPage(cursor, limitCount, uid);

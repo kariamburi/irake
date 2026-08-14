@@ -7,21 +7,30 @@ import React, {
     useRef,
     useState,
 } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
+    IoArrowBackOutline,
+    IoArrowForwardOutline,
     IoCalendarOutline,
-    IoLocationOutline,
-    IoImagesOutline,
     IoCameraOutline,
-    IoPersonCircleOutline,
-    IoMaleOutline,
-    IoFemaleOutline,
-    IoPersonOutline,
     IoCheckmark,
-    IoSearchOutline,
-    IoCloseOutline,
+    IoCheckmarkCircleOutline,
     IoChevronForwardOutline,
+    IoCloseOutline,
+    IoFemaleOutline,
+    IoImagesOutline,
+    IoLeafOutline,
+    IoLocationOutline,
+    IoLogOutOutline,
+    IoMaleOutline,
+    IoMapOutline,
+    IoPeopleOutline,
+    IoPersonCircleOutline,
+    IoPersonOutline,
+    IoSearchOutline,
+    IoSparklesOutline,
 } from "react-icons/io5";
 import {
     GoogleMap,
@@ -50,17 +59,18 @@ import {
     ROLES as STATIC_ROLES,
 } from "@/app/constants/constants";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
+import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
 /* ---------- Brand ---------- */
 const EKARI = {
-    forest: "#233F39",
-    leaf: "#1F3A34",
-    gold: "#C79257",
-    sand: "#FFFFFF",
-    hair: "#E5E7EB",
+    forest: "#173C2E",
+    leaf: "#214C3A",
+    gold: "#F39A22",
+    sand: "#F8F7F2",
+    hair: "#DDD8CC",
     text: "#0F172A",
-    dim: "#6B7280",
-    subtext: "#5C6B66",
+    dim: "#64748B",
+    subtext: "#64748B",
     danger: "#B42318",
 };
 
@@ -157,15 +167,18 @@ function Field({
 }) {
     return (
         <div className={`mt-4 ${className}`}>
-            <div
-                className="text-[13px] font-extrabold"
-                style={{ color: EKARI.text }}
-            >
-                {label}
+            {label ? (
+                <div className="text-[10px] font-black text-slate-700">
+                    {label}
+                </div>
+            ) : null}
+
+            <div className={label ? "mt-1.5" : ""}>
+                {children}
             </div>
-            <div className="mt-1.5">{children}</div>
+
             {helper ? (
-                <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                <div className="mt-1.5 text-[9px] font-medium leading-4 text-slate-400">
                     {helper}
                 </div>
             ) : null}
@@ -189,32 +202,45 @@ function GenderPills({
             { key: "female", label: "Female", Icon: IoFemaleOutline },
             { key: "other", label: "Other", Icon: IoPersonOutline },
         ];
+
     return (
-        <div role="radiogroup" className="flex flex-wrap gap-2">
+        <div
+            role="radiogroup"
+            className="grid grid-cols-3 gap-2"
+        >
             {items.map(({ key, label, Icon }) => {
-                const active = value === key;
+                const active =
+                    value === key;
+
                 return (
                     <button
                         key={key}
+                        type="button"
                         role="radio"
                         aria-checked={active}
-                        onClick={() => onChange(key)}
-                        className="flex items-center rounded-full border px-4 py-2 text-sm"
-                        style={{
-                            borderColor: active ? EKARI.forest : EKARI.hair,
-                            background: active ? EKARI.forest : "#fff",
-                            boxShadow: active
-                                ? "0 8px 18px rgba(0,0,0,0.1)"
-                                : "none",
-                        }}
+                        onClick={() =>
+                            onChange(key)
+                        }
+                        className={[
+                            "flex min-h-[46px] items-center justify-center gap-2",
+                            "rounded-[13px] border px-3",
+                            "text-[10px] font-black",
+                            "transition-all duration-200 active:scale-[0.98]",
+                            active
+                                ? "border-[#173C2E] bg-[#173C2E] text-white shadow-[0_8px_20px_rgba(23,60,46,0.12)]"
+                                : "border-[#DDD8CC] bg-white text-slate-600 hover:bg-[#F3F1EB]",
+                        ].join(" ")}
                     >
-                        <Icon size={16} color={active ? "#fff" : EKARI.dim} />
-                        <span
-                            className="ml-2 font-bold"
-                            style={{ color: active ? "#fff" : EKARI.text }}
-                        >
-                            {label}
-                        </span>
+                        <Icon
+                            size={15}
+                            color={
+                                active
+                                    ? "#FFFFFF"
+                                    : "#64748B"
+                            }
+                        />
+
+                        {label}
                     </button>
                 );
             })}
@@ -255,11 +281,11 @@ function SmartPicker({
     placeholder = "Search…",
     max = 6,
     ekari = {
-        hair: "#E5E7EB",
+        hair: "#DDD8CC",
         text: "#0F172A",
-        forest: "#233F39",
-        gold: "#C79257",
-        dim: "#6B7280",
+        forest: "#173C2E",
+        gold: "#F39A22",
+        dim: "#64748B",
     },
     groups,
 }: SmartPickerProps) {
@@ -365,7 +391,7 @@ function SmartPicker({
                                 : ekari.hair,
                         background:
                             value.length > 0
-                                ? "rgba(199,146,87,0.10)"
+                                ? "rgba(243,154,34,0.10)"
                                 : "#fff",
                         color:
                             value.length > 0
@@ -382,9 +408,9 @@ function SmartPicker({
                 <div
                     className="mt-4 rounded-2xl border p-3"
                     style={{
-                        borderColor: "rgba(199,146,87,0.25)",
+                        borderColor: "rgba(243,154,34,0.25)",
                         background:
-                            "linear-gradient(135deg, rgba(199,146,87,0.08), rgba(35,63,57,0.04))",
+                            "linear-gradient(135deg, rgba(243,154,34,0.08), rgba(23,60,46,0.04))",
                     }}
                 >
                     <div
@@ -444,7 +470,7 @@ function SmartPicker({
                                     ? "#fff"
                                     : ekari.text,
                                 boxShadow: active
-                                    ? "0 10px 24px rgba(35,63,57,0.18)"
+                                    ? "0 10px 24px rgba(23,60,46,0.18)"
                                     : "0 5px 16px rgba(15,23,42,0.04)",
                             }}
                             aria-pressed={active}
@@ -486,7 +512,7 @@ function SmartPicker({
                 onClick={() => setOpenModal(true)}
                 className="mt-4 flex h-12 w-full items-center justify-between rounded-2xl border bg-white px-4 text-sm font-extrabold transition hover:bg-gray-50 active:scale-[0.99]"
                 style={{
-                    borderColor: "rgba(199,146,87,0.28)",
+                    borderColor: "rgba(243,154,34,0.28)",
                     color: ekari.forest,
                     boxShadow:
                         "0 10px 30px rgba(15,23,42,0.06)",
@@ -497,7 +523,7 @@ function SmartPicker({
                         className="grid h-8 w-8 place-items-center rounded-xl"
                         style={{
                             background:
-                                "rgba(199,146,87,0.12)",
+                                "rgba(243,154,34,0.12)",
                         }}
                     >
                         <IoSearchOutline size={17} />
@@ -513,7 +539,7 @@ function SmartPicker({
                 <div
                     className="mt-3 rounded-xl px-3 py-2 text-center text-xs font-semibold"
                     style={{
-                        background: "rgba(199,146,87,0.10)",
+                        background: "rgba(243,154,34,0.10)",
                         color: ekari.forest,
                     }}
                 >
@@ -623,7 +649,7 @@ function SmartPicker({
                                         className="grid h-14 w-14 place-items-center rounded-2xl"
                                         style={{
                                             background:
-                                                "rgba(199,146,87,0.12)",
+                                                "rgba(243,154,34,0.12)",
                                             color: ekari.forest,
                                         }}
                                     >
@@ -689,7 +715,7 @@ function SmartPicker({
                                                                             : ekari.hair,
                                                                     background:
                                                                         active
-                                                                            ? "rgba(35,63,57,0.07)"
+                                                                            ? "rgba(23,60,46,0.07)"
                                                                             : "#fff",
                                                                     color: active
                                                                         ? ekari.forest
@@ -750,9 +776,9 @@ function SmartPicker({
                                 className="h-12 w-full rounded-2xl text-sm font-black text-white transition active:scale-[0.99]"
                                 style={{
                                     background:
-                                        "linear-gradient(135deg, #C79257, #233F39)",
+                                        "linear-gradient(135deg, #F39A22, #173C2E)",
                                     boxShadow:
-                                        "0 12px 30px rgba(35,63,57,0.22)",
+                                        "0 12px 30px rgba(23,60,46,0.22)",
                                 }}
                             >
                                 Done · {value.length} selected
@@ -1129,31 +1155,42 @@ export default function OnboardingWizardPage() {
         nextLabel?: string;
     }) {
         return (
-            <div className="mt-5 flex gap-3">
+            <div className="mt-6 flex items-center justify-between gap-3 border-t border-[#E5E0D6] pt-4">
                 <button
+                    type="button"
                     onClick={onBack}
                     disabled={disableBack}
-                    className="w-1/2 rounded-xl py-3 text-sm font-extrabold border"
-                    style={{
-                        background: "#fff",
-                        borderColor: EKARI.hair,
-                        color: disableBack ? "#9CA3AF" : EKARI.text,
-                        opacity: disableBack ? 0.6 : 1,
-                    }}
+                    className={[
+                        "inline-flex h-11 min-w-[112px] items-center justify-center gap-2",
+                        "rounded-[13px] border border-[#DDD8CC] bg-white px-4",
+                        "text-[10px] font-black text-slate-600",
+                        "transition hover:bg-[#F3F1EB] active:scale-[0.98]",
+                        "disabled:cursor-not-allowed disabled:opacity-45",
+                    ].join(" ")}
                 >
+                    <IoArrowBackOutline size={14} />
                     Back
                 </button>
+
                 <button
+                    type="button"
                     onClick={onNext}
                     disabled={disableNext}
-                    className="w-1/2 rounded-xl py-3 text-sm font-extrabold text-white active:scale-[0.98] transition"
-                    style={{
-                        background:
-                            "linear-gradient(135deg, #C79257, #fbbf77)",
-                        opacity: disableNext ? 0.6 : 1,
-                    }}
+                    className={[
+                        "inline-flex h-11 min-w-[132px] items-center justify-center gap-2",
+                        "rounded-[13px] bg-[#173C2E] px-5",
+                        "text-[10px] font-black text-white",
+                        "shadow-[0_10px_24px_rgba(23,60,46,0.14)]",
+                        "transition hover:bg-[#214C3A] active:scale-[0.98]",
+                        "disabled:cursor-not-allowed disabled:opacity-45",
+                    ].join(" ")}
                 >
                     {nextLabel}
+                    {nextLabel === "Finish" || nextLabel === "Finishing…" ? (
+                        <IoCheckmarkCircleOutline size={14} />
+                    ) : (
+                        <IoArrowForwardOutline size={14} />
+                    )}
                 </button>
             </div>
         );
@@ -1359,7 +1396,7 @@ export default function OnboardingWizardPage() {
                             className="h-1.5 rounded-full"
                             style={{
                                 width: step === i ? 26 : 12,
-                                background: step >= i ? EKARI.gold : "#E5E7EB",
+                                background: step >= i ? EKARI.gold : "#DDD8CC",
                                 transition: "width .2s",
                             }}
                         />
@@ -1551,749 +1588,1194 @@ export default function OnboardingWizardPage() {
         setDobDay(d || "");
     }, [dobDate]);
 
+    if (authLoading || loadingAuthProfile) {
+        return (
+            <main className="grid min-h-[100svh] w-full place-items-center overflow-x-clip bg-[#F8F7F2]">
+                <div className="text-center">
+                    <div className="flex justify-center">
+                        <BouncingBallLoader />
+                    </div>
+
+                    <div className="mt-5 text-[12px] font-black text-slate-800">
+                        Preparing your profile...
+                    </div>
+
+                    <div className="mt-1 text-[9px] font-medium text-slate-400">
+                        Loading your account details and onboarding options.
+                    </div>
+                </div>
+            </main>
+        );
+    }
+
+    if (!user) {
+        return null;
+    }
+
+    const stepMeta: Record<
+        1 | 2 | 3 | 4 | 5,
+        {
+            title: string;
+            short: string;
+            description: string;
+            Icon: React.ComponentType<{
+                size?: number;
+            }>;
+        }
+    > = {
+        1: {
+            title: "Your profile",
+            short: "Profile",
+            description:
+                "Set your identity, username and basic personal details.",
+            Icon: IoPersonCircleOutline,
+        },
+        2: {
+            title: "Your interests",
+            short: "Interests",
+            description:
+                "Choose the agricultural topics you want to discover and follow.",
+            Icon: IoLeafOutline,
+        },
+        3: {
+            title: "Your roles",
+            short: "Roles",
+            description:
+                "Tell ekarihub how you participate in the agricultural value chain.",
+            Icon: IoPeopleOutline,
+        },
+        4: {
+            title: "Your location",
+            short: "Location",
+            description:
+                "Add a location so we can personalize markets, services and recommendations.",
+            Icon: IoLocationOutline,
+        },
+        5: {
+            title: "Finish your profile",
+            short: "Photo",
+            description:
+                "Add your profile photo and tell us how you discovered ekarihub.",
+            Icon: IoCameraOutline,
+        },
+    };
+
+    const CurrentStepIcon =
+        stepMeta[step].Icon;
+
+    const stepCompleted = (
+        value: number
+    ) => value < step;
+
+    const photoSrc =
+        previewUrl ||
+        existingPhotoURL ||
+        user.photoURL ||
+        "";
+
     return (
-        <main
-            className="min-h-screen w-full"
-            style={{
-                background:
-                    "radial-gradient(circle at top left, rgba(35,63,57,0.12), transparent 55%), radial-gradient(circle at bottom right, rgba(199,146,87,0.16), #F3F4F6)",
-            }}
-        >
-            {/* Top bar: cancel onboarding */}
+        <main className="min-h-screen min-h-[100dvh] w-full max-w-full overflow-x-clip bg-[#F8F7F2]">
+            <div className="grid min-h-screen min-h-[100dvh] w-full max-w-full lg:grid-cols-[330px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
+                {/* =====================================================
+                    LEFT / PROGRESS RAIL
+                ===================================================== */}
+                <aside className="relative min-w-0 overflow-hidden bg-[#173C2E] px-5 py-5 text-white sm:px-7 lg:min-h-[100dvh] lg:px-6 lg:py-7 xl:px-8">
+                    <div
+                        className="pointer-events-none absolute inset-0 opacity-[0.045]"
+                        style={{
+                            backgroundImage:
+                                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.75) 18px 19px)",
+                        }}
+                    />
 
-            <div className="mx-auto max-w-3xl px-5 pt-6 pb-10">
-                <motion.div
-                    className="rounded-3xl bg-white/90 backdrop-blur-xl border border-white/70 shadow-[0_22px_70px_rgba(15,23,42,0.3)] px-4 py-5 md:px-6 md:py-7"
-                    initial={{ opacity: 0, y: 10, scale: 0.99 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.28, ease: "easeOut" }}
-                >
-                    {/* STEP 1 — Create profile */}
-                    {step === 1 && (
-                        <>
-                            <StepHeader title="Create your profile" />
-                            <motion.div
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
-                                style={{
-                                    borderColor: EKARI.hair,
-                                    background: "#F9FAFB",
-                                }}
+                    <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-28 -left-24 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+
+                    <div className="relative mx-auto flex h-full w-full min-w-0 max-w-[430px] flex-col">
+                        <div className="flex items-center justify-between gap-3">
+                            <Image
+                                src="/ekarihub-logo-green.png"
+                                alt="ekarihub"
+                                width={148}
+                                height={42}
+                                priority
+                                className="h-auto w-[126px] object-contain"
+                            />
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setConfirmOpen(
+                                        true
+                                    )
+                                }
+                                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/65 transition hover:bg-white/[0.11]"
                             >
-                                <Field label="Name">
-                                    {nameFromProvider ? (
-                                        <div className="space-y-3">
-                                            <div
-                                                className="rounded-xl border px-3 py-3 text-sm"
-                                                style={{ borderColor: EKARI.hair, background: "#F6F7FB" }}
-                                            >
-                                                <div className="font-bold" style={{ color: EKARI.text }}>
-                                                    {firstName} {surname}
-                                                </div>
+                                <IoLogOutOutline size={13} />
+                                Exit
+                            </button>
+                        </div>
 
-                                                {authEmail && (
-                                                    <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                                                        {authEmail}
-                                                    </div>
+                        {/* Mobile compact progress */}
+                        <div className="mt-5 lg:hidden">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                        Step {step} of 5
+                                    </div>
+
+                                    <div className="mt-1 text-[16px] font-black">
+                                        {stepMeta[step].title}
+                                    </div>
+                                </div>
+
+                                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+                                    <CurrentStepIcon size={20} />
+                                </div>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-5 gap-1.5">
+                                {[1, 2, 3, 4, 5].map(
+                                    (
+                                        item
+                                    ) => (
+                                        <div
+                                            key={
+                                                item
+                                            }
+                                            className={[
+                                                "h-1.5 rounded-full transition-all duration-200",
+                                                item <=
+                                                    step
+                                                    ? "bg-[#F39A22]"
+                                                    : "bg-white/12",
+                                            ].join(
+                                                " "
+                                            )}
+                                        />
+                                    )
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Desktop progress */}
+                        <div className="hidden flex-1 flex-col justify-center py-8 lg:flex">
+                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                Complete your account
+                            </div>
+
+                            <h1 className="mt-2 text-[28px] font-black leading-[1.07] tracking-[-0.04em]">
+                                Build a profile people can trust.
+                            </h1>
+
+                            <p className="mt-3 text-[10px] font-medium leading-5 text-white/50">
+                                Five quick steps help ekarihub personalize your community, opportunities and recommendations.
+                            </p>
+
+                            <div className="mt-7 space-y-2">
+                                {(
+                                    [
+                                        1,
+                                        2,
+                                        3,
+                                        4,
+                                        5,
+                                    ] as const
+                                ).map(
+                                    (
+                                        value
+                                    ) => {
+                                        const item =
+                                            stepMeta[
+                                            value
+                                            ];
+
+                                        const active =
+                                            value ===
+                                            step;
+
+                                        const done =
+                                            stepCompleted(
+                                                value
+                                            );
+
+                                        const Icon =
+                                            item.Icon;
+
+                                        return (
+                                            <button
+                                                key={
+                                                    value
+                                                }
+                                                type="button"
+                                                disabled={
+                                                    value >
+                                                    step
+                                                }
+                                                onClick={() => {
+                                                    if (
+                                                        value <
+                                                        step
+                                                    ) {
+                                                        setStep(
+                                                            value
+                                                        );
+                                                    }
+                                                }}
+                                                className={[
+                                                    "flex w-full items-center gap-3 rounded-[15px] p-2.5 text-left",
+                                                    "transition-all duration-200",
+                                                    active
+                                                        ? "bg-white/[0.10]"
+                                                        : done
+                                                            ? "hover:bg-white/[0.06]"
+                                                            : "opacity-45",
+                                                ].join(
+                                                    " "
                                                 )}
+                                            >
+                                                <span
+                                                    className={[
+                                                        "grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border",
+                                                        active
+                                                            ? "border-[#F39A22]/30 bg-[#F39A22]/12 text-[#F39A22]"
+                                                            : done
+                                                                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
+                                                                : "border-white/10 bg-white/[0.05] text-white/45",
+                                                    ].join(
+                                                        " "
+                                                    )}
+                                                >
+                                                    {done ? (
+                                                        <IoCheckmark
+                                                            size={
+                                                                16
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        <Icon
+                                                            size={
+                                                                16
+                                                            }
+                                                        />
+                                                    )}
+                                                </span>
 
-                                                <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                                                    Name and email were provided by Google. You can complete missing details below.
-                                                </div>
-                                            </div>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block text-[10px] font-black text-white">
+                                                        {
+                                                            item.short
+                                                        }
+                                                    </span>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <input
-                                                    value={firstName}
-                                                    onChange={(e) => setFirstName(e.target.value)}
-                                                    placeholder="First name"
-                                                    className="rounded-xl border px-3 py-3 text-sm"
-                                                    style={{ borderColor: EKARI.hair }}
-                                                />
+                                                    <span className="mt-0.5 block text-[8px] font-medium leading-4 text-white/35">
+                                                        {
+                                                            item.description
+                                                        }
+                                                    </span>
+                                                </span>
 
-                                                <input
-                                                    value={surname}
-                                                    onChange={(e) => setSurname(e.target.value)}
-                                                    placeholder="Surname"
-                                                    className="rounded-xl border px-3 py-3 text-sm"
-                                                    style={{ borderColor: EKARI.hair }}
-                                                />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <span className="text-[9px] font-black text-white/25">
+                                                    0
+                                                    {
+                                                        value
+                                                    }
+                                                </span>
+                                            </button>
+                                        );
+                                    }
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="hidden rounded-[15px] border border-white/10 bg-white/[0.05] p-3 lg:block">
+                            <div className="flex items-start gap-2.5">
+                                <IoSparklesOutline
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-[#F39A22]"
+                                />
+
+                                <div>
+                                    <div className="text-[9px] font-black text-white">
+                                        Your profile powers discovery
+                                    </div>
+
+                                    <div className="mt-1 text-[8px] font-medium leading-4 text-white/40">
+                                        Interests, roles and location help surface more relevant deeds, experts, markets and AI suggestions.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+
+                {/* =====================================================
+                    RIGHT / CURRENT STEP
+                ===================================================== */}
+                <section className="relative min-w-0 overflow-x-clip bg-[#F8F7F2] lg:min-h-[100dvh]">
+                    <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
+                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+
+                    <div className="relative mx-auto w-full max-w-[880px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+                        <motion.div
+                            key={step}
+                            initial={{
+                                opacity: 0,
+                                y: 6,
+                            }}
+                            animate={{
+                                opacity: 1,
+                                y: 0,
+                            }}
+                            transition={{
+                                duration: 0.2,
+                                ease: "easeOut",
+                            }}
+                        >
+                            {/* Current step heading */}
+                            <div className="mb-5 flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.11em] text-[#F39A22]">
+                                        Step {step} of 5
+                                    </div>
+
+                                    <h2 className="mt-1 text-[24px] font-black tracking-[-0.035em] text-slate-900 sm:text-[28px]">
+                                        {stepMeta[step].title}
+                                    </h2>
+
+                                    <p className="mt-1.5 max-w-xl text-[10px] font-medium leading-5 text-slate-500">
+                                        {stepMeta[step].description}
+                                    </p>
+                                </div>
+
+                                <div className="hidden h-12 w-12 shrink-0 place-items-center rounded-[15px] bg-[#E8ECE8] text-[#173C2E] sm:grid">
+                                    <CurrentStepIcon size={21} />
+                                </div>
+                            </div>
+
+                            {/* ================= STEP 1 ================= */}
+                            {step === 1 ? (
+                                <div>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <Field
+                                            label="First name"
+                                            helper={
+                                                nameFromProvider
+                                                    ? "Pre-filled from your sign-in provider. You can edit it."
+                                                    : undefined
+                                            }
+                                        >
                                             <input
                                                 value={firstName}
-                                                onChange={(e) => setFirstName(e.target.value)}
+                                                onChange={(e) =>
+                                                    setFirstName(
+                                                        e.target.value
+                                                    )
+                                                }
                                                 placeholder="First name"
-                                                className="rounded-xl border px-3 py-3 text-sm"
-                                                style={{ borderColor: EKARI.hair }}
+                                                className="h-12 w-full rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
                                             />
+                                        </Field>
+
+                                        <Field
+                                            label="Surname"
+                                            helper={
+                                                nameFromProvider
+                                                    ? "Pre-filled from your sign-in provider. You can edit it."
+                                                    : undefined
+                                            }
+                                        >
                                             <input
                                                 value={surname}
-                                                onChange={(e) => setSurname(e.target.value)}
+                                                onChange={(e) =>
+                                                    setSurname(
+                                                        e.target.value
+                                                    )
+                                                }
                                                 placeholder="Surname"
-                                                className="rounded-xl border px-3 py-3 text-sm"
-                                                style={{ borderColor: EKARI.hair }}
+                                                className="h-12 w-full rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
                                             />
-                                        </div>
-                                    )}
-                                </Field>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <Field
-                                        label="Username"
-                                        helper={
-                                            checkingHandle
-                                                ? "Checking availability…"
-                                                : handleMsg || undefined
-                                        }
-                                    >
-                                        <div
-                                            className="flex items-center h-11 rounded-xl border px-3 bg-[#F6F7FB]"
-                                            style={{ borderColor: EKARI.hair }}
-                                        >
-
-                                            <input
-                                                placeholder="@handle"
-                                                className="w-full bg-transparent outline-none text-sm"
-                                                style={{ color: EKARI.text }}
-                                                value={handle}
-                                                onChange={(e) => onChangeHandle(e.target.value)}
-                                                autoCapitalize="none"
-                                            />
-                                            {checkingHandle ? (
-                                                <span className="ml-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                                            ) : handle.length > 0 && handleAvailable !== null ? (
-                                                <span
-                                                    className="ml-2 text-xs font-bold"
-                                                    style={{
-                                                        color: handleAvailable ? "#10B981" : "#EF4444",
-                                                    }}
-                                                >
-                                                    {handleAvailable ? "OK" : "X"}
-                                                </span>
-                                            ) : null}
-                                        </div>
-                                    </Field>
-                                    <Field
-                                        label="Email"
-
-                                    >
-                                        <div
-                                            className="flex items-center h-11 rounded-xl border px-3 bg-[#F6F7FB]"
-                                            style={{ borderColor: EKARI.hair }}
-                                        >
-                                            <input
-                                                placeholder="@email"
-                                                className="w-full bg-transparent outline-none text-sm"
-                                                style={{ color: EKARI.text }}
-                                                value={user?.email ?? ""}
-                                                autoCapitalize="none"
-                                                disabled
-                                            />
-
-                                        </div>
-                                    </Field>
-                                </div>
-                                <Field
-                                    label="Date of birth"
-                                    helper="You must be 18+ to join."
-                                >
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <IoCalendarOutline
-                                            className="mr-1"
-                                            size={18}
-                                            color={EKARI.dim}
-                                        />
-
-                                        <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-xs md:text-sm"
-                                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                            value={dobDay}
-                                            onChange={(e) => setDobDay(e.target.value)}
-                                        >
-                                            <option value="">Day</option>
-                                            {days.map((d) => (
-                                                <option key={d} value={d}>
-                                                    {parseInt(d, 10)}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-xs md:text-sm"
-                                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                            value={dobMonth}
-                                            onChange={(e) => setDobMonth(e.target.value)}
-                                        >
-                                            <option value="">Month</option>
-                                            {months.map((m) => (
-                                                <option key={m.value} value={m.value}>
-                                                    {m.label}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        <select
-                                            className="h-10 rounded-xl border px-2 bg-[#F6F7FB] text-xs md:text-sm"
-                                            style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                            value={dobYear}
-                                            onChange={(e) => setDobYear(e.target.value)}
-                                        >
-                                            <option value="">Year</option>
-                                            {years.map((y) => (
-                                                <option key={y} value={y}>
-                                                    {y}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        </Field>
                                     </div>
 
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                                        <span style={{ color: EKARI.dim }}>Quick select:</span>
-                                        {quickDecades.map((d) => (
-                                            <button
-                                                key={d.label}
-                                                type="button"
-                                                onClick={() => handleDecadeClick(d.year)}
-                                                className="rounded-full border px-2 py-1 font-semibold"
-                                                style={{
-                                                    borderColor: EKARI.hair,
-                                                    background: "#fff",
-                                                    color: EKARI.text,
-                                                }}
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <Field
+                                            label="Username"
+                                            helper={
+                                                checkingHandle
+                                                    ? "Checking availability..."
+                                                    : handleMsg ||
+                                                    "3–29 characters: letters, numbers, dot or underscore."
+                                            }
+                                        >
+                                            <div
+                                                className={[
+                                                    "flex h-12 items-center rounded-[14px] border bg-white px-3",
+                                                    "transition focus-within:ring-4",
+                                                    handleAvailable === true
+                                                        ? "border-emerald-300 focus-within:ring-emerald-500/5"
+                                                        : handleAvailable === false
+                                                            ? "border-rose-300 focus-within:ring-rose-500/5"
+                                                            : "border-[#D9D3C7] focus-within:border-[#173C2E]/50 focus-within:ring-[#173C2E]/5",
+                                                ].join(
+                                                    " "
+                                                )}
                                             >
-                                                {d.label}
-                                            </button>
-                                        ))}
+                                                <input
+                                                    placeholder="@handle"
+                                                    className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none"
+                                                    value={handle}
+                                                    onChange={(e) =>
+                                                        onChangeHandle(
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    autoCapitalize="none"
+                                                    autoComplete="off"
+                                                />
+
+                                                {checkingHandle ? (
+                                                    <span className="ml-2 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-slate-200 border-t-[#173C2E]" />
+                                                ) : handle.length >
+                                                    0 &&
+                                                    handleAvailable !==
+                                                    null ? (
+                                                    <span
+                                                        className={[
+                                                            "ml-2 inline-flex h-6 items-center rounded-full px-2",
+                                                            "text-[8px] font-black",
+                                                            handleAvailable
+                                                                ? "bg-emerald-50 text-emerald-700"
+                                                                : "bg-rose-50 text-rose-600",
+                                                        ].join(
+                                                            " "
+                                                        )}
+                                                    >
+                                                        {handleAvailable
+                                                            ? "AVAILABLE"
+                                                            : "UNAVAILABLE"}
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        </Field>
+
+                                        <Field label="Email">
+                                            <input
+                                                value={
+                                                    authEmail ||
+                                                    user.email ||
+                                                    ""
+                                                }
+                                                disabled
+                                                className="h-12 w-full rounded-[14px] border border-[#E2DDD2] bg-[#F3F1EB] px-3 text-[11px] font-semibold text-slate-400 outline-none"
+                                            />
+                                        </Field>
                                     </div>
 
-                                    {!!dobDate && !isAdult && (
-                                        <div
-                                            className="mt-1 text-xs"
-                                            style={{ color: EKARI.dim }}
-                                        >
-                                            You must be at least 18 years old.
+                                    <Field
+                                        label="Date of birth"
+                                        helper="You must be at least 18 years old to join."
+                                    >
+                                        <div className="grid grid-cols-[1fr_1.2fr_1fr] gap-2 sm:max-w-[500px]">
+                                            <select
+                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[10px] font-semibold text-slate-600 outline-none"
+                                                value={dobDay}
+                                                onChange={(e) =>
+                                                    setDobDay(
+                                                        e.target.value
+                                                    )
+                                                }
+                                            >
+                                                <option value="">
+                                                    Day
+                                                </option>
+
+                                                {days.map(
+                                                    (
+                                                        d
+                                                    ) => (
+                                                        <option
+                                                            key={
+                                                                d
+                                                            }
+                                                            value={
+                                                                d
+                                                            }
+                                                        >
+                                                            {parseInt(
+                                                                d,
+                                                                10
+                                                            )}
+                                                        </option>
+                                                    )
+                                                )}
+                                            </select>
+
+                                            <select
+                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[10px] font-semibold text-slate-600 outline-none"
+                                                value={
+                                                    dobMonth
+                                                }
+                                                onChange={(e) =>
+                                                    setDobMonth(
+                                                        e.target.value
+                                                    )
+                                                }
+                                            >
+                                                <option value="">
+                                                    Month
+                                                </option>
+
+                                                {months.map(
+                                                    (
+                                                        month
+                                                    ) => (
+                                                        <option
+                                                            key={
+                                                                month.value
+                                                            }
+                                                            value={
+                                                                month.value
+                                                            }
+                                                        >
+                                                            {
+                                                                month.label
+                                                            }
+                                                        </option>
+                                                    )
+                                                )}
+                                            </select>
+
+                                            <select
+                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[10px] font-semibold text-slate-600 outline-none"
+                                                value={dobYear}
+                                                onChange={(e) =>
+                                                    setDobYear(
+                                                        e.target.value
+                                                    )
+                                                }
+                                            >
+                                                <option value="">
+                                                    Year
+                                                </option>
+
+                                                {years.map(
+                                                    (
+                                                        year
+                                                    ) => (
+                                                        <option
+                                                            key={
+                                                                year
+                                                            }
+                                                            value={
+                                                                year
+                                                            }
+                                                        >
+                                                            {
+                                                                year
+                                                            }
+                                                        </option>
+                                                    )
+                                                )}
+                                            </select>
                                         </div>
-                                    )}
-                                </Field>
 
-                                <Field label="Gender">
-                                    <GenderPills value={gender} onChange={setGender} />
-                                </Field>
+                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                            <span className="mr-1 text-[8px] font-semibold text-slate-400">
+                                                Quick:
+                                            </span>
 
-                                <FooterNav
-                                    onBack={onBack}
-                                    onNext={handleNext}
-                                    disableBack={false}   // ✅ allow click
-                                    disableNext={!canNext1}
-                                />
-                            </motion.div>
-                            {!canNext1 && (
-                                <div className="mt-3 text-xs font-semibold" style={{ color: EKARI.danger }}>
-                                    {!firstName.trim() ? "First name missing." :
-                                        !surname.trim() ? "Surname missing." :
-                                            !gender ? "Select gender." :
-                                                !dobDate ? "Select date of birth." :
-                                                    !isAdult ? "User must be 18+." :
-                                                        handleAvailable !== true ? "Username must show OK before continuing." :
-                                                            "Complete all required fields."}
+                                            {quickDecades.map(
+                                                (
+                                                    item
+                                                ) => (
+                                                    <button
+                                                        key={
+                                                            item.label
+                                                        }
+                                                        type="button"
+                                                        onClick={() =>
+                                                            handleDecadeClick(
+                                                                item.year
+                                                            )
+                                                        }
+                                                        className="rounded-full border border-[#DDD8CC] bg-white px-2.5 py-1.5 text-[8px] font-black text-slate-500 transition hover:bg-[#F3F1EB]"
+                                                    >
+                                                        {
+                                                            item.label
+                                                        }
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+
+                                        {!!dobDate &&
+                                            !isAdult ? (
+                                            <div className="mt-2 text-[9px] font-black text-rose-600">
+                                                You must be at least 18 years old.
+                                            </div>
+                                        ) : null}
+                                    </Field>
+
+                                    <Field label="Gender">
+                                        <GenderPills
+                                            value={gender}
+                                            onChange={
+                                                setGender
+                                            }
+                                        />
+                                    </Field>
+
+                                    {!canNext1 ? (
+                                        <div className="mt-4 rounded-[13px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[9px] font-semibold leading-4 text-amber-700">
+                                            {!firstName.trim()
+                                                ? "Enter your first name."
+                                                : !surname.trim()
+                                                    ? "Enter your surname."
+                                                    : !dobDate
+                                                        ? "Select your date of birth."
+                                                        : !isAdult
+                                                            ? "You must be 18 or older."
+                                                            : !gender
+                                                                ? "Select your gender."
+                                                                : handleAvailable !==
+                                                                    true
+                                                                    ? "Choose an available username before continuing."
+                                                                    : "Complete the required details."}
+                                        </div>
+                                    ) : null}
+
+                                    <FooterNav
+                                        onBack={onBack}
+                                        onNext={
+                                            handleNext
+                                        }
+                                        disableBack={
+                                            false
+                                        }
+                                        disableNext={
+                                            !canNext1
+                                        }
+                                    />
                                 </div>
-                            )}
-                        </>
-                    )}
+                            ) : null}
 
-                    {/* STEP 2 — Interests */}
-                    {step === 2 && (
-                        <>
-                            <StepHeader title="Choose your interests" />
-                            <motion.div
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
-                                style={{
-                                    borderColor: EKARI.hair,
-                                    background: "#F9FAFB",
-                                }}
-                            >
-                                <div
-                                    className="text-sm md:text-base"
-                                    style={{ color: EKARI.forest }}
-                                >
-                                    Pick what you care about in agriculture.
-                                </div>
+                            {/* ================= STEP 2 ================= */}
+                            {step === 2 ? (
+                                <div>
+                                    {taxonomyLoading ? (
+                                        <div className="mb-3 text-[9px] font-semibold text-slate-400">
+                                            Loading interest options...
+                                        </div>
+                                    ) : null}
 
-                                {taxonomyLoading && (
-                                    <div
-                                        className="mt-2 text-xs"
-                                        style={{ color: EKARI.dim }}
-                                    >
-                                        Loading interest options…
-                                    </div>
-                                )}
-                                {taxonomyError && (
-                                    <div
-                                        className="mt-2 text-xs"
-                                        style={{ color: EKARI.danger }}
-                                    >
-                                        {taxonomyError}
-                                    </div>
-                                )}
+                                    {taxonomyError ? (
+                                        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[9px] font-semibold text-amber-700">
+                                            {
+                                                taxonomyError
+                                            }{" "}
+                                            Using built-in options.
+                                        </div>
+                                    ) : null}
 
-                                <Field label="">
                                     <SmartPicker
                                         label="Interests"
-                                        value={areaOfInterest}
-                                        onChange={setAreaOfInterest}
-                                        options={interestOptions}
-                                        popular={POPULAR_INTERESTS}
-                                        groups={interestGroupsForUI}
+                                        value={
+                                            areaOfInterest
+                                        }
+                                        onChange={
+                                            setAreaOfInterest
+                                        }
+                                        options={
+                                            interestOptions
+                                        }
+                                        popular={
+                                            POPULAR_INTERESTS
+                                        }
+                                        groups={
+                                            interestGroupsForUI
+                                        }
                                         max={6}
                                         ekari={EKARI}
-                                        placeholder="Search crops, livestock, technology…"
+                                        placeholder="Search crops, livestock, technology..."
                                     />
-                                </Field>
 
-                                <FooterNav
-                                    onBack={onBack}
-                                    onNext={handleNext}
-                                    disableBack={false}
-                                    disableNext={!canNext2}
-                                />
-                            </motion.div>
-                        </>
-                    )}
-
-                    {/* STEP 3 — Roles */}
-                    {step === 3 && (
-                        <>
-                            <StepHeader title="What do you do?" />
-                            <motion.div
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
-                                style={{
-                                    borderColor: EKARI.hair,
-                                    background: "#F9FAFB",
-                                }}
-                            >
-                                <div
-                                    className="text-sm md:text-base"
-                                    style={{ color: EKARI.forest }}
-                                >
-                                    Tell us your role(s) in the value chain.
+                                    <FooterNav
+                                        onBack={onBack}
+                                        onNext={
+                                            handleNext
+                                        }
+                                        disableNext={
+                                            !canNext2
+                                        }
+                                    />
                                 </div>
+                            ) : null}
 
-                                {taxonomyLoading && (
-                                    <div
-                                        className="mt-2 text-xs"
-                                        style={{ color: EKARI.dim }}
-                                    >
-                                        Loading role options…
-                                    </div>
-                                )}
-                                {taxonomyError && (
-                                    <div
-                                        className="mt-2 text-xs"
-                                        style={{ color: EKARI.danger }}
-                                    >
-                                        {taxonomyError}
-                                    </div>
-                                )}
+                            {/* ================= STEP 3 ================= */}
+                            {step === 3 ? (
+                                <div>
+                                    {taxonomyLoading ? (
+                                        <div className="mb-3 text-[9px] font-semibold text-slate-400">
+                                            Loading role options...
+                                        </div>
+                                    ) : null}
 
-                                <Field label="">
+                                    {taxonomyError ? (
+                                        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[9px] font-semibold text-amber-700">
+                                            {
+                                                taxonomyError
+                                            }{" "}
+                                            Using built-in options.
+                                        </div>
+                                    ) : null}
+
                                     <SmartPicker
                                         label="Roles"
                                         value={roles}
-                                        onChange={setRoles}
-                                        options={roleOptions}
-                                        popular={POPULAR_ROLES}
-                                        groups={roleGroupsForUI}
+                                        onChange={
+                                            setRoles
+                                        }
+                                        options={
+                                            roleOptions
+                                        }
+                                        popular={
+                                            POPULAR_ROLES
+                                        }
+                                        groups={
+                                            roleGroupsForUI
+                                        }
                                         max={4}
                                         ekari={EKARI}
-                                        placeholder="Search farmer, buyer, agronomist…"
+                                        placeholder="Search farmer, buyer, agronomist..."
                                     />
-                                </Field>
 
-                                <FooterNav
-                                    onBack={onBack}
-                                    onNext={handleNext}
-                                    disableBack={false}
-                                    disableNext={!canNext3}
-                                />
-                            </motion.div>
-                        </>
-                    )}
-
-                    {/* STEP 4 — Location */}
-                    {step === 4 && (
-                        <>
-                            <StepHeader title="Location" />
-                            <motion.div
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
-                                style={{
-                                    borderColor: EKARI.hair,
-                                    background: "#F9FAFB",
-                                }}
-                            >
-                                <div
-                                    className="text-sm"
-                                    style={{ color: EKARI.subtext }}
-                                >
-                                    We’ll show nearby markets and services.
+                                    <FooterNav
+                                        onBack={onBack}
+                                        onNext={
+                                            handleNext
+                                        }
+                                        disableNext={
+                                            !canNext3
+                                        }
+                                    />
                                 </div>
+                            ) : null}
 
-                                {/* Device location summary */}
-                                <div
-                                    className="mt-3 flex items-center rounded-xl border p-3 bg-white"
-                                    style={{ borderColor: EKARI.hair }}
-                                >
-                                    <IoLocationOutline size={18} color={EKARI.dim} />
-                                    <div className="ml-2 flex-1">
-                                        {locStatus === "ready" && coords ? (
-                                            <>
-                                                <div
-                                                    className="font-bold text-sm"
-                                                    style={{ color: EKARI.text }}
-                                                >
-                                                    {place || "Location captured"}
+                            {/* ================= STEP 4 ================= */}
+                            {step === 4 ? (
+                                <div>
+                                    <div className="rounded-[15px] border border-[#DDD8CC] bg-[#FBFAF6] p-3.5">
+                                        <div className="flex items-start gap-3">
+                                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#E8ECE8] text-[#173C2E]">
+                                                <IoLocationOutline size={18} />
+                                            </span>
+
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-[10px] font-black text-slate-700">
+                                                    {locStatus ===
+                                                        "ready" &&
+                                                        coords
+                                                        ? place ||
+                                                        "Location selected"
+                                                        : "Add your location"}
                                                 </div>
-                                                <div
-                                                    className="text-xs"
-                                                    style={{ color: EKARI.subtext }}
-                                                >
-                                                    {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+
+                                                <div className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
+                                                    {coords
+                                                        ? `${coords.lat.toFixed(
+                                                            5
+                                                        )}, ${coords.lng.toFixed(
+                                                            5
+                                                        )}`
+                                                        : "Location is optional, but it improves nearby market, expert and weather recommendations."}
                                                 </div>
-                                            </>
-                                        ) : locStatus === "denied" ? (
-                                            <div
-                                                className="font-bold text-sm"
-                                                style={{ color: EKARI.danger }}
-                                            >
-                                                Permission denied. You can continue without it.
                                             </div>
-                                        ) : (
-                                            <div
-                                                className="font-bold text-sm"
-                                                style={{ color: EKARI.text }}
-                                            >
-                                                Detect your location for smarter suggestions.
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Tabs: Search vs Map */}
-                                <div className="mt-4 flex gap-2">
-                                    <button
-                                        className="rounded-full px-3 py-1.5 text-xs md:text-sm font-bold border"
-                                        style={{
-                                            borderColor:
-                                                locTab === "search" ? EKARI.forest : EKARI.hair,
-                                            background:
-                                                locTab === "search" ? EKARI.forest : "#fff",
-                                            color: locTab === "search" ? "#fff" : EKARI.text,
-                                        }}
-                                        onClick={() => setLocTab("search")}
-                                    >
-                                        Search by address
-                                    </button>
-                                    <button
-                                        className="rounded-full px-3 py-1.5 text-xs md:text-sm font-bold border"
-                                        style={{
-                                            borderColor:
-                                                locTab === "map" ? EKARI.forest : EKARI.hair,
-                                            background: locTab === "map" ? EKARI.forest : "#fff",
-                                            color: locTab === "map" ? "#fff" : EKARI.text,
-                                        }}
-                                        onClick={() => setLocTab("map")}
-                                    >
-                                        Pick on map
-                                    </button>
-                                </div>
-
-                                {/* Search by address (Google Places Autocomplete) */}
-                                {locTab === "search" && (
-                                    <div className="mt-3 w-full">
-                                        {!isLoaded ? (
-                                            <div
-                                                className="text-sm"
-                                                style={{ color: EKARI.dim }}
-                                            >
-                                                Loading Google Places…
-                                            </div>
-                                        ) : loadError ? (
-                                            <div
-                                                className="text-sm"
-                                                style={{ color: EKARI.danger }}
-                                            >
-                                                Failed to load Google API. Check your
-                                                NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-2 w-full">
-                                                <Autocomplete
-                                                    onLoad={onAutocompleteLoad}
-                                                    onPlaceChanged={onPlaceChanged}
-                                                >
-                                                    <input
-                                                        ref={autocompleteInputRef}
-                                                        placeholder="Search an address"
-                                                        className="h-11 w-full rounded-xl border px-3 bg-[#F6F7FB] outline-none text-sm"
-                                                        style={{
-                                                            borderColor: EKARI.hair,
-                                                            color: EKARI.text,
-                                                        }}
-                                                    />
-                                                </Autocomplete>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Pick on map */}
-                                {locTab === "map" && (
-                                    <div className="mt-3">
-                                        {!isLoaded ? (
-                                            <div
-                                                className="text-sm"
-                                                style={{ color: EKARI.dim }}
-                                            >
-                                                Loading Google Map…
-                                            </div>
-                                        ) : loadError ? (
-                                            <div
-                                                className="text-sm"
-                                                style={{ color: EKARI.danger }}
-                                            >
-                                                Failed to load Google API. Check your
-                                                NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
-                                            </div>
-                                        ) : (
-                                            <div
-                                                className="rounded-2xl overflow-hidden border bg-white"
-                                                style={{ borderColor: EKARI.hair }}
-                                            >
-                                                <GoogleMap
-                                                    mapContainerStyle={{
-                                                        width: "100%",
-                                                        height: 320,
-                                                    }}
-                                                    center={defaultCenter}
-                                                    zoom={coords ? 14 : 11}
-                                                    options={{
-                                                        streetViewControl: false,
-                                                        fullscreenControl: false,
-                                                        zoomControl: true,
-                                                    }}
-                                                    onClick={async (e) => {
-                                                        const lat = e.latLng?.lat();
-                                                        const lng = e.latLng?.lng();
-                                                        if (lat != null && lng != null) {
-                                                            setCoords({ lat, lng });
-                                                            setLocStatus("ready");
-                                                            await updateAddressFromCoords(lat, lng);
-                                                        }
-                                                    }}
-                                                >
-                                                    {coords && (
-                                                        <Marker
-                                                            position={{
-                                                                lat: coords.lat,
-                                                                lng: coords.lng,
-                                                            }}
-                                                        />
-                                                    )}
-                                                </GoogleMap>
-                                            </div>
-                                        )}
-                                        <div
-                                            className="mt-2 text-xs"
-                                            style={{ color: EKARI.dim }}
-                                        >
-                                            Tap anywhere on the map to drop a pin. We’ll try to
-                                            label it automatically.
                                         </div>
-                                        {resolvingAddress && (
-                                            <div
-                                                className="mt-1 text-xs"
-                                                style={{ color: EKARI.dim }}
-                                            >
-                                                Resolving address…
-                                            </div>
-                                        )}
                                     </div>
-                                )}
 
-                                {errorMsg && (
-                                    <div
-                                        className="mt-3 text-center font-semibold"
-                                        style={{ color: EKARI.danger }}
-                                    >
-                                        {errorMsg}
-                                    </div>
-                                )}
-
-                                <FooterNav
-                                    onBack={onBack}
-                                    onNext={handleNext}
-                                    disableBack={false}
-                                    disableNext={false}
-                                />
-                            </motion.div>
-                        </>
-                    )}
-
-                    {/* STEP 5 — Photo */}
-                    {step === 5 && (
-                        <>
-                            <StepHeader title="Profile photo" />
-                            <motion.div
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="rounded-2xl border px-4 py-4 md:px-5 md:py-5"
-                                style={{
-                                    borderColor: EKARI.hair,
-                                    background: "#F9FAFB",
-                                }}
-                            >
-                                <div
-                                    className="text-sm"
-                                    style={{ color: EKARI.subtext }}
-                                >
-                                    Show your face or your farm/brand logo.
-                                </div>
-
-                                <div className="mt-4 flex flex-col items-center gap-3">
-                                    <div
-                                        className="flex items-center justify-center overflow-hidden"
-                                        style={{
-                                            width: 128,
-                                            height: 128,
-                                            borderRadius: 999,
-                                            background:
-                                                "conic-gradient(from 140deg, #C79257, #233F39, #C79257)",
-                                            padding: 3,
-                                        }}
-                                    >
-                                        <div
-                                            className="w-full h-full rounded-full bg-[#F6F7FB] flex items-center justify-center border"
-                                            style={{ borderColor: EKARI.hair }}
+                                    <div className="mt-4 grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setLocTab(
+                                                    "search"
+                                                )
+                                            }
+                                            className={[
+                                                "inline-flex h-11 items-center justify-center gap-2 rounded-[13px] border",
+                                                "text-[9px] font-black transition",
+                                                locTab ===
+                                                    "search"
+                                                    ? "border-[#173C2E] bg-[#173C2E] text-white"
+                                                    : "border-[#DDD8CC] bg-white text-slate-500 hover:bg-[#F3F1EB]",
+                                            ].join(
+                                                " "
+                                            )}
                                         >
-                                            {previewUrl ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img
-                                                    src={previewUrl}
-                                                    alt="avatar preview"
-                                                    className="w-full h-full object-cover rounded-full"
-                                                />
+                                            <IoSearchOutline size={14} />
+                                            Search place
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setLocTab(
+                                                    "map"
+                                                )
+                                            }
+                                            className={[
+                                                "inline-flex h-11 items-center justify-center gap-2 rounded-[13px] border",
+                                                "text-[9px] font-black transition",
+                                                locTab ===
+                                                    "map"
+                                                    ? "border-[#173C2E] bg-[#173C2E] text-white"
+                                                    : "border-[#DDD8CC] bg-white text-slate-500 hover:bg-[#F3F1EB]",
+                                            ].join(
+                                                " "
+                                            )}
+                                        >
+                                            <IoMapOutline size={14} />
+                                            Pick on map
+                                        </button>
+                                    </div>
+
+                                    {locTab ===
+                                        "search" ? (
+                                        <div className="mt-4">
+                                            {!isLoaded ? (
+                                                <div className="grid min-h-[120px] place-items-center rounded-[15px] border border-[#DDD8CC] bg-[#FBFAF6]">
+                                                    <div className="text-center">
+                                                        <div className="flex justify-center">
+                                                            <BouncingBallLoader />
+                                                        </div>
+
+                                                        <div className="mt-3 text-[9px] font-semibold text-slate-400">
+                                                            Loading place search...
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : loadError ? (
+                                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[9px] font-semibold text-rose-700">
+                                                    Failed to load Google Places. Check NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
+                                                </div>
                                             ) : (
-                                                <IoPersonCircleOutline size={96} color={EKARI.dim} />
+                                                <Autocomplete
+                                                    onLoad={
+                                                        onAutocompleteLoad
+                                                    }
+                                                    onPlaceChanged={
+                                                        onPlaceChanged
+                                                    }
+                                                >
+                                                    <div className="flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                                                        <IoSearchOutline
+                                                            size={
+                                                                16
+                                                            }
+                                                            className="mr-2 shrink-0 text-slate-400"
+                                                        />
+
+                                                        <input
+                                                            ref={
+                                                                autocompleteInputRef
+                                                            }
+                                                            placeholder="Search town, village, farm or address"
+                                                            className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                                        />
+                                                    </div>
+                                                </Autocomplete>
                                             )}
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="mt-4">
+                                            {!isLoaded ? (
+                                                <div className="grid min-h-[220px] place-items-center rounded-[15px] border border-[#DDD8CC] bg-[#FBFAF6]">
+                                                    <BouncingBallLoader />
+                                                </div>
+                                            ) : loadError ? (
+                                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[9px] font-semibold text-rose-700">
+                                                    Failed to load Google Maps. Check NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
+                                                </div>
+                                            ) : (
+                                                <div className="overflow-hidden rounded-[16px] border border-[#DDD8CC] bg-white">
+                                                    <GoogleMap
+                                                        mapContainerStyle={{
+                                                            width: "100%",
+                                                            height: 330,
+                                                        }}
+                                                        center={
+                                                            defaultCenter
+                                                        }
+                                                        zoom={
+                                                            coords
+                                                                ? 14
+                                                                : 11
+                                                        }
+                                                        options={{
+                                                            streetViewControl:
+                                                                false,
+                                                            fullscreenControl:
+                                                                false,
+                                                            zoomControl:
+                                                                true,
+                                                        }}
+                                                        onClick={async (
+                                                            event
+                                                        ) => {
+                                                            const lat =
+                                                                event.latLng?.lat();
 
-                                    <div className="flex flex-wrap justify-center gap-2">
-                                        <label
-                                            className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2 text-xs md:text-sm font-bold"
-                                            style={{
-                                                background: "#fff",
-                                                borderColor: EKARI.hair,
-                                                color: EKARI.text,
-                                            }}
-                                        >
-                                            <IoImagesOutline size={16} />
-                                            <span>Choose photo</span>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                className="hidden"
-                                                onChange={onPickFile}
-                                            />
-                                        </label>
+                                                            const lng =
+                                                                event.latLng?.lng();
 
-                                        <label
-                                            className="cursor-pointer rounded-full border px-3 py-2 flex items-center gap-2 text-xs md:text-sm font-bold"
-                                            style={{
-                                                background: "#fff",
-                                                borderColor: EKARI.hair,
-                                                color: EKARI.text,
-                                            }}
-                                        >
-                                            <IoCameraOutline size={16} />
-                                            <span>Take photo</span>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                capture="environment"
-                                                className="hidden"
-                                                onChange={onPickFile}
-                                            />
-                                        </label>
-                                    </div>
-                                    <div className="mt-2 text-xs text-center" style={{ color: EKARI.dim }}>
-                                        A profile photo is required to finish onboarding.
-                                    </div>
+                                                            if (
+                                                                lat !=
+                                                                null &&
+                                                                lng !=
+                                                                null
+                                                            ) {
+                                                                setCoords(
+                                                                    {
+                                                                        lat,
+                                                                        lng,
+                                                                    }
+                                                                );
+
+                                                                setLocStatus(
+                                                                    "ready"
+                                                                );
+
+                                                                await updateAddressFromCoords(
+                                                                    lat,
+                                                                    lng
+                                                                );
+                                                            }
+                                                        }}
+                                                    >
+                                                        {coords ? (
+                                                            <Marker
+                                                                position={{
+                                                                    lat: coords.lat,
+                                                                    lng: coords.lng,
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                    </GoogleMap>
+                                                </div>
+                                            )}
+
+                                            <div className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+                                                Tap anywhere on the map to place your pin.
+                                            </div>
+
+                                            {resolvingAddress ? (
+                                                <div className="mt-1 text-[9px] font-semibold text-[#173C2E]">
+                                                    Resolving address...
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    )}
+
+                                    {errorMsg ? (
+                                        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[9px] font-semibold text-rose-700">
+                                            {
+                                                errorMsg
+                                            }
+                                        </div>
+                                    ) : null}
+
+                                    <FooterNav
+                                        onBack={onBack}
+                                        onNext={
+                                            handleNext
+                                        }
+                                        disableNext={
+                                            false
+                                        }
+                                    />
                                 </div>
-                                <Field
-                                    label="How did you hear about ekarihub?"
-                                    helper="This helps us know which channels are working."
-                                >
-                                    <div className="flex flex-wrap gap-2">
-                                        {REFERRAL_SOURCES.map((item) => {
-                                            const active = referralSource === item.key;
+                            ) : null}
 
-                                            return (
-                                                <button
-                                                    key={item.key}
-                                                    type="button"
-                                                    onClick={() => setReferralSource(item.key)}
-                                                    className="rounded-full border px-3 py-2 text-xs font-bold"
-                                                    style={{
-                                                        borderColor: active ? EKARI.forest : EKARI.hair,
-                                                        background: active ? EKARI.forest : "#fff",
-                                                        color: active ? "#fff" : EKARI.text,
-                                                    }}
-                                                >
-                                                    {item.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </Field>
-                                <FooterNav
-                                    onBack={onBack}
-                                    onNext={handleNext}
-                                    disableBack={false}
-                                    disableNext={
-                                        !(
-                                            !!user &&
-                                            !uploading &&
-                                            !saving &&
-                                            !authLoading &&
-                                            hasProfilePhoto &&
-                                            !!referralSource
-                                        )
-                                    }
-                                    nextLabel={saving ? "Finishing…" : "Finish"}
-                                />
+                            {/* ================= STEP 5 ================= */}
+                            {step === 5 ? (
+                                <div>
+                                    <div className="grid gap-5 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
+                                        <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
+                                            <div className="flex flex-col items-center text-center">
+                                                <div className="relative grid h-[126px] w-[126px] place-items-center overflow-hidden rounded-full border-[5px] border-[#FBFAF6] bg-[#173C2E] shadow-[0_14px_34px_rgba(15,23,42,0.10)]">
+                                                    {photoSrc ? (
+                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                        <img
+                                                            src={
+                                                                photoSrc
+                                                            }
+                                                            alt="Profile preview"
+                                                            className="h-full w-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <IoPersonCircleOutline
+                                                            size={
+                                                                82
+                                                            }
+                                                            className="text-white/75"
+                                                        />
+                                                    )}
+                                                </div>
 
-                                {errorMsg && (
-                                    <div
-                                        className="mt-3 text-center font-semibold"
-                                        style={{ color: EKARI.danger }}
-                                    >
-                                        {errorMsg}
+                                                <div className="mt-3 text-[10px] font-black text-slate-700">
+                                                    Profile photo
+                                                </div>
+
+                                                <div className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                                                    Use a clear face photo or your farm / brand logo.
+                                                </div>
+
+                                                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                                                    <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[#DDD8CC] bg-white px-3 text-[8px] font-black text-slate-600 transition hover:bg-[#F3F1EB]">
+                                                        <IoImagesOutline size={13} />
+                                                        Choose
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            onChange={
+                                                                onPickFile
+                                                            }
+                                                        />
+                                                    </label>
+
+                                                    <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[#DDD8CC] bg-white px-3 text-[8px] font-black text-slate-600 transition hover:bg-[#F3F1EB]">
+                                                        <IoCameraOutline size={13} />
+                                                        Camera
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            capture="environment"
+                                                            className="hidden"
+                                                            onChange={
+                                                                onPickFile
+                                                            }
+                                                        />
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div className="text-[10px] font-black text-slate-700">
+                                                How did you hear about ekarihub?
+                                            </div>
+
+                                            <div className="mt-1 text-[9px] font-medium text-slate-400">
+                                                This helps us understand which channels are most useful.
+                                            </div>
+
+                                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                                {REFERRAL_SOURCES.map(
+                                                    (
+                                                        item
+                                                    ) => {
+                                                        const active =
+                                                            referralSource ===
+                                                            item.key;
+
+                                                        return (
+                                                            <button
+                                                                key={
+                                                                    item.key
+                                                                }
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setReferralSource(
+                                                                        item.key
+                                                                    )
+                                                                }
+                                                                className={[
+                                                                    "min-h-[42px] rounded-[12px] border px-3",
+                                                                    "text-[9px] font-black transition active:scale-[0.98]",
+                                                                    active
+                                                                        ? "border-[#173C2E] bg-[#173C2E] text-white"
+                                                                        : "border-[#DDD8CC] bg-white text-slate-500 hover:bg-[#F3F1EB]",
+                                                                ].join(
+                                                                    " "
+                                                                )}
+                                                            >
+                                                                {
+                                                                    item.label
+                                                                }
+                                                            </button>
+                                                        );
+                                                    }
+                                                )}
+                                            </div>
+
+                                            <div className="mt-4 rounded-[14px] border border-[#DDD8CC] bg-[#FBFAF6] p-3">
+                                                <div className="flex items-start gap-2.5">
+                                                    <IoCheckmarkCircleOutline
+                                                        size={15}
+                                                        className="mt-0.5 shrink-0 text-[#173C2E]"
+                                                    />
+
+                                                    <div>
+                                                        <div className="text-[9px] font-black text-slate-700">
+                                                            Ready to join the community
+                                                        </div>
+
+                                                        <div className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                                                            Your profile will be created with your interests, roles, location and selected photo.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
-                            </motion.div>
-                        </>
-                    )}
-                </motion.div>
+
+                                    {errorMsg ? (
+                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[9px] font-semibold text-rose-700">
+                                            {
+                                                errorMsg
+                                            }
+                                        </div>
+                                    ) : null}
+
+                                    <FooterNav
+                                        onBack={onBack}
+                                        onNext={
+                                            handleNext
+                                        }
+                                        disableNext={
+                                            !(
+                                                !!user &&
+                                                !uploading &&
+                                                !saving &&
+                                                !authLoading &&
+                                                hasProfilePhoto &&
+                                                !!referralSource
+                                            )
+                                        }
+                                        nextLabel={
+                                            saving
+                                                ? "Finishing…"
+                                                : "Finish"
+                                        }
+                                    />
+                                </div>
+                            ) : null}
+                        </motion.div>
+                    </div>
+                </section>
             </div>
+
+            <ConfirmModal
+                open={confirmOpen}
+                title="Cancel onboarding?"
+                message="You’ll be signed out and taken back to login."
+                confirmText="Yes, log me out"
+                cancelText="No, stay here"
+                onConfirm={confirmLogout}
+                onCancel={cancelLogout}
+            />
         </main>
     );
 }

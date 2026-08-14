@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import clsx from "clsx";
@@ -48,6 +49,8 @@ import {
     IoTrashOutline,
     IoCameraOutline,
     IoPricetagOutline,
+    IoPersonOutline,
+    IoArrowBack,
 } from "react-icons/io5";
 import { useRouter } from "next/navigation";
 import {
@@ -70,11 +73,14 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip,
 
 
 const EKARI = {
-    forest: "#233F39",
+    forest: "#173C2E",
+    forestSoft: "#214C3A",
+    paper: "#FBFAF6",
+    canvas: "#F8F7F2",
     text: "#0F172A",
     dim: "#6B7280",
-    hair: "#E5E7EB",
-    gold: "#C79257",
+    hair: "#DDD8CC",
+    gold: "#F39A22",
 };
 
 type EmbeddedSeller = {
@@ -233,13 +239,18 @@ function StatChip({
 }) {
     return (
         <div
-            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-black"
-            style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
+            className="inline-flex items-baseline gap-1.5 text-left"
             title={label}
         >
-            <span className="opacity-90">{icon}</span>
-            <span>{value}</span>
-            <span className="font-semibold" style={{ color: EKARI.dim }}>
+            <span className="hidden text-[#F39A22] sm:inline-flex">
+                {icon}
+            </span>
+
+            <span className="text-[16px] font-black leading-none text-slate-900">
+                {value}
+            </span>
+
+            <span className="text-[11px] font-semibold text-slate-400">
                 {label}
             </span>
         </div>
@@ -259,9 +270,14 @@ function IconBtn({
     label: string;
     target?: string;
 }) {
-    const common =
-        "h-11 w-11 rounded-2xl border grid place-items-center transition hover:bg-black/[0.02]";
-    const style = { borderColor: EKARI.hair, background: "white", color: EKARI.text };
+    const common = [
+        "grid h-10 w-10 place-items-center rounded-full",
+        "border border-[#D9D3C7] bg-[#FBFAF6] text-slate-600",
+        "shadow-[0_6px_16px_rgba(15,23,42,0.04)]",
+        "transition-all duration-200 ease-out",
+        "hover:-translate-y-0.5 hover:border-[#F39A22]/55 hover:bg-[#FFF9F0] hover:text-[#173C2E]",
+        "active:translate-y-0 active:scale-95",
+    ].join(" ");
 
     if (href) {
         return (
@@ -276,7 +292,6 @@ function IconBtn({
                 target={target}
                 rel={target ? "noopener noreferrer" : undefined}
                 className={common}
-                style={style}
                 aria-label={label}
                 title={label}
             >
@@ -286,7 +301,13 @@ function IconBtn({
     }
 
     return (
-        <button onClick={onClick} className={common} style={style} aria-label={label} title={label}>
+        <button
+            type="button"
+            onClick={onClick}
+            className={common}
+            aria-label={label}
+            title={label}
+        >
             {icon}
         </button>
     );
@@ -405,7 +426,7 @@ export function StoreCoverHero({
 }) {
     const auth = getAuth();
     const me = auth.currentUser?.uid || null;
-
+    const router = useRouter();
     const [uploading, setUploading] = React.useState(false);
     const [err, setErr] = React.useState<string | null>(null);
 
@@ -414,347 +435,521 @@ export function StoreCoverHero({
     const phone = cleanPhone(userDoc?.phone || null);
     const wa = toWhatsAppLink(userDoc?.whatsapp || userDoc?.phone || null);
     const website = toWebsiteLink(userDoc?.website || null);
-    const heroBg =
-        "radial-gradient(900px circle at 10% 10%, rgba(199,146,87,0.90), transparent 45%), linear-gradient(135deg, rgba(35,63,57,0.80), rgba(35,63,57,1))";
 
     const coverUrl =
         (userDoc as any)?.storeCoverUrl ||
-        null; // ✅ add a simple default image in /public or keep null
+        null;
+    const [photoFailed, setPhotoFailed] = React.useState(false);
 
+    React.useEffect(() => {
+        // If seller/photo changes, allow the new URL to be tried again
+        setPhotoFailed(false);
+    }, [photoURL]);
+
+    const hasSellerPhoto =
+        Boolean(photoURL?.trim()) && !photoFailed;
     async function handlePickCover(file: File) {
         setErr(null);
         setUploading(true);
+
         try {
-            // ✅ resize/crop to banner
             const blob = await resizeImageWeb(file, 1600, 600, 0.86);
 
-            // ✅ upload
             const path = `storefrontCovers/${sellerId}/cover.jpg`;
             const storageRef = sRef(storage, path);
-            await uploadBytes(storageRef, blob, { contentType: "image/jpeg" });
+
+            await uploadBytes(storageRef, blob, {
+                contentType: "image/jpeg",
+            });
+
             const url = await getDownloadURL(storageRef);
 
-            // ✅ save to users doc
             await setDoc(
                 doc(db, "users", sellerId),
-                { storeCoverUrl: url, updatedAt: new Date() as any },
+                {
+                    storeCoverUrl: url,
+                    updatedAt: new Date() as any,
+                },
                 { merge: true }
             );
         } catch (e: any) {
             console.error(e);
-            setErr(e?.message || "Failed to upload cover");
+            setErr(
+                e?.message ||
+                "Failed to upload cover"
+            );
         } finally {
             setUploading(false);
         }
     }
 
     async function handleRemoveCover() {
-        // keep simple: just clear the field (optional: delete from storage too)
         setUploading(true);
         setErr(null);
+
         try {
             await setDoc(
                 doc(db, "users", sellerId),
-                { storeCoverUrl: null, updatedAt: new Date() as any },
+                {
+                    storeCoverUrl: null,
+                    updatedAt: new Date() as any,
+                },
                 { merge: true }
             );
         } catch (e: any) {
-            setErr(e?.message || "Failed to remove cover");
+            setErr(
+                e?.message ||
+                "Failed to remove cover"
+            );
         } finally {
             setUploading(false);
         }
     }
 
     return (
-        <section className="relative">
-            {/* Cover */}
-            <div
-                className="relative overflow-hidden rounded-0 lg:rounded-3xl border bg-gray-100"
-                style={{ borderColor: EKARI.hair }}
-            >
-                <div className="relative h-[220px] md:h-[240px] w-full" style={{ background: heroBg }}>
-
-                    {coverUrl && (
+        <motion.section
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{
+                duration: 0.3,
+                ease: "easeOut",
+            }}
+            className="bg-[#FBFAF6]"
+        >
+            {/* COVER */}
+            <div className="relative h-[140px] overflow-hidden bg-[#173C2E] md:h-[158px]">
+                {coverUrl ? (
+                    <>
                         <Image
                             src={coverUrl}
                             alt="Store cover"
                             fill
                             className="object-cover"
-                            sizes="(max-width: 768px) 100vw, 1024px"
+                            sizes="100vw"
                             priority
                         />
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#173C2E]/80 via-[#173C2E]/50 to-[#173C2E]/65" />
+                    </>
+                ) : (
+                    <>
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#173C2E] to-[#1D4A38]" />
+
+                        <div
+                            className="pointer-events-none absolute inset-0 opacity-[0.08]"
+                            style={{
+                                backgroundImage:
+                                    "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.65) 18px 19px)",
+                            }}
+                        />
+
+                        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/[0.025]" />
+                    </>
+                )}
+
+                {/* Store label */}
+                <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2 md:left-6">
+                    <div className="flex items-start gap-3">
+                        <button
+                            type="button"
+                            onClick={() => router.back()}
+                            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
+                            aria-label="Go back"
+                        >
+                            <IoArrowBack size={19} />
+                        </button></div>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-[10px] font-black text-white backdrop-blur-md">
+                        <IoStorefrontOutline size={13} />
+                        ekariMarket Store
+                    </span>
+
+                    {isPremiumStore ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F39A22]/20 px-2.5 py-1 text-[9px] font-black text-[#FFE4B9]">
+                            <IoSparklesOutline size={12} />
+                            Storefront active
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black text-white/70">
+                            <IoLockClosedOutline size={12} />
+                            Private
+                        </span>
                     )}
-                    {/* overlay gradient for premium vibe */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
+                </div>
 
-                    {/* edit controls */}
-                    {canEditCover && (
-                        <div className="absolute right-3 top-3 flex items-center gap-2">
-                            <label
-                                className={clsx(
-                                    "inline-flex items-center gap-2 rounded-full px-3 h-9 text-xs font-black cursor-pointer",
-                                    uploading ? "opacity-70 cursor-not-allowed" : "hover:opacity-95"
-                                )}
-                                style={{
-                                    background: "rgba(255,255,255,0.92)",
-                                    color: EKARI.text,
-                                    boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+                {/* Cover owner tools */}
+                {canEditCover ? (
+                    <div className="absolute right-4 top-4 flex items-center gap-2 md:right-6">
+                        <label
+                            className={clsx(
+                                [
+                                    "inline-flex h-9 cursor-pointer items-center gap-2 rounded-full",
+                                    "border border-white/15 bg-[#FBFAF6]/95 px-3",
+                                    "text-[10px] font-black text-slate-700",
+                                    "shadow-[0_8px_20px_rgba(0,0,0,.12)]",
+                                    "transition-all duration-200",
+                                ].join(" "),
+                                uploading
+                                    ? "cursor-not-allowed opacity-60"
+                                    : "hover:-translate-y-0.5 hover:bg-white"
+                            )}
+                        >
+                            <IoCameraOutline size={14} />
+
+                            <span className="hidden sm:inline">
+                                {uploading
+                                    ? "Uploading…"
+                                    : "Change cover"}
+                            </span>
+
+                            <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={uploading}
+                                onChange={(e) => {
+                                    const file =
+                                        e.target.files?.[0];
+
+                                    if (file) {
+                                        void handlePickCover(
+                                            file
+                                        );
+                                    }
+
+                                    e.currentTarget.value =
+                                        "";
                                 }}
-                            >
-                                <IoCameraOutline size={16} />
-                                <span className="hidden sm:inline">{uploading ? "Uploading…" : "Change cover"}</span>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    disabled={uploading}
-                                    onChange={(e) => {
-                                        const f = e.target.files?.[0];
-                                        if (f) handlePickCover(f);
-                                        e.currentTarget.value = "";
-                                    }}
-                                />
-                            </label>
+                            />
+                        </label>
 
+                        {coverUrl ? (
                             <button
                                 type="button"
-                                onClick={handleRemoveCover}
+                                onClick={() =>
+                                    void handleRemoveCover()
+                                }
                                 disabled={uploading}
-                                className={clsx(
-                                    "inline-flex items-center justify-center rounded-full h-9 w-9",
-                                    uploading ? "opacity-70" : "hover:opacity-95"
-                                )}
-                                style={{
-                                    background: "rgba(255,255,255,0.92)",
-                                    color: EKARI.text,
-                                    boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-                                }}
+                                className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-[#FBFAF6]/95 text-slate-700 shadow-[0_8px_20px_rgba(0,0,0,.12)] transition hover:-translate-y-0.5 hover:bg-white disabled:opacity-60"
                                 title="Remove cover"
+                                aria-label="Remove cover"
                             >
-                                <IoTrashOutline size={16} />
+                                <IoTrashOutline size={14} />
                             </button>
-                        </div>
+                        ) : null}
+                    </div>
+                ) : null}
+
+                {/* desktop actions */}
+                <div className="absolute bottom-4 right-4 hidden items-center gap-2 md:flex md:right-6">
+                    {me && me !== sellerId ? (
+                        <button
+                            type="button"
+                            onClick={onToggleFollow}
+                            className={[
+                                "h-10 rounded-xl px-4 text-[11px] font-black",
+                                "transition-all duration-200",
+                                isFollowing
+                                    ? "border border-white/20 bg-white/10 text-white hover:bg-white/15"
+                                    : "bg-[#F39A22] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]",
+                            ].join(" ")}
+                        >
+                            {isFollowing
+                                ? "Following"
+                                : "Follow"}
+                        </button>
+                    ) : null}
+
+                    {!isOwner ? (
+                        <button
+                            type="button"
+                            onClick={onMessage}
+                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                        >
+                            <IoChatbubbleEllipsesOutline size={16} />
+                            Message
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onSellPress}
+                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                        >
+                            <IoPricetagOutline size={16} />
+                            Sell / Lease
+                        </button>
                     )}
 
-                    {/* bottom meta row */}
-                    <div className="absolute left-0 right-0 bottom-0 px-4 pb-4">
-                        <div className="flex flex-col md:flex-row md:items-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onShare}
+                        className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-[#FBFAF6] text-slate-700 transition hover:-translate-y-0.5 hover:bg-white"
+                        aria-label="Share store"
+                        title="Share store"
+                    >
+                        <IoShareSocialOutline size={16} />
+                    </button>
+                </div>
+            </div>
 
-                            {/* Avatar */}
-                            <div className="relative h-16 w-16 md:h-20 md:w-20 rounded-2xl overflow-hidden border-2 border-white bg-gray-200 shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
-                                <Image src={photoURL} alt="Seller" fill className="object-cover" sizes="80px" />
-                            </div>
-
-                            {/* Name + badges */}
-                            <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <h1 className="text-white text-lg md:text-2xl font-black truncate max-w-[72vw] md:max-w-none">
-
-                                        {displayName}
-                                    </h1>
-
-                                    {showVerified && (
-                                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black bg-white/15 text-white border border-white/25">
-                                            <IoShieldCheckmark size={14} />
-                                            Verified
-                                        </span>
-                                    )}
-
-                                    {isPremiumStore ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black bg-amber-300/20 text-amber-100 border border-amber-200/25">
-                                            <IoSparklesOutline size={14} />
-                                            Storefront Active
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black bg-white/10 text-white border border-white/20">
-                                            <IoLockClosedOutline size={14} />
-                                            Private
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                    <p className="text-white/80 text-xs font-bold">
-                                        {normalizeHandle(userDoc?.handle) || "@seller"}
-                                    </p>
-
-                                    {locationText ? (
-                                        <p className="text-white/80 text-xs inline-flex items-center gap-1">
-                                            <IoLocationOutline size={13} />
-                                            <span className="truncate">{locationText}</span>
-                                        </p>
-                                    ) : null}
-                                </div>
-
-                                {err && (
-                                    <div className="mt-2 text-[11px] font-bold text-red-100 bg-red-500/20 inline-block px-3 py-1 rounded-full border border-red-200/20">
-                                        {err}
+            {/* SELLER IDENTITY */}
+            <div className="mx-auto max-w-[1040px] px-4">
+                <div className="relative pb-4">
+                    <div className="-mt-[42px] flex flex-col gap-3 md:-mt-[52px] md:flex-row md:items-end md:gap-4">
+                        <div className="relative shrink-0 self-start">
+                            <div
+                                className={[
+                                    "relative h-[94px] w-[94px] overflow-hidden rounded-full",
+                                    "border-[5px] border-[#FBFAF6] bg-[#173C2E]",
+                                    "shadow-[0_14px_34px_rgba(15,23,42,0.12)]",
+                                ].join(" ")}
+                            >
+                                {hasSellerPhoto ? (
+                                    <Image
+                                        src={photoURL}
+                                        alt={displayName || "Seller"}
+                                        fill
+                                        className="object-cover"
+                                        sizes="94px"
+                                        onError={() => setPhotoFailed(true)}
+                                    />
+                                ) : (
+                                    <div className="grid h-full w-full place-items-center bg-[#173C2E] text-white">
+                                        <IoPersonOutline size={44} />
                                     </div>
                                 )}
                             </div>
 
-                            {/* Right actions (desktop) */}
-                            <div className="hidden md:flex items-center gap-2">
-                                {/* follow */}
-                                {me && me !== sellerId ? (
-                                    <button
-                                        onClick={onToggleFollow}
-                                        className={clsx(
-                                            "h-10 px-4 rounded-2xl font-black text-sm border",
-                                            isFollowing ? "bg-white/90" : "bg-white/15 text-white"
-                                        )}
-                                        style={{
-                                            borderColor: "rgba(255,255,255,0.25)",
-                                            color: isFollowing ? EKARI.text : "white",
-                                            backdropFilter: "blur(10px)",
-                                        }}
-                                    >
-                                        {isFollowing ? "Following" : "Follow"}
-                                    </button>
-                                ) : null}
-
-                                {!isOwner && (<button
-                                    onClick={onMessage}
-                                    className="h-10 px-4 rounded-2xl font-black text-sm text-white inline-flex items-center gap-2"
-                                    style={{ backgroundColor: EKARI.forest }}
-                                >
-                                    <IoChatbubbleEllipsesOutline size={18} />
-                                    Message
-                                </button>)}
-                                {isOwner && (
-                                    <button
-                                        onClick={onSellPress}
-                                        className="h-10 px-4 rounded-2xl font-black text-sm text-white inline-flex items-center gap-2"
-                                        style={{ backgroundColor: EKARI.gold }}
-                                    >
-                                        <IoPricetagOutline size={18} />
-                                        Sell / Lease
-                                    </button>
-
-                                )}
-                                <button
-                                    onClick={onShare}
-                                    className="h-10 px-4 rounded-2xl font-black text-sm border bg-white/90 hover:bg-white"
-                                    style={{ borderColor: "rgba(255,255,255,0.25)", color: EKARI.text }}
-                                >
-                                    <span className="inline-flex items-center gap-2">
-                                        <IoShareSocialOutline size={18} />
-                                        Share
-                                    </span>
-                                </button>
-                            </div>
+                            {showVerified ? (
+                                <span className="absolute bottom-1 right-1 grid h-7 w-7 place-items-center rounded-full border-[3px] border-[#FBFAF6] bg-[#173C2E] text-white">
+                                    <IoShieldCheckmark size={14} />
+                                </span>
+                            ) : null}
                         </div>
 
+                        <div className="min-w-0 flex-1 pb-1 md:pt-[50px]">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                    <h1 className="truncate text-[24px] font-black tracking-[-0.035em] text-slate-900">
+                                        {displayName}
+                                    </h1>
 
+                                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <span className="text-[12px] font-bold text-slate-400">
+                                            {normalizeHandle(
+                                                userDoc?.handle
+                                            ) ||
+                                                "@seller"}
+                                        </span>
+
+                                        {locationText ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400">
+                                                <IoLocationOutline size={12} />
+                                                {locationText}
+                                            </span>
+                                        ) : null}
+                                    </div>
+
+                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                        {showVerified ? (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[10px] font-black text-[#3E6F28]">
+                                                <IoShieldCheckmark size={12} />
+                                                Verified seller
+                                            </span>
+                                        ) : null}
+
+                                        {isPremiumStore ? (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF4E3] px-2.5 py-1 text-[10px] font-black text-[#9A5A08]">
+                                                <IoSparklesOutline size={12} />
+                                                Premium storefront
+                                            </span>
+                                        ) : null}
+                                    </div>
+
+                                    {userDoc?.bio ? (
+                                        <p className="mt-2 max-w-3xl text-[12px] font-medium leading-5 text-slate-600">
+                                            {userDoc.bio}
+                                        </p>
+                                    ) : null}
+
+                                    {err ? (
+                                        <div className="mt-2 inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[9px] font-black text-rose-700">
+                                            {err}
+                                        </div>
+                                    ) : null}
+                                </div>
+
+                                <div className="hidden shrink-0 items-center gap-2 md:flex">
+                                    {phone ? (
+                                        <IconBtn
+                                            onClick={onCall}
+                                            icon={<IoCallOutline size={16} />}
+                                            label="Call"
+                                        />
+                                    ) : null}
+
+                                    {wa ? (
+                                        <IconBtn
+                                            onClick={onWhatsApp}
+                                            icon={<IoLogoWhatsapp size={16} />}
+                                            label="WhatsApp"
+                                        />
+                                    ) : null}
+
+                                    {website ? (
+                                        <IconBtn
+                                            onClick={onWebsite}
+                                            icon={<IoGlobeOutline size={16} />}
+                                            label="Website"
+                                        />
+                                    ) : null}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* MOBILE ACTIONS */}
+                    <div className="mt-4 grid grid-cols-[1fr_1fr_44px] gap-2 md:hidden">
+                        {me && me !== sellerId ? (
+                            <button
+                                type="button"
+                                onClick={onToggleFollow}
+                                className={[
+                                    "h-11 rounded-xl text-[11px] font-black",
+                                    isFollowing
+                                        ? "border border-[#D9D3C7] bg-white text-slate-700"
+                                        : "bg-[#173C2E] text-white",
+                                ].join(" ")}
+                            >
+                                {isFollowing
+                                    ? "Following"
+                                    : "Follow"}
+                            </button>
+                        ) : isOwner ? (
+                            <button
+                                type="button"
+                                onClick={onSellPress}
+                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#173C2E] text-[11px] font-black text-white"
+                            >
+                                <IoPricetagOutline size={15} />
+                                Sell / Lease
+                            </button>
+                        ) : (
+                            <button
+                                disabled
+                                className="h-11 rounded-xl border border-[#D9D3C7] bg-white text-[11px] font-black text-slate-400"
+                            >
+                                Follow
+                            </button>
+                        )}
+
+                        {!isOwner ? (
+                            <button
+                                type="button"
+                                onClick={onMessage}
+                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F39A22] text-[11px] font-black text-white"
+                            >
+                                <IoChatbubbleEllipsesOutline size={16} />
+                                Message
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => window.location.href = "/market"}
+                                className="h-11 rounded-xl border border-[#D9D3C7] bg-white text-[11px] font-black text-slate-700"
+                            >
+                                Market
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={onShare}
+                            className="grid h-11 w-11 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-700"
+                            aria-label="Share store"
+                        >
+                            <IoShareSocialOutline size={16} />
+                        </button>
+                    </div>
+
+                    {/* MOBILE CONTACTS */}
+                    {(phone || wa || website) ? (
+                        <div className="mt-3 flex items-center gap-2 md:hidden">
+                            {phone ? (
+                                <IconBtn
+                                    onClick={onCall}
+                                    icon={<IoCallOutline size={16} />}
+                                    label="Call"
+                                />
+                            ) : null}
+
+                            {wa ? (
+                                <IconBtn
+                                    onClick={onWhatsApp}
+                                    icon={<IoLogoWhatsapp size={16} />}
+                                    label="WhatsApp"
+                                />
+                            ) : null}
+
+                            {website ? (
+                                <IconBtn
+                                    onClick={onWebsite}
+                                    icon={<IoGlobeOutline size={16} />}
+                                    label="Website"
+                                />
+                            ) : null}
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+
+            {/* STORE STATS */}
+            <div className="border-y border-[#DDD8CC] bg-[#FBFAF6]">
+                <div className="mx-auto flex max-w-[1040px] flex-wrap items-center gap-x-7 gap-y-3 px-4 py-3">
+                    <StatChip
+                        icon={<IoPeopleOutline size={13} />}
+                        label="Followers"
+                        value={nfmt(
+                            Number(
+                                userDoc?.followersCount ??
+                                0
+                            )
+                        )}
+                    />
+
+                    <StatChip
+                        icon={<IoEyeOutline size={13} />}
+                        label="Views"
+                        value={nfmt(
+                            Number(
+                                userDoc?.profileViews ??
+                                0
+                            )
+                        )}
+                    />
+
+                    <StatChip
+                        icon={<IoHeartOutline size={13} />}
+                        label="Likes"
+                        value={nfmt(
+                            Number(
+                                userDoc?.likes ??
+                                0
+                            )
+                        )}
+                    />
+
+                    <div className="ml-auto hidden items-center gap-1.5 text-[10px] font-bold text-slate-400 sm:flex">
+                        <IoStorefrontOutline
+                            size={13}
+                            className="text-[#F39A22]"
+                        />
+                        Store ID {sellerId.slice(0, 8)}…
                     </div>
                 </div>
             </div>
-            {/* ✅ BELOW cover: mobile-safe stats + contacts (no overlap) */}
-            <div className="mt-3 rounded-3xl border bg-white p-3 md:p-4"
-                style={{ borderColor: EKARI.hair }}>
-                {/* Stats */}
-                <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black border"
-                        style={{ borderColor: EKARI.hair, color: EKARI.text }}>
-                        <IoPeopleOutline size={14} />
-                        {nfmt(Number(userDoc?.followersCount ?? 0))} <span style={{ color: EKARI.dim }}>followers</span>
-                    </span>
-
-                    <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black border"
-                        style={{ borderColor: EKARI.hair, color: EKARI.text }}>
-                        <IoEyeOutline size={14} />
-                        {nfmt(Number(userDoc?.profileViews ?? 0))} <span style={{ color: EKARI.dim }}>views</span>
-                    </span>
-
-                    <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black border"
-                        style={{ borderColor: EKARI.hair, color: EKARI.text }}>
-                        <IoHeartOutline size={14} />
-                        {nfmt(Number(userDoc?.likes ?? 0))} <span style={{ color: EKARI.dim }}>likes</span>
-                    </span>
-                </div>
-
-                {/* Contacts (mobile grid, desktop row) */}
-                {(phone || wa || website) && (
-                    <div className="mt-3 grid grid-cols-3 gap-2 md:flex md:items-center">
-                        {phone && (
-                            <button
-                                type="button"
-                                onClick={onCall}
-                                className="h-10 px-2 rounded-2xl border font-black text-xs inline-flex items-center justify-center gap-2"
-                                style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
-                            >
-                                <IoCallOutline size={14} /> Call
-                            </button>
-                        )}
-                        {wa && (
-                            <button
-                                type="button"
-                                onClick={onWhatsApp}
-                                className="h-10 px-2 rounded-2xl border font-black text-xs inline-flex items-center justify-center gap-2"
-                                style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
-                            >
-                                <IoLogoWhatsapp size={14} /> WhatsApp
-                            </button>
-                        )}
-                        {website && (
-                            <button
-                                type="button"
-                                onClick={onWebsite}
-                                className="h-10 px-2 rounded-2xl border font-black text-xs inline-flex items-center justify-center gap-2"
-                                style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
-                            >
-                                <IoGlobeOutline size={14} /> Website
-                            </button>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Mobile actions row */}
-            <div className="mt-3 md:hidden flex gap-2">
-                {me && me !== sellerId ? (
-                    <button
-                        onClick={onToggleFollow}
-                        className={clsx(
-                            "flex-1 h-11 rounded-2xl font-black border",
-                            isFollowing ? "bg-white" : "bg-white"
-                        )}
-                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                    >
-                        {isFollowing ? "Following" : "Follow"}
-                    </button>
-                ) : null}
-
-                {!isOwner && (<button
-                    onClick={onMessage}
-                    className="flex-1 h-11 rounded-2xl font-black text-white inline-flex items-center justify-center gap-2"
-                    style={{ backgroundColor: EKARI.forest }}
-                >
-                    <IoChatbubbleEllipsesOutline size={18} />
-                    Message
-                </button>)}
-                {isOwner && (
-                    <button
-                        onClick={onSellPress}
-                        className="h-10 px-4 rounded-2xl font-black text-sm text-white inline-flex items-center gap-2"
-                        style={{ backgroundColor: EKARI.gold }}
-                    >
-                        <IoPricetagOutline size={18} />
-                        Sell / Lease
-                    </button>
-
-                )}
-                <button
-                    onClick={onShare}
-                    className="h-11 px-4 rounded-2xl font-black border bg-white inline-flex items-center justify-center gap-2"
-                    style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                >
-                    <IoShareSocialOutline size={18} />
-                </button>
-            </div>
-        </section>
+        </motion.section>
     );
 }
+
 
 export function StorefrontHero({
     sellerId,
@@ -1149,12 +1344,12 @@ export function StorefrontHero({
 // 3) Add `sort` state + apply the sorting before rendering
 
 const EKARI2 = {
-    forest: "#233F39",
+    forest: "#173C2E",
     text: "#0F172A",
     dim: "#6B7280",
-    hair: "#E5E7EB",
-    gold: "#C79257",
-    soft: "rgba(35,63,57,0.08)",
+    hair: "#DDD8CC",
+    gold: "#F39A22",
+    soft: "rgba(23,60,46,0.08)",
 };
 
 type SortKey =
@@ -1171,78 +1366,93 @@ function SegmentedTabs({
 }: {
     value: TabKey;
     onChange: (k: TabKey) => void;
-    counts: { all: number; featured: number; boosted: number };
+    counts: {
+        all: number;
+        featured: number;
+        boosted: number;
+    };
 }) {
-    const Tab = ({
-        k,
-        label,
-        icon,
-        count,
-    }: {
-        k: TabKey;
+    const tabs: Array<{
+        key: TabKey;
         label: string;
         icon: React.ReactNode;
         count: number;
-    }) => {
-        const active = value === k;
-        return (
-            <button
-                type="button"
-                onClick={() => onChange(k)}
-                className={clsx(
-                    "relative flex-1 h-10 rounded-2xl text-xs font-black transition",
-                    active ? "text-white" : "text-slate-900 hover:bg-black/[0.03]"
-                )}
-                style={{
-                    backgroundColor: active ? EKARI2.forest : "transparent",
-                }}
-            >
-                <span className="inline-flex items-center gap-2 justify-center w-full">
-                    <span className={clsx("inline-flex items-center gap-1.5")}>
-                        {icon}
-                        {label}
-                    </span>
-                    <span
-                        className={clsx(
-                            "ml-1 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-black",
-                            active ? "bg-white/20 text-white" : "bg-black/[0.06] text-slate-800"
-                        )}
-                    >
-                        {count}
-                    </span>
-                </span>
-            </button>
-        );
-    };
+    }> = [
+            {
+                key: "all",
+                label: "All",
+                icon: <IoGridOutline size={14} />,
+                count: counts.all,
+            },
+            {
+                key: "featured",
+                label: "Featured",
+                icon: <IoStar size={14} />,
+                count: counts.featured,
+            },
+            {
+                key: "boosted",
+                label: "Boosted",
+                icon: <IoRocket size={14} />,
+                count: counts.boosted,
+            },
+        ];
 
     return (
-        <div
-            className="w-full rounded-[22px] border bg-white p-1 shadow-[0_12px_30px_rgba(15,23,42,0.06)]"
-            style={{ borderColor: EKARI2.hair }}
-        >
-            <div className="flex gap-1">
-                <Tab
-                    k="all"
-                    label="All"
-                    icon={<IoGridOutline size={14} />}
-                    count={counts.all}
-                />
-                <Tab
-                    k="featured"
-                    label="Featured"
-                    icon={<IoStar size={14} />}
-                    count={counts.featured}
-                />
-                <Tab
-                    k="boosted"
-                    label="Boosted"
-                    icon={<IoRocket size={14} />}
-                    count={counts.boosted}
-                />
+        <div className="border-b border-[#DDD8CC] bg-[#FBFAF6]">
+            <div className="mx-auto flex max-w-[1040px] items-center gap-2 overflow-x-auto px-4 no-scrollbar">
+                {tabs.map((item) => {
+                    const active =
+                        value === item.key;
+
+                    return (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={() =>
+                                onChange(item.key)
+                            }
+                            className={[
+                                "relative inline-flex h-12 shrink-0 items-center gap-2 px-3",
+                                "text-[11px] font-black transition-colors duration-200",
+                                active
+                                    ? "text-[#173C2E]"
+                                    : "text-slate-400 hover:text-slate-700",
+                            ].join(" ")}
+                        >
+                            {item.icon}
+                            {item.label}
+
+                            <span
+                                className={[
+                                    "rounded-full px-1.5 py-0.5 text-[9px]",
+                                    active
+                                        ? "bg-[#173C2E]/8 text-[#173C2E]"
+                                        : "bg-[#EFECE5] text-slate-400",
+                                ].join(" ")}
+                            >
+                                {item.count}
+                            </span>
+
+                            {active ? (
+                                <motion.span
+                                    layoutId="store-tab-indicator"
+                                    className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#173C2E]"
+                                    transition={{
+                                        type: "spring",
+                                        stiffness: 420,
+                                        damping: 34,
+                                    }}
+                                />
+                            ) : null}
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );
 }
+
 
 function SortSelect({
     value,
@@ -1253,29 +1463,56 @@ function SortSelect({
 }) {
     return (
         <label
-            className="inline-flex items-center gap-2 rounded-2xl border bg-white px-3 h-10 text-xs font-black shadow-sm"
-            style={{ borderColor: EKARI2.hair, color: EKARI2.text }}
+            className={[
+                "inline-flex h-9 items-center gap-2 rounded-full",
+                "border border-[#D9D3C7] bg-[#FBFAF6] px-3",
+                "text-[10px] font-black text-slate-600",
+                "transition-all duration-200",
+                "hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]",
+            ].join(" ")}
             title="Sort listings"
         >
-            <IoSwapVerticalOutline size={16} style={{ color: EKARI2.dim }} />
+            <IoSwapVerticalOutline
+                size={14}
+                className="text-slate-400"
+            />
+
             <select
-                className="bg-transparent outline-none text-xs font-black cursor-pointer"
+                className="cursor-pointer bg-transparent text-[10px] font-black text-slate-600 outline-none"
                 value={value}
-                onChange={(e) => onChange(e.target.value as SortKey)}
-                style={{ color: EKARI2.text }}
+                onChange={(e) =>
+                    onChange(
+                        e.target.value as SortKey
+                    )
+                }
             >
-                <option value="newest">Newest</option>
-                <option value="price_low">Price: Low → High</option>
-                <option value="price_high">Price: High → Low</option>
-                <option value="most_viewed">Most viewed</option>
-                <option value="most_liked">Most liked</option>
+                <option value="newest">
+                    Newest
+                </option>
+
+                <option value="price_low">
+                    Price: Low → High
+                </option>
+
+                <option value="price_high">
+                    Price: High → Low
+                </option>
+
+                <option value="most_viewed">
+                    Most viewed
+                </option>
+
+                <option value="most_liked">
+                    Most liked
+                </option>
             </select>
         </label>
     );
 }
 
+
 export function CatalogHeader({
-    title = "Catalog",
+    title = "Store catalog",
     subtitle,
     tab,
     sort,
@@ -1290,38 +1527,44 @@ export function CatalogHeader({
     rightSlot?: React.ReactNode;
 }) {
     const tabLabel =
-        tab === "all" ? "All items" : tab === "featured" ? "Featured picks" : "Boosted items";
+        tab === "all"
+            ? "All listings"
+            : tab === "featured"
+                ? "Featured"
+                : "Boosted";
 
     return (
-        <div className="mb-3">
-            <div className="flex items-end justify-between gap-3">
-                <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-base md:text-lg font-black" style={{ color: EKARI2.text }}>
-                            {title}
-                        </h2>
-                        <span
-                            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black"
-                            style={{ background: EKARI2.soft, color: EKARI2.forest }}
-                        >
-                            <IoFunnelOutline size={13} />
-                            {tabLabel}
-                        </span>
-                    </div>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-[16px] font-black text-slate-900">
+                        {title}
+                    </h2>
 
-                    <p className="mt-1 text-sm" style={{ color: EKARI2.dim }}>
-                        {subtitle || "Browse this seller’s active listings."}
-                    </p>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#E8ECE8] px-2.5 py-1 text-[9px] font-black text-[#173C2E]">
+                        <IoFunnelOutline size={11} />
+                        {tabLabel}
+                    </span>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                    <SortSelect value={sort} onChange={onSortChange} />
-                    {rightSlot}
-                </div>
+                <p className="mt-1 text-[11px] font-medium text-slate-400">
+                    {subtitle ||
+                        "Browse this seller’s active listings."}
+                </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+                <SortSelect
+                    value={sort}
+                    onChange={onSortChange}
+                />
+
+                {rightSlot}
             </div>
         </div>
     );
 }
+
 
 function safeNameFromUser(u: UserDoc | null) {
     if (!u) return null;
@@ -2396,7 +2639,14 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
 
     const Page = (
-        <main className="min-h-screen w-full bg-white">
+        <main
+            className={clsx(
+                "w-full bg-[#F8F7F2]",
+                isDesktop
+                    ? "h-full min-h-0 overflow-x-hidden overflow-y-scroll scroll-smooth"
+                    : "min-h-screen overflow-y-auto"
+            )}
+        >
             {/* ✅ Open in app banner (usually show on mobile web only) */}
             {!isDesktop && (<OpenInAppBanner
                 webUrl={webUrl}
@@ -2406,8 +2656,8 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                 playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
                 appStoreUrl="https://apps.apple.com" // replace when ready
             />)}
-            {/* Header */}
-            <div className="border-b" style={{ borderColor: EKARI.hair }}>
+            {/* Storefront header + navigation */}
+            <div>
 
 
                 <StoreCoverHero
@@ -2453,14 +2703,16 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
                 {/* Tabs */}
                 {storefrontState.active && (
-                    <div className="max-w-5xl mx-auto px-4 mt-2 md:mt-3 mb-5">
-                        <SegmentedTabs value={tab} onChange={setTab} counts={counts} />
-                    </div>
+                    <SegmentedTabs
+                        value={tab}
+                        onChange={setTab}
+                        counts={counts}
+                    />
                 )}
                 {isStorePrivate && (
-                    <div className="max-w-5xl mx-auto px-4 mb-5">
+                    <div className="mx-auto max-w-[1040px] px-4 py-4">
                         <div
-                            className="rounded-3xl border bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]"
+                            className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.035)]"
                             style={{ borderColor: EKARI.hair }}
                         >
                             <div className="flex items-start gap-3">
@@ -2516,8 +2768,16 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
             </div>
 
-            {/* Body */}
-            <div className="max-w-5xl mx-auto px-4 py-5">
+            {/* Catalog workspace */}
+            <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                    duration: 0.26,
+                    ease: "easeOut",
+                }}
+                className="mx-auto max-w-[1040px] px-4 py-4"
+            >
 
                 {loading ? (
                     <div className="text-sm" style={{ color: EKARI.dim }}>
@@ -2555,12 +2815,19 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                             />
                         )}
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-1">
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                             {sortedFilteredItems.map((p: any) => {
                                 const status = String(p?.status || (p?.sold ? "sold" : "active")).toLowerCase();
 
                                 return (
-                                    <div key={p.id} className="space-y-2">
+                                    <motion.div
+                                        key={p.id}
+                                        layout
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="space-y-2"
+                                    >
                                         <div className="relative">
                                             <ProductCard p={p} />
 
@@ -2619,7 +2886,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 </button>
                                             </div>
                                         )}
-                                    </div>
+                                    </motion.div>
                                 );
                             })}
                         </div>
@@ -2648,10 +2915,10 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                     </>
                 )}
 
-            </div>
+            </motion.div>
 
             {isOwner && storefrontState.active && (<> {/* ✅ Insights section */}
-                <div className="max-w-5xl mx-auto px-4">
+                <div className="mx-auto max-w-[1040px] px-4">
                     <StoreInsights
                         tier={insightsTier}
                         data={insights}
@@ -2679,7 +2946,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
             {/* Guest-only premium badge */}
             {!isOwner && storefrontAllowed && (
                 <div
-                    className="max-w-5xl mx-auto px-4 mb-4 rounded-2xl border bg-[#FFFBF3] p-4 flex items-start gap-3"
+                    className="mx-auto mb-4 flex max-w-[1040px] items-start gap-3 rounded-[18px] border border-[#EAD9B9] bg-[#FFF9EE] p-4"
                     style={{ borderColor: EKARI.hair }}
                 >
                     <div className="mt-0.5">
@@ -2699,6 +2966,12 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
         </main>
     );
 
-    return isDesktop ? <AppShell>{Page}</AppShell> : Page;
+    return isDesktop ? (
+        <AppShell>
+            {Page}
+        </AppShell>
+    ) : (
+        Page
+    );
 
 }

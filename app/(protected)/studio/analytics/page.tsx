@@ -11,6 +11,14 @@ import {
     IoHeartOutline,
     IoChatbubbleOutline,
     IoShareSocialOutline,
+    IoEyeOutline,
+    IoTrendingUpOutline,
+    IoPeopleOutline,
+    IoSparklesOutline,
+    IoChevronForward,
+    IoPersonOutline,
+    IoTimeOutline,
+    IoBarChartOutline,
 } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -28,36 +36,37 @@ import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import StudioShell from "../components/StudioShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
+import { motion, AnimatePresence } from "framer-motion";
 
 /** Avoid static optimization since we read client-side */
 export const dynamic = "force-dynamic";
 
 /* ---------------- Premium theme ---------------- */
 const EKARI = {
-    forest: "#233F39",
-    leaf: "#1F3A34",
-    gold: "#C79257",
-    sand: "#FFFFFF",
-    hair: "#E5E7EB",
+    forest: "#173C2E",
+    leaf: "#214C3A",
+    gold: "#F39A22",
+    sand: "#F8F7F2",
+    paper: "#FBFAF6",
+    hair: "#DDD8CC",
     text: "#0F172A",
-    dim: "#6B7280",
+    dim: "#64748B",
     danger: "#B42318",
 };
 
 const UI = {
-    radius: "24px",
-    radiusSm: "16px",
-    border: "rgba(15,23,42,0.08)",
-    borderStrong: "rgba(15,23,42,0.12)",
-    card: "rgba(255,255,255,0.86)",
-    cardSolid: "#FFFFFF",
-    soft: "rgba(15,23,42,0.03)",
-    soft2: "rgba(15,23,42,0.05)",
-    shadow: "0 18px 50px -28px rgba(16,24,40,0.35)",
-    shadow2: "0 10px 30px -18px rgba(16,24,40,0.25)",
-    glow: "0 0 0 6px rgba(199,146,87,0.15)",
-    gradient:
-        "radial-gradient(900px 500px at 15% -10%, rgba(199,146,87,0.18), transparent 55%), radial-gradient(900px 500px at 85% 0%, rgba(35,63,57,0.14), transparent 55%), linear-gradient(180deg, #ffffff 0%, #fbfbfd 70%, #f7f8fb 100%)",
+    radius: "18px",
+    radiusSm: "14px",
+    border: "#DDD8CC",
+    borderStrong: "#CFC8BB",
+    card: "#FBFAF6",
+    cardSolid: "#FBFAF6",
+    soft: "#F3F1EB",
+    soft2: "#EEEAE2",
+    shadow: "0 16px 38px rgba(15,23,42,0.06)",
+    shadow2: "0 10px 28px rgba(15,23,42,0.025)",
+    glow: "0 0 0 5px rgba(243,154,34,0.12)",
+    gradient: "#F8F7F2",
 };
 
 /* ---------------- responsive helpers ---------------- */
@@ -118,35 +127,50 @@ function tsToMs(v: any): number | null {
     return null;
 }
 
-function nfmt(n: number) {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-    if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+function nfmt(
+    input: number | string | null | undefined
+) {
+    const n = Number(input ?? 0);
+
+    if (!Number.isFinite(n)) {
+        return "0";
+    }
+
+    if (n >= 1_000_000) {
+        return `${(n / 1_000_000)
+            .toFixed(1)
+            .replace(/\.0$/, "")}M`;
+    }
+
+    if (n >= 10_000) {
+        return `${Math.round(n / 1000)}k`;
+    }
+
     return n.toLocaleString();
 }
 
-/* ---------------- premium primitives ---------------- */
+/* ---------------- UI primitives ---------------- */
 function Card({
     children,
     className = "",
-    solid,
 }: {
     children: React.ReactNode;
     className?: string;
     solid?: boolean;
 }) {
     return (
-        <div
-            className={`overflow-hidden ${className}`}
-            style={{
-                borderRadius: UI.radius,
-                border: `1px solid ${UI.border}`,
-                background: solid ? UI.cardSolid : UI.card,
-                boxShadow: UI.shadow2,
-                backdropFilter: "blur(14px)",
-            }}
+        <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className={[
+                "overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6]",
+                "shadow-[0_10px_28px_rgba(15,23,42,0.025)]",
+                className,
+            ].join(" ")}
         >
             {children}
-        </div>
+        </motion.div>
     );
 }
 
@@ -159,13 +183,12 @@ function Chip({
 }) {
     return (
         <span
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold"
-            style={{
-                borderRadius: "999px",
-                border: `1px solid ${active ? "rgba(199,146,87,0.45)" : UI.border}`,
-                background: active ? "rgba(199,146,87,0.10)" : UI.soft,
-                color: active ? EKARI.text : EKARI.dim,
-            }}
+            className={[
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[9px] font-black",
+                active
+                    ? "border-[#F3D7B2] bg-[#FFF4E3] text-[#9A5A08]"
+                    : "border-[#D9D3C7] bg-[#F3F1EB] text-slate-500",
+            ].join(" ")}
         >
             {children}
         </span>
@@ -185,47 +208,117 @@ function PremiumButton({
     variant?: "primary" | "ghost";
     className?: string;
 }) {
-    const base =
-        "inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-extrabold transition active:scale-[0.99] focus:outline-none";
-    const style: React.CSSProperties =
+    const classes = [
+        "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[10px] font-black transition",
         variant === "primary"
-            ? {
-                color: "white",
-                borderRadius: UI.radiusSm,
-                background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
-                boxShadow: "0 16px 40px -24px rgba(199,146,87,0.55)",
-            }
-            : {
-                color: EKARI.text,
-                borderRadius: UI.radiusSm,
-                border: `1px solid ${UI.border}`,
-                background: "rgba(255,255,255,0.72)",
-                boxShadow: UI.shadow2,
-            };
+            ? "bg-[#F39A22] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]"
+            : "border border-[#D9D3C7] bg-white text-[#173C2E] hover:bg-[#EEF3EE]",
+        className,
+    ].join(" ");
 
     if (href) {
         return (
-            <Link href={href} className={`${base} ${className}`} style={style}>
-                <span
-                    className="pointer-events-none absolute inset-0"
-                    style={{
-                        borderRadius: UI.radiusSm,
-                        background:
-                            variant === "primary"
-                                ? "linear-gradient(180deg, rgba(255,255,255,0.22), transparent 55%)"
-                                : "none",
-                        mixBlendMode: "overlay",
-                    }}
-                />
+            <Link
+                href={href}
+                className={classes}
+            >
                 {children}
             </Link>
         );
     }
 
     return (
-        <button onClick={onClick} className={`${base} ${className}`} style={style}>
+        <button
+            type="button"
+            onClick={onClick}
+            className={classes}
+        >
             {children}
         </button>
+    );
+}
+
+function SafeAvatar({
+    src,
+    alt,
+    size = 52,
+}: {
+    src?: string | null;
+    alt: string;
+    size?: number;
+}) {
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        setFailed(false);
+    }, [src]);
+
+    const hasImage =
+        !!src?.trim() && !failed;
+
+    return (
+        <div
+            className="relative shrink-0 overflow-hidden rounded-full border border-[#DDD8CC] bg-[#E8ECE8]"
+            style={{
+                width: size,
+                height: size,
+            }}
+        >
+            {hasImage ? (
+                <Image
+                    src={src || ""}
+                    alt={alt}
+                    fill
+                    sizes={`${size}px`}
+                    className="object-cover"
+                    onError={() => setFailed(true)}
+                />
+            ) : (
+                <div className="grid h-full w-full place-items-center text-[#173C2E]">
+                    <IoPersonOutline
+                        size={Math.round(size * 0.44)}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+
+function SafeThumb({
+    src,
+    alt,
+}: {
+    src?: string | null;
+    alt: string;
+}) {
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        setFailed(false);
+    }, [src]);
+
+    const hasImage =
+        !!src?.trim() && !failed;
+
+    return (
+        <div className="relative h-[72px] w-[104px] shrink-0 overflow-hidden rounded-xl bg-[#E8ECE8]">
+            {hasImage ? (
+                <Image
+                    src={src || ""}
+                    alt={alt}
+                    fill
+                    sizes="104px"
+                    className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                    onError={() => setFailed(true)}
+                />
+            ) : (
+                <div className="grid h-full w-full place-items-center text-[#173C2E]">
+                    <IoPlayOutline size={21} />
+                </div>
+            )}
+
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+        </div>
     );
 }
 
@@ -233,8 +326,8 @@ function PremiumButton({
 function MetricSkeleton() {
     return (
         <div
-            className="rounded-2xl p-4 animate-pulse"
-            style={{ border: `1px solid ${UI.border}`, background: "rgba(255,255,255,0.75)" }}
+            className="min-h-[156px] rounded-[16px] border border-[#E4DED2] bg-white p-4 animate-pulse"
+
         >
             <div className="h-3 w-20 rounded bg-gray-200" />
             <div className="mt-3 h-7 w-24 rounded bg-gray-200" />
@@ -288,67 +381,97 @@ function Metric({
     hint?: string;
 }) {
     return (
-        <div
-            className="p-4"
-            style={{
-                borderRadius: UI.radius,
-                border: `1px solid ${UI.border}`,
-                background: "rgba(255,255,255,0.82)",
-                boxShadow: "0 10px 30px -22px rgba(16,24,40,0.22)",
-            }}
+        <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            whileHover={{ y: -2 }}
+            className={[
+                "group relative min-w-0 overflow-hidden",
+                "min-h-[156px] rounded-[16px]",
+                "border border-[#E4DED2] bg-white",
+                "px-4 pb-4 pt-4",
+                "transition-all duration-200",
+                "hover:border-[#D8D0C2]",
+                "hover:shadow-[0_10px_25px_rgba(15,23,42,0.045)]",
+            ].join(" ")}
         >
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <div className="text-[11px] font-extrabold tracking-wide uppercase" style={{ color: EKARI.dim }}>
-                        {label}
-                    </div>
-                    <div className="mt-2 text-3xl font-black tracking-tight" style={{ color: EKARI.text }}>
-                        {nfmt(value)}
-                    </div>
-                    {hint ? (
-                        <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
-                            {hint}
-                        </div>
-                    ) : null}
-                </div>
-
+            {icon ? (
                 <div
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl"
-                    style={{
-                        border: `1px solid ${UI.border}`,
-                        background: "rgba(35,63,57,0.06)",
-                        color: EKARI.forest,
-                    }}
+                    className={[
+                        "absolute right-3 top-3",
+                        "grid h-9 w-9 shrink-0 place-items-center",
+                        "rounded-[12px] bg-[#E8ECE8]",
+                        "text-[#173C2E]",
+                        "transition-all duration-200",
+                        "group-hover:bg-[#173C2E]",
+                        "group-hover:text-white",
+                    ].join(" ")}
                 >
                     {icon}
                 </div>
+            ) : null}
+
+            <div className="min-w-0 pr-11">
+                <div
+                    className={[
+                        "min-h-[26px]",
+                        "text-[9px] font-black uppercase",
+                        "leading-[13px]",
+                        "tracking-[0.075em]",
+                        "text-slate-400",
+                    ].join(" ")}
+                >
+                    {label}
+                </div>
+
+                <div
+                    className={[
+                        "mt-2",
+                        "text-[25px] font-black",
+                        "leading-none tracking-[-0.04em]",
+                        "text-[#173C2E]",
+                    ].join(" ")}
+                >
+                    {nfmt(value)}
+                </div>
             </div>
-        </div>
+
+            {hint ? (
+                <div
+                    className={[
+                        "absolute bottom-4 left-4 right-4",
+                        "text-[9px] font-semibold",
+                        "leading-[14px]",
+                        "text-slate-400",
+                    ].join(" ")}
+                >
+                    {hint}
+                </div>
+            ) : null}
+        </motion.div>
     );
 }
 
-function Tip({ title, body }: { title: string; body: string }) {
+function Tip({
+    title,
+    body,
+}: {
+    title: string;
+    body: string;
+}) {
     return (
-        <div
-            className="flex gap-3 p-4"
-            style={{
-                borderRadius: UI.radius,
-                border: `1px solid ${UI.border}`,
-                background: "rgba(255,255,255,0.82)",
-                boxShadow: "0 10px 30px -22px rgba(16,24,40,0.18)",
-            }}
-        >
-            <div
-                className="grid h-10 w-10 place-items-center rounded-2xl"
-                style={{ background: "rgba(199,146,87,0.12)", color: EKARI.gold, border: `1px solid rgba(199,146,87,0.25)` }}
-            >
-                ✨
+        <div className="flex gap-3 rounded-[14px] border border-[#E4DED2] bg-white p-3.5">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                <IoSparklesOutline size={16} />
             </div>
+
             <div className="min-w-0">
-                <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
+                <div className="text-[11px] font-black text-slate-800">
                     {title}
                 </div>
-                <div className="text-xs mt-1 leading-5" style={{ color: EKARI.dim }}>
+
+                <div className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
                     {body}
                 </div>
             </div>
@@ -356,24 +479,71 @@ function Tip({ title, body }: { title: string; body: string }) {
     );
 }
 
-function MiniAreaChart({ data, height = 120 }: { data: number[]; height?: number }) {
-    const max = Math.max(1, ...data);
+function MiniAreaChart({
+    data,
+    height = 120,
+}: {
+    data: number[];
+    height?: number;
+}) {
+    const safeData =
+        data.length > 0 ? data.map((value) => Number(value || 0)) : [0];
+
+    const max =
+        Math.max(1, ...safeData);
+
     const w = 700;
     const h = height;
-    const pts = data
+
+    const pts = safeData
         .map((y, i) => {
-            const x = (i / Math.max(1, data.length - 1)) * (w - 16) + 8;
-            const yy = h - 8 - (y / max) * (h - 24);
+            const x =
+                (i /
+                    Math.max(
+                        1,
+                        safeData.length - 1
+                    )) *
+                (w - 16) +
+                8;
+
+            const yy =
+                h -
+                8 -
+                (y / max) *
+                (h - 24);
+
             return `${x},${yy}`;
         })
         .join(" ");
 
     return (
         <div className="w-full overflow-hidden">
-            <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
-                <line x1="8" y1={h - 8} x2={w - 8} y2={h - 8} stroke="#e5e7eb" />
-                <polygon points={`8,${h - 8} ${pts} ${w - 8},${h - 8}`} fill="#C7925733" stroke="none" />
-                <polyline points={pts} fill="none" stroke={EKARI.gold} strokeWidth={2} />
+            <svg
+                viewBox={`0 0 ${w} ${h}`}
+                className="w-full"
+            >
+                <line
+                    x1="8"
+                    y1={h - 8}
+                    x2={w - 8}
+                    y2={h - 8}
+                    stroke="#DDD8CC"
+                />
+
+                <polygon
+                    points={`8,${h - 8} ${pts} ${w - 8},${h - 8}`}
+                    fill="rgba(243,154,34,0.12)"
+                    stroke="none"
+                />
+
+                <polyline
+                    points={pts}
+                    fill="none"
+                    stroke="#F39A22"
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
             </svg>
         </div>
     );
@@ -390,18 +560,42 @@ function StatPill({
 }) {
     return (
         <span
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-extrabold"
-            style={{
-                borderRadius: "999px",
-                border: `1px solid ${UI.border}`,
-                background: "rgba(255,255,255,0.75)",
-                color: EKARI.text,
-            }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-slate-600"
             title={title}
         >
-            <span style={{ color: EKARI.dim }}>{icon}</span>
+            <span className="text-[#F39A22]">
+                {icon}
+            </span>
             {nfmt(value)}
         </span>
+    );
+}
+
+function RailStat({
+    label,
+    value,
+    icon,
+}: {
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+}) {
+    return (
+        <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-[#F39A22]">
+                    {icon}
+                </span>
+
+                <span className="text-[18px] font-black tracking-[-0.03em] text-[#173C2E]">
+                    {nfmt(value)}
+                </span>
+            </div>
+
+            <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+                {label}
+            </div>
+        </div>
     );
 }
 
@@ -503,10 +697,10 @@ export default function StudioHomePage() {
     const totals = useMemo(() => {
         return posts.reduce(
             (acc, p) => {
-                acc.views += p.stats?.views ?? 0;
-                acc.likes += p.stats?.likes ?? 0;
-                acc.comments += p.stats?.comments ?? 0;
-                acc.shares += p.stats?.shares ?? 0;
+                acc.views += Number(p.stats?.views ?? 0);
+                acc.likes += Number(p.stats?.likes ?? 0);
+                acc.comments += Number(p.stats?.comments ?? 0);
+                acc.shares += Number(p.stats?.shares ?? 0);
                 return acc;
             },
             { views: 0, likes: 0, comments: 0, shares: 0 }
@@ -532,7 +726,7 @@ export default function StudioHomePage() {
             const d = new Date(ms);
             d.setHours(0, 0, 0, 0);
             const k = key(d);
-            if (map[k] !== undefined) map[k] += p.stats?.views ?? 0;
+            if (map[k] !== undefined) map[k] += Number(p.stats?.views ?? 0);
         });
 
         return days.map((d) => ({ x: d, y: map[key(d)] ?? 0 }));
@@ -581,318 +775,548 @@ export default function StudioHomePage() {
     const followingText = (profile?.followingCount ?? 0).toLocaleString();
     const likesHeader = (profile?.likesTotal ?? totals.likes).toLocaleString();
 
-    /* ---------------- Premium Header ---------------- */
+    /* ---------------- Analytics header ---------------- */
     const Header = (
-        <div
-            className="sticky top-0 z-50 backdrop-blur-xl"
-            style={{
-                background: "rgba(255,255,255,0.75)",
-                borderBottom: `1px solid ${UI.border}`,
-                boxShadow: "0 8px 30px -22px rgba(16,24,40,0.35)",
-            }}
+        <motion.header
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="relative overflow-hidden bg-[#173C2E] text-white"
         >
-            <div className={isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3"}>
-                <div className="h-full flex items-center justify-between gap-2">
+            <div
+                className="pointer-events-none absolute inset-0 opacity-[0.07]"
+                style={{
+                    backgroundImage:
+                        "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+                }}
+            />
+
+            <div className={isDesktop ? "mx-auto max-w-[1180px] px-4 sm:px-5 md:px-6" : "px-3"}>
+                <div className="relative flex min-h-[96px] items-center gap-3 py-4">
                     <button
+                        type="button"
                         onClick={goBack}
-                        className="h-10 w-10 rounded-full grid place-items-center transition active:scale-[0.98]"
-                        style={{
-                            background: "rgba(255,255,255,0.75)",
-                            border: `1px solid ${UI.border}`,
-                            boxShadow: "0 10px 24px -18px rgba(16,24,40,0.35)",
-                        }}
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
                         aria-label="Go back"
-                        title="Back"
                     >
-                        <ArrowLeft size={18} style={{ color: EKARI.text }} />
+                        <ArrowLeft size={18} />
                     </button>
 
-                    <div className="flex-1 min-w-0">
-                        <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
-                            Studio
+                    <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                            Deed studio
                         </div>
-                        <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
-                            Overview
-                        </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                        <PremiumButton href="/studio/upload" variant="primary">
-                            <IoAdd /> Upload
-                        </PremiumButton>
+                        <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h1 className="text-[22px] font-black tracking-[-0.03em] sm:text-[25px]">
+                                    Analytics
+                                </h1>
+
+                                <p className="mt-1 text-[10px] font-medium text-white/50 sm:text-[11px]">
+                                    Understand how your deeds and profile are performing.
+                                </p>
+                            </div>
+
+                            <PremiumButton
+                                href="/studio/upload"
+                                variant="primary"
+                            >
+                                <IoAdd size={14} />
+                                New deed
+                            </PremiumButton>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.header>
     );
 
     /* ---------------- Main content ---------------- */
     const Main = (
-        <div className={isDesktop ? "max-w-[1180px] mx-auto px-4 pb-10" : "px-3 pb-10"}>
-            {/* Profile hero */}
-            <Card className="mt-4" solid>
-                <div className="p-4 sm:p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                            <div
-                                className="h-12 w-12 overflow-hidden rounded-full shrink-0"
-                                style={{
-                                    border: `1px solid ${UI.border}`,
-                                    boxShadow: "0 12px 28px -20px rgba(16,24,40,0.35)",
-                                    background: "rgba(15,23,42,0.03)",
-                                }}
-                            >
-                                <Image
-                                    src={profile?.photoURL || user?.photoURL || "/avatar-placeholder.png"}
-                                    alt="avatar"
-                                    width={96}
-                                    height={96}
-                                    className="h-full w-full object-cover"
-                                />
-                            </div>
+        <div className={isDesktop ? "mx-auto max-w-[1180px] px-4 pb-10 pt-4 sm:px-5 md:px-6" : "px-3 pb-10 pt-3"}>
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_290px] xl:items-start">
+                <section className="min-w-0 space-y-4">
+                    {/* Creator summary */}
+                    <Card>
+                        <div className="p-4 sm:p-5">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <SafeAvatar
+                                        src={profile?.photoURL || user?.photoURL}
+                                        alt={handleText}
+                                        size={54}
+                                    />
 
-                            <div className="min-w-0">
-                                <div className="text-sm font-black truncate" style={{ color: EKARI.text }}>
-                                    {handleText}
+                                    <div className="min-w-0">
+                                        <div className="truncate text-[14px] font-black text-slate-900">
+                                            {handleText}
+                                        </div>
+
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            <Chip active>
+                                                Likes {likesHeader}
+                                            </Chip>
+
+                                            <Chip>
+                                                Followers {followersText}
+                                            </Chip>
+
+                                            <Chip>
+                                                Following {followingText}
+                                            </Chip>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="mt-1 flex flex-wrap gap-2">
-                                    <Chip active>Likes {likesHeader}</Chip>
-                                    <Chip>Followers {followersText}</Chip>
-                                    <Chip>Following {followingText}</Chip>
+
+                                <div className="flex flex-wrap gap-2">
+                                    <PremiumButton
+                                        href="/studio/deeds"
+                                        variant="ghost"
+                                    >
+                                        Your deeds
+                                    </PremiumButton>
+
+                                    <PremiumButton
+                                        href="/studio/upload"
+                                        variant="primary"
+                                    >
+                                        <IoAdd size={14} />
+                                        Upload
+                                    </PremiumButton>
                                 </div>
                             </div>
                         </div>
+                    </Card>
 
-                        <div className="flex items-center gap-2">
-                            <PremiumButton href="/studio/upload" variant="primary">
-                                <IoAdd /> Upload
-                            </PremiumButton>
-                            <PremiumButton href="/studio/deeds" variant="ghost">
-                                View all
-                            </PremiumButton>
-                        </div>
-                    </div>
-                </div>
-            </Card>
+                    {/* Metrics */}
+                    <Card>
+                        <div className="p-4 sm:p-5">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#F39A22]">
+                                        Performance
+                                    </div>
 
-            {/* Key metrics */}
-            <Card className="mt-5" solid>
-                <div className="p-4 sm:p-5">
-                    <div className="mb-3 flex items-center justify-between">
-                        <div className="text-base font-black" style={{ color: EKARI.text }}>
-                            Key metrics
-                        </div>
-                        <Chip>Last 7 days</Chip>
-                    </div>
+                                    <h2 className="mt-1 text-[16px] font-black text-slate-900">
+                                        Key metrics
+                                    </h2>
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                        {loading ? (
-                            <>
-                                <MetricSkeleton />
-                                <MetricSkeleton />
-                                <MetricSkeleton />
-                                <MetricSkeleton />
-                                <MetricSkeleton />
-                            </>
-                        ) : (
-                            <>
-                                <Metric label="Video views" value={totals.views} icon={<IoPlayOutline />} hint="Total views" />
-                                <Metric label="Profile views" value={profileViewsTotal} icon={<span>👀</span>} hint="Profile reach" />
-                                <Metric label="Likes" value={totals.likes} icon={<IoHeartOutline />} hint="Engagement" />
-                                <Metric label="Comments" value={totals.comments} icon={<IoChatbubbleOutline />} hint="Replies" />
-                                <Metric label="Shares" value={totals.shares} icon={<IoShareSocialOutline />} hint="Virality" />
-                            </>
-                        )}
-                    </div>
-
-                    {loading ? (
-                        <>
-                            <ChartSkeleton height={140} />
-                            <ChartSkeleton height={100} />
-                        </>
-                    ) : (
-                        <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <div
-                                className="p-4"
-                                style={{
-                                    borderRadius: UI.radius,
-                                    border: `1px solid ${UI.border}`,
-                                    background: "rgba(255,255,255,0.82)",
-                                }}
-                            >
-                                <div className="mb-2 text-xs font-extrabold uppercase tracking-wide" style={{ color: EKARI.dim }}>
-                                    Video views (7 days)
+                                    <p className="mt-1 text-[9px] font-medium text-slate-400">
+                                        Current totals from your latest deeds and profile activity.
+                                    </p>
                                 </div>
-                                <MiniAreaChart data={series.map((d) => d.y)} height={140} />
+
+                                <Chip>
+                                    Last 7 days
+                                </Chip>
                             </div>
 
-                            <div
-                                className="p-4"
-                                style={{
-                                    borderRadius: UI.radius,
-                                    border: `1px solid ${UI.border}`,
-                                    background: "rgba(255,255,255,0.82)",
-                                }}
-                            >
-                                <div className="mb-2 text-xs font-extrabold uppercase tracking-wide" style={{ color: EKARI.dim }}>
-                                    Profile views (7 days)
+                            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-5">
+                                {loading ? (
+                                    <>
+                                        <MetricSkeleton />
+                                        <MetricSkeleton />
+                                        <MetricSkeleton />
+                                        <MetricSkeleton />
+                                        <MetricSkeleton />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Metric
+                                            label="Deed views"
+                                            value={totals.views}
+                                            icon={<IoPlayOutline size={16} />}
+                                            hint="Total content views"
+                                        />
+
+                                        <Metric
+                                            label="Profile views"
+                                            value={profileViewsTotal}
+                                            icon={<IoEyeOutline size={16} />}
+                                            hint="Profile reach"
+                                        />
+
+                                        <Metric
+                                            label="Likes"
+                                            value={totals.likes}
+                                            icon={<IoHeartOutline size={16} />}
+                                            hint="Engagement"
+                                        />
+
+                                        <Metric
+                                            label="Comments"
+                                            value={totals.comments}
+                                            icon={<IoChatbubbleOutline size={16} />}
+                                            hint="Replies"
+                                        />
+
+                                        <Metric
+                                            label="Shares"
+                                            value={totals.shares}
+                                            icon={<IoShareSocialOutline size={16} />}
+                                            hint="Virality"
+                                        />
+                                    </>
+                                )}
+                            </div>
+
+                            {loading ? (
+                                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                                    <ChartSkeleton height={140} />
+                                    <ChartSkeleton height={140} />
                                 </div>
-                                <MiniAreaChart data={pvSeries} height={100} />
+                            ) : (
+                                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                                    <div className="rounded-[16px] border border-[#E4DED2] bg-white p-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                                    Deed views
+                                                </div>
+
+                                                <div className="mt-1 text-[11px] font-black text-slate-700">
+                                                    Last 7 days
+                                                </div>
+                                            </div>
+
+                                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                                                <IoTrendingUpOutline size={14} />
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-3">
+                                            <MiniAreaChart
+                                                data={series.map((item) => Number(item.y || 0))}
+                                                height={140}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-[16px] border border-[#E4DED2] bg-white p-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                                    Profile views
+                                                </div>
+
+                                                <div className="mt-1 text-[11px] font-black text-slate-700">
+                                                    Last 7 days
+                                                </div>
+                                            </div>
+
+                                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                                                <IoEyeOutline size={14} />
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-3">
+                                            <MiniAreaChart
+                                                data={pvSeries.map((value) => Number(value || 0))}
+                                                height={140}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
+                    {/* Recent posts */}
+                    <Card>
+                        <div className="border-b border-[#E4DED2] px-4 py-4 sm:px-5">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                                        Content performance
+                                    </div>
+
+                                    <h2 className="mt-1 text-[15px] font-black text-slate-900">
+                                        Recent deeds
+                                    </h2>
+                                </div>
+
+                                <Link
+                                    href="/studio/deeds"
+                                    className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                                >
+                                    View all
+                                    <IoChevronForward size={12} />
+                                </Link>
                             </div>
                         </div>
-                    )}
-                </div>
-            </Card>
 
-            {/* Recent + Knowledge */}
-            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-                <Card className="lg:col-span-2" solid>
-                    <div className="p-4 sm:p-5">
-                        <div className="mb-3 flex items-center justify-between">
-                            <div className="text-base font-black" style={{ color: EKARI.text }}>
-                                Recent posts
-                            </div>
-                            <Link href="/studio/deeds" className="text-xs font-extrabold" style={{ color: EKARI.forest }}>
-                                View all
-                            </Link>
-                        </div>
-
-                        <div className="space-y-3">
-                            {loading && (
-                                <>
+                        <div className="p-2 sm:p-3">
+                            {loading ? (
+                                <div className="space-y-2">
                                     <div className="flex items-center justify-center py-5">
                                         <BouncingBallLoader />
                                     </div>
-                                    <RowSkeleton />
-                                    <RowSkeleton />
-                                    <RowSkeleton />
-                                </>
-                            )}
 
-                            {!loading &&
-                                posts.slice(0, 5).map((p) => (
-                                    <Link
-                                        key={p.id}
-                                        href={`/studio/analytics/${p.id}`}
-                                        className="group flex items-center gap-3 p-3 transition active:scale-[0.995]"
-                                        style={{
-                                            borderRadius: UI.radius,
-                                            border: `1px solid ${UI.border}`,
-                                            background: "rgba(255,255,255,0.82)",
-                                            boxShadow: "0 10px 30px -22px rgba(16,24,40,0.12)",
-                                        }}
-                                    >
-                                        <div
-                                            className="relative h-16 w-28 sm:h-16 sm:w-28 overflow-hidden shrink-0"
-                                            style={{
-                                                borderRadius: UI.radiusSm,
-                                                border: `1px solid ${UI.border}`,
-                                                background: "rgba(15,23,42,0.04)",
-                                            }}
+                                    <RowSkeleton />
+                                    <RowSkeleton />
+                                    <RowSkeleton />
+                                </div>
+                            ) : posts.length ? (
+                                <div className="space-y-2">
+                                    {posts.slice(0, 5).map((post) => (
+                                        <motion.div
+                                            key={post.id}
+                                            initial={{ opacity: 0, y: 3 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.16 }}
                                         >
-                                            <Image
-                                                src={p.mediaThumbUrl || p.media?.[0]?.thumbUrl || "/video-placeholder.jpg"}
-                                                alt="thumb"
-                                                fill
-                                                className="object-cover transition group-hover:scale-[1.03]"
-                                                sizes="112px"
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                                            <Link
+                                                href={`/studio/analytics/${post.id}`}
+                                                className="group flex min-w-0 items-center gap-3 rounded-[14px] border border-[#E4DED2] bg-white p-3 transition hover:border-[#CFC8BB] hover:bg-[#FDFCF9]"
+                                            >
+                                                <SafeThumb
+                                                    src={
+                                                        post.mediaThumbUrl ||
+                                                        post.media?.[0]?.thumbUrl
+                                                    }
+                                                    alt={post.caption || "Deed"}
+                                                />
+
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate text-[11px] font-black text-slate-800">
+                                                        {post.caption || "Untitled deed"}
+                                                    </div>
+
+                                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                                        <StatPill
+                                                            icon={<IoPlayOutline size={11} />}
+                                                            value={Number(post.stats?.views ?? 0)}
+                                                            title="Views"
+                                                        />
+
+                                                        <StatPill
+                                                            icon={<IoHeartOutline size={11} />}
+                                                            value={Number(post.stats?.likes ?? 0)}
+                                                            title="Likes"
+                                                        />
+
+                                                        <StatPill
+                                                            icon={<IoChatbubbleOutline size={11} />}
+                                                            value={Number(post.stats?.comments ?? 0)}
+                                                            title="Comments"
+                                                        />
+
+                                                        <StatPill
+                                                            icon={<IoShareSocialOutline size={11} />}
+                                                            value={Number(post.stats?.shares ?? 0)}
+                                                            title="Shares"
+                                                        />
+                                                    </div>
+
+                                                    {post.createdAtMs ? (
+                                                        <div className="mt-2 inline-flex items-center gap-1 text-[8px] font-semibold text-slate-400">
+                                                            <IoTimeOutline size={10} />
+                                                            {new Date(post.createdAtMs).toLocaleString()}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+
+                                                <IoChevronForward
+                                                    size={14}
+                                                    className="shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#173C2E]"
+                                                />
+                                            </Link>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="grid min-h-[240px] place-items-center px-5 text-center">
+                                    <div>
+                                        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+                                            <IoBarChartOutline size={23} />
                                         </div>
 
-                                        <div className="min-w-0 flex-1">
-                                            <div className="truncate text-sm font-extrabold" style={{ color: EKARI.text }}>
-                                                {p.caption || "Untitled"}
-                                            </div>
-
-                                            <div className="mt-2 flex flex-wrap gap-2">
-                                                <StatPill icon={<IoPlayOutline />} value={p.stats?.views ?? 0} title="Views" />
-                                                <StatPill icon={<IoHeartOutline />} value={p.stats?.likes ?? 0} title="Likes" />
-                                                <StatPill icon={<IoChatbubbleOutline />} value={p.stats?.comments ?? 0} title="Comments" />
-                                                <StatPill icon={<IoShareSocialOutline />} value={p.stats?.shares ?? 0} title="Shares" />
-                                            </div>
-
-                                            <div className="mt-2 text-[11px]" style={{ color: EKARI.dim }}>
-                                                {p.createdAtMs ? new Date(p.createdAtMs).toLocaleString() : ""}
-                                            </div>
+                                        <div className="mt-4 text-[14px] font-black text-slate-800">
+                                            No deeds yet
                                         </div>
-                                    </Link>
-                                ))}
 
-                            {!loading && posts.length === 0 && (
-                                <div className="text-sm" style={{ color: EKARI.dim }}>
-                                    No posts yet.{" "}
-                                    <Link href="/studio/upload" className="font-extrabold" style={{ color: EKARI.forest }}>
-                                        Upload your first video
-                                    </Link>
-                                    .
+                                        <p className="mx-auto mt-1 max-w-sm text-[10px] font-medium leading-4 text-slate-400">
+                                            Publish your first deed to begin building performance history.
+                                        </p>
+
+                                        <PremiumButton
+                                            href="/studio/upload"
+                                            variant="primary"
+                                            className="mt-4"
+                                        >
+                                            <IoAdd size={13} />
+                                            Create deed
+                                        </PremiumButton>
+                                    </div>
                                 </div>
                             )}
                         </div>
-                    </div>
-                </Card>
+                    </Card>
+                </section>
 
-                <Card solid>
-                    <div className="p-4 sm:p-5">
-                        <div className="mb-3 flex items-center justify-between">
-                            <div className="text-base font-black" style={{ color: EKARI.text }}>
-                                Knowledge for you
-                            </div>
-                            <Chip>Tips</Chip>
+                {/* Right rail */}
+                <motion.aside
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{
+                        duration: 0.24,
+                        delay: 0.04,
+                        ease: "easeOut",
+                    }}
+                    className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
+                >
+                    <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                            Audience
                         </div>
 
-                        <div className="space-y-3">
-                            <Tip
-                                title="Use high-quality covers"
-                                body="Pick bright frames with clear subject + context. Strong thumbnails lift your CTR."
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                            <RailStat
+                                label="Followers"
+                                value={Number(profile?.followersCount ?? 0)}
+                                icon={<IoPeopleOutline size={14} />}
                             />
+
+                            <RailStat
+                                label="Following"
+                                value={Number(profile?.followingCount ?? 0)}
+                                icon={<IoPeopleOutline size={14} />}
+                            />
+
+                            <RailStat
+                                label="Profile views"
+                                value={Number(profileViewsTotal ?? 0)}
+                                icon={<IoEyeOutline size={14} />}
+                            />
+
+                            <RailStat
+                                label="Likes"
+                                value={Number(profile?.likesTotal ?? totals.likes)}
+                                icon={<IoHeartOutline size={14} />}
+                            />
+                        </div>
+                    </section>
+
+                    <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                        <div className="flex items-start gap-3">
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                                <IoSparklesOutline size={17} />
+                            </span>
+
+                            <div>
+                                <div className="text-[12px] font-black text-slate-800">
+                                    Improve reach
+                                </div>
+
+                                <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                                    Use clear cover images, focused captions and consistent posting to help members understand your content quickly.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                            Creator tips
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                            <Tip
+                                title="Use strong covers"
+                                body="Bright, contextual covers make it easier for members to understand a deed before opening it."
+                            />
+
                             <Tip
                                 title="Post consistently"
-                                body="A simple cadence (2–3 posts/week) helps the algorithm learn your audience faster."
+                                body="A steady publishing cadence gives your audience more opportunities to engage."
                             />
                         </div>
-                    </div>
-                </Card>
+                    </section>
+
+                    <Link
+                        href="/studio/deeds"
+                        className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[10px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
+                    >
+                        Manage deeds
+                        <IoChevronForward size={14} />
+                    </Link>
+                </motion.aside>
             </div>
 
-            {/* safe area spacer on mobile */}
-            {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+            {isMobile ? (
+                <div
+                    style={{
+                        height: "env(safe-area-inset-bottom)",
+                    }}
+                />
+            ) : null}
         </div>
     );
 
     /* ---------------- Loading screen ---------------- */
-    if (loading && posts.length === 0 && !profile) {
-        if (isMobile) {
-            return (
-                <div className="fixed inset-0 flex items-center justify-center" style={{ background: UI.gradient }}>
+    if (
+        loading &&
+        posts.length === 0 &&
+        !profile
+    ) {
+        const LoadingBody = (
+            <div className="grid min-h-[100svh] place-items-center bg-[#F8F7F2]">
+                <div className="text-center">
                     <BouncingBallLoader />
+
+                    <p className="mt-3 text-[10px] font-semibold text-slate-400">
+                        Loading Studio analytics…
+                    </p>
                 </div>
-            );
-        }
-        return (
+            </div>
+        );
+
+        return isMobile ? (
+            LoadingBody
+        ) : (
             <AppShell>
-                <div className="min-h-screen flex items-center justify-center" style={{ background: UI.gradient }}>
-                    <BouncingBallLoader />
-                </div>
+                {LoadingBody}
             </AppShell>
         );
     }
 
-    /* ---------------- MOBILE: fixed inset, NO StudioShell wrapper ---------------- */
+    /* ---------------- MOBILE ---------------- */
     if (isMobile) {
         return (
-            <div className="fixed inset-0 flex flex-col" style={{ background: UI.gradient }}>
+            <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-[#F8F7F2]">
                 {Header}
-                <div className="flex-1 overflow-y-auto overscroll-contain">{Main}</div>
+
+                <div
+                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain"
+                    style={{
+                        WebkitOverflowScrolling:
+                            "touch",
+                        touchAction: "pan-y",
+                    }}
+                >
+                    {Main}
+                </div>
             </div>
         );
     }
 
-    /* ---------------- DESKTOP: AppShell + StudioShell ---------------- */
+    /* ---------------- DESKTOP ---------------- */
     return (
         <AppShell>
-            <div style={{ background: UI.gradient, minHeight: "100dvh" }}>
-                <StudioShell title="Home" ctaHref="/studio/upload" ctaLabel="+ Upload">
+            <div
+                className="h-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F8F7F2]"
+                style={{
+                    WebkitOverflowScrolling:
+                        "touch",
+                    touchAction: "pan-y",
+                }}
+            >
+                <StudioShell
+                    title="Analytics"
+                    ctaHref="/studio/upload"
+                    ctaLabel="Upload"
+                >
                     {Header}
                     {Main}
                 </StudioShell>

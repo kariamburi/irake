@@ -5,7 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { IoCallOutline, IoChevronBack } from "react-icons/io5";
+import {
+    IoArrowBackOutline,
+    IoArrowForwardOutline,
+    IoCallOutline,
+    IoCheckmarkCircleOutline,
+    IoChevronDownOutline,
+    IoLockClosedOutline,
+    IoPhonePortraitOutline,
+    IoShieldCheckmarkOutline,
+    IoSparklesOutline,
+} from "react-icons/io5";
 import { doc, getDoc } from "firebase/firestore";
 import { db, getAuthSafe } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -83,13 +93,13 @@ const SORTED_COUNTRIES = [
 ];
 
 const EKARI = {
-    forest: "#233F39",
-    leaf: "#1F3A34",
-    gold: "#C79257",
-    sand: "#FFFFFF",
-    hair: "#E5E7EB",
+    forest: "#173C2E",
+    leaf: "#214C3A",
+    gold: "#F39A22",
+    sand: "#F8F7F2",
+    hair: "#DDD8CC",
     text: "#0F172A",
-    dim: "#6B7280",
+    dim: "#64748B",
     danger: "#B42318",
 };
 
@@ -108,102 +118,228 @@ function CountryPicker({
     onChange: (c: Country) => void;
     disabled?: boolean;
 }) {
-    const [open, setOpen] = React.useState(false);
-    const [q, setQ] = React.useState("");
+    const [open, setOpen] =
+        React.useState(false);
 
-    const filtered = React.useMemo(() => {
-        const s = q.trim().toLowerCase();
-        if (!s) return COUNTRIES;
-        return COUNTRIES.filter(
-            (c) =>
-                c.name.toLowerCase().includes(s) ||
-                c.code.toLowerCase().includes(s) ||
-                c.dial.includes(s)
-        );
-    }, [q]);
+    const [q, setQ] =
+        React.useState("");
+
+    const filtered =
+        React.useMemo(() => {
+            const s =
+                q.trim().toLowerCase();
+
+            if (!s) {
+                return COUNTRIES;
+            }
+
+            return COUNTRIES.filter(
+                (c) =>
+                    c.name
+                        .toLowerCase()
+                        .includes(s) ||
+                    c.code
+                        .toLowerCase()
+                        .includes(s) ||
+                    c.dial.includes(s)
+            );
+        }, [q]);
 
     React.useEffect(() => {
         if (!open) return;
-        const onDown = (e: MouseEvent) => {
-            const t = e.target as HTMLElement;
-            if (!t.closest?.("[data-country-picker-root]")) setOpen(false);
+
+        const onDown = (
+            e: MouseEvent
+        ) => {
+            const t =
+                e.target as HTMLElement;
+
+            if (
+                !t.closest?.(
+                    "[data-country-picker-root]"
+                )
+            ) {
+                setOpen(false);
+            }
         };
-        document.addEventListener("mousedown", onDown);
-        return () => document.removeEventListener("mousedown", onDown);
+
+        document.addEventListener(
+            "mousedown",
+            onDown
+        );
+
+        return () =>
+            document.removeEventListener(
+                "mousedown",
+                onDown
+            );
     }, [open]);
 
     return (
-        <div className="relative" data-country-picker-root>
+        <div
+            className="relative shrink-0"
+            data-country-picker-root
+        >
             <button
                 type="button"
                 disabled={disabled}
-                onClick={() => setOpen((s) => !s)}
-                className="h-9 px-2 rounded-lg hover:bg-black/5 disabled:opacity-60 inline-flex items-center gap-2 text-sm font-semibold"
+                onClick={() =>
+                    setOpen(
+                        (value) =>
+                            !value
+                    )
+                }
+                className={[
+                    "inline-flex h-10 items-center gap-2",
+                    "rounded-xl px-2.5",
+                    "text-[10px] font-black text-slate-700",
+                    "transition hover:bg-[#F3F1EB]",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
+                ].join(" ")}
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                    src={flagUrl(value.code)}
+                    src={flagUrl(
+                        value.code
+                    )}
                     alt={`${value.name} flag`}
-                    width={18}
-                    height={14}
-                    className="rounded-[2px] border border-black/10"
+                    width={20}
+                    height={15}
+                    className="rounded-[3px] border border-black/10"
                 />
-                <span className="text-slate-900">{value.dial}</span>
-                <span className="text-slate-500 hidden sm:inline">• {value.code}</span>
-                <svg width="14" height="14" viewBox="0 0 20 20" className="ml-1 opacity-70">
-                    <path d="M5 7l5 6 5-6" fill="none" stroke="currentColor" strokeWidth="2" />
-                </svg>
+
+                <span>
+                    {value.dial}
+                </span>
+
+                <span className="hidden text-slate-400 sm:inline">
+                    {value.code}
+                </span>
+
+                <IoChevronDownOutline
+                    size={13}
+                    className={[
+                        "text-slate-400",
+                        "transition-transform duration-200",
+                        open
+                            ? "rotate-180"
+                            : "",
+                    ].join(" ")}
+                />
             </button>
 
-            {open && (
+            {open ? (
                 <div
-                    className="absolute z-50 mt-2 w-[260px] rounded-xl border border-black/10 bg-white shadow-xl overflow-hidden"
+                    className={[
+                        "absolute left-0 top-[calc(100%+8px)] z-[100]",
+                        "w-[290px] overflow-hidden rounded-[16px]",
+                        "border border-[#DDD8CC] bg-[#FBFAF6]",
+                        "shadow-[0_18px_48px_rgba(15,23,42,0.16)]",
+                    ].join(" ")}
                     role="listbox"
                 >
-                    <div className="p-2 border-b border-black/5">
+                    <div className="border-b border-[#E8E3D8] p-2.5">
                         <input
                             value={q}
-                            onChange={(e) => setQ(e.target.value)}
-                            placeholder="Search country…"
-                            className="h-9 w-full rounded-lg border border-black/10 bg-[#F6F7FB] px-3 text-sm outline-none"
+                            onChange={(e) =>
+                                setQ(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="Search country or dial code..."
+                            className="h-10 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-semibold text-slate-700 outline-none focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
                             autoFocus
                         />
                     </div>
 
-                    <div className="max-h-64 overflow-auto">
-                        {filtered.map((c) => {
-                            const active = c.code === value.code;
-                            return (
-                                <button
-                                    key={c.code}
-                                    type="button"
-                                    onClick={() => {
-                                        onChange(c);
-                                        setOpen(false);
-                                        setQ("");
-                                    }}
-                                    className={`w-full px-3 py-2 flex items-center gap-2 text-left text-sm hover:bg-black/5 ${active ? "bg-black/5" : ""}`}
-                                    role="option"
-                                    aria-selected={active}
-                                >
-                                    <img
-                                        src={flagUrl(c.code)}
-                                        alt=""
-                                        width={18}
-                                        height={14}
-                                        className="rounded-[2px] border border-black/10"
-                                    />
-                                    <div className="min-w-0 flex-1">
-                                        <div className="font-semibold text-slate-900 truncate">{c.name}</div>
-                                        <div className="text-xs text-slate-500">{c.dial} • {c.code}</div>
-                                    </div>
-                                </button>
-                            );
-                        })}
+                    <div className="max-h-64 overflow-y-auto overscroll-contain p-1.5">
+                        {filtered.map(
+                            (c) => {
+                                const active =
+                                    c.code ===
+                                    value.code;
+
+                                return (
+                                    <button
+                                        key={
+                                            c.code
+                                        }
+                                        type="button"
+                                        onClick={() => {
+                                            onChange(
+                                                c
+                                            );
+                                            setOpen(
+                                                false
+                                            );
+                                            setQ(
+                                                ""
+                                            );
+                                        }}
+                                        className={[
+                                            "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left",
+                                            "transition",
+                                            active
+                                                ? "bg-[#E8ECE8]"
+                                                : "hover:bg-[#F3F1EB]",
+                                        ].join(
+                                            " "
+                                        )}
+                                        role="option"
+                                        aria-selected={
+                                            active
+                                        }
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={flagUrl(
+                                                c.code
+                                            )}
+                                            alt=""
+                                            width={
+                                                20
+                                            }
+                                            height={
+                                                15
+                                            }
+                                            className="rounded-[3px] border border-black/10"
+                                        />
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="truncate text-[10px] font-black text-slate-700">
+                                                {
+                                                    c.name
+                                                }
+                                            </div>
+
+                                            <div className="mt-0.5 text-[8px] font-semibold text-slate-400">
+                                                {
+                                                    c.dial
+                                                }{" "}
+                                                ·{" "}
+                                                {
+                                                    c.code
+                                                }
+                                            </div>
+                                        </div>
+
+                                        {active ? (
+                                            <IoCheckmarkCircleOutline
+                                                size={
+                                                    15
+                                                }
+                                                className="shrink-0 text-[#173C2E]"
+                                            />
+                                        ) : null}
+                                    </button>
+                                );
+                            }
+                        )}
                     </div>
                 </div>
-            )}
+            ) : null}
         </div>
     );
 }
@@ -489,347 +625,730 @@ export default function PhoneLoginPage() {
         [errorMsg]
     );
 
+
     return (
         <main
-            className="min-h-screen w-full flex items-center justify-center px-4 py-8"
-            style={{
-                background:
-                    "radial-gradient(circle at top left, rgba(35,63,57,0.14), transparent 50%), radial-gradient(circle at bottom right, rgba(199,146,87,0.18), #F3F4F6)",
-            }}
+            className="h-[100svh] w-full overflow-hidden bg-[#F8F7F2]"
         >
-            <motion.div
-                className="w-full max-w-md mx-auto"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-            >
-                <div id="recaptcha-container" />
+            <div id="recaptcha-container" />
 
-                <div className="mb-6 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Image src="/ekarihub-logo.png" alt="ekarihub" width={180} height={54} priority />
-                    </div>
-                    <Link
-                        href="/login"
-                        className="text-[11px] font-semibold underline-offset-4 hover:underline"
-                        style={{ color: EKARI.dim }}
+
+            <div className="grid h-full w-full lg:grid-cols-[0.92fr_1.08fr]">
+                {/* LEFT */}
+                <section className="relative hidden overflow-hidden bg-[#173C2E] px-5 py-6 text-white lg:block lg:h-full lg:px-10 lg:py-10 xl:px-14">
+                    <div
+                        className="pointer-events-none absolute inset-0 opacity-[0.045]"
+                        style={{
+                            backgroundImage:
+                                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.75) 18px 19px)",
+                        }}
+                    />
+
+                    <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+
+                    <motion.div
+                        initial={{
+                            opacity: 0,
+                            y: 8,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            y: 0,
+                        }}
+                        transition={{
+                            duration: 0.24,
+                            ease: "easeOut",
+                        }}
+                        className="relative mx-auto flex h-full w-full min-w-0 max-w-[560px] flex-col"
                     >
-                        Use email instead
-                    </Link>
+                        <div className="flex items-center justify-between gap-3">
+                            <Link
+                                href="/"
+                                aria-label="Go to ekarihub"
+                                className="inline-flex items-center"
+                            >
+                                <Image
+                                    src="/ekarihub-logo-green.png"
+                                    alt="ekarihub"
+                                    width={156}
+                                    height={44}
+                                    priority
+                                    className="h-auto w-[132px] object-contain"
+                                />
+                            </Link>
+
+                            <Link
+                                href="/login"
+                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/70 transition hover:bg-white/[0.11]"
+                            >
+                                Other login options
+                            </Link>
+                        </div>
+
+                        <div className="flex flex-1 flex-col justify-center py-8 lg:py-10">
+                            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/65">
+                                <IoSparklesOutline
+                                    size={12}
+                                    className="text-[#F39A22]"
+                                />
+                                Secure phone access
+                            </div>
+
+                            <h1 className="mt-5 max-w-[470px] text-[30px] font-black leading-[1.06] tracking-[-0.045em] sm:text-[36px] xl:text-[42px]">
+                                Sign in with the number connected to your account.
+                            </h1>
+
+                            <p className="mt-4 max-w-[470px] text-[11px] font-medium leading-5 text-white/55 sm:text-[12px]">
+                                We&apos;ll send a one-time verification code to your mobile number so you can securely return to ekarihub.
+                            </p>
+
+                            <div className="mt-7 space-y-5">
+                                <FeatureRow
+                                    icon={<IoPhonePortraitOutline size={18} />}
+                                    title="Fast access"
+                                    description="Use your mobile number without needing to remember an email password."
+                                />
+
+                                <FeatureRow
+                                    icon={<IoShieldCheckmarkOutline size={18} />}
+                                    title="One-time verification"
+                                    description="A unique SMS code confirms that you control the phone number."
+                                />
+
+                                <FeatureRow
+                                    icon={<IoLockClosedOutline size={18} />}
+                                    title="Existing accounts only"
+                                    description="Phone sign-in checks that your ekarihub profile already exists before allowing access."
+                                />
+                            </div>
+
+
+                        </div>
+
+                        <div className="pb-1 text-[9px] font-semibold text-white/30">
+                            Collaborate · Innovate · Cultivate
+                        </div>
+                    </motion.div>
+                </section>
+
+                {/* =====================================================
+                    RIGHT / PHONE AUTH
+                ===================================================== */}
+                <section className="relative flex h-full  overflow-y-auto overflow-x-hidden flex-col bg-[#F8F7F2] px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10 xl:px-14">
+                    <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
+                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+
+                    <motion.div
+                        initial={{
+                            opacity: 0,
+                            y: 8,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            y: 0,
+                        }}
+                        transition={{
+                            duration: 0.24,
+                            ease: "easeOut",
+                        }}
+                        className="relative mx-auto flex h-full w-full min-w-0 max-w-[560px] flex-1 flex-col"
+                    >
+                        {/* Mobile header */}
+                        <div className="mb-6 flex items-center justify-between lg:hidden">
+                            <Link
+                                href="/"
+                                aria-label="Go to ekarihub"
+                                className="inline-flex items-center"
+                            >
+                                <Image
+                                    src="/ekarihub-logo.png"
+                                    alt="ekarihub"
+                                    width={152}
+                                    height={44}
+                                    priority
+                                    className="h-auto w-[128px]"
+                                />
+                            </Link>
+
+                            <Link
+                                href="/login"
+                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[9px] font-black text-[#173C2E]"
+                            >
+                                Other options
+                            </Link>
+                        </div>
+
+                        <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
+                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                Phone verification
+                            </div>
+
+                            <h2 className="mt-1 text-[25px] font-black tracking-[-0.035em] text-slate-900 sm:text-[29px]">
+                                {confirmation
+                                    ? "Enter your verification code."
+                                    : "Verify your phone number."}
+                            </h2>
+
+                            <p className="mt-2 max-w-[480px] text-[10px] font-medium leading-5 text-slate-500">
+                                {confirmation
+                                    ? `We sent a 6-digit code to ${e164}.`
+                                    : "Choose your country and enter the phone number linked to your ekarihub account."}
+                            </p>
+
+                            {!firebaseReady ? (
+                                <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[10px] font-semibold text-rose-700">
+                                    Firebase is not configured yet.
+                                </div>
+                            ) : null}
+
+                            {!confirmation ? (
+                                <>
+                                    <div className="mt-6">
+                                        <label className="mb-1.5 block text-[10px] font-black text-slate-700">
+                                            Phone number
+                                        </label>
+
+                                        <div className="flex min-w-0 items-center gap-2 rounded-[15px] border border-[#D9D3C7] bg-white p-1.5 transition focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                                            <CountryPicker
+                                                value={country}
+                                                onChange={setCountry}
+                                                disabled={disableAll || sending}
+                                            />
+
+                                            <div className="h-7 w-px shrink-0 bg-[#E5E0D6]" />
+
+                                            <IoCallOutline
+                                                size={16}
+                                                className="shrink-0 text-slate-400"
+                                            />
+
+                                            <input
+                                                type="tel"
+                                                inputMode="numeric"
+                                                autoComplete="tel-national"
+                                                placeholder="712345678"
+                                                maxLength={12}
+                                                className="h-10 min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                                value={localPhone}
+                                                onChange={(e) =>
+                                                    setLocalPhone(
+                                                        e.target.value.replace(
+                                                            /[^\d]/g,
+                                                            ""
+                                                        )
+                                                    )
+                                                }
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        void sendCode();
+                                                    }
+                                                }}
+                                                aria-label="Phone number"
+                                                disabled={disableAll || sending}
+                                            />
+                                        </div>
+
+                                        <div className="mt-2 flex items-center justify-between gap-3">
+                                            <div className="text-[9px] font-medium text-slate-400">
+                                                Sending to{" "}
+                                                <span className="font-black text-slate-600">
+                                                    {e164 || `${country.dial}…`}
+                                                </span>
+                                            </div>
+
+                                            {validPhone ? (
+                                                <span className="inline-flex items-center gap-1 text-[8px] font-black text-emerald-600">
+                                                    <IoCheckmarkCircleOutline size={12} />
+                                                    Valid format
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
+                                    {!!errorMsg ? (
+                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[10px] font-semibold leading-4 text-rose-700">
+                                            {errorMsg}
+
+                                            {showSignupLink ? (
+                                                <div className="mt-2">
+                                                    <Link
+                                                        href="/signup"
+                                                        className="font-black text-[#173C2E] underline underline-offset-2"
+                                                    >
+                                                        Create an account
+                                                    </Link>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => void sendCode()}
+                                        disabled={!validPhone || sending || disableAll}
+                                        className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white shadow-[0_10px_24px_rgba(23,60,46,0.14)] transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {sending ? (
+                                            <>
+                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                                                Sending code...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Send verification code
+                                                <IoArrowForwardOutline
+                                                    size={14}
+                                                    className="transition-transform duration-200 group-hover:translate-x-0.5"
+                                                />
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => router.back()}
+                                        className="mx-auto mt-3 inline-flex h-9 items-center gap-1.5 px-3 text-[9px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                                    >
+                                        <IoArrowBackOutline size={13} />
+                                        Back
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="mt-6">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black text-slate-700">
+                                                Verification code
+                                            </label>
+
+                                            <button
+                                                type="button"
+                                                onClick={backToNumber}
+                                                className="text-[9px] font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                            >
+                                                Change number
+                                            </button>
+                                        </div>
+
+                                        <div
+                                            className="relative mt-3"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                const idx = Math.min(code.length, 5);
+                                                focusOtpIndex(idx);
+                                            }}
+                                            onTouchStart={() => {
+                                                const idx = Math.min(code.length, 5);
+                                                focusOtpIndex(idx);
+                                            }}
+                                        >
+                                            <div className="grid grid-cols-6 gap-2">
+                                                {Array.from({
+                                                    length: 6,
+                                                }).map((_, i) => {
+                                                    const char =
+                                                        code[i] ?? "";
+
+                                                    const active =
+                                                        i === code.length ||
+                                                        (code.length === 6 &&
+                                                            i === 5);
+
+                                                    return (
+                                                        <input
+                                                            key={i}
+                                                            ref={(el) => {
+                                                                otpInputsRef.current[i] =
+                                                                    el;
+                                                            }}
+                                                            value={char}
+                                                            inputMode="numeric"
+                                                            pattern="\d*"
+                                                            maxLength={1}
+                                                            autoComplete={
+                                                                i === 0
+                                                                    ? "one-time-code"
+                                                                    : "off"
+                                                            }
+                                                            aria-label={`OTP digit ${i + 1}`}
+                                                            className={[
+                                                                "h-12 min-w-0 w-full rounded-[13px] border bg-white",
+                                                                "text-center text-[18px] font-black text-slate-800",
+                                                                "outline-none transition",
+                                                                active
+                                                                    ? "border-[#173C2E]/50 ring-4 ring-[#173C2E]/5"
+                                                                    : "border-[#D9D3C7]",
+                                                            ].join(" ")}
+                                                            onChange={(e) => {
+                                                                const vRaw =
+                                                                    e.target.value ??
+                                                                    "";
+
+                                                                const v =
+                                                                    vRaw.replace(
+                                                                        /[^\d]/g,
+                                                                        ""
+                                                                    );
+
+                                                                if (!v) {
+                                                                    setOtpAt(
+                                                                        i,
+                                                                        ""
+                                                                    );
+                                                                    return;
+                                                                }
+
+                                                                const digits =
+                                                                    v
+                                                                        .slice(
+                                                                            0,
+                                                                            6 - i
+                                                                        )
+                                                                        .split(
+                                                                            ""
+                                                                        );
+
+                                                                const arr =
+                                                                    code.split(
+                                                                        ""
+                                                                    );
+
+                                                                while (
+                                                                    arr.length <
+                                                                    6
+                                                                ) {
+                                                                    arr.push(
+                                                                        ""
+                                                                    );
+                                                                }
+
+                                                                digits.forEach(
+                                                                    (d, k) => {
+                                                                        arr[
+                                                                            i +
+                                                                            k
+                                                                        ] = d;
+                                                                    }
+                                                                );
+
+                                                                const nextCode =
+                                                                    arr
+                                                                        .join(
+                                                                            ""
+                                                                        )
+                                                                        .slice(
+                                                                            0,
+                                                                            6
+                                                                        );
+
+                                                                setCode(
+                                                                    nextCode
+                                                                );
+
+                                                                const nextIndex =
+                                                                    Math.min(
+                                                                        i +
+                                                                        digits.length,
+                                                                        5
+                                                                    );
+
+                                                                requestAnimationFrame(
+                                                                    () =>
+                                                                        otpInputsRef.current[
+                                                                            nextIndex
+                                                                        ]?.focus()
+                                                                );
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                if (
+                                                                    e.key ===
+                                                                    "Backspace"
+                                                                ) {
+                                                                    e.preventDefault();
+
+                                                                    if (char) {
+                                                                        setOtpAt(
+                                                                            i,
+                                                                            ""
+                                                                        );
+                                                                        return;
+                                                                    }
+
+                                                                    const prev =
+                                                                        Math.max(
+                                                                            i -
+                                                                            1,
+                                                                            0
+                                                                        );
+
+                                                                    setOtpAt(
+                                                                        prev,
+                                                                        ""
+                                                                    );
+
+                                                                    requestAnimationFrame(
+                                                                        () =>
+                                                                            otpInputsRef.current[
+                                                                                prev
+                                                                            ]?.focus()
+                                                                    );
+                                                                }
+
+                                                                if (
+                                                                    e.key ===
+                                                                    "ArrowLeft"
+                                                                ) {
+                                                                    e.preventDefault();
+
+                                                                    const prev =
+                                                                        Math.max(
+                                                                            i -
+                                                                            1,
+                                                                            0
+                                                                        );
+
+                                                                    requestAnimationFrame(
+                                                                        () =>
+                                                                            otpInputsRef.current[
+                                                                                prev
+                                                                            ]?.focus()
+                                                                    );
+                                                                }
+
+                                                                if (
+                                                                    e.key ===
+                                                                    "ArrowRight"
+                                                                ) {
+                                                                    e.preventDefault();
+
+                                                                    const next =
+                                                                        Math.min(
+                                                                            i +
+                                                                            1,
+                                                                            5
+                                                                        );
+
+                                                                    requestAnimationFrame(
+                                                                        () =>
+                                                                            otpInputsRef.current[
+                                                                                next
+                                                                            ]?.focus()
+                                                                    );
+                                                                }
+
+                                                                if (
+                                                                    e.key ===
+                                                                    "Enter"
+                                                                ) {
+                                                                    e.preventDefault();
+                                                                    void verifyCode();
+                                                                }
+                                                            }}
+                                                            onPaste={(e) => {
+                                                                e.preventDefault();
+
+                                                                const pasted =
+                                                                    e.clipboardData.getData(
+                                                                        "text"
+                                                                    );
+
+                                                                const digits =
+                                                                    pasted
+                                                                        .replace(
+                                                                            /[^\d]/g,
+                                                                            ""
+                                                                        )
+                                                                        .slice(
+                                                                            0,
+                                                                            6
+                                                                        );
+
+                                                                if (!digits) {
+                                                                    return;
+                                                                }
+
+                                                                const arr =
+                                                                    digits.split(
+                                                                        ""
+                                                                    );
+
+                                                                while (
+                                                                    arr.length <
+                                                                    6
+                                                                ) {
+                                                                    arr.push(
+                                                                        ""
+                                                                    );
+                                                                }
+
+                                                                setCode(
+                                                                    arr
+                                                                        .join(
+                                                                            ""
+                                                                        )
+                                                                        .slice(
+                                                                            0,
+                                                                            6
+                                                                        )
+                                                                );
+
+                                                                requestAnimationFrame(
+                                                                    () =>
+                                                                        otpInputsRef.current[
+                                                                            Math.min(
+                                                                                digits.length -
+                                                                                1,
+                                                                                5
+                                                                            )
+                                                                        ]?.focus()
+                                                                );
+                                                            }}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 flex items-center justify-between gap-3 text-[9px]">
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    countdown > 0 ||
+                                                    disableAll
+                                                }
+                                                onClick={() => void sendCode()}
+                                                className="font-black text-[#173C2E] transition hover:text-[#F39A22] disabled:cursor-not-allowed disabled:text-slate-300"
+                                            >
+                                                Resend code
+                                                {countdown > 0
+                                                    ? ` (${countdown}s)`
+                                                    : ""}
+                                            </button>
+
+                                            <span className="font-semibold text-slate-400">
+                                                SMS verification
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {!!errorMsg ? (
+                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[10px] font-semibold leading-4 text-rose-700">
+                                            {errorMsg}
+
+                                            {showSignupLink ? (
+                                                <div className="mt-2">
+                                                    <Link
+                                                        href="/signup"
+                                                        className="font-black text-[#173C2E] underline underline-offset-2"
+                                                    >
+                                                        Create an account
+                                                    </Link>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => void verifyCode()}
+                                        disabled={!validCode || verifying || disableAll}
+                                        className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white shadow-[0_10px_24px_rgba(23,60,46,0.14)] transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {verifying ? (
+                                            <>
+                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                                                Verifying...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Verify and continue
+                                                <IoArrowForwardOutline
+                                                    size={14}
+                                                    className="transition-transform duration-200 group-hover:translate-x-0.5"
+                                                />
+                                            </>
+                                        )}
+                                    </button>
+                                </>
+                            )}
+
+                            <div className="mt-5 rounded-[16px] border border-[#E5E0D6] bg-[#FBFAF6] px-4 py-3">
+                                <div className="flex items-start gap-2.5">
+                                    <IoLockClosedOutline
+                                        size={14}
+                                        className="mt-0.5 shrink-0 text-[#173C2E]"
+                                    />
+
+                                    <div>
+                                        <div className="text-[9px] font-black text-slate-600">
+                                            Secure account verification
+                                        </div>
+
+                                        <div className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                                            Never share your one-time verification code with another person.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-5">
+                            <p className="text-center text-[9px] font-medium leading-4 text-slate-400">
+                                By continuing, you agree to our{" "}
+                                <Link
+                                    href="/terms"
+                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                >
+                                    Terms
+                                </Link>{" "}
+                                and{" "}
+                                <Link
+                                    href="/privacy"
+                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                >
+                                    Privacy Policy
+                                </Link>
+                                .
+                            </p>
+
+                            <div
+                                style={{
+                                    height: "env(safe-area-inset-bottom)",
+                                }}
+                            />
+                        </div>
+                    </motion.div>
+                </section>
+            </div>
+        </main>
+    );
+}
+
+function FeatureRow({
+    icon,
+    title,
+    description,
+}: {
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+}) {
+    return (
+        <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+                {icon}
+            </div>
+
+            <div className="min-w-0">
+                <div className="text-[12px] font-black text-white">
+                    {title}
                 </div>
 
-                <motion.div
-                    className="rounded-3xl bg-white/90 backdrop-blur-xl border border-white/70 shadow-[0_18px_60px_rgba(15,23,42,0.25)] px-6 py-7 md:px-7 md:py-8 relative"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.28, ease: "easeOut" }}
-                >
-                    <div className="mb-4">
-                        <p className="inline-flex items-center gap-2 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1 text-[11px] font-medium mb-2">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Secure phone sign-in
-                        </p>
-                        <h1
-                            className="text-xl md:text-2xl font-semibold tracking-tight"
-                            style={{ color: EKARI.text }}
-                        >
-                            {confirmation ? "Confirm your number" : "Verify your phone"}
-                        </h1>
-                        <p className="mt-1 text-xs md:text-sm leading-5" style={{ color: EKARI.dim }}>
-                            {confirmation
-                                ? "Enter the 6-digit code we’ve sent via SMS."
-                                : "Use your mobile number to access ekarihub."}
-                        </p>
-                    </div>
-
-                    {!firebaseReady && (
-                        <p className="mb-3 text-sm font-semibold" style={{ color: EKARI.danger }}>
-                            Firebase is not configured yet.
-                        </p>
-                    )}
-
-                    {!confirmation ? (
-                        <>
-                            <label className="block text-xs font-semibold mb-1.5">
-                                <span style={{ color: EKARI.text }}>Phone number</span>
-                            </label>
-
-                            <div
-                                className="flex items-center h-11 rounded-xl border bg-[#F6F7FB] px-2 gap-2
-                                focus-within:border-[rgba(35,63,57,0.7)]
-                                focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)]"
-                                style={{ borderColor: EKARI.hair }}
-                            >
-                                <IoCallOutline className="ml-1 flex-shrink-0" size={18} color={EKARI.dim} />
-
-                                <CountryPicker
-                                    value={country}
-                                    onChange={setCountry}
-                                    disabled={disableAll || sending}
-                                />
-
-                                <div className="h-6 w-px bg-gray-300" />
-
-                                <input
-                                    type="tel"
-                                    inputMode="numeric"
-                                    autoComplete="tel-national"
-                                    placeholder="712345678"
-                                    maxLength={12}
-                                    className="flex-1 bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
-                                    value={localPhone}
-                                    onChange={(e) => setLocalPhone(e.target.value.replace(/[^\d]/g, ""))}
-                                    onKeyDown={(e) => e.key === "Enter" && sendCode()}
-                                    aria-label="Phone number"
-                                    disabled={disableAll || sending}
-                                />
-                            </div>
-
-                            <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
-                                Sending to: <span className="font-semibold">{e164 || `${country.dial}…`}</span>
-                            </div>
-
-                            {!!errorMsg && (
-                                <div className="mt-3 flex flex-col items-center gap-2">
-                                    <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
-                                        {errorMsg}
-                                    </p>
-
-                                    {showSignupLink && (
-                                        <a
-                                            href="https://www.ekarihub.com/signup"
-                                            className="text-[12px] font-semibold underline underline-offset-4"
-                                            style={{ color: EKARI.forest }}
-                                        >
-                                            Create an account (Sign up)
-                                        </a>
-                                    )}
-                                </div>
-                            )}
-
-                            <button
-                                onClick={sendCode}
-                                disabled={!validPhone || sending || disableAll}
-                                className="mt-4 w-full rounded-xl overflow-hidden active:scale-[0.98] transition disabled:opacity-60"
-                            >
-                                <div
-                                    className="py-3 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
-                                    style={{ opacity: !validPhone || sending || disableAll ? 0.7 : 1 }}
-                                >
-                                    {sending ? (
-                                        <span className="inline-flex items-center gap-2">
-                                            <span
-                                                className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]"
-                                                aria-hidden
-                                            />
-                                            Sending code...
-                                        </span>
-                                    ) : (
-                                        "Send code"
-                                    )}
-                                </div>
-                            </button>
-
-                            <button
-                                onClick={() => router.back()}
-                                className="mx-auto mt-3 flex items-center gap-1 text-xs font-semibold hover:underline underline-offset-4"
-                                style={{ color: EKARI.dim }}
-                            >
-                                <IoChevronBack size={16} />
-                                Back
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <label className="block text-xs font-semibold mb-1.5">
-                                <span style={{ color: EKARI.text }}>Verification code</span>
-                            </label>
-
-                            <div
-                                className="relative mt-1"
-                                onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    const idx = Math.min(code.length, 5);
-                                    focusOtpIndex(idx);
-                                }}
-                                onTouchStart={() => {
-                                    const idx = Math.min(code.length, 5);
-                                    focusOtpIndex(idx);
-                                }}
-                            >
-                                <div className="flex justify-between gap-2">
-                                    {Array.from({ length: 6 }).map((_, i) => {
-                                        const char = code[i] ?? "";
-                                        const active = i === code.length || (code.length === 6 && i === 5);
-
-                                        return (
-                                            <input
-                                                key={i}
-                                                ref={(el) => {
-                                                    otpInputsRef.current[i] = el;
-                                                }}
-                                                value={char}
-                                                inputMode="numeric"
-                                                pattern="\d*"
-                                                maxLength={1}
-                                                autoComplete={i === 0 ? "one-time-code" : "off"}
-                                                aria-label={`OTP digit ${i + 1}`}
-                                                className="w-10 h-12 rounded-xl border bg-[#F6F7FB] text-center text-[20px] font-extrabold outline-none"
-                                                style={{
-                                                    borderColor: char ? "#D1D5DB" : EKARI.hair,
-                                                    backgroundColor: char ? "#FFFFFF" : "#F6F7FB",
-                                                    boxShadow: active ? `0 0 0 1px ${EKARI.leaf} inset` : "none",
-                                                    color: EKARI.text,
-                                                }}
-                                                onChange={(e) => {
-                                                    const vRaw = e.target.value ?? "";
-                                                    const v = vRaw.replace(/[^\d]/g, "");
-
-                                                    if (!v) {
-                                                        setOtpAt(i, "");
-                                                        return;
-                                                    }
-
-                                                    const digits = v.slice(0, 6 - i).split("");
-                                                    const arr = code.split("");
-                                                    while (arr.length < 6) arr.push("");
-
-                                                    digits.forEach((d, k) => {
-                                                        arr[i + k] = d;
-                                                    });
-
-                                                    const nextCode = arr.join("").slice(0, 6);
-                                                    setCode(nextCode);
-
-                                                    const nextIndex = Math.min(i + digits.length, 5);
-                                                    requestAnimationFrame(() => otpInputsRef.current[nextIndex]?.focus());
-                                                }}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Backspace") {
-                                                        e.preventDefault();
-                                                        if (char) {
-                                                            setOtpAt(i, "");
-                                                            return;
-                                                        }
-                                                        const prev = Math.max(i - 1, 0);
-                                                        setOtpAt(prev, "");
-                                                        requestAnimationFrame(() => otpInputsRef.current[prev]?.focus());
-                                                    }
-
-                                                    if (e.key === "ArrowLeft") {
-                                                        e.preventDefault();
-                                                        const prev = Math.max(i - 1, 0);
-                                                        requestAnimationFrame(() => otpInputsRef.current[prev]?.focus());
-                                                    }
-                                                    if (e.key === "ArrowRight") {
-                                                        e.preventDefault();
-                                                        const next = Math.min(i + 1, 5);
-                                                        requestAnimationFrame(() => otpInputsRef.current[next]?.focus());
-                                                    }
-
-                                                    if (e.key === "Enter") {
-                                                        e.preventDefault();
-                                                        verifyCode();
-                                                    }
-                                                }}
-                                                onPaste={(e) => {
-                                                    e.preventDefault();
-                                                    const text = e.clipboardData.getData("text");
-                                                    const digits = text.replace(/[^\d]/g, "").slice(0, 6);
-                                                    if (!digits) return;
-
-                                                    const arr = digits.split("");
-                                                    while (arr.length < 6) arr.push("");
-                                                    setCode(arr.join("").slice(0, 6));
-
-                                                    requestAnimationFrame(() =>
-                                                        otpInputsRef.current[Math.min(digits.length - 1, 5)]?.focus()
-                                                    );
-                                                }}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {!!errorMsg && (
-                                <div className="mt-3 flex flex-col items-center gap-2">
-                                    <p className="inline-flex items-center gap-2 rounded-full bg-[#FEF2F2] text-[12px] font-semibold px-3 py-1.5 text-[#B91C1C] border border-[#FECACA]">
-                                        {errorMsg}
-                                    </p>
-
-                                    {showSignupLink && (
-                                        <a
-                                            href="https://www.ekarihub.com/signup"
-                                            className="text-[12px] font-semibold underline underline-offset-4"
-                                            style={{ color: EKARI.forest }}
-                                        >
-                                            Create an account
-                                        </a>
-                                    )}
-                                </div>
-                            )}
-
-                            <button
-                                onClick={verifyCode}
-                                disabled={!validCode || verifying || disableAll}
-                                className="mt-4 w-full rounded-xl overflow-hidden active:scale-[0.98] transition disabled:opacity-60"
-                            >
-                                <div
-                                    className="py-3 text-center text-sm font-semibold text-white bg-gradient-to-br from-[#C79257] to-[#fbbf77]"
-                                    style={{ opacity: !validCode || verifying || disableAll ? 0.7 : 1 }}
-                                >
-                                    {verifying ? (
-                                        <span className="inline-flex items-center gap-2">
-                                            <span
-                                                className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent align-[-2px]"
-                                                aria-hidden
-                                            />
-                                            Verifying...
-                                        </span>
-                                    ) : (
-                                        "Verify"
-                                    )}
-                                </div>
-                            </button>
-
-                            <div className="mt-3 flex items-center justify-between text-xs">
-                                <button
-                                    disabled={countdown > 0 || disableAll}
-                                    onClick={sendCode}
-                                    className="font-semibold underline-offset-4 hover:underline disabled:no-underline"
-                                    style={{
-                                        color: EKARI.text,
-                                        opacity: countdown > 0 || disableAll ? 0.5 : 1,
-                                    }}
-                                >
-                                    Resend code{countdown > 0 ? ` (${countdown}s)` : ""}
-                                </button>
-
-                                <button
-                                    onClick={backToNumber}
-                                    className="font-semibold underline-offset-4 hover:underline"
-                                    style={{ color: EKARI.dim }}
-                                >
-                                    Change number
-                                </button>
-                            </div>
-                        </>
-                    )}
-
-                    <p className="mt-5 text-[11px] leading-5" style={{ color: EKARI.dim }}>
-                        By continuing, you agree to our{" "}
-                        <Link href="/terms" className="underline font-semibold" style={{ color: EKARI.forest }}>
-                            Terms
-                        </Link>{" "}
-                        and{" "}
-                        <Link href="/privacy" className="underline font-semibold" style={{ color: EKARI.forest }}>
-                            Privacy Policy
-                        </Link>
-                        .
-                    </p>
-                </motion.div>
-            </motion.div>
-        </main>
+                <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
+                    {description}
+                </p>
+            </div>
+        </div>
     );
 }

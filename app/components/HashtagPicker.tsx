@@ -11,9 +11,9 @@ export type EkariTheme = {
 };
 
 const DEFAULT_THEME: EkariTheme = {
-    hair: "#E5E7EB",
+    hair: "#DDD8CC",
     text: "#0F172A",
-    dim: "#6B7280",
+    dim: "#64748B",
 };
 
 export interface HashtagPickerProps {
@@ -181,14 +181,14 @@ export default function HashtagPicker({
         <div className={`mt-2 ${className}`}>
             {/* Input + chips */}
             <div
-                className="min-h-[46px] w-full rounded-xl border bg-[#F6F7FB] px-2.5 py-2 text-sm focus-within:ring-2"
+                className="min-h-[46px] w-full rounded-xl border bg-white px-2.5 py-2 text-sm transition focus-within:border-[#173C2E]/45 focus-within:ring-2 focus-within:ring-[#173C2E]/5"
                 style={{ borderColor: ekari.hair, color: ekari.text }}
             >
                 <div className="flex flex-wrap items-center gap-1.5">
                     {value.map((t, i) => (
                         <span
                             key={`${t}-${i}`}
-                            className="group inline-flex items-center gap-1 rounded-full border bg-white px-2 py-1 text-xs font-bold"
+                            className="group inline-flex items-center gap-1 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[10px] font-black text-[#173C2E]"
                             style={{ borderColor: ekari.hair, color: ekari.text }}
                             title={`#${t}`}
                         >
@@ -240,7 +240,7 @@ export default function HashtagPicker({
                         }}
                     >
                         <div
-                            className="absolute z-20 mt-2 w-full rounded-xl border bg-white shadow-xl"
+                            className="absolute z-20 mt-2 w-full overflow-hidden rounded-[14px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_16px_38px_rgba(15,23,42,0.10)]"
                             style={{ borderColor: ekari.hair }}
                             role="listbox"
                             aria-activedescendant={`opt-${activeIdx}`}
@@ -281,8 +281,8 @@ export default function HashtagPicker({
                                                 role="option"
                                                 aria-selected={idx === activeIdx}
                                                 className={[
-                                                    "flex cursor-pointer items-center justify-between px-3 py-2 text-sm",
-                                                    idx === activeIdx ? "bg-gray-100" : "hover:bg-gray-50",
+                                                    "flex cursor-pointer items-center justify-between px-3 py-2.5 text-[11px] font-semibold",
+                                                    idx === activeIdx ? "bg-[#E8ECE8] text-[#173C2E]" : "hover:bg-[#F3F1EB]",
                                                 ].join(" ")}
                                                 onMouseEnter={() => setActiveIdx(idx)}
                                                 onClick={() => commit(s)}
@@ -354,8 +354,8 @@ function SuggestGroup({
                             onClick={() => onPick(n)}
                             disabled={disabled}
                             className={[
-                                "rounded-full border bg-white px-2 py-1 text-xs font-bold",
-                                disabled ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50",
+                                "rounded-full border border-[#D9D3C7] bg-white px-2.5 py-1.5 text-[10px] font-black",
+                                disabled ? "opacity-60 cursor-not-allowed" : "hover:bg-[#EEF3EE] hover:text-[#173C2E]",
                             ].join(" ")}
                             style={{ borderColor: ekari.hair, color: ekari.text }}
                             title={`#${n}`}

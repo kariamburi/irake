@@ -19,14 +19,30 @@ import { app, db } from "@/lib/firebase";
 import AppShell from "@/app/components/AppShell";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
 import { createPortal } from "react-dom";
+import {
+  IoArrowBack,
+  IoBagHandleOutline,
+  IoCheckmarkCircleOutline,
+  IoCloseOutline,
+  IoFlashOutline,
+  IoGridOutline,
+  IoInformationCircleOutline,
+  IoRocketOutline,
+  IoStarOutline,
+  IoWalletOutline,
+} from "react-icons/io5";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 const EKARI = {
-  forest: "#233F39",
-  gold: "#C79257",
-  sand: "#FFFFFF",
+  forest: "#173C2E",
+  forestSoft: "#214C3A",
+  gold: "#F39A22",
+  sand: "#F8F7F2",
+  paper: "#FBFAF6",
   text: "#0F172A",
-  dim: "#6B7280",
-  hair: "#E5E7EB",
+  dim: "#64748B",
+  hair: "#DDD8CC",
 };
 
 type PreferredCurrency = "USD" | "KES";
@@ -216,36 +232,29 @@ function BillingToggle({
   yearlySaveText?: string;
 }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-2xl border bg-white p-1" style={{ borderColor: EKARI.hair }}>
-      <button
-        type="button"
-        onClick={() => onChange("monthly")}
-        className="rounded-xl px-3 py-2 text-xs font-extrabold"
-        style={{
-          background: value === "monthly" ? EKARI.forest : "transparent",
-          color: value === "monthly" ? "#fff" : EKARI.text,
-        }}
-      >
-        Monthly
-      </button>
+    <div className="inline-flex items-center gap-1 rounded-xl border border-[#D9D3C7] bg-[#FBFAF6] p-1">
+      {(["monthly", "yearly"] as BillingCycle[]).map((option) => {
+        const active = value === option;
 
-      <button
-        type="button"
-        onClick={() => onChange("yearly")}
-        className="rounded-xl px-3 py-2 text-xs font-extrabold"
-        style={{
-          background: value === "yearly" ? EKARI.forest : "transparent",
-          color: value === "yearly" ? "#fff" : EKARI.text,
-        }}
-      >
-        Yearly
-      </button>
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={[
+              "rounded-lg px-3 py-2 text-[10px] font-black transition-all",
+              active
+                ? "bg-[#173C2E] text-white shadow-sm"
+                : "text-slate-500 hover:bg-[#F3F1EB] hover:text-slate-800",
+            ].join(" ")}
+          >
+            {option === "monthly" ? "Monthly" : "Yearly"}
+          </button>
+        );
+      })}
 
       {yearlySaveText ? (
-        <span
-          className="hidden sm:inline-flex ml-1 rounded-full px-2 py-1 text-[10px] font-extrabold border"
-          style={{ borderColor: EKARI.hair, color: EKARI.dim }}
-        >
+        <span className="ml-1 hidden rounded-full bg-[#FFF4E3] px-2 py-1 text-[9px] font-black text-[#9A5A08] sm:inline-flex">
           {yearlySaveText}
         </span>
       ) : null}
@@ -261,30 +270,26 @@ function CurrencyToggle({
   onChange: (v: PreferredCurrency) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-2xl border bg-white p-1" style={{ borderColor: EKARI.hair }}>
-      <button
-        type="button"
-        onClick={() => onChange("USD")}
-        className="rounded-xl px-3 py-2 text-xs font-extrabold"
-        style={{
-          background: value === "USD" ? EKARI.forest : "transparent",
-          color: value === "USD" ? "#fff" : EKARI.text,
-        }}
-      >
-        USD
-      </button>
+    <div className="inline-flex items-center gap-1 rounded-xl border border-[#D9D3C7] bg-[#FBFAF6] p-1">
+      {(["KES", "USD"] as PreferredCurrency[]).map((option) => {
+        const active = value === option;
 
-      <button
-        type="button"
-        onClick={() => onChange("KES")}
-        className="rounded-xl px-3 py-2 text-xs font-extrabold"
-        style={{
-          background: value === "KES" ? EKARI.forest : "transparent",
-          color: value === "KES" ? "#fff" : EKARI.text,
-        }}
-      >
-        KES
-      </button>
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={[
+              "rounded-lg px-3 py-2 text-[10px] font-black transition-all",
+              active
+                ? "bg-[#173C2E] text-white shadow-sm"
+                : "text-slate-500 hover:bg-[#F3F1EB] hover:text-slate-800",
+            ].join(" ")}
+          >
+            {option}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -317,57 +322,76 @@ function MobilePlanPicker({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-white flex flex-col">
-      <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: EKARI.hair }}>
-        <div>
-          <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
-            Choose a plan
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[70] flex flex-col bg-[#F8F7F2]"
+    >
+      <div
+        className="shrink-0 border-b border-[#DDD8CC] bg-[#FBFAF6] px-4 pb-3"
+        style={{ paddingTop: "calc(12px + env(safe-area-inset-top))" }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+              Seller packages
+            </div>
+
+            <h2 className="mt-1 text-[18px] font-black tracking-[-0.025em] text-slate-900">
+              Choose a plan
+            </h2>
+
+            <p className="mt-1 text-[10px] font-medium text-slate-400">
+              Compare limits, visibility and seller growth tools.
+            </p>
           </div>
-          <div className="text-xs" style={{ color: EKARI.dim }}>
-            Switch billing + currency, then pick.
-          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-600"
+            aria-label="Close plan picker"
+          >
+            <IoCloseOutline size={17} />
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-xl px-3 py-2 text-xs font-extrabold border"
-          style={{ borderColor: EKARI.hair, color: EKARI.text }}
-        >
-          Close
-        </button>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <BillingToggle
+            value={billing}
+            onChange={onBillingChange}
+          />
+
+          <CurrencyToggle
+            value={currency}
+            onChange={onCurrencyChange}
+          />
+
+          <span className="ml-auto text-[9px] font-black text-slate-400">
+            {packages.length} plans
+          </span>
+        </div>
       </div>
 
-      <div className="px-4 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <BillingToggle value={billing} onChange={onBillingChange} />
-          <CurrencyToggle value={currency} onChange={onCurrencyChange} />
-        </div>
-
-        <div className="text-[11px]" style={{ color: EKARI.dim }}>
-          {packages.length} plans
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <div className="grid gap-4">
-          {packages.map((p) => {
-            const isCurrent = p.id === currentPackageId;
-            return (
-              <PackageCard
-                key={p.id}
-                p={p}
-                isCurrent={isCurrent}
-                billing={billing}
-                currency={currency}
-                rate={rate}
-                onChoose={() => onSelect(p.id)}
-              />
-            );
-          })}
+          {packages.map((pkg) => (
+            <PackageCard
+              key={pkg.id}
+              p={pkg}
+              isCurrent={pkg.id === currentPackageId}
+              billing={billing}
+              currency={currency}
+              rate={rate}
+              onChoose={() => onSelect(pkg.id)}
+            />
+          ))}
         </div>
+
+        <div style={{ height: "env(safe-area-inset-bottom)" }} />
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -534,17 +558,17 @@ function PlanCheckoutDialogWeb({
 
   return createPortal(<>
     <div className="fixed inset-0 z-[80]">
-      <div className="absolute inset-0 bg-black/40" onClick={() => !loading && onClose()} />
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" onClick={() => !loading && onClose()} />
       <div className="absolute inset-0 flex items-center justify-center px-4">
-        <div className="w-full max-w-[640px] rounded-3xl bg-white px-4 pb-5 pt-3 shadow-xl">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
+        <div className="w-full max-w-[620px] rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 pb-5 pt-4 shadow-2xl sm:px-5">
+          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#D9D3C7]" />
 
           <div className="mb-3 flex items-start gap-3">
             <div className="flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:#233F39]">
+              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
                 Upgrade plan
               </p>
-              <h2 className="text-[16px] font-extrabold text-gray-900">
+              <h2 className="mt-1 text-[18px] font-black tracking-[-0.025em] text-slate-900">
                 {pkg.name} — {billing === "yearly" ? "Yearly" : "Monthly"}
               </h2>
               <p className="mt-1 text-xs text-gray-500">{pkg.target}</p>
@@ -554,7 +578,7 @@ function PlanCheckoutDialogWeb({
               type="button"
               disabled={loading}
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40"
+              className="grid h-9 w-9 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-40"
             >
               ✕
             </button>
@@ -626,7 +650,7 @@ function PlanCheckoutDialogWeb({
             disabled={loading || (payMethod === "wallet" && !canUseWallet)}
             className={[
               "mt-4 flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-sm transition",
-              "bg-[color:#233F39] hover:bg-[#1b312d]",
+              "bg-[#173C2E] hover:-translate-y-0.5 hover:bg-[#214C3A]",
               (loading || (payMethod === "wallet" && !canUseWallet)) && "opacity-60 cursor-not-allowed",
             ].join(" ")}
           >
@@ -673,7 +697,7 @@ function PlanCheckoutDialogWeb({
 export default function SellerDashboardPage() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-
+  const router = useRouter();
   const [packages, setPackages] = useState<PackageDoc[]>([]);
   const [sub, setSub] = useState<SellerSubscription | null>(null);
   const [activePkg, setActivePkg] = useState<PackageDoc | null>(null);
@@ -903,225 +927,584 @@ export default function SellerDashboardPage() {
   };
 
   const Header = (
-    <div className={clsx("px-4 md:px-0 pt-3", isDesktop ? "pb-2" : "pb-3")}>
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold" style={{ color: EKARI.text }}>
-            Seller dashboard
-          </h1>
-          <p className="text-sm md:text-base" style={{ color: EKARI.dim }}>
-            Your plan perks, limits and growth tools (boosts & featured slots).
-          </p>
-        </div>
+    <motion.header
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24, ease: "easeOut" }}
+      className="relative shrink-0 overflow-hidden bg-[#173C2E] text-white"
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+        }}
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-2" style={{ borderColor: EKARI.hair }}>
+      <div className="relative mx-auto max-w-[1220px] px-4 py-5 md:px-6 md:py-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
+              aria-label="Go back"
+            >
+              <IoArrowBack size={19} />
+            </button>
+            <div className="min-w-0">
+              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                ekariMarket seller
+              </div>
+
+              <h1 className="mt-1 text-[24px] font-black tracking-[-0.035em] md:text-[28px]">
+                Seller packages
+              </h1>
+
+              <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                Manage listing capacity, boosts, featured placement, storefront tools and seller growth benefits.
+              </p>
+              {computed.expiresAtMs > 0 ? (
+                <div className="mt-3 text-[9px] font-semibold text-white/35">
+                  {computed.billingCycle === "yearly" ? "Yearly" : "Monthly"} billing
+                  {" · "}current period ends{" "}
+                  {new Date(computed.expiresAtMs).toLocaleDateString()}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <span
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold border"
-              style={{ background: pill.bg, color: pill.fg, borderColor: pill.ring }}
+              className="inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] font-black"
+              style={{
+                background: pill.bg,
+                color: pill.fg,
+                borderColor: pill.ring,
+              }}
             >
               {computed.planName}
             </span>
 
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeClasses(computed.planStatus)}`}>
+            <span
+              className={`rounded-full px-2.5 py-1 text-[9px] font-black ${badgeClasses(
+                computed.planStatus
+              )}`}
+            >
               {computed.planStatus}
             </span>
-            {computed.expiresAtMs > 0 && (
-              <span className="text-[10px] text-gray-500">
-                ends {new Date(computed.expiresAtMs).toLocaleDateString()}
-              </span>
-            )}
-            <span className="text-[10px] text-gray-500">{computed.billingCycle}</span>
           </div>
-
         </div>
+
+
       </div>
-    </div>
+    </motion.header>
   );
 
   const TopCards = (
-    <div className={clsx("grid gap-3", isDesktop ? "md:grid-cols-3" : "grid-cols-1")}>
+    <div className="grid gap-3 sm:grid-cols-3">
       <Card
-        title="Listings"
+        icon={<IoGridOutline size={17} />}
+        title="Active listings"
         value={
           computed.limit === null
-            ? `${computed.activeListings} / Unlimited`
+            ? `${computed.activeListings} / ∞`
             : `${computed.activeListings} / ${computed.limit}`
         }
-        hint={computed.remainingSlots === null ? "No listing limit" : `${computed.remainingSlots} slots left`}
+        hint={
+          computed.remainingSlots === null
+            ? "Unlimited listing capacity"
+            : `${computed.remainingSlots} slots remaining`
+        }
       />
-      <Card title="Boosts left (month)" value={`${computed.boostsLeft}`} hint="Used to rank higher" />
-      <Card title="Featured left (week)" value={`${computed.featuredLeft}`} hint="Used for premium placement" />
+
+      <Card
+        icon={<IoRocketOutline size={17} />}
+        title="Boosts this month"
+        value={`${computed.boostsLeft}`}
+        hint="Use boosts to improve listing visibility"
+      />
+
+      <Card
+        icon={<IoStarOutline size={17} />}
+        title="Featured this week"
+        value={`${computed.featuredLeft}`}
+        hint="Premium placement credits available"
+      />
     </div>
   );
 
-  const List = (
-    <div className="space-y-6">
-      {computed.nearLimit && (
-        <div className="rounded-2xl border bg-amber-50 px-4 py-3 text-sm" style={{ borderColor: "#FDE68A", color: "#92400E" }}>
-          You’re close to your listings limit. Upgrade to get more slots.
-        </div>
-      )}
+  const MainContent = (
+    <div className="space-y-4">
+      {computed.nearLimit ? (
+        <motion.div
+          initial={{ opacity: 0, y: -3 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-3 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3"
+        >
+          <IoInformationCircleOutline
+            size={17}
+            className="mt-0.5 shrink-0 text-amber-700"
+          />
 
-      <div className="rounded-2xl border bg-white p-4 shadow-sm" style={{ borderColor: EKARI.hair }}>
-        <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
-              Your plan perks
+            <div className="text-[11px] font-black text-amber-900">
+              You’re close to your listing limit
             </div>
-            <div className="text-xs mt-1" style={{ color: EKARI.dim }}>
-              Pulled directly from your current package configuration.
+
+            <p className="mt-0.5 text-[10px] font-medium leading-4 text-amber-800">
+              Upgrade your package to create more active marketplace listings.
+            </p>
+          </div>
+        </motion.div>
+      ) : null}
+
+      <motion.section
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+        className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+              Current plan
             </div>
+
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h2 className="text-[17px] font-black text-slate-900">
+                {computed.planName}
+              </h2>
+
+              <span
+                className={`rounded-full px-2 py-0.5 text-[8px] font-black ${badgeClasses(
+                  computed.planStatus
+                )}`}
+              >
+                {computed.planStatus}
+              </span>
+            </div>
+
+            <p className="mt-1 text-[10px] font-medium text-slate-400">
+              Benefits are loaded directly from your active package configuration.
+            </p>
           </div>
 
           <button
             type="button"
-            onClick={() => (isMobile ? setPickerOpen(true) : document.getElementById("packages")?.scrollIntoView({ behavior: "smooth" }))}
-            className="rounded-xl px-3 py-2 text-xs font-extrabold text-white"
-            style={{ backgroundColor: EKARI.forest }}
+            onClick={() =>
+              isMobile
+                ? setPickerOpen(true)
+                : document
+                  .getElementById("packages")
+                  ?.scrollIntoView({
+                    behavior: "smooth",
+                  })
+            }
+            className="inline-flex h-10 items-center justify-center rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
           >
-            Upgrade plan
+            {computed.subActiveNow ? "Change plan" : "Choose plan"}
           </button>
         </div>
 
-        <div className="mt-4 grid gap-2 md:grid-cols-2 text-sm">
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <Perk
             label="Listings limit"
-            value={computed.pkg?.activeListingsLimit === null ? "Unlimited" : String(computed.pkg?.activeListingsLimit ?? "—")}
+            value={
+              computed.pkg?.activeListingsLimit === null
+                ? "Unlimited"
+                : String(computed.pkg?.activeListingsLimit ?? "Free tier")
+            }
           />
-          <Perk label="Analytics" value={computed.pkg?.analyticsLevel ?? "—"} />
-          <Perk label="Priority ranking" value={computed.pkg?.priorityRanking ? "Yes" : "No"} />
-          <Perk label="Top-of-search bias" value={computed.pkg?.topOfSearch ? "Yes" : "No"} />
-          <Perk label="Verified badge" value={computed.pkg?.verifiedBadge ? "Yes" : "No"} />
-          <Perk label="Storefront" value={computed.pkg?.storefront ? "Yes" : "No"} />
+
+          <Perk
+            label="Analytics"
+            value={fmtAnalytics(
+              computed.pkg?.analyticsLevel ?? "none"
+            )}
+          />
+
+          <Perk
+            label="Priority ranking"
+            value={computed.pkg?.priorityRanking ? "Included" : "Not included"}
+          />
+
+          <Perk
+            label="Top of search"
+            value={computed.pkg?.topOfSearch ? "Included" : "Not included"}
+          />
+
+          <Perk
+            label="Verified seller badge"
+            value={computed.pkg?.verifiedBadge ? "Included" : "Not included"}
+          />
+
+          <Perk
+            label="Storefront"
+            value={computed.pkg?.storefront ? "Included" : "Not included"}
+          />
         </div>
 
         {computed.pkg?.features?.length ? (
-          <div className="mt-4">
-            <div className="text-xs font-semibold text-gray-500">Included features</div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {computed.pkg.features.map((f, i) => (
+          <div className="mt-4 border-t border-[#E4DED2] pt-4">
+            <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+              Included features
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {computed.pkg.features.map((feature, index) => (
                 <span
-                  key={i}
-                  className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-bold border"
-                  style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#fff" }}
+                  key={`${feature}-${index}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#DDD8CC] bg-white px-2.5 py-1 text-[9px] font-bold text-slate-600"
                 >
-                  {f}
+                  <IoCheckmarkCircleOutline
+                    size={11}
+                    className="text-emerald-600"
+                  />
+                  {feature}
                 </span>
               ))}
             </div>
           </div>
         ) : null}
-      </div>
+      </motion.section>
 
-      <div id="packages" className="rounded-2xl border bg-white shadow-sm overflow-hidden" style={{ borderColor: EKARI.hair }}>
-        <div className="px-4 py-3 border-b" style={{ borderColor: EKARI.hair }}>
-          <div className="flex items-center justify-between gap-2">
+      <motion.section
+        id="packages"
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, delay: 0.03 }}
+        className="overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
+      >
+        <div className="border-b border-[#E4DED2] px-4 py-4 sm:px-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-extrabold" style={{ color: EKARI.text }}>
-                Available packages
+              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                Plans
+              </div>
+
+              <h2 className="mt-1 text-[16px] font-black text-slate-900">
+                Compare seller packages
               </h2>
-              <p className="text-xs" style={{ color: EKARI.dim }}>
-                Choose a tier that matches your growth stage.
+
+              <p className="mt-1 text-[10px] font-medium text-slate-400">
+                Choose a package based on listing volume and growth tools.
               </p>
             </div>
-            {/* ✅ Toggles in header */}
-            <div className="hidden md:flex items-center gap-2">
-              <BillingToggle value={billing} onChange={setBilling} />
-              <CurrencyToggle value={currency} onChange={setCurrency} />
+
+            <div className="hidden flex-wrap items-center gap-2 md:flex">
+              <BillingToggle
+                value={billing}
+                onChange={setBilling}
+                yearlySaveText="Save with yearly"
+              />
+
+              <CurrencyToggle
+                value={currency}
+                onChange={setCurrency}
+              />
             </div>
+
             {isMobile ? (
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
-                className="rounded-xl px-3 py-2 text-xs font-extrabold text-white"
-                style={{ backgroundColor: EKARI.forest }}
+                className="h-9 rounded-xl bg-[#173C2E] px-3 text-[10px] font-black text-white"
               >
-                Pick a plan
+                Compare plans
               </button>
-            ) : (
-              <div className="text-xs" style={{ color: EKARI.dim }}>
-                {packages.length} available
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <div className="p-4" style={{ background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)" }}>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {packages.map((p) => {
-              const isCurrent = computed.subActiveNow && p.id === sub?.packageId;
-              return (
-                <PackageCard
-                  key={p.id}
-                  p={p}
-                  isCurrent={isCurrent}
-                  billing={billing}
-                  currency={currency}
-                  rate={effectiveRate}
-                  onChoose={() => openCheckoutFor(p.id)}
+        <div className="bg-[#F8F7F2] p-4 sm:p-5">
+          {packages.length ? (
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              {packages.map((pkg) => {
+                const isCurrent =
+                  computed.subActiveNow &&
+                  pkg.id === sub?.packageId;
+
+                return (
+                  <PackageCard
+                    key={pkg.id}
+                    p={pkg}
+                    isCurrent={isCurrent}
+                    billing={billing}
+                    currency={currency}
+                    rate={effectiveRate}
+                    onChoose={() =>
+                      openCheckoutFor(pkg.id)
+                    }
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid min-h-[240px] place-items-center text-center">
+              <div>
+                <IoBagHandleOutline
+                  size={28}
+                  className="mx-auto text-slate-300"
                 />
-              );
-            })}
-          </div>
+
+                <div className="mt-3 text-[13px] font-black text-slate-700">
+                  No seller packages available
+                </div>
+
+                <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  Active packages will appear here.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </motion.section>
     </div>
   );
 
-  const Empty = (
-    <div className="p-4">
-      <div className="max-w-md rounded-2xl border bg-white p-5 shadow-sm" style={{ borderColor: EKARI.hair }}>
-        <div className="text-lg font-extrabold" style={{ color: EKARI.text }}>
-          Loading dashboard…
+  const RightRail = (
+    <motion.aside
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{
+        duration: 0.24,
+        delay: 0.04,
+        ease: "easeOut",
+      }}
+      className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
+    >
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+          Subscription
         </div>
-        <p className="mt-2 text-sm" style={{ color: EKARI.dim }}>
-          Please wait a moment.
+
+        <div className="mt-2 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[16px] font-black text-slate-900">
+              {computed.planName}
+            </div>
+
+            <div className="mt-1 text-[10px] font-semibold capitalize text-slate-400">
+              {computed.billingCycle} billing
+            </div>
+          </div>
+
+          <span
+            className={`rounded-full px-2 py-1 text-[8px] font-black ${badgeClasses(
+              computed.planStatus
+            )}`}
+          >
+            {computed.planStatus}
+          </span>
+        </div>
+
+        {computed.expiresAtMs > 0 ? (
+          <div className="mt-3 rounded-xl bg-[#F3F1EB] px-3 py-3">
+            <div className="text-[8px] font-black uppercase tracking-[0.08em] text-slate-400">
+              Current period ends
+            </div>
+
+            <div className="mt-1 text-[11px] font-black text-slate-700">
+              {new Date(
+                computed.expiresAtMs
+              ).toLocaleDateString()}
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="flex items-center gap-2">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+            <IoGridOutline size={17} />
+          </span>
+
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+              Listing capacity
+            </div>
+
+            <div className="mt-0.5 text-[13px] font-black text-slate-800">
+              {computed.limit === null
+                ? `${computed.activeListings} active`
+                : `${computed.activeListings} of ${computed.limit}`}
+            </div>
+          </div>
+        </div>
+
+        {computed.limit !== null ? (
+          <>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EAE6DD]">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{
+                  width: `${Math.min(
+                    100,
+                    computed.limit > 0
+                      ? (computed.activeListings /
+                        computed.limit) *
+                      100
+                      : 0
+                  )}%`,
+                }}
+                transition={{
+                  duration: 0.4,
+                  ease: "easeOut",
+                }}
+                className={[
+                  "h-full rounded-full",
+                  computed.nearLimit
+                    ? "bg-[#F39A22]"
+                    : "bg-[#173C2E]",
+                ].join(" ")}
+              />
+            </div>
+
+            <p className="mt-2 text-[9px] font-semibold text-slate-400">
+              {computed.remainingSlots} listing slots remaining
+            </p>
+          </>
+        ) : (
+          <p className="mt-3 text-[9px] font-semibold text-emerald-700">
+            Unlimited listing capacity
+          </p>
+        )}
+      </section>
+
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+          Growth credits
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
+            <IoRocketOutline
+              size={15}
+              className="text-[#F39A22]"
+            />
+
+            <div className="mt-2 text-[19px] font-black text-[#173C2E]">
+              {computed.boostsLeft}
+            </div>
+
+            <div className="mt-0.5 text-[8px] font-black uppercase tracking-[0.06em] text-slate-400">
+              Boosts
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
+            <IoStarOutline
+              size={15}
+              className="text-[#F39A22]"
+            />
+
+            <div className="mt-2 text-[19px] font-black text-[#173C2E]">
+              {computed.featuredLeft}
+            </div>
+
+            <div className="mt-0.5 text-[8px] font-black uppercase tracking-[0.06em] text-slate-400">
+              Featured
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+            <IoWalletOutline size={17} />
+          </span>
+
+          <div>
+            <div className="text-[12px] font-black text-slate-800">
+              Flexible checkout
+            </div>
+
+            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+              Eligible purchases can use your ekarihub wallet or secure Paystack checkout.
+            </p>
+          </div>
+        </div>
+      </section>
+    </motion.aside>
+  );
+
+  const LoadingState = (
+    <div className="grid min-h-[420px] place-items-center">
+      <div className="text-center">
+        <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-[#D1CCC0] border-t-[#173C2E]" />
+
+        <p className="mt-3 text-[10px] font-semibold text-slate-400">
+          Loading seller packages…
         </p>
       </div>
     </div>
   );
 
   if (loading) {
-    return isMobile ? (
-      <div className="fixed min-h-screen inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+    const loadingPage = (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#F8F7F2]">
         {Header}
-        <div className="flex-1 overflow-y-auto">{Empty}</div>
+
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          {LoadingState}
+        </main>
+      </div>
+    );
+
+    return isMobile ? (
+      <div className="fixed inset-0">
+        {loadingPage}
       </div>
     ) : (
       <AppShell>
-        <div className="min-h-screen w-full">
-          {Header}
-          {Empty}
-        </div>
+        {loadingPage}
       </AppShell>
     );
   }
 
   const Content = (
     <>
-      {TopCards}
-      <div className={clsx(isDesktop ? "mt-2" : "mt-1")}>{List}</div>
+      <div className="mx-auto grid max-w-[1220px] gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+        <section className="min-w-0 space-y-4">
+          {TopCards}
+          {MainContent}
+        </section>
 
-      <MobilePlanPicker
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        packages={packages}
-        currentPackageId={computed.subActiveNow ? currentPackageId : null}
-        billing={billing}
-        onBillingChange={setBilling}
-        currency={currency}
-        onCurrencyChange={setCurrency}
-        rate={effectiveRate}
-        onSelect={(pkgId) => {
-          setPickerOpen(false);
-          openCheckoutFor(pkgId);
-        }}
-      />
+        {RightRail}
+      </div>
+
+      <AnimatePresence>
+        {pickerOpen ? (
+          <MobilePlanPicker
+            open={pickerOpen}
+            onClose={() =>
+              setPickerOpen(false)
+            }
+            packages={packages}
+            currentPackageId={
+              computed.subActiveNow
+                ? currentPackageId
+                : null
+            }
+            billing={billing}
+            onBillingChange={setBilling}
+            currency={currency}
+            onCurrencyChange={setCurrency}
+            rate={effectiveRate}
+            onSelect={(pkgId) => {
+              setPickerOpen(false);
+              openCheckoutFor(pkgId);
+            }}
+          />
+        ) : null}
+      </AnimatePresence>
 
       <PlanCheckoutDialogWeb
         open={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
+        onClose={() =>
+          setCheckoutOpen(false)
+        }
         pkg={checkoutPkg}
         billing={billing}
         currency={currency}
@@ -1130,42 +1513,105 @@ export default function SellerDashboardPage() {
     </>
   );
 
-  return isMobile ? (
-    <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: EKARI.sand }}>
+  const pagemobile = (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#F8F7F2]">
       {Header}
-      <div className="flex-1 overflow-y-auto px-4 pb-6">{Content}</div>
+
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+        {Content}
+      </main>
+    </div>
+  );
+  const page = (
+    <div className="h-full min-h-0 overflow-y-auto bg-[#F8F7F2]">
+      {Header}
+
+      <main className="min-h-0 flex-1">
+        {Content}
+      </main>
+    </div>
+  );
+  return isMobile ? (
+    <div className="fixed inset-0">
+      {pagemobile}
     </div>
   ) : (
     <AppShell>
-      <div className="p-6 space-y-6">
-        {Header}
-        {Content}
-      </div>
+      {page}
     </AppShell>
   );
 }
 
 /* ===================== small ui ===================== */
 
-function Card({ title, value, hint }: { title: string; value: string; hint: string }) {
+function Card({
+  icon,
+  title,
+  value,
+  hint,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: string;
+  hint: string;
+}) {
   return (
-    <div className="rounded-2xl border bg-white p-4 shadow-sm" style={{ borderColor: EKARI.hair }}>
-      <div className="text-xs font-semibold text-gray-500">{title}</div>
-      <div className="mt-1 text-2xl font-extrabold" style={{ color: EKARI.text }}>
-        {value}
+    <motion.div
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+            {title}
+          </div>
+
+          <div className="mt-1 text-[24px] font-black tracking-[-0.04em] text-[#173C2E]">
+            {value}
+          </div>
+        </div>
+
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+          {icon}
+        </span>
       </div>
-      <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+
+      <div className="mt-2 text-[10px] font-medium leading-4 text-slate-400">
         {hint}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-function Perk({ label, value }: { label: string; value: string }) {
+function Perk({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  const positive =
+    value === "Included" ||
+    value === "Unlimited" ||
+    value === "Advanced analytics" ||
+    value === "Basic analytics";
+
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2" style={{ borderColor: EKARI.hair }}>
-      <span className="text-xs font-semibold text-gray-500">{label}</span>
-      <span className="text-sm font-extrabold" style={{ color: EKARI.text }}>
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E4DED2] bg-white px-3 py-2.5">
+      <span className="text-[10px] font-semibold text-slate-400">
+        {label}
+      </span>
+
+      <span
+        className={[
+          "text-right text-[10px] font-black",
+          positive
+            ? "text-[#173C2E]"
+            : "text-slate-600",
+        ].join(" ")}
+      >
         {value}
       </span>
     </div>
@@ -1220,12 +1666,12 @@ function PackageCard({
 
       <div
         className={clsx(
-          "group relative rounded-2xl border bg-white p-4 transition-all",
-          "hover:-translate-y-0.5 hover:shadow-[0_18px_55px_rgba(15,23,42,0.12)]"
+          "group relative rounded-[18px] border bg-[#FBFAF6] p-4 transition-all duration-200",
+          "hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(15,23,42,0.09)]"
         )}
         style={{
           borderColor: isCurrent ? a.ring : EKARI.hair,
-          boxShadow: isCurrent ? "0 16px 40px rgba(15,23,42,0.08)" : "0 10px 25px rgba(15,23,42,0.06)",
+          boxShadow: isCurrent ? "0 12px 30px rgba(15,23,42,0.06)" : "0 8px 20px rgba(15,23,42,0.03)",
         }}
       >
         {isCurrent ? (
@@ -1348,12 +1794,12 @@ function PackageCard({
             type="button"
             onClick={onChoose}
             disabled={isCurrent}
-            className={clsx("w-full rounded-xl px-3 py-2.5 text-xs font-extrabold transition", "disabled:opacity-60")}
+            className={clsx("h-10 w-full rounded-xl px-3 text-[10px] font-black transition", "disabled:opacity-60")}
             style={{
               background: isCurrent ? "#fff" : a.accent,
               color: isCurrent ? EKARI.dim : "#fff",
               border: `1px solid ${isCurrent ? EKARI.hair : a.accent}`,
-              boxShadow: isCurrent ? "none" : "0 14px 30px rgba(15,23,42,0.10)",
+              boxShadow: isCurrent ? "none" : "0 8px 18px rgba(15,23,42,0.08)",
             }}
           >
             {isCurrent ? "You’re on this plan" : "Choose plan"}

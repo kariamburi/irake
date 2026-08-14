@@ -23,22 +23,37 @@ import {
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, app } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
-import { IoArrowBackCircleOutline, IoArrowBack } from "react-icons/io5";
+import {
+  IoArrowBack,
+  IoCashOutline,
+  IoWalletOutline,
+  IoTrendingUpOutline,
+  IoSwapHorizontalOutline,
+  IoShieldCheckmarkOutline,
+  IoInformationCircleOutline,
+  IoPhonePortraitOutline,
+  IoBusinessOutline,
+  IoAddOutline,
+  IoRemoveOutline,
+  IoCheckmarkCircleOutline,
+} from "react-icons/io5";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 
 const EKARI = {
-  forest: "#233F39",
-  forest2: "#1B312C",
-  gold: "#C79257",
-  sand: "#FFFFFF",
+  forest: "#173C2E",
+  forest2: "#214C3A",
+  gold: "#F39A22",
+  sand: "#F8F7F2",
+  paper: "#FBFAF6",
   ink: "#111827",
-  dim: "#6B7280",
-  hair: "#E5E7EB",
-  bgSoft: "#F6F7FB",
-  card: "#FFFFFF",
+  dim: "#64748B",
+  hair: "#DDD8CC",
+  bgSoft: "#F8F7F2",
+  card: "#FBFAF6",
 };
 
 type Wallet = {
@@ -233,8 +248,11 @@ function Card({
 }) {
   return (
     <div
-      className={`rounded-3xl border bg-white shadow-[0_12px_30px_rgba(15,23,42,.06)] ${className}`}
-      style={{ borderColor: EKARI.hair }}
+      className={[
+        "rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6]",
+        "shadow-[0_10px_28px_rgba(15,23,42,0.025)]",
+        className,
+      ].join(" ")}
     >
       {children}
     </div>
@@ -926,15 +944,15 @@ export default function EarningsPage() {
     return (
       <div
         key={item.id}
-        className="mt-3 rounded-2xl border bg-white px-3 py-3 hover:bg-slate-50 transition"
+        className="mt-3 rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-3.5 py-3.5 transition hover:bg-[#F8F7F2]"
         style={{ borderColor: EKARI.hair }}
       >
         <div className="flex items-start gap-3">
           <div
-            className="h-10 w-10 rounded-2xl grid place-items-center text-white text-lg shadow-sm"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#173C2E] text-white text-lg shadow-sm"
             style={{
               background:
-                "linear-gradient(135deg, rgba(35,63,57,.95), rgba(199,146,87,.95))",
+                "linear-gradient(135deg, #173C2E, #F39A22)",
             }}
           >
             💸
@@ -997,15 +1015,15 @@ export default function EarningsPage() {
     return (
       <div
         key={item.id}
-        className="mt-3 rounded-2xl border bg-white px-3 py-3 hover:bg-slate-50 transition"
+        className="mt-3 rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-3.5 py-3.5 transition hover:bg-[#F8F7F2]"
         style={{ borderColor: EKARI.hair }}
       >
         <div className="flex items-start gap-3">
           <div
-            className="h-10 w-10 rounded-2xl grid place-items-center text-white text-lg shadow-sm"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#173C2E] text-white text-lg shadow-sm"
             style={{
               background:
-                "linear-gradient(135deg, rgba(35,63,57,.95), rgba(59,130,246,.75))",
+                "linear-gradient(135deg, #173C2E, #3B82F6)",
             }}
           >
             👛
@@ -1046,647 +1064,726 @@ export default function EarningsPage() {
   };
 
   /* ---------------- Gated states ---------------- */
-  const InvalidRouteBody = (
-    <main
-      className="min-h-screen w-full px-4 py-6"
-      style={{ backgroundColor: EKARI.bgSoft }}
-    >
-      <div className="mx-auto max-w-3xl rounded-3xl bg-white p-6 shadow-sm border border-slate-200">
-        <p className="text-sm" style={{ color: EKARI.dim }}>
-          Invalid route.
-        </p>
-      </div>
-    </main>
-  );
 
-  const CheckingBody = (
-    <main
-      className="flex w-full min-h-screen items-center justify-center px-4"
-      style={{ backgroundColor: EKARI.bgSoft }}
-    >
-      <div className="flex flex-col items-center gap-2 rounded-3xl bg-white px-6 py-5 shadow-sm border border-slate-200">
-        <BouncingBallLoader />
-        <p className="text-sm" style={{ color: EKARI.dim }}>
-          Checking access to this earnings page…
-        </p>
-      </div>
-    </main>
-  );
-
-  const SignInBody = (
-    <main
-      className="flex w-full min-h-screen items-center justify-center px-4"
-      style={{ backgroundColor: EKARI.bgSoft }}
-    >
-      <div className="mx-auto max-w-md rounded-3xl bg-white p-6 text-center shadow-sm border border-slate-200">
-        <h1 className="mb-2 text-lg font-extrabold" style={{ color: EKARI.ink }}>
-          Sign in to view earnings
-        </h1>
-        <p className="text-sm" style={{ color: EKARI.dim }}>
-          You need to be signed in to see your ekarihub wallet and uplift history.
-        </p>
-      </div>
-    </main>
-  );
-
-  const NotFoundBody = (
-    <main
-      className="flex w-full min-h-screen items-center justify-center px-4"
-      style={{ backgroundColor: EKARI.bgSoft }}
-    >
-      <div className="mx-auto max-w-md rounded-3xl bg-white p-6 text-center shadow-sm border border-slate-200">
-        <h1 className="mb-2 text-lg font-extrabold" style={{ color: EKARI.ink }}>
-          Profile not found
-        </h1>
-        <p className="text-sm" style={{ color: EKARI.dim }}>
-          We couldn’t find a creator with handle{" "}
-          <span className="font-semibold">{handle}</span>.
-        </p>
-      </div>
-    </main>
-  );
-
-  const ForbiddenBody = (
-    <main
-      className="flex w-full min-h-screen items-center justify-center px-4"
-      style={{ backgroundColor: EKARI.bgSoft }}
-    >
-      <div className="mx-auto max-w-md rounded-3xl bg-white p-6 text-center shadow-sm border border-slate-200">
-        <h1 className="mb-2 text-lg font-extrabold" style={{ color: EKARI.ink }}>
-          Earnings are private
-        </h1>
-        <p className="text-sm" style={{ color: EKARI.dim }}>
-          You can only view earnings for your own handle. This page is restricted
-          to the creator who owns <span className="font-semibold">{handle}</span>.
-        </p>
-      </div>
-    </main>
-  );
-
-  // Wrap helper
-  const wrap = (body: React.ReactNode, title = "My Earnings") => {
-    if (!isMobile) return <AppShell>{body}</AppShell>;
-
-    return (
-      <div className="fixed inset-0 flex flex-col bg-white">
-        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+  const ShellState = ({
+    title,
+    message,
+    tone = "neutral",
+  }: {
+    title: string;
+    message: string;
+    tone?: "neutral" | "danger";
+  }) => {
+    const body = (
+      <main className="grid min-h-[100svh] place-items-center bg-[#F8F7F2] px-4 py-10">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-7 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]"
+        >
           <div
-            className="h-14 px-3 flex items-center gap-2"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
+            className={[
+              "mx-auto grid h-14 w-14 place-items-center rounded-full",
+              tone === "danger"
+                ? "bg-rose-50 text-rose-600"
+                : "bg-[#E8ECE8] text-[#173C2E]",
+            ].join(" ")}
           >
-            <button
-              onClick={goBack}
-              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center bg-white shadow-sm"
-              aria-label="Back"
-            >
-              <IoArrowBack size={18} />
-            </button>
+            {tone === "danger" ? (
+              <IoInformationCircleOutline size={25} />
+            ) : (
+              <IoWalletOutline size={25} />
+            )}
+          </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[15px] font-black" style={{ color: EKARI.ink }}>
-                {title}
+          <h1 className="mt-4 text-[18px] font-black text-slate-900">
+            {title}
+          </h1>
+
+          <p className="mt-2 text-[12px] font-medium leading-5 text-slate-500">
+            {message}
+          </p>
+        </motion.div>
+      </main>
+    );
+
+    return isMobile ? body : <AppShell>{body}</AppShell>;
+  };
+
+  if (!handle || handle === "@") {
+    return (
+      <ShellState
+        title="Invalid earnings route"
+        message="The creator handle in this earnings URL is not valid."
+        tone="danger"
+      />
+    );
+  }
+
+  if (authLoading || checkingOwnership) {
+    const body = (
+      <main className="grid min-h-[100svh] place-items-center bg-[#F8F7F2]">
+        <div className="text-center">
+          <BouncingBallLoader />
+          <p className="mt-3 text-[11px] font-semibold text-slate-400">
+            Checking access to earnings…
+          </p>
+        </div>
+      </main>
+    );
+
+    return isMobile ? body : <AppShell>{body}</AppShell>;
+  }
+
+  if (!user) {
+    return (
+      <ShellState
+        title="Sign in to view earnings"
+        message="You need to be signed in to see your ekarihub wallet, uplifts and payout settings."
+      />
+    );
+  }
+
+  if (notFound) {
+    return (
+      <ShellState
+        title="Profile not found"
+        message={`We couldn’t find a creator with handle ${handle}.`}
+        tone="danger"
+      />
+    );
+  }
+
+  if (forbidden || !ownerUid) {
+    return (
+      <ShellState
+        title="Earnings are private"
+        message={`You can only view earnings for your own creator handle. This page is restricted to the owner of ${handle}.`}
+        tone="danger"
+      />
+    );
+  }
+
+  const eligibleToWithdraw =
+    !!wallet?.pendingBalance &&
+    wallet.pendingBalance >=
+    Math.round(minThresholdUsdMajor * 100);
+
+  const settlementReady =
+    settlement.enabled &&
+    (settlement.method === "mpesa"
+      ? isValidMpesaPhone(settlement.mpesa.phone)
+      : !!cleanStr(settlement.bank.bankName) &&
+      !!cleanStr(settlement.bank.accountNumber) &&
+      !!cleanStr(settlement.bank.accountName));
+
+  const Header = (
+    <motion.header
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24, ease: "easeOut" }}
+      className="relative shrink-0 overflow-hidden bg-[#173C2E] text-white"
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+        }}
+      />
+
+      <div className="relative mx-auto max-w-[1180px] px-4 py-5 md:px-6 md:py-6">
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={goBack}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
+            aria-label="Back"
+          >
+            <IoArrowBack size={19} />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              Creator wallet
+            </div>
+
+            <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h1 className="text-[24px] font-black tracking-[-0.035em] md:text-[28px]">
+                  My earnings
+                </h1>
+
+                <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                  Track uplifts, wallet activity, settlement details and withdrawal eligibility.
+                </p>
               </div>
-              <div className="truncate text-[11px]" style={{ color: EKARI.dim }}>
-                @{String(params?.handle || "").replace(/^@/, "")}
+
+              <div className="inline-flex rounded-xl border border-white/15 bg-white/[0.06] p-1">
+                {(["USD", "KES"] as PreferredCurrency[]).map((currency) => {
+                  const active = displayCurrency === currency;
+
+                  return (
+                    <button
+                      key={currency}
+                      type="button"
+                      onClick={() => handleToggleCurrency(currency)}
+                      className={[
+                        "rounded-lg px-3 py-2 text-[10px] font-black transition",
+                        active
+                          ? "bg-white text-[#173C2E]"
+                          : "text-white/55 hover:text-white",
+                      ].join(" ")}
+                    >
+                      {currency === "KES" ? "KSh" : "USD"}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <button
-              onClick={() => router.push(`/${params?.handle || ""}`)}
-              className="h-10 px-3 rounded-full border border-gray-200 text-xs font-extrabold bg-white shadow-sm"
-            >
-              Profile
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[9px] font-semibold text-white/35">
+              <span>Wallet base: USD</span>
+              <span>•</span>
+              <span>Secure creator payouts</span>
+              <span>•</span>
+              <span>{handle}</span>
+            </div>
           </div>
         </div>
-
-        <div className="flex-1 overflow-y-auto overscroll-contain">{body}</div>
-        <div style={{ height: "env(safe-area-inset-bottom)" }} />
       </div>
-    );
-  };
+    </motion.header>
+  );
 
-  if (!handle || handle === "@") return wrap(InvalidRouteBody, "Earnings");
-  if (authLoading || checkingOwnership) return wrap(CheckingBody, "Earnings");
-  if (!user) return wrap(SignInBody, "Earnings");
-  if (notFound) return wrap(NotFoundBody, "Earnings");
-  if (forbidden || !ownerUid) return wrap(ForbiddenBody, "Earnings");
+  const Summary = (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <SummaryCard
+        icon={<IoTrendingUpOutline size={18} />}
+        label="Total received"
+        value={fmtMoneyMajor(totalReceivedDisplayMajor, displayCurrency)}
+        hint={`Across ${wallet?.totalDonations || 0} uplifts`}
+      />
 
-  /* ---------------- Main body ---------------- */
-  const eligibleToWithdraw =
-    !!wallet?.pendingBalance &&
-    wallet.pendingBalance >= Math.round(minThresholdUsdMajor * 100);
+      <SummaryCard
+        icon={<IoWalletOutline size={18} />}
+        label="Available wallet"
+        value={fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
+        hint={`Base balance ${fmtMoneyMajor(pendingBalanceUsdMajor, "USD")}`}
+      />
 
-  const MainBody = (
-    <main
-      className="min-h-screen w-full px-4 py-6"
-      style={{
-        background:
-          "radial-gradient(1200px 500px at 20% -40%, rgba(199,146,87,.18), transparent 55%), radial-gradient(900px 380px at 90% 0%, rgba(35,63,57,.18), transparent 55%), " +
-          EKARI.bgSoft,
-      }}
+      <SummaryCard
+        icon={<IoSwapHorizontalOutline size={18} />}
+        label="Minimum withdrawal"
+        value={fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
+        hint={
+          displayCurrency === "KES"
+            ? `≈ USD ${minThresholdUsdMajor.toFixed(2)}`
+            : "Configured by finance settings"
+        }
+      />
+    </div>
+  );
+
+  const HistoryPanel = (
+    <motion.section
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: 0.04 }}
+      className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
     >
-      <div className="mx-auto max-w-4xl">
-        {/* Premium header */}
-        {!isMobile && (
-          <div className="mb-4 flex items-center justify-between">
-            <Link
-              href={`/${params?.handle || ""}`}
-              className="inline-flex items-center gap-2 rounded-full border bg-white px-4 h-10 text-xs font-extrabold shadow-sm hover:bg-slate-50"
-              style={{ borderColor: EKARI.hair, color: EKARI.ink }}
-            >
-              <IoArrowBackCircleOutline className="h-5 w-5" />
-              Back to profile
-            </Link>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+            Wallet activity
+          </div>
 
-            <div className="flex items-center gap-2">
-              <Pill tone="neutral">Wallet base: USD</Pill>
-              <Pill tone="emerald">Secure payouts</Pill>
+          <h2 className="mt-1 text-[16px] font-black text-slate-900">
+            Earnings history
+          </h2>
+
+          <p className="mt-1 text-[10px] font-medium text-slate-400">
+            Review uplifts received and wallet top-ups.
+          </p>
+        </div>
+
+        <div className="inline-flex rounded-xl border border-[#D9D3C7] bg-[#F8F7F2] p-1">
+          {(["donations", "topups"] as HistoryTab[]).map((tab) => {
+            const active = activeTab === tab;
+
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={[
+                  "rounded-lg px-3 py-2 text-[10px] font-black transition",
+                  active
+                    ? "bg-[#173C2E] text-white"
+                    : "text-slate-500 hover:bg-white",
+                ].join(" ")}
+              >
+                {tab === "donations" ? "Uplifts" : "Top-ups"}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <motion.div
+        key={activeTab}
+        initial={{ opacity: 0, y: 3 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.16 }}
+        className="mt-3"
+      >
+        {activeTab === "donations" ? (
+          donations.length ? (
+            donations.map(renderDonation)
+          ) : (
+            <EmptyHistory
+              icon={<IoTrendingUpOutline size={22} />}
+              title="No uplifts yet"
+              text="When members uplift your deeds, successful payments will appear here."
+            />
+          )
+        ) : topups.length ? (
+          topups.map(renderTopup)
+        ) : (
+          <EmptyHistory
+            icon={<IoWalletOutline size={22} />}
+            title="No wallet top-ups"
+            text="Top-ups you complete through Paystack will appear here."
+          />
+        )}
+      </motion.div>
+    </motion.section>
+  );
+
+  const SettlementPanel = (
+    <motion.section
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: 0.06 }}
+      className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+            Payout destination
+          </div>
+
+          <h2 className="mt-1 text-[16px] font-black text-slate-900">
+            Settlement details
+          </h2>
+
+          <p className="mt-1 max-w-xl text-[10px] font-medium leading-4 text-slate-400">
+            Choose where approved withdrawal requests should be paid. M-Pesa is automated; bank settlements are processed manually.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setSettlement((current) => ({
+                ...current,
+                enabled: !current.enabled,
+              }))
+            }
+            className={[
+              "h-9 rounded-xl border px-3 text-[10px] font-black transition",
+              settlement.enabled
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-[#D9D3C7] bg-white text-slate-500",
+            ].join(" ")}
+          >
+            {settlement.enabled ? "Enabled" : "Disabled"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSaveSettlementDetails}
+            disabled={savingSettlement}
+            className="h-9 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
+          >
+            {savingSettlement ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {settlementSavedToast ? (
+          <motion.div
+            initial={{ opacity: 0, y: -3 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700"
+          >
+            {settlementSavedToast}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="text-[10px] font-black text-slate-600">
+            Preferred payout method
+          </span>
+
+          <select
+            value={settlement.method}
+            disabled={!settlement.enabled}
+            onChange={(event) =>
+              setSettlement((current) => ({
+                ...current,
+                method:
+                  event.target.value === "bank"
+                    ? "bank"
+                    : "mpesa",
+              }))
+            }
+            className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
+          >
+            <option value="mpesa">M-Pesa (Automated)</option>
+            <option value="bank">Bank (Manual deposit)</option>
+          </select>
+        </label>
+
+        {settlement.method === "mpesa" ? (
+          <label className="block">
+            <span className="text-[10px] font-black text-slate-600">
+              M-Pesa phone
+            </span>
+
+            <input
+              value={settlement.mpesa.phone}
+              disabled={!settlement.enabled}
+              onChange={(event) =>
+                setSettlement((current) => ({
+                  ...current,
+                  mpesa: {
+                    ...current.mpesa,
+                    phone: event.target.value,
+                  },
+                }))
+              }
+              placeholder="07xxxxxxxx"
+              className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
+            />
+          </label>
+        ) : (
+          <div className="rounded-[14px] border border-[#DDD8CC] bg-[#F3F1EB] px-3 py-3">
+            <div className="flex items-start gap-2.5">
+              <IoBusinessOutline
+                size={16}
+                className="mt-0.5 shrink-0 text-[#173C2E]"
+              />
+
+              <div>
+                <div className="text-[10px] font-black text-slate-700">
+                  Manual bank deposit
+                </div>
+
+                <p className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
+                  Approved withdrawals will use the bank details below.
+                </p>
+              </div>
             </div>
           </div>
         )}
-
-        <Card className="p-4 md:p-5">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border bg-white px-3 py-1 shadow-sm w-fit mb-2">
-                <span
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black text-white"
-                  style={{ backgroundColor: EKARI.forest }}
-                >
-                  ⓔ
-                </span>
-                <span className="text-[11px] font-semibold tracking-[0.16em] uppercase" style={{ color: EKARI.dim }}>
-                  Earnings • Creator wallet
-                </span>
-              </div>
-
-              <h1 className="text-xl md:text-2xl font-black" style={{ color: EKARI.ink }}>
-                My Earnings 💸
-              </h1>
-              <p className="text-xs md:text-sm mt-1" style={{ color: EKARI.dim }}>
-                Track uplifts and topups flowing into your ekarihub wallet.
-              </p>
-            </div>
-
-            {/* currency toggle */}
-            <div className="flex items-center gap-2">
-              <div className="rounded-full border bg-white p-1 shadow-sm" style={{ borderColor: EKARI.hair }}>
-                <button
-                  type="button"
-                  onClick={() => handleToggleCurrency("USD")}
-                  className={[
-                    "px-3 h-9 rounded-full text-xs font-extrabold transition",
-                    displayCurrency === "USD" ? "text-white" : "text-slate-700 hover:bg-slate-50",
-                  ].join(" ")}
-                  style={{
-                    background: displayCurrency === "USD" ? EKARI.forest : "transparent",
-                  }}
-                >
-                  USD
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleToggleCurrency("KES")}
-                  className={[
-                    "px-3 h-9 rounded-full text-xs font-extrabold transition",
-                    displayCurrency === "KES" ? "text-white" : "text-slate-700 hover:bg-slate-50",
-                  ].join(" ")}
-                  style={{
-                    background: displayCurrency === "KES" ? EKARI.forest : "transparent",
-                  }}
-                >
-                  KSh
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Summary cards */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div
-              className="rounded-3xl border p-4 shadow-sm"
-              style={{
-                borderColor: "rgba(199,146,87,.35)",
-                background:
-                  "linear-gradient(135deg, rgba(253,247,236,1), rgba(255,255,255,1))",
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-black uppercase tracking-[0.08em]" style={{ color: EKARI.dim }}>
-                  Total received
-                </p>
-                <span className="text-lg">💰</span>
-              </div>
-              <p className="mt-1 text-2xl font-black" style={{ color: EKARI.ink }}>
-                {fmtMoneyMajor(totalReceivedDisplayMajor, displayCurrency)}
-              </p>
-              <p className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                Across {wallet?.totalDonations || 0} uplifts
-              </p>
-            </div>
-
-            <div className="rounded-3xl border p-4 bg-white shadow-sm" style={{ borderColor: EKARI.hair }}>
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-black uppercase tracking-[0.08em]" style={{ color: EKARI.dim }}>
-                  Wallet balance
-                </p>
-                <span className="text-lg">🕒</span>
-              </div>
-              <p className="mt-1 text-2xl font-black" style={{ color: EKARI.ink }}>
-                {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
-              </p>
-              <p className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                Base USD balance internally: {fmtMoneyMajor(pendingBalanceUsdMajor, "USD")}
-              </p>
-
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={openTopupModal}
-                  className="rounded-full px-3 h-10 text-xs font-extrabold text-white shadow-sm hover:opacity-95"
-                  style={{
-                    background: "linear-gradient(135deg, rgba(35,63,57,1), rgba(27,49,44,1))",
-                  }}
-                >
-                  Top up wallet
-                </button>
-
-                <div className="text-right">
-                  <p className="text-[11px] font-semibold" style={{ color: EKARI.dim }}>
-                    Minimum withdraw
-                  </p>
-                  <p className="text-xs font-black" style={{ color: EKARI.ink }}>
-                    {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className="rounded-3xl border p-4 shadow-sm"
-              style={{
-                borderColor: EKARI.hair,
-                background:
-                  "linear-gradient(135deg, rgba(255,255,255,1), rgba(248,250,252,1))",
-              }}
-            >
-              <p className="text-[11px] font-black uppercase tracking-[0.08em]" style={{ color: EKARI.dim }}>
-                Revenue split (typical)
-              </p>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Pill tone="emerald">You ~{creatorSharePercentEffective}%</Pill>
-                <Pill tone="neutral">ekarihub {platformSharePercentEffective}%</Pill>
-              </div>
-
-              <div className="mt-2">
-                <Pill tone="amber">Provider fees(est) ~{processingFeePercentEffective}%</Pill>
-              </div>
-
-              <p className="mt-2 text-[11px]" style={{ color: EKARI.dim }}>
-                This uses finance settings when available, otherwise falls back to the latest uplift.
-              </p>
-            </div>
-          </div>
-
-          {/* Withdraw button / message */}
-          <div className="mt-4">
-            {eligibleToWithdraw ? (
-              <button
-                type="button"
-                onClick={openWithdrawModal}
-                className="w-full rounded-full py-3 text-sm font-black text-white shadow-[0_18px_40px_rgba(16,185,129,.22)] hover:opacity-95"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(16,185,129,1), rgba(35,63,57,1))",
-                }}
-              >
-                Withdraw Funds (choose amount)
-              </button>
-            ) : (
-              <div className="rounded-2xl border px-4 py-3 bg-amber-50" style={{ borderColor: "rgba(245,158,11,.25)" }}>
-                <p className="text-xs font-semibold text-amber-900">
-                  Minimum withdrawal: {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
-                  {displayCurrency === "KES" && (
-                    <> (≈ USD {minThresholdUsdMajor.toFixed(2)})</>
-                  )}
-                </p>
-                <p className="text-[11px] text-amber-900/80 mt-1">
-                  Keep earning uplifts or top up your wallet to reach the threshold.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Settlement details */}
-          <div className="mt-4">
-            <Card className="p-4">
-              <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h3 className="text-sm md:text-base font-black" style={{ color: EKARI.ink }}>
-                    Settlement details
-                  </h3>
-                  <p className="text-xs mt-1" style={{ color: EKARI.dim }}>
-                    Enable payouts and set where we should settle withdrawals.
-                    <span className="ml-1 font-semibold">
-                      M-Pesa is automated · Bank is manual deposit.
-                    </span>
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 mt-3 md:mt-0">
-                  <button
-                    type="button"
-                    onClick={() => setSettlement((p) => ({ ...p, enabled: !p.enabled }))}
-                    className="rounded-full px-3 h-10 text-xs font-black border shadow-sm"
-                    style={{
-                      borderColor: EKARI.hair,
-                      background: settlement.enabled ? "rgba(16,185,129,.10)" : "#fff",
-                      color: settlement.enabled ? "#065F46" : "#334155",
-                    }}
-                  >
-                    {settlement.enabled ? "Enabled" : "Disabled"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSaveSettlementDetails}
-                    disabled={savingSettlement}
-                    className="rounded-full px-4 h-10 text-xs font-black text-white disabled:opacity-60 shadow-sm"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(35,63,57,1), rgba(27,49,44,1))",
-                    }}
-                  >
-                    {savingSettlement ? "Saving…" : "Save"}
-                  </button>
-
-                  {settlementSavedToast && (
-                    <span className="text-xs font-black text-emerald-700">
-                      {settlementSavedToast}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-black text-slate-700 mb-1">
-                    Preferred method
-                  </label>
-                  <select
-                    value={settlement.method}
-                    disabled={!settlement.enabled}
-                    onChange={(e) => {
-                      const m =
-                        (e.target.value as SettlementMethod) === "bank" ? "bank" : "mpesa";
-                      setSettlement((p) => ({ ...p, method: m }));
-                    }}
-                    className="w-full rounded-2xl border px-3 py-2 text-sm disabled:opacity-60 bg-white"
-                    style={{ borderColor: EKARI.hair }}
-                  >
-                    <option value="mpesa">M-Pesa (Automated)</option>
-                    <option value="bank">Bank (Manual deposit)</option>
-                  </select>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    This preference helps admin settle your withdrawal correctly.
-                  </p>
-                </div>
-
-                {settlement.method === "mpesa" ? (
-                  <div>
-                    <label className="block text-xs font-black text-slate-700 mb-1">
-                      M-Pesa phone
-                    </label>
-                    <input
-                      value={settlement.mpesa.phone}
-                      disabled={!settlement.enabled}
-                      onChange={(e) =>
-                        setSettlement((p) => ({
-                          ...p,
-                          mpesa: { ...p.mpesa, phone: e.target.value },
-                        }))
-                      }
-                      placeholder='e.g. "07xxxxxxxx"'
-                      className="w-full rounded-2xl border px-3 py-2 text-sm disabled:opacity-60 bg-white"
-                      style={{ borderColor: EKARI.hair }}
-                    />
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      Accepts 07.. / 01.. / 254.. / +254..
-                    </p>
-                  </div>
-                ) : (
-                  <div className="rounded-3xl border bg-slate-50 px-3 py-3" style={{ borderColor: EKARI.hair }}>
-                    <p className="text-xs font-black text-slate-800">
-                      Bank is manual deposit
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-600">
-                      We’ll use the bank details below to pay you manually after approval.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {settlement.method === "bank" && (
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-xs font-black text-slate-700 mb-1">
-                      Bank name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      value={settlement.bank.bankName || ""}
-                      disabled={!settlement.enabled}
-                      onChange={(e) =>
-                        setSettlement((p) => ({
-                          ...p,
-                          bank: { ...p.bank, bankName: e.target.value },
-                        }))
-                      }
-                      placeholder="e.g. Equity / KCB"
-                      className="w-full rounded-2xl border px-3 py-2 text-sm disabled:opacity-60 bg-white"
-                      style={{ borderColor: EKARI.hair }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-black text-slate-700 mb-1">
-                      Account number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      value={settlement.bank.accountNumber || ""}
-                      disabled={!settlement.enabled}
-                      onChange={(e) =>
-                        setSettlement((p) => ({
-                          ...p,
-                          bank: { ...p.bank, accountNumber: e.target.value },
-                        }))
-                      }
-                      placeholder="e.g. 0123456789"
-                      className="w-full rounded-2xl border px-3 py-2 text-sm disabled:opacity-60 bg-white"
-                      style={{ borderColor: EKARI.hair }}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-black text-slate-700 mb-1">
-                      Account name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      value={settlement.bank.accountName || ""}
-                      disabled={!settlement.enabled}
-                      onChange={(e) =>
-                        setSettlement((p) => ({
-                          ...p,
-                          bank: { ...p.bank, accountName: e.target.value },
-                        }))
-                      }
-                      placeholder="Name as it appears on the bank account"
-                      className="w-full rounded-2xl border px-3 py-2 text-sm disabled:opacity-60 bg-white"
-                      style={{ borderColor: EKARI.hair }}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-black text-slate-700 mb-1">
-                      Branch (optional)
-                    </label>
-                    <input
-                      value={settlement.bank.branchName || ""}
-                      disabled={!settlement.enabled}
-                      onChange={(e) =>
-                        setSettlement((p) => ({
-                          ...p,
-                          bank: { ...p.bank, branchName: e.target.value },
-                        }))
-                      }
-                      placeholder="e.g. Tomboya Street"
-                      className="w-full rounded-2xl border px-3 py-2 text-sm disabled:opacity-60 bg-white"
-                      style={{ borderColor: EKARI.hair }}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <div className="rounded-3xl bg-amber-50 border border-amber-200 px-3 py-3">
-                      <p className="text-[11px] font-black text-amber-900">
-                        Note
-                      </p>
-                      <p className="text-[11px] text-amber-900/80 mt-1">
-                        Ensure your bank details are accurate to avoid payout delays.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* History */}
-          <div className="mt-5">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-black" style={{ color: EKARI.ink }}>
-                History
-              </h2>
-
-              <div className="inline-flex rounded-full bg-slate-100 p-1 text-[11px] border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("donations")}
-                  className={`px-3 h-9 rounded-full font-extrabold transition ${activeTab === "donations"
-                    ? "bg-white shadow-sm text-emerald-900"
-                    : "text-slate-600 hover:bg-white/60"
-                    }`}
-                >
-                  Uplifts
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("topups")}
-                  className={`px-3 h-9 rounded-full font-extrabold transition ${activeTab === "topups"
-                    ? "bg-white shadow-sm text-emerald-900"
-                    : "text-slate-600 hover:bg-white/60"
-                    }`}
-                >
-                  Wallet topups
-                </button>
-              </div>
-            </div>
-
-            {loadingData ? (
-              <div className="flex items-center gap-2 py-6">
-                <BouncingBallLoader />
-                <p className="text-xs" style={{ color: EKARI.dim }}>
-                  Loading your history…
-                </p>
-              </div>
-            ) : activeTab === "donations" ? (
-              donations.length === 0 ? (
-                <div className="mt-3 rounded-3xl bg-slate-50 px-5 py-6 text-center border border-slate-200">
-                  <p className="mb-1 text-sm font-black" style={{ color: EKARI.ink }}>
-                    No uplifts yet
-                  </p>
-                  <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-                    When viewers support your deeds with tips, they’ll appear here
-                    in real-time. Keep creating and sharing value. 🌱
-                  </p>
-                </div>
-              ) : (
-                <div className="pt-2 pb-2">{donations.map((d) => renderDonation(d))}</div>
-              )
-            ) : topups.length === 0 ? (
-              <div className="mt-3 rounded-3xl bg-slate-50 px-5 py-6 text-center border border-slate-200">
-                <p className="mb-1 text-sm font-black" style={{ color: EKARI.ink }}>
-                  No wallet topups yet
-                </p>
-                <p className="text-xs md:text-sm" style={{ color: EKARI.dim }}>
-                  Top up your wallet to see your funding history here.
-                </p>
-              </div>
-            ) : (
-              <div className="pt-2 pb-2">{topups.map((t) => renderTopup(t))}</div>
-            )}
-          </div>
-        </Card>
       </div>
 
-      {/* ---------------- Top-up modal ---------------- */}
+      {settlement.method === "bank" ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {[
+            {
+              label: "Bank name",
+              value: settlement.bank.bankName || "",
+              key: "bankName",
+              placeholder: "e.g. Equity / KCB",
+            },
+            {
+              label: "Account number",
+              value: settlement.bank.accountNumber || "",
+              key: "accountNumber",
+              placeholder: "0123456789",
+            },
+            {
+              label: "Account name",
+              value: settlement.bank.accountName || "",
+              key: "accountName",
+              placeholder: "Name on the bank account",
+            },
+            {
+              label: "Branch (optional)",
+              value: settlement.bank.branchName || "",
+              key: "branchName",
+              placeholder: "Branch name",
+            },
+          ].map((field) => (
+            <label key={field.key} className="block">
+              <span className="text-[10px] font-black text-slate-600">
+                {field.label}
+              </span>
+
+              <input
+                value={field.value}
+                disabled={!settlement.enabled}
+                onChange={(event) =>
+                  setSettlement((current) => ({
+                    ...current,
+                    bank: {
+                      ...current.bank,
+                      [field.key]: event.target.value,
+                    },
+                  }))
+                }
+                placeholder={field.placeholder}
+                className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
+              />
+            </label>
+          ))}
+        </div>
+      ) : null}
+    </motion.section>
+  );
+
+  const RightRail = (
+    <motion.aside
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.24, delay: 0.04, ease: "easeOut" }}
+      className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
+    >
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+          Wallet balance
+        </div>
+
+        <div className="mt-1 text-[25px] font-black tracking-[-0.04em] text-[#173C2E]">
+          {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
+        </div>
+
+        <p className="mt-1 text-[9px] font-medium text-slate-400">
+          Internal base balance: {fmtMoneyMajor(pendingBalanceUsdMajor, "USD")}
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={openTopupModal}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+          >
+            <IoAddOutline size={14} />
+            Top up
+          </button>
+
+          <button
+            type="button"
+            onClick={openWithdrawModal}
+            disabled={!eligibleToWithdraw}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#173C2E] px-3 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <IoRemoveOutline size={14} />
+            Withdraw
+          </button>
+        </div>
+
+        {!eligibleToWithdraw ? (
+          <p className="mt-3 text-[9px] font-medium leading-4 text-amber-700">
+            Minimum withdrawal: {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
+          </p>
+        ) : null}
+      </section>
+
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="flex items-start gap-3">
+          <span
+            className={[
+              "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+              settlementReady
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-amber-100 text-amber-700",
+            ].join(" ")}
+          >
+            {settlement.method === "mpesa" ? (
+              <IoPhonePortraitOutline size={17} />
+            ) : (
+              <IoBusinessOutline size={17} />
+            )}
+          </span>
+
+          <div className="min-w-0">
+            <div className="text-[12px] font-black text-slate-800">
+              Payout destination
+            </div>
+
+            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+              {settlementReady
+                ? settlement.method === "mpesa"
+                  ? `M-Pesa · ${settlement.mpesa.phone}`
+                  : `${settlement.bank.bankName || "Bank"} · ${settlement.bank.accountNumber || ""}`
+                : "Settlement details need attention before withdrawal."}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+          Revenue split
+        </div>
+
+        <div className="mt-3 space-y-2">
+          <SplitRow
+            label="Creator share"
+            value={`~${creatorSharePercentEffective}%`}
+            strong
+          />
+
+          <SplitRow
+            label="ekarihub"
+            value={`${platformSharePercentEffective}%`}
+          />
+
+          <SplitRow
+            label="Provider fees (est.)"
+            value={`~${processingFeePercentEffective}%`}
+          />
+        </div>
+
+        <p className="mt-3 text-[9px] font-medium leading-4 text-slate-400">
+          Finance settings are used when available; otherwise the latest uplift values are used.
+        </p>
+      </section>
+
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+            <IoShieldCheckmarkOutline size={17} />
+          </span>
+
+          <div>
+            <div className="text-[12px] font-black text-slate-800">
+              Secure payouts
+            </div>
+
+            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+              Withdrawal requests are reviewed before funds are settled to your saved payout method.
+            </p>
+          </div>
+        </div>
+      </section>
+    </motion.aside>
+  );
+
+  const MainBody = (
+    <div className="h-full min-h-0 overflow-y-auto bg-[#F8F7F2]">
+
+      {Header}
+      <main className="min-h-0 flex-1">
+
+        <div className="mx-auto grid max-w-[1180px] gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+          <section className="min-w-0 space-y-4">
+            {Summary}
+
+            <motion.section
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: 0.02 }}
+              className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                    Available funds
+                  </div>
+
+                  <div className="mt-1 text-[26px] font-black tracking-[-0.04em] text-[#173C2E]">
+                    {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
+                  </div>
+
+                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                    Minimum withdrawal: {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={openTopupModal}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                  >
+                    <IoWalletOutline size={14} />
+                    Top up wallet
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openWithdrawModal}
+                    disabled={!eligibleToWithdraw}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <IoCashOutline size={14} />
+                    Withdraw funds
+                  </button>
+                </div>
+              </div>
+
+              {!eligibleToWithdraw ? (
+                <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3">
+                  <p className="text-[10px] font-black text-amber-900">
+                    Withdrawal threshold not reached
+                  </p>
+
+                  <p className="mt-1 text-[9px] font-medium leading-4 text-amber-800">
+                    Keep earning uplifts or top up your wallet until your available balance reaches {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}.
+                  </p>
+                </div>
+              ) : null}
+            </motion.section>
+
+            {SettlementPanel}
+            {HistoryPanel}
+          </section>
+
+          {RightRail}
+        </div>
+      </main>
+
+      {/* TOP-UP MODAL */}
       {topupOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
             <div
-              className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${topupAnimated ? "opacity-100" : "opacity-0"
-                }`}
+              className={[
+                "absolute inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-200",
+                topupAnimated ? "opacity-100" : "opacity-0",
+              ].join(" ")}
               onClick={() => !topupLoading && setTopupOpen(false)}
             />
 
             <div
-              className={`relative w-full max-w-md px-5 pb-5 pt-4 rounded-[28px] bg-white shadow-[0_25px_80px_rgba(0,0,0,.25)] transition-all duration-200 transform ${topupAnimated
-                ? "opacity-100 scale-100 translate-y-0"
-                : "opacity-0 scale-95 translate-y-2"
-                }`}
-              style={{
-                marginBottom: isMobile ? "env(safe-area-inset-bottom)" : undefined,
-                width: isMobile ? "92vw" : undefined,
-              }}
+              className={[
+                "relative w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5",
+                "shadow-[0_25px_80px_rgba(0,0,0,.25)] transition-all duration-200",
+                topupAnimated
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "translate-y-2 scale-95 opacity-0",
+              ].join(" ")}
             >
-              <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="inline-flex items-center gap-2 rounded-full border bg-white px-3 py-1 shadow-sm w-fit">
-                    <span
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black text-white"
-                      style={{ backgroundColor: EKARI.forest }}
-                    >
-                      ⓔ
-                    </span>
-                    <span className="text-[11px] font-semibold tracking-[0.16em] uppercase" style={{ color: EKARI.dim }}>
-                      Wallet top-up
-                    </span>
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    Creator wallet
                   </div>
-                  <h2 className="mt-2 text-[16px] font-black text-gray-900">
-                    Add funds to your wallet
+
+                  <h2 className="mt-1 text-[18px] font-black text-slate-900">
+                    Top up wallet
                   </h2>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Enter amount in {displayCurrency === "USD" ? "USD" : "Kenyan Shillings"}.
+
+                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                    Add funds in {displayCurrency === "USD" ? "USD" : "Kenyan shillings"}.
                   </p>
                 </div>
 
@@ -1694,124 +1791,100 @@ export default function EarningsPage() {
                   type="button"
                   disabled={topupLoading}
                   onClick={() => setTopupOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-40"
+                  className="grid h-9 w-9 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-600 disabled:opacity-40"
                 >
-                  ✕
+                  ×
                 </button>
               </div>
 
-              <div className="mb-4">
-                <label className="mb-1 block text-xs font-extrabold text-gray-700">
+              <label className="mt-4 block">
+                <span className="text-[10px] font-black text-slate-600">
                   Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
-                </label>
+                </span>
 
-                <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <span className="text-xs font-extrabold text-gray-500">
+                <div className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
+                  <span className="text-[10px] font-black text-slate-400">
                     {displayCurrency === "USD" ? "USD" : "KSh"}
                   </span>
+
                   <input
                     type="number"
                     min={displayCurrency === "USD" ? 1 : 100}
                     step={displayCurrency === "USD" ? 1 : 50}
                     value={topupAmount}
-                    onChange={(e) => {
-                      setTopupAmount(e.target.value);
+                    onChange={(event) => {
+                      setTopupAmount(event.target.value);
                       if (topupError) setTopupError(null);
                     }}
-                    className="flex-1 border-none bg-transparent text-sm outline-none placeholder:text-gray-300"
-                    placeholder={displayCurrency === "USD" ? "e.g. 10" : "e.g. 1000"}
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-slate-800 outline-none"
+                    placeholder={displayCurrency === "USD" ? "10" : "1000"}
                   />
                 </div>
+              </label>
 
-                <p className="mt-1 text-[11px] text-gray-400">
-                  You’ll be redirected to a secure Paystack page to complete the top-up.
-                </p>
+              {topupError ? (
+                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">
+                  {topupError}
+                </div>
+              ) : null}
 
-                {topupError && (
-                  <p className="mt-2 text-[11px] text-red-600">{topupError}</p>
-                )}
-              </div>
+              <p className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+                You’ll continue to secure Paystack checkout. The wallet updates automatically after successful payment.
+              </p>
 
               <button
                 type="button"
                 onClick={handleConfirmTopup}
                 disabled={topupLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-black text-white shadow-sm transition disabled:opacity-60"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,.95))",
-                }}
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[11px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
               >
                 {topupLoading ? (
                   <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <span>Starting top-up…</span>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-white" />
+                    Starting top-up…
                   </>
                 ) : (
-                  <>
-                    <span role="img" aria-label="wallet">
-                      👛
-                    </span>
-                    <span>Continue</span>
-                  </>
+                  "Continue to payment"
                 )}
               </button>
-
-              <p className="mt-2 text-center text-[10px] text-gray-500">
-                Your wallet balance will update automatically once the payment succeeds.
-              </p>
             </div>
           </div>,
           document.body
         )}
 
-      {/* ---------------- Withdraw modal (partial) ---------------- */}
+      {/* WITHDRAW MODAL */}
       {withdrawOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[80] flex items-center justify-center">
+          <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
             <div
-              className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${withdrawAnimated ? "opacity-100" : "opacity-0"
-                }`}
+              className={[
+                "absolute inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-200",
+                withdrawAnimated ? "opacity-100" : "opacity-0",
+              ].join(" ")}
               onClick={() => !withdrawSubmitting && setWithdrawOpen(false)}
             />
 
             <div
-              className={`relative w-full max-w-md px-5 pb-5 pt-4 rounded-[28px] bg-white shadow-[0_25px_80px_rgba(0,0,0,.25)] transition-all duration-200 transform ${withdrawAnimated
-                ? "opacity-100 scale-100 translate-y-0"
-                : "opacity-0 scale-95 translate-y-2"
-                }`}
-              style={{
-                marginBottom: isMobile ? "env(safe-area-inset-bottom)" : undefined,
-                width: isMobile ? "92vw" : undefined,
-              }}
+              className={[
+                "relative w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5",
+                "shadow-[0_25px_80px_rgba(0,0,0,.25)] transition-all duration-200",
+                withdrawAnimated
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "translate-y-2 scale-95 opacity-0",
+              ].join(" ")}
             >
-              <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="inline-flex items-center gap-2 rounded-full border bg-white px-3 py-1 shadow-sm w-fit">
-                    <span
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black text-white"
-                      style={{ backgroundColor: EKARI.forest }}
-                    >
-                      ⓔ
-                    </span>
-                    <span className="text-[11px] font-semibold tracking-[0.16em] uppercase" style={{ color: EKARI.dim }}>
-                      Withdrawal request
-                    </span>
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    Withdrawal request
                   </div>
 
-                  <h2 className="mt-2 text-[16px] font-black text-gray-900">
-                    Choose amount to withdraw
+                  <h2 className="mt-1 text-[18px] font-black text-slate-900">
+                    Choose withdrawal amount
                   </h2>
 
-                  <p className="mt-1 text-xs text-gray-500">
-                    Available:{" "}
-                    <b>
-                      {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
-                    </b>{" "}
-                    · Minimum:{" "}
-                    <b>
-                      {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
-                    </b>
+                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                    Available {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
                   </p>
                 </div>
 
@@ -1819,120 +1892,112 @@ export default function EarningsPage() {
                   type="button"
                   disabled={withdrawSubmitting}
                   onClick={() => setWithdrawOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-40"
+                  className="grid h-9 w-9 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-600 disabled:opacity-40"
                 >
-                  ✕
+                  ×
                 </button>
               </div>
 
-              <div className="mb-3">
-                <label className="mb-1 block text-xs font-extrabold text-gray-700">
+              <label className="mt-4 block">
+                <span className="text-[10px] font-black text-slate-600">
                   Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
-                </label>
+                </span>
 
-                <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2">
-                  <span className="text-xs font-extrabold text-gray-500">
+                <div className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
+                  <span className="text-[10px] font-black text-slate-400">
                     {displayCurrency === "USD" ? "USD" : "KSh"}
                   </span>
+
                   <input
                     type="number"
                     min={displayCurrency === "USD" ? 0.01 : 1}
                     step={displayCurrency === "USD" ? 0.01 : 1}
                     value={withdrawAmount}
-                    onChange={(e) => {
-                      setWithdrawAmount(e.target.value);
+                    onChange={(event) => {
+                      setWithdrawAmount(event.target.value);
                       if (withdrawError) setWithdrawError(null);
                     }}
-                    className="flex-1 border-none bg-transparent text-sm outline-none placeholder:text-gray-300"
-                    placeholder={displayCurrency === "USD" ? "e.g. 10.00" : "e.g. 1500"}
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-slate-800 outline-none"
                     disabled={withdrawSubmitting}
                   />
                 </div>
+              </label>
 
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {[25, 50, 75].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      disabled={withdrawSubmitting}
-                      onClick={() => {
-                        const v = (pendingBalanceDisplayMajor * pct) / 100;
-                        setWithdrawAmount(
-                          v.toFixed(displayCurrency === "KES" ? 0 : 2)
-                        );
-                        setWithdrawError(null);
-                      }}
-                      className="rounded-full border px-3 h-9 text-[11px] font-extrabold hover:bg-gray-50 disabled:opacity-60"
-                      style={{ borderColor: EKARI.hair, color: EKARI.ink }}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-
+              <div className="mt-2 flex flex-wrap gap-2">
+                {[25, 50, 75].map((pct) => (
                   <button
+                    key={pct}
                     type="button"
                     disabled={withdrawSubmitting}
                     onClick={() => {
+                      const value =
+                        (pendingBalanceDisplayMajor * pct) / 100;
+
                       setWithdrawAmount(
-                        pendingBalanceDisplayMajor.toFixed(
-                          displayCurrency === "KES" ? 0 : 2
-                        )
+                        value.toFixed(displayCurrency === "KES" ? 0 : 2)
                       );
+
                       setWithdrawError(null);
                     }}
-                    className="rounded-full border px-3 h-9 text-[11px] font-extrabold hover:bg-gray-50 disabled:opacity-60"
-                    style={{ borderColor: EKARI.hair, color: EKARI.ink }}
+                    className="h-8 rounded-lg border border-[#D9D3C7] bg-white px-3 text-[9px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
                   >
-                    Max
+                    {pct}%
                   </button>
-                </div>
+                ))}
 
-                {withdrawError && (
-                  <p className="mt-2 text-[11px] text-red-600">{withdrawError}</p>
-                )}
+                <button
+                  type="button"
+                  disabled={withdrawSubmitting}
+                  onClick={() => {
+                    setWithdrawAmount(
+                      pendingBalanceDisplayMajor.toFixed(
+                        displayCurrency === "KES" ? 0 : 2
+                      )
+                    );
+                    setWithdrawError(null);
+                  }}
+                  className="h-8 rounded-lg bg-[#173C2E] px-3 text-[9px] font-black text-white disabled:opacity-50"
+                >
+                  Max
+                </button>
+              </div>
 
-                <div className="mt-3 rounded-2xl border px-3 py-2 bg-slate-50" style={{ borderColor: EKARI.hair }}>
-                  <p className="text-[11px] text-slate-600">
-                    Your wallet is stored in <b>USD</b>. If you enter KSh, we convert using{" "}
-                    <b>{usdToKesRate}</b> KES per USD.
-                  </p>
+              {withdrawError ? (
+                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">
+                  {withdrawError}
                 </div>
+              ) : null}
+
+              <div className="mt-3 rounded-xl border border-[#DDD8CC] bg-[#F3F1EB] px-3 py-2.5">
+                <p className="text-[9px] font-medium leading-4 text-slate-500">
+                  Wallet balances are stored in USD. KSh requests use the current rate of {usdToKesRate} KES per USD.
+                </p>
               </div>
 
               <button
                 type="button"
                 onClick={handleRequestWithdraw}
                 disabled={withdrawSubmitting}
-                className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-black text-white shadow-sm transition disabled:opacity-60"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(16,185,129,1), rgba(35,63,57,1))",
-                }}
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[11px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
               >
                 {withdrawSubmitting ? (
                   <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <span>Submitting…</span>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-white" />
+                    Submitting…
                   </>
                 ) : (
-                  <>
-                    <span role="img" aria-label="cash">
-                      💸
-                    </span>
-                    <span>Submit withdrawal request</span>
-                  </>
+                  "Submit withdrawal request"
                 )}
               </button>
 
-              <p className="mt-2 text-center text-[10px] text-gray-500">
-                Requests are reviewed before payout. Your saved settlement method will be used.
+              <p className="mt-2 text-center text-[9px] font-medium leading-4 text-slate-400">
+                Requests are reviewed before payout and use your saved settlement method.
               </p>
             </div>
           </div>,
           document.body
         )}
 
-      {/* Feedback Modal */}
       <ConfirmModal
         open={!!feedbackModal}
         title={feedbackModal?.title || ""}
@@ -1942,8 +2007,453 @@ export default function EarningsPage() {
         onConfirm={() => setFeedbackModal(null)}
         onCancel={() => setFeedbackModal(null)}
       />
-    </main>
+    </div>
+  );
+  const page = (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#F8F7F2]">
+      {Header}
+
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+
+      </main>
+    </div>
+  );
+  const MainBodyMobile = (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#F8F7F2]">
+
+      {Header}
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+
+        <div className="mx-auto grid max-w-[1180px] gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+          <section className="min-w-0 space-y-4">
+            {Summary}
+
+            <motion.section
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: 0.02 }}
+              className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                    Available funds
+                  </div>
+
+                  <div className="mt-1 text-[26px] font-black tracking-[-0.04em] text-[#173C2E]">
+                    {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
+                  </div>
+
+                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                    Minimum withdrawal: {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={openTopupModal}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                  >
+                    <IoWalletOutline size={14} />
+                    Top up wallet
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openWithdrawModal}
+                    disabled={!eligibleToWithdraw}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <IoCashOutline size={14} />
+                    Withdraw funds
+                  </button>
+                </div>
+              </div>
+
+              {!eligibleToWithdraw ? (
+                <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3">
+                  <p className="text-[10px] font-black text-amber-900">
+                    Withdrawal threshold not reached
+                  </p>
+
+                  <p className="mt-1 text-[9px] font-medium leading-4 text-amber-800">
+                    Keep earning uplifts or top up your wallet until your available balance reaches {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}.
+                  </p>
+                </div>
+              ) : null}
+            </motion.section>
+
+            {SettlementPanel}
+            {HistoryPanel}
+          </section>
+
+          {RightRail}
+        </div>
+      </main>
+
+      {/* TOP-UP MODAL */}
+      {topupOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+            <div
+              className={[
+                "absolute inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-200",
+                topupAnimated ? "opacity-100" : "opacity-0",
+              ].join(" ")}
+              onClick={() => !topupLoading && setTopupOpen(false)}
+            />
+
+            <div
+              className={[
+                "relative w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5",
+                "shadow-[0_25px_80px_rgba(0,0,0,.25)] transition-all duration-200",
+                topupAnimated
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "translate-y-2 scale-95 opacity-0",
+              ].join(" ")}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    Creator wallet
+                  </div>
+
+                  <h2 className="mt-1 text-[18px] font-black text-slate-900">
+                    Top up wallet
+                  </h2>
+
+                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                    Add funds in {displayCurrency === "USD" ? "USD" : "Kenyan shillings"}.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={topupLoading}
+                  onClick={() => setTopupOpen(false)}
+                  className="grid h-9 w-9 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-600 disabled:opacity-40"
+                >
+                  ×
+                </button>
+              </div>
+
+              <label className="mt-4 block">
+                <span className="text-[10px] font-black text-slate-600">
+                  Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
+                </span>
+
+                <div className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
+                  <span className="text-[10px] font-black text-slate-400">
+                    {displayCurrency === "USD" ? "USD" : "KSh"}
+                  </span>
+
+                  <input
+                    type="number"
+                    min={displayCurrency === "USD" ? 1 : 100}
+                    step={displayCurrency === "USD" ? 1 : 50}
+                    value={topupAmount}
+                    onChange={(event) => {
+                      setTopupAmount(event.target.value);
+                      if (topupError) setTopupError(null);
+                    }}
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-slate-800 outline-none"
+                    placeholder={displayCurrency === "USD" ? "10" : "1000"}
+                  />
+                </div>
+              </label>
+
+              {topupError ? (
+                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">
+                  {topupError}
+                </div>
+              ) : null}
+
+              <p className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+                You’ll continue to secure Paystack checkout. The wallet updates automatically after successful payment.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleConfirmTopup}
+                disabled={topupLoading}
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[11px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
+              >
+                {topupLoading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-white" />
+                    Starting top-up…
+                  </>
+                ) : (
+                  "Continue to payment"
+                )}
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* WITHDRAW MODAL */}
+      {withdrawOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+            <div
+              className={[
+                "absolute inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-200",
+                withdrawAnimated ? "opacity-100" : "opacity-0",
+              ].join(" ")}
+              onClick={() => !withdrawSubmitting && setWithdrawOpen(false)}
+            />
+
+            <div
+              className={[
+                "relative w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5",
+                "shadow-[0_25px_80px_rgba(0,0,0,.25)] transition-all duration-200",
+                withdrawAnimated
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "translate-y-2 scale-95 opacity-0",
+              ].join(" ")}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    Withdrawal request
+                  </div>
+
+                  <h2 className="mt-1 text-[18px] font-black text-slate-900">
+                    Choose withdrawal amount
+                  </h2>
+
+                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                    Available {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={withdrawSubmitting}
+                  onClick={() => setWithdrawOpen(false)}
+                  className="grid h-9 w-9 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-600 disabled:opacity-40"
+                >
+                  ×
+                </button>
+              </div>
+
+              <label className="mt-4 block">
+                <span className="text-[10px] font-black text-slate-600">
+                  Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
+                </span>
+
+                <div className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
+                  <span className="text-[10px] font-black text-slate-400">
+                    {displayCurrency === "USD" ? "USD" : "KSh"}
+                  </span>
+
+                  <input
+                    type="number"
+                    min={displayCurrency === "USD" ? 0.01 : 1}
+                    step={displayCurrency === "USD" ? 0.01 : 1}
+                    value={withdrawAmount}
+                    onChange={(event) => {
+                      setWithdrawAmount(event.target.value);
+                      if (withdrawError) setWithdrawError(null);
+                    }}
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-slate-800 outline-none"
+                    disabled={withdrawSubmitting}
+                  />
+                </div>
+              </label>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                {[25, 50, 75].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    disabled={withdrawSubmitting}
+                    onClick={() => {
+                      const value =
+                        (pendingBalanceDisplayMajor * pct) / 100;
+
+                      setWithdrawAmount(
+                        value.toFixed(displayCurrency === "KES" ? 0 : 2)
+                      );
+
+                      setWithdrawError(null);
+                    }}
+                    className="h-8 rounded-lg border border-[#D9D3C7] bg-white px-3 text-[9px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
+                  >
+                    {pct}%
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  disabled={withdrawSubmitting}
+                  onClick={() => {
+                    setWithdrawAmount(
+                      pendingBalanceDisplayMajor.toFixed(
+                        displayCurrency === "KES" ? 0 : 2
+                      )
+                    );
+                    setWithdrawError(null);
+                  }}
+                  className="h-8 rounded-lg bg-[#173C2E] px-3 text-[9px] font-black text-white disabled:opacity-50"
+                >
+                  Max
+                </button>
+              </div>
+
+              {withdrawError ? (
+                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">
+                  {withdrawError}
+                </div>
+              ) : null}
+
+              <div className="mt-3 rounded-xl border border-[#DDD8CC] bg-[#F3F1EB] px-3 py-2.5">
+                <p className="text-[9px] font-medium leading-4 text-slate-500">
+                  Wallet balances are stored in USD. KSh requests use the current rate of {usdToKesRate} KES per USD.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRequestWithdraw}
+                disabled={withdrawSubmitting}
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[11px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
+              >
+                {withdrawSubmitting ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-white" />
+                    Submitting…
+                  </>
+                ) : (
+                  "Submit withdrawal request"
+                )}
+              </button>
+
+              <p className="mt-2 text-center text-[9px] font-medium leading-4 text-slate-400">
+                Requests are reviewed before payout and use your saved settlement method.
+              </p>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      <ConfirmModal
+        open={!!feedbackModal}
+        title={feedbackModal?.title || ""}
+        message={feedbackModal?.message || ""}
+        confirmText="OK"
+        cancelText="Close"
+        onConfirm={() => setFeedbackModal(null)}
+        onCancel={() => setFeedbackModal(null)}
+      />
+    </div>
   );
 
-  return wrap(MainBody, "My Earnings");
+  return isMobile ? (
+    <div className="fixed inset-0">
+      {MainBodyMobile}
+    </div>
+  ) : (
+    <AppShell>
+      {MainBody}
+    </AppShell>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+            {label}
+          </div>
+
+          <div className="mt-1 text-[21px] font-black tracking-[-0.035em] text-[#173C2E]">
+            {value}
+          </div>
+        </div>
+
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+          {icon}
+        </span>
+      </div>
+
+      <p className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+        {hint}
+      </p>
+    </motion.div>
+  );
+}
+
+function SplitRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-[#F3F1EB] px-3 py-2.5">
+      <span className="text-[9px] font-semibold text-slate-400">
+        {label}
+      </span>
+
+      <span
+        className={[
+          "text-[10px] font-black",
+          strong ? "text-[#173C2E]" : "text-slate-700",
+        ].join(" ")}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function EmptyHistory({
+  icon,
+  title,
+  text,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="grid min-h-[220px] place-items-center text-center">
+      <div>
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+          {icon}
+        </div>
+
+        <div className="mt-3 text-[12px] font-black text-slate-700">
+          {title}
+        </div>
+
+        <p className="mx-auto mt-1 max-w-sm text-[10px] font-medium leading-4 text-slate-400">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
 }

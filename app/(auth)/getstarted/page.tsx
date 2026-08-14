@@ -5,211 +5,471 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import {
+    motion,
+    useReducedMotion,
+} from "framer-motion";
+import {
+    IoArrowForwardOutline,
+    IoCheckmarkCircleOutline,
+    IoLeafOutline,
+    IoLockClosedOutline,
+    IoPeopleOutline,
+    IoPersonAddOutline,
+    IoPersonOutline,
+    IoPlayOutline,
+    IoShieldCheckmarkOutline,
+    IoSparklesOutline,
+} from "react-icons/io5";
 
-const EKARI = {
-    forest: "#233F39",
-    leaf: "#1F3A34",
-    gold: "#C79257",
-    sand: "#FFFFFF",
-    text: "#1F2F2B",
-    subtext: "#5C6B66",
-    border: "#E5E7EB",
+const container = {
+    hidden: {},
+    show: {
+        transition: {
+            staggerChildren: 0.055,
+        },
+    },
 };
+
+const item = {
+    hidden: {
+        opacity: 0,
+        y: 7,
+    },
+    show: {
+        opacity: 1,
+        y: 0,
+        transition: {
+            duration: 0.22,
+            ease: "easeOut" as const,
+        },
+    },
+};
+
+function Benefit({
+    icon,
+    title,
+    description,
+}: {
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+}) {
+    return (
+        <motion.div
+            variants={item}
+            className="flex items-start gap-3"
+        >
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+                {icon}
+            </div>
+
+            <div className="min-w-0">
+                <div className="text-[12px] font-black text-white">
+                    {title}
+                </div>
+
+                <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
+                    {description}
+                </p>
+            </div>
+        </motion.div>
+    );
+}
+
+function TrustItem({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="flex items-center gap-1.5">
+            <IoCheckmarkCircleOutline
+                size={13}
+                className="shrink-0 text-[#173C2E]"
+            />
+
+            <span className="text-[9px] font-bold text-slate-500">
+                {children}
+            </span>
+        </div>
+    );
+}
 
 export default function OnboardingPage() {
     const router = useRouter();
+    const reduceMotion = useReducedMotion();
 
     return (
         <main
-            className="min-h-screen w-full flex items-center justify-center px-4 py-8"
-            style={{
-                background:
-                    "radial-gradient(circle at top left, rgba(35,63,57,0.14), transparent 50%), radial-gradient(circle at bottom right, rgba(199,146,87,0.18), #F3F4F6)",
-            }}
+            className="h-[100svh] w-full overflow-hidden bg-[#F8F7F2]"
         >
-            <motion.div
-                className="w-full max-w-4xl mx-auto"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-            >
-                {/* Top logo */}
-                <div className="mb-6 text-center md:text-left">
-                    <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.05, duration: 0.3, ease: "easeOut" }}
-                        className="inline-flex items-center gap-3"
-                    >
-                        <Image
-                            src="/ekarihub-logo.png"
-                            alt="ekarihub"
-                            width={220}
-                            height={66}
-                            priority
-                        />
-                    </motion.div>
-                </div>
-
-                {/* Card: brand side + CTA side */}
-                <motion.div
-                    className="grid md:grid-cols-2 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.25)] overflow-hidden"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.28, ease: "easeOut" }}
-                >
-                    {/* Brand / Story side (moved from login) */}
+            <div className="grid h-full w-full lg:grid-cols-[0.92fr_1.08fr]">
+                <section className="relative hidden overflow-hidden bg-[#173C2E] px-5 py-6 text-white lg:block lg:h-full lg:px-10 lg:py-10 xl:px-14">
                     <div
-                        className="relative hidden md:flex flex-col justify-between px-8 py-8"
+                        className="pointer-events-none absolute inset-0 opacity-[0.045]"
                         style={{
-                            background:
-                                "radial-gradient(circle at top, rgba(253,230,138,0.12), transparent 60%), linear-gradient(160deg, #233F39, #111827)",
-                            color: "white",
+                            backgroundImage:
+                                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.75) 18px 19px)",
                         }}
+                    />
+
+                    <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+
+                    <motion.div
+                        variants={container}
+                        initial={reduceMotion ? "show" : "hidden"}
+                        animate="show"
+                        className="relative mx-auto flex h-full w-full max-w-[560px] flex-col"
                     >
-                        <div>
-                            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[11px] font-medium tracking-wide">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                                A home for good deeds
-                            </div>
-
-                            <h1 className="mt-4 text-2xl font-semibold tracking-tight">
-                                Welcome to ekarihub
-                            </h1>
-                            <p className="mt-2 text-sm text-emerald-100 leading-relaxed">
-                                Collaborate, Cultivate & Innovate — merging technology, community, and sustainability to redefine how agribusiness, eco-creators, and green living communities connect, trade, learn, and thrive.
-                            </p>
-                        </div>
-
-                        <div className="mt-8 space-y-3 text-[13px] text-emerald-100">
-                            <div className="flex items-start gap-3">
-                                <span className="mt-1 h-6 w-6 inline-flex items-center justify-center rounded-full bg-white/10 border border-white/20 text-[12px]">
-                                    1
-                                </span>
-                                <div>
-                                    <div className="font-semibold">Share your deeds</div>
-                                    <div className="text-emerald-100/80">
-                                        Post, track, and celebrate meaningful actions across farms, markets, and communities
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <span className="mt-1 h-6 w-6 inline-flex items-center justify-center rounded-full bg-white/10 border border-white/20 text-[12px]">
-                                    2
-                                </span>
-                                <div>
-                                    <div className="font-semibold">Support and uplift</div>
-                                    <div className="text-emerald-100/80">
-                                        Showcase your agribusiness journey, attract backers, and grow sustainable impact with a community that cares.
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <span className="mt-1 h-6 w-6 inline-flex items-center justify-center rounded-full bg-white/10 border border-white/20 text-[12px]">
-                                    3
-                                </span>
-                                <div>
-                                    <div className="font-semibold">Stay rooted</div>
-                                    <div className="text-emerald-100/80">
-                                        Tailored for farmers, agripreneurs, eco-creators, wildlife enthusiasts and green explorers, while keeping your data safe and private.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 text-[12px] text-emerald-100/80">
-                            Join in, dive deep, and let your impact shine.
-                        </div>
-                    </div>
-
-                    {/* CTA / Entry side */}
-                    <div className="px-6 py-6 md:px-8 md:py-8 flex flex-col">
-                        {/* Mobile brand header */}
-                        <div className="md:hidden mb-4 text-center">
-                            <h1 className="text-xl font-semibold text-slate-900">
-                                Get started with ekarihub
-                            </h1>
-                            <p className="mt-1 text-xs text-slate-500">
-                                Collaborate • Innovate • Cultivate
-                            </p>
-                        </div>
-
-                        <div className="space-y-4">
-                            <p
-                                className="text-sm leading-5"
-                                style={{ color: EKARI.subtext }}
-                            >
-                                Begin your ekarihub experience your way — sign up, log in, or browse the Deeds Feed to get inspired.
-                            </p>
-
-                            {/* Sign Up */}
-                            <button
-                                onClick={() => router.push("/signup")}
-                                className="w-full rounded-xl py-3.5 text-sm font-semibold text-white shadow-sm active:scale-[0.98] transition"
-                                style={{
-                                    background:
-                                        "linear-gradient(135deg, #C79257, #fbbf77)",
-                                }}
-                            >
-                                Craft a new account
-                            </button>
-
-                            {/* Log In */}
+                        <motion.div
+                            variants={item}
+                            className="flex items-center justify-between gap-3"
+                        >
                             <Link
-                                href="/login"
-                                className="block w-full rounded-xl py-3.5 text-center text-sm font-semibold border bg-white active:scale-[0.98] transition shadow-sm"
-                                style={{
-                                    borderColor: EKARI.border,
-                                    color: EKARI.text,
-                                }}
+                                href="/"
+                                aria-label="Go to ekarihub"
+                                className="inline-flex items-center"
                             >
-                                I already have an account
+                                <Image
+                                    src="/ekarihub-logo-green.png"
+                                    alt="ekarihub"
+                                    width={156}
+                                    height={44}
+                                    priority
+                                    className="h-auto w-[132px] object-contain"
+                                />
                             </Link>
 
-                            {/* Explore feed */}
-                            <button
-                                onClick={() => router.replace("/")}
-                                className="inline-flex items-center justify-center w-full mt-1 text-xs font-semibold underline underline-offset-4"
-                                style={{ color: EKARI.subtext }}
+                            <Link
+                                href="/about"
+                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/70 transition hover:bg-white/[0.11]"
                             >
-                                Explore deeds first (no account yet)
-                            </button>
+                                About ekarihub
+                            </Link>
+                        </motion.div>
+
+                        <div className="flex flex-1 flex-col justify-center py-8 lg:py-10">
+                            <motion.div variants={item}>
+                                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/65">
+                                    <IoSparklesOutline
+                                        size={12}
+                                        className="text-[#F39A22]"
+                                    />
+                                    Welcome to ekarihub
+                                </span>
+                            </motion.div>
+
+                            <motion.h1
+                                variants={item}
+                                className="mt-5 max-w-[470px] text-[30px] font-black leading-[1.06] tracking-[-0.045em] sm:text-[36px] xl:text-[42px]"
+                            >
+                                Grow your agribusiness with the right community.
+                            </motion.h1>
+
+                            <motion.p
+                                variants={item}
+                                className="mt-4 max-w-[470px] text-[11px] font-medium leading-5 text-white/55 sm:text-[12px]"
+                            >
+                                Collaborate, innovate and cultivate through a connected ecosystem for agribusiness, sustainability and green living.
+                            </motion.p>
+
+                            <div className="mt-7 space-y-5">
+                                <Benefit
+                                    icon={<IoPeopleOutline size={18} />}
+                                    title="Connect with the community"
+                                    description="Meet farmers, agripreneurs, experts, buyers and people building across the agricultural value chain."
+                                />
+
+                                <Benefit
+                                    icon={<IoLeafOutline size={18} />}
+                                    title="Share your journey"
+                                    description="Post deeds, showcase your work, exchange knowledge and build a trusted presence."
+                                />
+
+                                <Benefit
+                                    icon={<IoSparklesOutline size={18} />}
+                                    title="Discover opportunities"
+                                    description="Explore markets, expert services, AI insights, partnerships and resources designed to help you grow."
+                                />
+                            </div>
+
+                            <motion.div
+                                variants={item}
+                                className="mt-7 rounded-[17px] border border-white/10 bg-white/[0.055] p-4"
+                            >
+                                <div className="flex items-start gap-3">
+                                    <IoShieldCheckmarkOutline
+                                        size={18}
+                                        className="mt-0.5 shrink-0 text-[#F39A22]"
+                                    />
+
+                                    <div>
+                                        <div className="text-[10px] font-black text-white">
+                                            Built around trust
+                                        </div>
+
+                                        <p className="mt-1 text-[9px] font-medium leading-4 text-white/45">
+                                            Your profile helps tell your story, establish credibility and connect you with people who believe in what you are building.
+                                        </p>
+                                    </div>
+                                </div>
+                            </motion.div>
                         </div>
 
-                        {/* Little reassurance / copy */}
-                        <div className="mt-6 rounded-2xl border bg-slate-50/70 px-4 py-3 text-[11px] leading-relaxed text-slate-500">
-                            <span className="font-semibold" style={{ color: EKARI.text }}>
-                                Built for trust:
-                            </span>{" "}
-                            your profile tells your story and purpose, connecting you with supporters who believe in your mission, wherever you are.
+                        <motion.div
+                            variants={item}
+                            className="pb-1 text-[9px] font-semibold text-white/30"
+                        >
+                            Collaborate · Innovate · Cultivate
+                        </motion.div>
+                    </motion.div>
+                </section>
+
+                <section className="relative flex min-h-[100svh] flex-col bg-[#F8F7F2] px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10 xl:px-14">
+                    <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
+                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+
+                    <motion.div
+                        variants={container}
+                        initial={reduceMotion ? "show" : "hidden"}
+                        animate="show"
+                        className="relative mx-auto flex h-full w-full max-w-[560px] flex-1 flex-col"
+                    >
+                        <motion.div
+                            variants={item}
+                            className="mb-6 flex items-center justify-between lg:hidden"
+                        >
+                            <Link
+                                href="/"
+                                aria-label="Go to ekarihub"
+                                className="inline-flex items-center"
+                            >
+                                <Image
+                                    src="/ekarihub-logo.png"
+                                    alt="ekarihub"
+                                    width={152}
+                                    height={44}
+                                    priority
+                                    className="h-auto w-[128px]"
+                                />
+                            </Link>
+
+                            <Link
+                                href="/about"
+                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[9px] font-black text-[#173C2E]"
+                            >
+                                About
+                            </Link>
+                        </motion.div>
+
+                        <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
+                            <motion.div variants={item}>
+                                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                    Get started
+                                </div>
+
+                                <h2 className="mt-1 text-[25px] font-black tracking-[-0.035em] text-slate-900 sm:text-[29px]">
+                                    Choose how you want to begin.
+                                </h2>
+
+                                <p className="mt-2 max-w-[480px] text-[10px] font-medium leading-5 text-slate-500">
+                                    Create your ekarihub account, sign back in, or explore the community before joining.
+                                </p>
+                            </motion.div>
+
+                            <motion.button
+                                variants={item}
+                                type="button"
+                                onClick={() =>
+                                    router.push("/signup")
+                                }
+                                whileTap={
+                                    reduceMotion
+                                        ? undefined
+                                        : { scale: 0.99 }
+                                }
+                                className="group mt-6 w-full rounded-[18px] bg-[#173C2E] p-4 text-left text-white shadow-[0_12px_28px_rgba(23,60,46,0.14)] transition-all duration-200 hover:bg-[#214C3A] hover:shadow-[0_15px_34px_rgba(23,60,46,0.18)]"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white/[0.09] text-[#F39A22]">
+                                        <IoPersonAddOutline size={20} />
+                                    </span>
+
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-[12px] font-black">
+                                            Create a new account
+                                        </span>
+
+                                        <span className="mt-1 block text-[9px] font-medium leading-4 text-white/50">
+                                            Build your profile and unlock the full ekarihub experience.
+                                        </span>
+                                    </span>
+
+                                    <IoArrowForwardOutline
+                                        size={16}
+                                        className="shrink-0 text-white/45 transition-transform duration-200 group-hover:translate-x-1"
+                                    />
+                                </div>
+                            </motion.button>
+
+                            <motion.div
+                                variants={item}
+                                className="mt-3"
+                            >
+                                <Link
+                                    href="/login"
+                                    className="group flex w-full items-center gap-3 rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 transition-all duration-200 hover:border-[#CBC4B7] hover:bg-white hover:shadow-[0_10px_24px_rgba(15,23,42,0.045)]"
+                                >
+                                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-[#E8ECE8] text-[#173C2E]">
+                                        <IoPersonOutline size={19} />
+                                    </span>
+
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-[12px] font-black text-slate-800">
+                                            I already have an account
+                                        </span>
+
+                                        <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">
+                                            Sign in and continue where you left off.
+                                        </span>
+                                    </span>
+
+                                    <IoArrowForwardOutline
+                                        size={16}
+                                        className="shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-1 group-hover:text-[#173C2E]"
+                                    />
+                                </Link>
+                            </motion.div>
+
+                            <motion.div
+                                variants={item}
+                                className="my-5 flex items-center gap-3"
+                            >
+                                <div className="h-px flex-1 bg-[#E5E0D6]" />
+                                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-300">
+                                    or explore first
+                                </span>
+                                <div className="h-px flex-1 bg-[#E5E0D6]" />
+                            </motion.div>
+
+                            <motion.button
+                                variants={item}
+                                type="button"
+                                onClick={() =>
+                                    router.replace("/")
+                                }
+                                whileTap={
+                                    reduceMotion
+                                        ? undefined
+                                        : { scale: 0.99 }
+                                }
+                                className="group flex w-full items-center gap-3 rounded-[18px] border border-[#DDD8CC] bg-[#F3F1EB]/65 p-4 text-left transition-all duration-200 hover:bg-[#F3F1EB]"
+                            >
+                                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white text-[#F39A22] shadow-[0_5px_15px_rgba(15,23,42,0.04)]">
+                                    <IoPlayOutline size={19} />
+                                </span>
+
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-[11px] font-black text-slate-700">
+                                        Explore deeds without an account
+                                    </span>
+
+                                    <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">
+                                        Browse the community first and join whenever you are ready.
+                                    </span>
+                                </span>
+
+                                <IoArrowForwardOutline
+                                    size={15}
+                                    className="shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-1"
+                                />
+                            </motion.button>
+
+                            <motion.div
+                                variants={item}
+                                className="mt-5 rounded-[16px] border border-[#E5E0D6] bg-[#FBFAF6] px-4 py-3"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <IoLockClosedOutline
+                                        size={13}
+                                        className="text-[#173C2E]"
+                                    />
+
+                                    <span className="text-[9px] font-black text-slate-600">
+                                        Your account. Your choice.
+                                    </span>
+                                </div>
+
+                                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-2">
+                                    <TrustItem>
+                                        Secure account
+                                    </TrustItem>
+
+                                    <TrustItem>
+                                        Trusted profiles
+                                    </TrustItem>
+
+                                    <TrustItem>
+                                        Browse before joining
+                                    </TrustItem>
+                                </div>
+                            </motion.div>
                         </div>
 
-                        {/* Legal */}
-                        <div className="mt-5 flex flex-col items-center text-center">
-                            <p className="text-[11px] text-slate-400">
-                                By continuing you agree to our{" "}
+                        <motion.div
+                            variants={item}
+                            className="pt-5"
+                        >
+                            <p className="text-center text-[9px] font-medium leading-4 text-slate-400">
+                                By continuing, you agree to our{" "}
                                 <Link
                                     href="/terms"
-                                    className="underline font-semibold"
-                                    style={{ color: "#6B776F" }}
+                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
                                 >
                                     Terms
                                 </Link>{" "}
-                                &amp;{" "}
+                                and{" "}
                                 <Link
                                     href="/privacy"
-                                    className="underline font-semibold"
-                                    style={{ color: "#6B776F" }}
+                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
                                 >
-                                    Privacy
+                                    Privacy Policy
                                 </Link>
                                 .
                             </p>
-                        </div>
-                    </div>
-                </motion.div>
-            </motion.div>
+
+                            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+                                <span className="text-[9px] font-semibold text-slate-400">
+                                    © {new Date().getFullYear()} ekarihub
+                                </span>
+
+                                <Link
+                                    href="/support"
+                                    className="text-[9px] font-bold text-slate-400 transition hover:text-[#173C2E]"
+                                >
+                                    Support
+                                </Link>
+
+                                <Link
+                                    href="/about"
+                                    className="text-[9px] font-bold text-slate-400 transition hover:text-[#173C2E] lg:hidden"
+                                >
+                                    About
+                                </Link>
+                            </div>
+
+                            <div
+                                style={{
+                                    height:
+                                        "env(safe-area-inset-bottom)",
+                                }}
+                            />
+                        </motion.div>
+                    </motion.div>
+                </section>
+            </div>
         </main>
     );
 }

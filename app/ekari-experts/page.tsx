@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import AppShell from "@/app/components/AppShell";
+import AppShell from "@/app/components/AppShell_";
 import EkariExpertsClient from "./EkariExpertsClient";
 
 function EkariExpertsLoading() {

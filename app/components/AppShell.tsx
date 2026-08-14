@@ -1,129 +1,102 @@
 "use client";
 
 import React from "react";
-import { useAuth } from "@/app/hooks/useAuth";
-import { LeftNavDesktop, LeftRailCompact } from "./MainNav";
 import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import UserAvatarMenu from "@/app/components/UserAvatarMenu";
-import LoginButton from "@/app/components/LoginButton";
 import { motion } from "framer-motion";
 
-/* Same theme */
-const EKARI = {
-    bg: "#ffffff",
-    forest: "#233F39",
-    gold: "#C79257",
-    sand: "#FFFFFF",
-    ink: "#111827",
-    dim: "#6B7280",
-    hair: "#E5E7EB",
-    bgSoft: "#F6F7F8",
-};
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/app/hooks/useAuth";
+import { LeftNavDesktop, LeftRailCompact } from "./MainNav";
 
 type ProfileState = {
-    handle?: string;
-    photoURL?: string;
+  handle?: string;
+  photoURL?: string;
+};
+
+type AppShellProps = {
+  children: React.ReactNode;
+  rightRail?: React.ReactNode;
+  className?: string;
+  handle?: string;
 };
 
 export default function AppShell({
-    children,
-    rightRail,
-    className = "",
-    handle,
-}: {
-    children: React.ReactNode;
-    rightRail?: React.ReactNode;
-    className?: string;
-    handle?: string;
-}) {
-    const { user } = useAuth();
-    const uid = user?.uid;
+  children,
+  rightRail,
+  className = "",
+  handle,
+}: AppShellProps) {
+  const { user } = useAuth();
+  const uid = user?.uid;
 
-    const [profile, setProfile] = React.useState<ProfileState | null>(null);
+  const [profile, setProfile] = React.useState<ProfileState | null>(null);
 
-    React.useEffect(() => {
-        if (!uid) {
-            setProfile(null);
-            return;
-        }
+  React.useEffect(() => {
+    if (!uid) {
+      setProfile(null);
+      return;
+    }
 
-        const unsub = onSnapshot(doc(db, "users", uid), (s) => {
-            const data = s.data() as any | undefined;
-            if (!data) {
-                setProfile(null);
-                return;
-            }
+    return onSnapshot(doc(db, "users", uid), (snapshot) => {
+      const data = snapshot.data() as ProfileState | undefined;
 
-            const h = (data?.handle as string | undefined) || undefined;
+      setProfile(
+        data
+          ? {
+            handle: data.handle || undefined,
+            photoURL: data.photoURL || undefined,
+          }
+          : null,
+      );
+    });
+  }, [uid]);
 
-            setProfile({
-                handle: h && h.length ? h : undefined,
-                photoURL: (data?.photoURL as string | undefined) || undefined,
-            });
-        });
+  const effectiveHandle = handle ?? profile?.handle;
 
-        return () => unsub();
-    }, [uid]);
+  return (
+    <div
+      className={[
+        "h-[100svh] w-full overflow-hidden bg-[#0B1D12]",
+        className,
+      ].join(" ")}
+    >
+      <div className="flex h-full w-full">
+        {/* Compact/mobile rail */}
+        <LeftRailCompact />
 
-    const effectiveHandle = handle ?? profile?.handle;
+        {/* Desktop left sidebar */}
+        <LeftNavDesktop
+          uid={uid}
+          handle={effectiveHandle}
+          photoURL={
+            profile?.photoURL ??
+            user?.photoURL ??
+            null
+          }
+        />
 
-    return (
-        <div
-            className={`min-h-screen ${className}`}
-            style={{
-                background:
-                    "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.82))",
-                backdropFilter: "blur(14px)",
-                borderBottom: "1px solid rgba(199,146,87,0.18)",
-            }}
-        >
-            {/* Top-right auth / profile action */}
-            <div className="fixed right-4 top-4 z-[70] hidden lg:block">
-                {uid ? (
-                    <UserAvatarMenu
-                        uid={uid}
-                        photoURL={profile?.photoURL ?? undefined}
-                        handle={profile?.handle}
-                    />
-                ) : (
-                    <LoginButton />
-                )}
-            </div>
+        {/* Main application area */}
+        <main className="min-w-0 flex-1 overflow-hidden bg-[#0B1D12]">
+          <div className="mx-auto flex h-full w-full max-w-[1600px]">
+            {/* Deed feed */}
+            <motion.div
+              className="relative min-w-0 flex-1 overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              {children}
+            </motion.div>
 
-            <div className="mx-auto flex min-h-screen w-full max-w-[1720px]">
-                <LeftRailCompact />
-                <LeftNavDesktop uid={uid} handle={effectiveHandle} />
-
-                {/* Center stage */}
-                <main className="min-w-0 flex-1">
-                    <div className="flex min-h-screen w-full items-stretch justify-center">
-                        <motion.div
-                            className="flex w-full min-w-0 justify-center"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.22, ease: "easeOut" }}
-                        >
-                            {/* TikTok-like stage: no dashboard card shell */}
-                            <div className="flex w-full min-w-0 justify-center overflow-visible">
-                                {children}
-                            </div>
-                        </motion.div>
-                    </div>
-                </main>
-
-                {/* Optional right rail area */}
-                {rightRail ? (
-                    <motion.aside
-                        className="hidden xl:block shrink-0 pr-4 pt-4"
-                        initial={{ opacity: 0, x: 8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.22, delay: 0.04, ease: "easeOut" }}
-                    >
-                        {rightRail}
-                    </motion.aside>
-                ) : null}
-            </div>
-        </div>
-    );
+            {/* Right discovery rail */}
+            {rightRail ? (
+              <aside className="hidden h-full w-[310px] shrink-0 overflow-hidden border-l border-white/10 bg-[#0D1510] 2xl:block 2xl:w-[330px]">
+                {rightRail}
+              </aside>
+            ) : null}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 }

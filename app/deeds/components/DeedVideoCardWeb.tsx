@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Hls from "hls.js";
 import {
     IoPause,
     IoPlay,
@@ -10,6 +11,7 @@ import {
 } from "react-icons/io5";
 import { Deed } from "../data/deedsFeedWeb";
 import { DeedOverlayWeb } from "./DeedOverlayWeb";
+import DeedContextOverlay from "./DeedContextOverlay";
 import { useGlobalMuteWeb } from "../hooks/useGlobalMuteWeb";
 import { useDeedEngagementWeb } from "../hooks/useDeedEngagementWeb";
 import PhotoSliderPlayer from "@/app/components/PhotoSliderPlayer";
@@ -52,15 +54,21 @@ function getMediaFit(
     orientation: Deed["orientation"],
     aspectRatioValue?: number | null
 ): "cover" | "contain" {
-    return "contain";
+    // Desktop mock uses edge-to-edge media. Keep arguments for future rules.
+    void orientation;
+    void aspectRatioValue;
+    return "cover";
 }
-
 
 function getMediaStageClass() {
-    return "absolute inset-0 flex items-center justify-center overflow-hidden bg-black";
+    return "absolute inset-0 overflow-hidden bg-[#102718]";
 }
+
 function getMediaClass(fit: "cover" | "contain") {
-    return "block h-full w-full object-contain";
+    return [
+        "block h-full w-full",
+        fit === "cover" ? "object-cover" : "object-contain",
+    ].join(" ");
 }
 
 
@@ -92,6 +100,7 @@ export function DeedVideoCardWeb({
 }: Props) {
     const router = useRouter();
     const videoRef = useRef<HTMLVideoElement | null>(null);
+    const hlsRef = useRef<Hls | null>(null);
     const progressTrackRef = useRef<HTMLDivElement | null>(null);
 
     const [runtimeOrientation, setRuntimeOrientation] =
@@ -138,8 +147,16 @@ export function DeedVideoCardWeb({
     const poster = item.posterUrl || item.media?.[0]?.thumbUrl || null;
 
     const videoSrc = useMemo(() => {
-        return item.mediaUrl || getMuxSrc(item.muxPlaybackId || undefined);
-    }, [item.mediaUrl, item.muxPlaybackId]);
+        if (item.muxPlaybackId) {
+            return getMuxSrc(item.muxPlaybackId);
+        }
+
+        return item.mediaUrl || null;
+    }, [item.muxPlaybackId, item.mediaUrl]);
+
+    const isHlsSource = useMemo(() => {
+        return !!videoSrc && /\.m3u8($|\?)/i.test(videoSrc);
+    }, [videoSrc]);
 
     const sliderPhotos = useMemo(
         () =>
@@ -164,61 +181,269 @@ export function DeedVideoCardWeb({
     const progressPct =
         duration > 0 ? clamp((displayedTime / duration) * 100, 0, 100) : 0;
 
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video || isPhoto) return;
-
-        if (isActive) return;
-
-        if (shouldPreload && shouldLoad) {
-            try {
-                video.load();
-            } catch { }
-        }
-    }, [isActive, isPhoto, shouldLoad, shouldPreload, videoSrc]);
-
+    // Keep mute state in sync without rebuilding the HLS instance.
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
         video.muted = muted;
     }, [muted]);
 
+    // Attach the media source. This effect only changes when the deed/source changes.
     useEffect(() => {
         const video = videoRef.current;
-        if (!video) return;
 
-        if (!shouldLoad || isPhoto) {
-            video.pause();
-            setIsPlaying(false);
-            setIsBuffering(false);
-            setShowCenterControl(true);
+        if (!video || isPhoto || !shouldLoad || !videoSrc) {
             return;
         }
 
-        video.muted = muted;
+        let cancelled = false;
 
-        if (isActive) {
-            // autoplay active item, but DO NOT show pause button by default
-            setIsBuffering(true);
-            const p = video.play();
-
-            if (p && typeof p.catch === "function") {
-                p.then(() => {
-                    setIsPlaying(true);
-                    setShowCenterControl(false);
-                }).catch(() => {
-                    setIsPlaying(false);
-                    setShowCenterControl(true);
-                    setIsBuffering(false);
-                });
-            }
-        } else {
-            video.pause();
-            setIsPlaying(false);
-            setIsBuffering(false);
-            setShowCenterControl(false);
+        // Clean up any previous HLS instance before attaching a new source.
+        if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
         }
-    }, [isActive, shouldLoad, isPhoto, muted]);
+
+        setIsBuffering(true);
+        setHasLoadedFrame(false);
+        setCurrentTime(0);
+        setDuration(0);
+
+        // Direct MP4 / normal browser-supported URL.
+        if (!isHlsSource) {
+            video.src = videoSrc;
+            video.load();
+
+            return () => {
+                cancelled = true;
+                video.pause();
+                video.removeAttribute("src");
+                video.load();
+            };
+        }
+
+        // Prefer hls.js first on Chrome / Edge / Firefox.
+        // Safari normally falls through to native HLS because Hls.isSupported()
+        // may be false when Media Source Extensions are unavailable/unsuitable.
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                enableWorker: true,
+                startLevel: -1,
+                maxBufferLength: 20,
+                maxMaxBufferLength: 30,
+            });
+
+            hlsRef.current = hls;
+
+            hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+                if (cancelled) return;
+
+                console.log("DEED_HLS_MEDIA_ATTACHED", {
+                    deedId: item.id,
+                    videoSrc,
+                });
+
+                hls.loadSource(videoSrc);
+            });
+
+            hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
+                if (cancelled) return;
+
+                console.log("DEED_HLS_MANIFEST_PARSED", {
+                    deedId: item.id,
+                    videoSrc,
+                    levels: data.levels?.length ?? 0,
+                });
+
+                setIsBuffering(false);
+            });
+
+            hls.on(Hls.Events.LEVEL_LOADED, () => {
+                if (cancelled) return;
+                setIsBuffering(false);
+            });
+
+            hls.on(Hls.Events.FRAG_BUFFERED, () => {
+                if (cancelled) return;
+                setHasLoadedFrame(true);
+                setIsBuffering(false);
+            });
+
+            hls.on(Hls.Events.ERROR, (_event, data) => {
+                console.error("DEED_HLS_ERROR", {
+                    deedId: item.id,
+                    muxPlaybackId: item.muxPlaybackId,
+                    mediaUrl: item.mediaUrl,
+                    videoSrc,
+                    type: data.type,
+                    details: data.details,
+                    fatal: data.fatal,
+                    responseCode: (data as any)?.response?.code,
+                    responseText: (data as any)?.response?.text,
+                    url: (data as any)?.url,
+                    errorMessage: data.error?.message,
+                });
+
+                if (!data.fatal) return;
+
+                switch (data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        hls.startLoad();
+                        break;
+
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        hls.recoverMediaError();
+                        break;
+
+                    default:
+                        hls.destroy();
+
+                        if (hlsRef.current === hls) {
+                            hlsRef.current = null;
+                        }
+
+                        setIsBuffering(false);
+                        setShowCenterControl(true);
+                        break;
+                }
+            });
+
+            hls.attachMedia(video);
+
+            return () => {
+                cancelled = true;
+                video.pause();
+                hls.destroy();
+
+                if (hlsRef.current === hls) {
+                    hlsRef.current = null;
+                }
+            };
+        }
+
+        // Native HLS fallback, mainly Safari / iOS.
+        const nativeHls =
+            video.canPlayType("application/vnd.apple.mpegurl") ||
+            video.canPlayType("application/x-mpegURL");
+
+        if (nativeHls) {
+            console.log("DEED_NATIVE_HLS", {
+                deedId: item.id,
+                videoSrc,
+                nativeHls,
+            });
+
+            video.src = videoSrc;
+            video.load();
+
+            return () => {
+                cancelled = true;
+                video.pause();
+                video.removeAttribute("src");
+                video.load();
+            };
+        }
+
+        console.error("DEED_VIDEO_UNSUPPORTED", {
+            deedId: item.id,
+            muxPlaybackId: item.muxPlaybackId,
+            mediaUrl: item.mediaUrl,
+            videoSrc,
+        });
+
+        setIsBuffering(false);
+        setShowCenterControl(true);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        item.id,
+        item.mediaUrl,
+        item.muxPlaybackId,
+        isPhoto,
+        shouldLoad,
+        videoSrc,
+        isHlsSource,
+    ]);
+
+    // Play/pause the already-attached source when the deed becomes active/inactive.
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video || isPhoto || !shouldLoad) return;
+
+        let cancelled = false;
+
+        const syncPlayback = async () => {
+            if (!isActive) {
+                video.pause();
+
+                if (!cancelled) {
+                    setIsPlaying(false);
+                    setIsBuffering(false);
+                    setShowCenterControl(false);
+                }
+
+                return;
+            }
+
+            try {
+                video.muted = muted;
+
+                // If HLS is still attaching/loading, play() may reject temporarily.
+                // canplay/playing will update state when the media becomes ready.
+                setIsBuffering(true);
+
+                await video.play();
+
+                if (cancelled) return;
+
+                setIsPlaying(true);
+                setShowCenterControl(false);
+                setIsBuffering(false);
+            } catch (error) {
+                if (cancelled) return;
+
+                console.warn("DEED_AUTOPLAY_NOT_READY", {
+                    deedId: item.id,
+                    muxPlaybackId: item.muxPlaybackId,
+                    videoSrc,
+                    currentSrc: video.currentSrc,
+                    readyState: video.readyState,
+                    networkState: video.networkState,
+                    errorName: error instanceof Error ? error.name : String(error),
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                });
+
+                setIsPlaying(false);
+                setShowCenterControl(true);
+                setIsBuffering(false);
+            }
+        };
+
+        void syncPlayback();
+
+        const onCanPlay = () => {
+            if (!cancelled && isActive && video.paused) {
+                void syncPlayback();
+            }
+        };
+
+        video.addEventListener("canplay", onCanPlay);
+
+        return () => {
+            cancelled = true;
+            video.removeEventListener("canplay", onCanPlay);
+        };
+    }, [
+        isActive,
+        isPhoto,
+        shouldLoad,
+        muted,
+        item.id,
+        item.muxPlaybackId,
+        videoSrc,
+    ]);
 
     const handleLoadedMetadata = () => {
         const video = videoRef.current;
@@ -323,23 +548,62 @@ export function DeedVideoCardWeb({
 
     const togglePlayPause = async () => {
         const video = videoRef.current;
-        if (!video) return;
+
+        if (!video) {
+            console.error("DEED_PLAY_NO_VIDEO_ELEMENT", {
+                deedId: item.id,
+            });
+            return;
+        }
+
+        console.log("DEED_PLAY_CLICK", {
+            deedId: item.id,
+            muxPlaybackId: item.muxPlaybackId,
+            mediaUrl: item.mediaUrl,
+            videoSrc,
+            isHlsSource,
+            paused: video.paused,
+            currentSrc: video.currentSrc,
+            readyState: video.readyState,
+            networkState: video.networkState,
+            mediaErrorCode: video.error?.code ?? null,
+            mediaErrorMessage: video.error?.message ?? null,
+        });
 
         try {
             if (video.paused) {
+                video.muted = muted;
                 setIsBuffering(true);
+
                 await video.play();
+
                 setIsPlaying(true);
                 setShowCenterControl(false);
+                setIsBuffering(false);
             } else {
                 video.pause();
                 setIsPlaying(false);
                 setShowCenterControl(true);
+                setIsBuffering(false);
             }
-        } catch {
+        } catch (error) {
+            console.error("DEED_MANUAL_PLAY_FAILED", {
+                deedId: item.id,
+                muxPlaybackId: item.muxPlaybackId,
+                mediaUrl: item.mediaUrl,
+                videoSrc,
+                currentSrc: video.currentSrc,
+                readyState: video.readyState,
+                networkState: video.networkState,
+                mediaErrorCode: video.error?.code ?? null,
+                mediaErrorMessage: video.error?.message ?? null,
+                errorName: error instanceof Error ? error.name : String(error),
+                errorMessage: error instanceof Error ? error.message : String(error),
+            });
+
             setIsBuffering(false);
-            setIsPlaying(!video.paused);
-            setShowCenterControl(video.paused);
+            setIsPlaying(false);
+            setShowCenterControl(true);
         }
     };
 
@@ -404,8 +668,8 @@ export function DeedVideoCardWeb({
 
     if (isPhoto) {
         return (
-            <article className="h-full w-full px-0 py-0 md:px-3 md:py-2 lg:px-4">
-                <div className="relative h-full w-full overflow-hidden rounded-none bg-black md:rounded-2xl">
+            <article className="h-full w-full">
+                <div className="relative h-full w-full overflow-hidden bg-[#102718]">
                     <div className={mediaStageClass}>
                         {sliderPhotos.length > 0 ? (
                             <PhotoSliderPlayer
@@ -467,6 +731,11 @@ export function DeedVideoCardWeb({
                         </div>
                     )}
 
+                    <DeedContextOverlay
+                        deed={item}
+                        isActive={isActive}
+                    />
+
                     <DeedOverlayWeb
                         {...commonOverlayProps}
                         canSupport={canSupport}
@@ -481,8 +750,8 @@ export function DeedVideoCardWeb({
     }
 
     return (
-        <article className="h-full w-full px-0 py-0 md:px-3 lg:px-4 md:py-2">
-            <div className="relative h-full w-full overflow-hidden rounded-none bg-black md:rounded-2xl">
+        <article className="h-full w-full">
+            <div className="relative h-full w-full overflow-hidden bg-[#102718]">
                 <button
                     type="button"
                     onClick={handleMediaClick}
@@ -513,7 +782,6 @@ export function DeedVideoCardWeb({
                         <video
                             ref={videoRef}
                             className={mediaClass}
-                            src={videoSrc ?? undefined}
                             poster={poster ?? undefined}
                             muted={muted}
                             loop
@@ -528,9 +796,30 @@ export function DeedVideoCardWeb({
                             onTimeUpdate={handleTimeUpdate}
                             onPlay={handlePlay}
                             onPause={handlePause}
+                            onError={(event) => {
+                                const video = event.currentTarget;
+                                const code = video.error?.code ?? 0;
+                                const message = video.error?.message || "Unknown media error";
+
+                                console.error(
+                                    [
+                                        "DEED_VIDEO_ELEMENT_ERROR",
+                                        `deedId=${item.id}`,
+                                        `muxPlaybackId=${item.muxPlaybackId ?? "none"}`,
+                                        `videoSrc=${videoSrc ?? "none"}`,
+                                        `currentSrc=${video.currentSrc || "none"}`,
+                                        `code=${code}`,
+                                        `message=${message}`,
+                                        `networkState=${video.networkState}`,
+                                        `readyState=${video.readyState}`,
+                                    ].join(" | ")
+                                );
+                            }}
                             style={{
                                 width: "100%",
                                 height: "100%",
+                                maxWidth: "100%",
+                                maxHeight: "100%",
                                 objectFit: "contain",
                             }}
                         />
@@ -610,6 +899,11 @@ export function DeedVideoCardWeb({
                         </div>
                     </div>
                 </div>
+
+                <DeedContextOverlay
+                    deed={item}
+                    isActive={isActive}
+                />
 
                 <DeedOverlayWeb
                     {...commonOverlayProps}

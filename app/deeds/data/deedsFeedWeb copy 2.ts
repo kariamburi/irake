@@ -1,0 +1,926 @@
+import {
+    collection,
+    documentId,
+    DocumentData,
+    getDocs,
+    limit,
+    orderBy,
+    query,
+    Query,
+    QueryConstraint,
+    startAfter,
+    where,
+    getDoc,
+    doc,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export type PhotoItem = {
+    url: string;
+    previewUrl?: string | null;
+};
+
+export type Visibility = "public" | "followers" | "private";
+
+export type Deed = {
+    id: string;
+    authorId: string;
+    authorUsername?: string;
+    authorPhotoURL?: string;
+    muxPlaybackId?: string;
+    posterUrl?: string | null;
+    mediaUrl?: string | null;
+    mediaType?: "video" | "photo" | "none";
+    text?: string;
+    createdAt?: any;
+    visibility?: Visibility;
+    tags?: string[];
+    stats?: {
+        views: number;
+        likes: number;
+        saves: number;
+        completions?: number;
+        watchMs?: number;
+        comments?: number;
+        shares?: number;
+        bookmarks?: number;
+    };
+    durationMs?: number;
+    music?: {
+        title?: string;
+        artist?: string;
+        coverUrl?: string;
+        soundId?: string;
+        source?: "library" | "uploaded" | "external" | "original";
+        url?: string;
+    };
+    authorBadge?: {
+        verificationStatus?: "approved" | "pending" | "rejected" | "none";
+        verificationType?: "individual" | "business" | "company" | "organization";
+        verificationRoleLabel?: string | null;
+        verificationOrganizationName?: string | null;
+    };
+    media?: any[];
+    photoItems?: PhotoItem[];
+    type: "video" | "photo";
+    aspectRatio?: string | null;
+    videoWidth?: number | null;
+    videoHeight?: number | null;
+    orientation?: "portrait" | "landscape" | "square" | null;
+    countyTag?: string | null;
+    countryTag?: string | null;
+    place?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    status?: string | null;
+    aspectRatioValue?: number | null;
+};
+
+export type FeedTabKey = "forYou" | "following" | "nearby";
+
+export type FeedCursor = {
+    createdAtMs: number;
+    id: string;
+} | null;
+
+export type FeedPageResult<TCursor = FeedCursor> = {
+    items: Deed[];
+    cursor: TCursor | null;
+    hasMore: boolean;
+};
+
+type FetchChannelPageParams = {
+    tab: FeedTabKey;
+    cursor?: FeedCursor;
+    limitCount?: number;
+    uid?: string | null;
+};
+
+function normalizeString(v: unknown): string | undefined {
+    if (typeof v !== "string") return undefined;
+    const x = v.trim();
+    return x ? x : undefined;
+}
+
+function normalizeVisibility(v: unknown): Visibility | undefined {
+    if (v === "public" || v === "followers" || v === "private") return v;
+    return undefined;
+}
+
+function mapTags(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map((x) => (typeof x === "string" ? x.trim() : ""))
+        .filter(Boolean);
+}
+
+function mapStats(raw: any): Deed["stats"] {
+    return {
+        views: Number(raw?.views ?? 0),
+        likes: Number(raw?.likes ?? 0),
+        saves: Number(raw?.saves ?? raw?.bookmarks ?? 0),
+        completions: raw?.completions != null ? Number(raw.completions) : undefined,
+        watchMs: raw?.watchMs != null ? Number(raw.watchMs) : undefined,
+        comments: raw?.comments != null ? Number(raw.comments) : undefined,
+        shares: raw?.shares != null ? Number(raw.shares) : undefined,
+        bookmarks: raw?.bookmarks != null ? Number(raw.bookmarks) : undefined,
+    };
+}
+
+function detectOrientation(
+    width?: number | null,
+    height?: number | null,
+    aspectRatio?: string | null
+): Deed["orientation"] {
+    if (typeof width === "number" && typeof height === "number") {
+        if (width > height) return "landscape";
+        if (height > width) return "portrait";
+        return "square";
+    }
+
+    if (typeof aspectRatio === "string" && aspectRatio.includes(":")) {
+        const [wRaw, hRaw] = aspectRatio.split(":");
+        const w = Number(wRaw);
+        const h = Number(hRaw);
+        if (!Number.isNaN(w) && !Number.isNaN(h)) {
+            if (w > h) return "landscape";
+            if (h > w) return "portrait";
+            return "square";
+        }
+    }
+
+    return null;
+}
+
+function mapPhotoItems(media: any[]): PhotoItem[] {
+    return media
+        .filter((m) => {
+            const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+            return kind === "photo" || kind === "image";
+        })
+        .map((m) => ({
+            url: m?.sources?.full ?? m?.url ?? "",
+            previewUrl: m?.sources?.small ?? m?.thumbUrl ?? null,
+        }))
+        .filter((p) => !!p.url);
+}
+
+function tsToMs(value: any): number {
+    if (typeof value?.toMillis === "function") return value.toMillis();
+    if (typeof value === "number") return value;
+    if (typeof value?.seconds === "number") return value.seconds * 1000;
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === "string") {
+        const ms = Date.parse(value);
+        return Number.isNaN(ms) ? 0 : ms;
+    }
+    return 0;
+}
+
+function mapAuthorBadge(raw: any): Deed["authorBadge"] | undefined {
+    if (!raw || typeof raw !== "object") return undefined;
+
+    return {
+        verificationStatus:
+            raw.verificationStatus === "approved" ||
+                raw.verificationStatus === "pending" ||
+                raw.verificationStatus === "rejected" ||
+                raw.verificationStatus === "none"
+                ? raw.verificationStatus
+                : undefined,
+        verificationType:
+            raw.verificationType === "individual" ||
+                raw.verificationType === "business" ||
+                raw.verificationType === "company" ||
+                raw.verificationType === "organization"
+                ? raw.verificationType
+                : undefined,
+        verificationRoleLabel:
+            raw.verificationRoleLabel != null ? String(raw.verificationRoleLabel) : null,
+        verificationOrganizationName:
+            raw.verificationOrganizationName != null
+                ? String(raw.verificationOrganizationName)
+                : null,
+    };
+}
+
+function mapMusic(raw: any): Deed["music"] | undefined {
+    if (!raw || typeof raw !== "object") return undefined;
+
+    const source =
+        raw.source === "library" ||
+            raw.source === "uploaded" ||
+            raw.source === "external" ||
+            raw.source === "original"
+            ? raw.source
+            : undefined;
+
+    return {
+        title: normalizeString(raw.title),
+        artist: normalizeString(raw.artist),
+        coverUrl: normalizeString(raw.coverUrl),
+        soundId: normalizeString(raw.soundId),
+        url: normalizeString(raw.url),
+        source,
+    };
+}
+
+function parseAspectRatioValue(
+    width?: number | null,
+    height?: number | null,
+    aspectRatio?: string | null
+): number | null {
+    if (
+        typeof width === "number" &&
+        typeof height === "number" &&
+        width > 0 &&
+        height > 0
+    ) {
+        return width / height;
+    }
+
+    if (typeof aspectRatio === "string" && aspectRatio.includes(":")) {
+        const [wRaw, hRaw] = aspectRatio.split(":");
+        const w = Number(wRaw);
+        const h = Number(hRaw);
+        if (!Number.isNaN(w) && !Number.isNaN(h) && w > 0 && h > 0) {
+            return w / h;
+        }
+    }
+
+    return null;
+}
+
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+function mapDeedDoc(
+    docSnap: any,
+    opts?: { includeDeleted?: boolean }
+): Deed | null {
+    const d = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
+    if (!d) return null;
+
+    const status = d.status != null ? String(d.status).toLowerCase() : null;
+    if (!opts?.includeDeleted && status === "deleted") return null;
+
+    const media = Array.isArray(d.media) ? d.media : [];
+    const photoItems = mapPhotoItems(media);
+    const firstVideoMedia = media.find((m: any) => {
+        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+        return kind === "video";
+    });
+
+    const firstPhotoMedia = media.find((m: any) => {
+        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+        return kind === "photo" || kind === "image";
+    });
+
+    const muxPlaybackId =
+        normalizeString(d.muxPlaybackId) ??
+        normalizeString(d.playbackId) ??
+        normalizeString(d?.mux?.playbackId) ??
+        normalizeString(firstVideoMedia?.muxPlaybackId) ??
+        normalizeString(firstVideoMedia?.playbackId);
+
+    const mediaUrl =
+        normalizeString(d.mediaUrl) ??
+        normalizeString(d.videoUrl) ??
+        normalizeString(firstVideoMedia?.url);
+
+    const posterUrl =
+        normalizeString(d.posterUrl) ??
+        normalizeString(d.mediaThumbUrl) ??
+        normalizeString(d.thumbnailUrl) ??
+        normalizeString(d.thumbUrl) ??
+        normalizeString(d?.mux?.thumbnailUrl) ??
+        normalizeString(firstVideoMedia?.thumbUrl) ??
+        normalizeString(firstVideoMedia?.previewUrl) ??
+        normalizeString(firstPhotoMedia?.thumbUrl) ??
+        normalizeString(firstPhotoMedia?.sources?.small);
+
+    const hasExplicitVideoMedia = media.some((m: any) => {
+        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+        return kind === "video";
+    });
+
+    const hasExplicitPhotoMedia = media.some((m: any) => {
+        const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
+        return kind === "photo" || kind === "image";
+    });
+
+    const explicitDocType = String(d.type ?? d.mediaType ?? "").toLowerCase();
+
+    const type: "video" | "photo" =
+        explicitDocType === "photo" || explicitDocType === "image"
+            ? "photo"
+            : explicitDocType === "video"
+                ? "video"
+                : hasExplicitVideoMedia || !!muxPlaybackId || !!mediaUrl
+                    ? "video"
+                    : hasExplicitPhotoMedia || photoItems.length > 0
+                        ? "photo"
+                        : "photo";
+
+
+
+    const videoWidth =
+        d.videoWidth != null
+            ? Number(d.videoWidth)
+            : media[0]?.width != null
+                ? Number(media[0].width)
+                : media[0]?.videoWidth != null
+                    ? Number(media[0].videoWidth)
+                    : null;
+
+    const videoHeight =
+        d.videoHeight != null
+            ? Number(d.videoHeight)
+            : media[0]?.height != null
+                ? Number(media[0].height)
+                : media[0]?.videoHeight != null
+                    ? Number(media[0].videoHeight)
+                    : null;
+
+    const aspectRatio =
+        d.aspect_ratio != null
+            ? String(d.aspect_ratio)
+            : d.aspectRatio != null
+                ? String(d.aspectRatio)
+                : media[0]?.aspect_ratio != null
+                    ? String(media[0].aspect_ratio)
+                    : media[0]?.aspectRatio != null
+                        ? String(media[0].aspectRatio)
+                        : null;
+
+    const aspectRatioValue = parseAspectRatioValue(videoWidth, videoHeight, aspectRatio);
+
+    const lat =
+        typeof d.lat === "number"
+            ? d.lat
+            : typeof d.geo?.lat === "number"
+                ? d.geo.lat
+                : typeof d.location?.lat === "number"
+                    ? d.location.lat
+                    : null;
+
+    const lng =
+        typeof d.lng === "number"
+            ? d.lng
+            : typeof d.geo?.lng === "number"
+                ? d.geo.lng
+                : typeof d.location?.lng === "number"
+                    ? d.location.lng
+                    : null;
+
+    const place =
+        normalizeString(d.place) ??
+        normalizeString(d.location?.place) ??
+        null;
+
+    return {
+        id: String(docSnap.id ?? d.id ?? ""),
+        authorId: String(d.authorId ?? ""),
+        authorUsername: normalizeString(d.authorUsername),
+        authorPhotoURL: normalizeString(d.authorPhotoURL),
+        muxPlaybackId,
+        posterUrl: posterUrl ?? null,
+        mediaUrl: mediaUrl ?? null,
+        mediaType: type === "video" ? "video" : photoItems.length ? "photo" : "none",
+        text: normalizeString(d.text ?? d.caption ?? d.description),
+        createdAt: d.createdAt ?? null,
+        visibility: normalizeVisibility(d.visibility),
+        tags: mapTags(d.tags),
+        stats: mapStats(d.stats ?? d),
+        durationMs:
+            d.durationMs != null
+                ? Number(d.durationMs)
+                : media[0]?.durationMs != null
+                    ? Number(media[0].durationMs)
+                    : media[0]?.durationSec != null
+                        ? Number(media[0].durationSec) * 1000
+                        : d.durationSec != null
+                            ? Number(d.durationSec) * 1000
+                            : undefined,
+        music: mapMusic(d.music),
+        authorBadge: mapAuthorBadge(d.authorBadge),
+        media,
+        photoItems,
+        type,
+        aspectRatio,
+        videoWidth,
+        videoHeight,
+        orientation: detectOrientation(videoWidth, videoHeight, aspectRatio),
+        countyTag: d.countyTag != null ? String(d.countyTag).trim().toLowerCase() : null,
+        countryTag: d.countryTag != null ? String(d.countryTag).trim().toLowerCase() : null,
+        place,
+        lat,
+        lng,
+        status: status || null,
+        aspectRatioValue,
+    };
+}
+
+async function getFollowingIds(uid: string): Promise<string[]> {
+    if (!uid) return [];
+
+    try {
+        const snap = await getDocs(
+            query(collection(db, "follows"), where("followerId", "==", uid))
+        );
+
+        const ids = new Set<string>();
+        snap.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (typeof data?.followingId === "string" && data.followingId.trim()) {
+                ids.add(data.followingId.trim());
+            }
+        });
+
+        return Array.from(ids);
+    } catch (error) {
+        console.warn("getFollowingIds error:", error);
+        return [];
+    }
+}
+async function getBlockedUserIds(uid?: string | null): Promise<Set<string>> {
+    const cleanUid = String(uid ?? "").trim();
+    if (!cleanUid) return new Set();
+
+    try {
+
+        const snap = await getDocs(
+            query(collection(db, "blocks"), where("blockerId", "==", cleanUid))
+        );
+
+        return new Set(
+            snap.docs
+                .map((d) => String((d.data() as any)?.blockedUserId ?? "").trim())
+                .filter(Boolean)
+        );
+    } catch (error) {
+        console.warn("getBlockedUserIds error:", error);
+        return new Set();
+    }
+}
+async function getUserLocation(
+    uid: string
+): Promise<{
+    countyTag: string | null;
+    countryTag: string | null;
+    lat: number | null;
+    lng: number | null;
+}> {
+    if (!uid) {
+        return { countyTag: null, countryTag: null, lat: null, lng: null };
+    }
+
+    try {
+        const snap = await getDoc(doc(db, "users", uid));
+        const data = snap.exists() ? snap.data() : null;
+
+        const countyTag =
+            data?.countyTag != null
+                ? String(data.countyTag).trim().toLowerCase()
+                : data?.county != null
+                    ? String(data.county).trim().toLowerCase()
+                    : null;
+
+        const countryTag =
+            data?.countryTag != null
+                ? String(data.countryTag).trim().toLowerCase()
+                : data?.country != null
+                    ? String(data.country).trim().toLowerCase()
+                    : null;
+
+        const lat =
+            typeof data?.location?.lat === "number" ? data.location.lat : null;
+
+        const lng =
+            typeof data?.location?.lng === "number" ? data.location.lng : null;
+
+        return {
+            countyTag: countyTag || null,
+            countryTag: countryTag || null,
+            lat,
+            lng,
+        };
+    } catch (error) {
+        console.warn("getUserLocation error:", error);
+        return { countyTag: null, countryTag: null, lat: null, lng: null };
+    }
+}
+
+async function collectValidItems(params: {
+    baseQuery: Query<DocumentData>;
+    cursor?: FeedCursor;
+    limitCount?: number;
+    includeDeleted?: boolean;
+    blockedUserIds?: Set<string>;
+}): Promise<FeedPageResult<FeedCursor>> {
+    const target = Math.max(1, params.limitCount ?? 10);
+    const batchSize = Math.max(target * 3, 20);
+
+    const items: Deed[] = [];
+    const seen = new Set<string>();
+
+    let workingCursor = params.cursor ?? null;
+    let hasMore = true;
+    let safety = 0;
+
+    while (items.length < target && hasMore && safety < 6) {
+        safety += 1;
+
+        const constraints: QueryConstraint[] = [
+            orderBy("createdAt", "desc"),
+            orderBy(documentId(), "desc"),
+        ];
+
+        if (workingCursor?.createdAtMs != null && workingCursor?.id) {
+            constraints.push(
+                startAfter(new Date(workingCursor.createdAtMs), workingCursor.id) as unknown as QueryConstraint
+            );
+        }
+
+        constraints.push(limit(batchSize));
+
+        const snap = await getDocs(query(params.baseQuery, ...constraints));
+
+        if (snap.empty) {
+            hasMore = false;
+            break;
+        }
+
+        const mapped = snap.docs
+            .map((docSnap) => mapDeedDoc(docSnap, { includeDeleted: !!params.includeDeleted }))
+            .filter((x): x is Deed => x !== null);
+
+        for (const item of mapped) {
+
+            if (params.blockedUserIds?.has(item.authorId)) continue;
+
+            if (!seen.has(item.id)) {
+                seen.add(item.id);
+                items.push(item);
+            }
+
+            if (items.length >= target) break;
+        }
+
+        const lastDoc = snap.docs[snap.docs.length - 1];
+        if (!lastDoc || snap.docs.length < batchSize) {
+            hasMore = false;
+            break;
+        }
+
+        workingCursor = {
+            createdAtMs: tsToMs(lastDoc.get("createdAt")),
+            id: lastDoc.id,
+        };
+    }
+
+    const finalItems = items
+        .sort((a, b) => {
+            const diff = tsToMs(b.createdAt) - tsToMs(a.createdAt);
+            if (diff !== 0) return diff;
+            return b.id.localeCompare(a.id);
+        })
+        .slice(0, target);
+
+    const lastItem = finalItems[finalItems.length - 1] ?? null;
+
+    return {
+        items: finalItems,
+        cursor: lastItem
+            ? {
+                createdAtMs: tsToMs(lastItem.createdAt),
+                id: lastItem.id,
+            }
+            : params.cursor ?? null,
+        hasMore,
+    };
+}
+
+async function fetchForYouPage(
+    cursor: FeedCursor = null,
+    limitCount = 10,
+    uid?: string | null
+): Promise<FeedPageResult<FeedCursor>> {
+    const blockedUserIds = await getBlockedUserIds(uid);
+
+    const baseQuery = query(
+        collection(db, "deeds"),
+        where("visibility", "==", "public")
+    );
+
+    return collectValidItems({
+        baseQuery,
+        cursor,
+        limitCount,
+        blockedUserIds,
+    });
+}
+
+async function fetchFollowingPage(
+    uid: string,
+    cursor: FeedCursor = null,
+    limitCount = 10
+): Promise<FeedPageResult<FeedCursor>> {
+    const followingIds = await getFollowingIds(uid);
+    const blockedUserIds = await getBlockedUserIds(uid);
+    const visibleFollowingIds = followingIds.filter((id) => !blockedUserIds.has(id));
+    if (!visibleFollowingIds.length) {
+        return { items: [], cursor: null, hasMore: false };
+    }
+
+    const chunks: string[][] = [];
+    for (let i = 0; i < visibleFollowingIds.length; i += 10) {
+        chunks.push(visibleFollowingIds.slice(i, i + 10));
+    }
+
+    const allItems: Deed[] = [];
+
+    for (const chunk of chunks) {
+        const constraints: QueryConstraint[] = [
+            where("visibility", "==", "public"),
+            where("authorId", "in", chunk),
+            orderBy("createdAt", "desc"),
+            orderBy(documentId(), "desc"),
+            limit(Math.max(limitCount * 2, 20)),
+        ];
+
+        if (cursor?.createdAtMs != null && cursor?.id) {
+            constraints.splice(
+                constraints.length - 1,
+                0,
+                startAfter(new Date(cursor.createdAtMs), cursor.id) as unknown as QueryConstraint
+            );
+        }
+
+        const snap = await getDocs(query(collection(db, "deeds"), ...constraints));
+
+        const mapped = snap.docs
+            .map((docSnap) => mapDeedDoc(docSnap))
+            .filter((x): x is Deed => x !== null);
+
+        allItems.push(...mapped);
+    }
+
+    allItems.sort((a, b) => {
+        const diff = tsToMs(b.createdAt) - tsToMs(a.createdAt);
+        if (diff !== 0) return diff;
+        return b.id.localeCompare(a.id);
+    });
+
+    const deduped: Deed[] = [];
+    const seen = new Set<string>();
+
+    for (const item of allItems) {
+        if (!seen.has(item.id)) {
+            seen.add(item.id);
+            deduped.push(item);
+        }
+        if (deduped.length >= limitCount) break;
+    }
+
+    const lastItem = deduped[deduped.length - 1] ?? null;
+
+    return {
+        items: deduped,
+        cursor: lastItem
+            ? {
+                createdAtMs: tsToMs(lastItem.createdAt),
+                id: lastItem.id,
+            }
+            : cursor,
+        hasMore: deduped.length >= limitCount,
+    };
+}
+
+async function fetchNearbyPage(
+    uid: string,
+    cursor: FeedCursor = null,
+    limitCount = 10
+): Promise<FeedPageResult<FeedCursor>> {
+    const { countyTag, countryTag, lat, lng } = await getUserLocation(uid);
+    const blockedUserIds = await getBlockedUserIds(uid);
+    if (!countyTag && !countryTag) {
+        return { items: [], cursor: null, hasMore: false };
+    }
+
+    const allItems: Deed[] = [];
+
+    const runQuery = async (field: "countyTag" | "countryTag", value: string) => {
+        const constraints: QueryConstraint[] = [
+            where("visibility", "==", "public"),
+            where(field, "==", value),
+            orderBy("createdAt", "desc"),
+            orderBy(documentId(), "desc"),
+            limit(Math.max(limitCount * 3, 30)),
+        ];
+
+        if (cursor?.createdAtMs != null && cursor?.id) {
+            constraints.splice(
+                constraints.length - 1,
+                0,
+                startAfter(new Date(cursor.createdAtMs), cursor.id) as unknown as QueryConstraint
+            );
+        }
+
+        const snap = await getDocs(query(collection(db, "deeds"), ...constraints));
+
+        const mapped = snap.docs
+            .map((docSnap) => mapDeedDoc(docSnap))
+            .filter((x): x is Deed => x !== null);
+
+        allItems.push(...mapped);
+    };
+
+    if (countyTag) await runQuery("countyTag", countyTag);
+    if (countryTag) await runQuery("countryTag", countryTag);
+
+    const seen = new Set<string>();
+    let deduped = allItems.filter((item) => {
+        if (blockedUserIds.has(item.authorId)) return false;
+        if (seen.has(item.id)) return false;
+
+        seen.add(item.id);
+        return true;
+    });
+
+    if (lat != null && lng != null) {
+        deduped = deduped
+            .map((item) => {
+                if (typeof item.lat === "number" && typeof item.lng === "number") {
+                    return {
+                        ...item,
+                        __distance: distanceKm(lat, lng, item.lat, item.lng),
+                    } as Deed & { __distance: number };
+                }
+
+                return {
+                    ...item,
+                    __distance: 999999,
+                } as Deed & { __distance: number };
+            })
+            .sort((a, b) => {
+                const distanceDiff = a.__distance - b.__distance;
+                if (distanceDiff !== 0) return distanceDiff;
+
+                const timeDiff = tsToMs(b.createdAt) - tsToMs(a.createdAt);
+                if (timeDiff !== 0) return timeDiff;
+
+                return b.id.localeCompare(a.id);
+            })
+            .map(({ __distance, ...rest }) => rest as Deed);
+    } else {
+        deduped.sort((a, b) => {
+            const diff = tsToMs(b.createdAt) - tsToMs(a.createdAt);
+            if (diff !== 0) return diff;
+            return b.id.localeCompare(a.id);
+        });
+    }
+
+    const finalItems = deduped.slice(0, limitCount);
+    const lastItem = finalItems[finalItems.length - 1] ?? null;
+
+    return {
+        items: finalItems,
+        cursor: lastItem
+            ? {
+                createdAtMs: tsToMs(lastItem.createdAt),
+                id: lastItem.id,
+            }
+            : cursor,
+        hasMore: deduped.length >= limitCount,
+    };
+}
+
+export async function fetchChannelPage({
+    tab,
+    cursor = null,
+    limitCount = 10,
+    uid = null,
+}: FetchChannelPageParams): Promise<FeedPageResult<any>> {
+
+    if (tab === "forYou") {
+        return fetchForYouPage(cursor, limitCount, uid);
+    }
+
+    if (!uid) {
+        return { items: [], cursor: null, hasMore: false };
+    }
+
+    if (tab === "following") {
+        return fetchFollowingPage(uid, cursor, limitCount);
+    }
+
+    if (tab === "nearby") {
+        return fetchNearbyPage(uid, cursor, limitCount);
+    }
+
+    return { items: [], cursor: null, hasMore: false };
+}
+
+export async function fetchAuthorPage(
+    authorId: string,
+    cursor: FeedCursor = null,
+    limitCount = 10,
+    uid?: string | null
+): Promise<FeedPageResult<FeedCursor>> {
+    const cleanAuthorId = String(authorId ?? "").trim();
+    if (!cleanAuthorId) {
+        return { items: [], cursor: null, hasMore: false };
+    }
+
+    const isOwner = !!uid && uid === cleanAuthorId;
+
+    let baseQuery: Query<DocumentData> = query(
+        collection(db, "deeds"),
+        where("authorId", "==", cleanAuthorId)
+    );
+
+    if (!isOwner) {
+        baseQuery = query(
+            collection(db, "deeds"),
+            where("authorId", "==", cleanAuthorId),
+            where("visibility", "==", "public")
+        );
+    }
+
+    return collectValidItems({
+        baseQuery,
+        cursor,
+        limitCount,
+        includeDeleted: isOwner,
+    });
+}
+
+export async function fetchSingleAuthorDeed(
+    authorId: string,
+    deedId: string,
+    uid?: string | null
+): Promise<Deed | null> {
+    const cleanAuthorId = String(authorId ?? "").trim();
+    const cleanDeedId = String(deedId ?? "").trim();
+
+    if (!cleanAuthorId || !cleanDeedId) return null;
+
+    try {
+        const snap = await getDoc(doc(db, "deeds", cleanDeedId));
+        if (!snap.exists()) return null;
+
+        const mapped = mapDeedDoc(snap, {
+            includeDeleted: !!uid && uid === cleanAuthorId,
+        });
+
+        if (!mapped) return null;
+        if (mapped.authorId !== cleanAuthorId) return null;
+
+        const isOwner = !!uid && uid === cleanAuthorId;
+
+        if (!isOwner) {
+            if (mapped.visibility !== "public") return null;
+            if (mapped.status === "deleted") return null;
+        }
+
+        return mapped;
+    } catch (error) {
+        console.warn("fetchSingleAuthorDeed error:", error);
+        return null;
+    }
+}
+
+export async function fetchAuthorPageExcluding(
+    authorId: string,
+    excludeIds: string[] = [],
+    cursor: FeedCursor = null,
+    limitCount = 10,
+    uid?: string | null
+): Promise<FeedPageResult<FeedCursor>> {
+    const page = await fetchAuthorPage(authorId, cursor, Math.max(limitCount * 2, 20), uid);
+
+    const exclude = new Set(
+        excludeIds.map((x) => String(x ?? "").trim()).filter(Boolean)
+    );
+
+    const filtered = page.items.filter((item) => !exclude.has(item.id)).slice(0, limitCount);
+
+    return {
+        items: filtered,
+        cursor: page.cursor,
+        hasMore: page.hasMore,
+    };
+}

@@ -1,13 +1,18 @@
 "use client";
 
 import React from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "../hooks/useAuth";
 import {
-    IoPersonCircleOutline,
-    IoLogOutOutline,
+    usePathname,
+    useRouter,
+} from "next/navigation";
+import {
     IoChevronForward,
+    IoLogOutOutline,
+    IoPersonCircleOutline,
+    IoPersonOutline,
 } from "react-icons/io5";
+
+import { useAuth } from "../hooks/useAuth";
 
 type Props = {
     uid: string;
@@ -26,29 +31,93 @@ export default function UserAvatarMenu({
 }: Props) {
     const router = useRouter();
     const pathname = usePathname();
-    const [open, setOpen] = React.useState(false);
-    const btnRef = React.useRef<HTMLButtonElement | null>(null);
-    const menuRef = React.useRef<HTMLDivElement | null>(null);
-    const { signOutUser } = useAuth();
+
+    const {
+        signOutUser,
+    } = useAuth();
+
+    const [open, setOpen] =
+        React.useState(false);
+
+    const [
+        imageFailed,
+        setImageFailed,
+    ] =
+        React.useState(false);
+
+    const btnRef =
+        React.useRef<HTMLButtonElement | null>(
+            null
+        );
+
+    const menuRef =
+        React.useRef<HTMLDivElement | null>(
+            null
+        );
 
     React.useEffect(() => {
-        const onDocClick = (e: MouseEvent) => {
-            const t = e.target as Node;
-            if (!menuRef.current || !btnRef.current) return;
-            if (menuRef.current.contains(t) || btnRef.current.contains(t)) return;
+        setImageFailed(false);
+    }, [photoURL]);
+
+    React.useEffect(() => {
+        const onDocClick = (
+            event: MouseEvent
+        ) => {
+            const target =
+                event.target as Node;
+
+            if (
+                !menuRef.current ||
+                !btnRef.current
+            ) {
+                return;
+            }
+
+            if (
+                menuRef.current.contains(
+                    target
+                ) ||
+                btnRef.current.contains(
+                    target
+                )
+            ) {
+                return;
+            }
+
             setOpen(false);
         };
 
-        const onEsc = (e: KeyboardEvent) => {
-            if (e.key === "Escape") setOpen(false);
+        const onEscape = (
+            event: KeyboardEvent
+        ) => {
+            if (
+                event.key ===
+                "Escape"
+            ) {
+                setOpen(false);
+            }
         };
 
-        document.addEventListener("click", onDocClick);
-        document.addEventListener("keydown", onEsc);
+        document.addEventListener(
+            "click",
+            onDocClick
+        );
+
+        document.addEventListener(
+            "keydown",
+            onEscape
+        );
 
         return () => {
-            document.removeEventListener("click", onDocClick);
-            document.removeEventListener("keydown", onEsc);
+            document.removeEventListener(
+                "click",
+                onDocClick
+            );
+
+            document.removeEventListener(
+                "keydown",
+                onEscape
+            );
         };
     }, []);
 
@@ -56,161 +125,319 @@ export default function UserAvatarMenu({
         setOpen(false);
     }, [pathname]);
 
+    const cleanHandle =
+        (
+            handle || ""
+        ).trim();
+
+    const prettyHandle =
+        cleanHandle
+            ? cleanHandle.startsWith(
+                "@"
+            )
+                ? cleanHandle
+                : `@${cleanHandle}`
+            : "@user";
+
+    const showPhoto =
+        !!photoURL?.trim() &&
+        !imageFailed;
+
     const gotoProfile = () => {
         setOpen(false);
 
         if (profileHref) {
-            router.push(profileHref);
+            router.push(
+                profileHref
+            );
             return;
         }
 
-        const cleanHandle = (handle || "").trim();
-        if (!cleanHandle) return;
-
-        router.push(cleanHandle.startsWith("@") ? `/${cleanHandle}` : `/@${cleanHandle}`);
-    };
-
-    const doLogout = async () => {
-        setOpen(false);
-        try {
-            await signOutUser();
-            router.refresh();
-        } catch (e) {
-            console.error("Logout failed:", e);
+        if (!cleanHandle) {
+            return;
         }
+
+        router.push(
+            cleanHandle.startsWith(
+                "@"
+            )
+                ? `/${cleanHandle}`
+                : `/@${cleanHandle}`
+        );
     };
 
-    const avatarSrc = photoURL || "/avatar-placeholder.png";
-    const displayHandle = (handle || "").trim();
-    const prettyHandle = displayHandle
-        ? displayHandle.startsWith("@")
-            ? displayHandle
-            : `@${displayHandle}`
-        : "@user";
+    const doLogout =
+        async () => {
+            setOpen(false);
+
+            try {
+                await signOutUser();
+
+                router.push("/");
+                router.refresh();
+            } catch (error) {
+                console.error(
+                    "Logout failed:",
+                    error
+                );
+            }
+        };
+
+    const Avatar = ({
+        size = 38,
+    }: {
+        size?: number;
+    }) => (
+        <div
+            className={[
+                "relative shrink-0 overflow-hidden rounded-full",
+                "border border-white/15",
+                "bg-white/[0.08]",
+            ].join(" ")}
+            style={{
+                width: size,
+                height: size,
+            }}
+        >
+            {showPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={
+                        photoURL!
+                    }
+                    alt={
+                        prettyHandle
+                    }
+                    className="h-full w-full object-cover"
+                    onError={() =>
+                        setImageFailed(
+                            true
+                        )
+                    }
+                />
+            ) : (
+                <div className="grid h-full w-full place-items-center text-white/80">
+                    <IoPersonOutline
+                        size={
+                            Math.round(
+                                size *
+                                0.48
+                            )
+                        }
+                    />
+                </div>
+            )}
+        </div>
+    );
 
     return (
-        <div className={["relative", className || ""].join(" ")}>
+        <div
+            className={[
+                "relative w-full",
+                className || "",
+            ].join(" ")}
+        >
+            {/* Logged-in account row */}
             <button
                 ref={btnRef}
                 type="button"
-                onClick={() => setOpen((v) => !v)}
+                onClick={() =>
+                    setOpen(
+                        (
+                            current
+                        ) =>
+                            !current
+                    )
+                }
                 aria-haspopup="menu"
-                aria-expanded={open}
-                aria-label="Open user menu"
+                aria-expanded={
+                    open
+                }
+                aria-label="Open account menu"
                 className={[
-                    "group relative h-10 w-10 overflow-hidden rounded-full",
-                    "border border-white/70 bg-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.12)]",
-                    "backdrop-blur-md transition-all duration-200",
-                    "hover:scale-[1.03] hover:shadow-[0_12px_28px_rgba(0,0,0,0.16)]",
-                    "active:scale-[0.97]",
-                    open ? "ring-2 ring-[#C79257]/50" : "",
+                    "group flex w-full items-center gap-3",
+                    "rounded-[14px] px-2.5 py-2",
+                    "text-left",
+                    "transition-all duration-200",
+                    open
+                        ? "bg-white/[0.10]"
+                        : "hover:bg-white/[0.06]",
                 ].join(" ")}
             >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#C79257]/18 via-transparent to-[#233F39]/18" />
-                <div className="relative flex h-full w-full items-center justify-center">
-                    <div className="absolute inset-[2px] rounded-full bg-gradient-to-br from-[#C79257] via-[#d6a46f] to-[#233F39]" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                        src={avatarSrc}
-                        alt="Profile"
-                        className="relative h-[34px] w-[34px] rounded-full border-2 border-white object-cover"
-                    />
+                <Avatar
+                    size={38}
+                />
+
+                <div className="min-w-0 flex-1">
+                    <div className="truncate text-[11px] font-black text-white">
+                        {
+                            prettyHandle
+                        }
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-30" />
+
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                        </span>
+
+                        <span className="text-[9px] font-semibold text-white/45">
+                            Signed in
+                        </span>
+                    </div>
                 </div>
+
+                <IoChevronForward
+                    size={14}
+                    className={[
+                        "shrink-0 text-white/30",
+                        "transition-transform duration-200",
+                        open
+                            ? "-rotate-90"
+                            : "rotate-0",
+                    ].join(
+                        " "
+                    )}
+                />
             </button>
 
+            {/* Popup menu - opens upward */}
             <div
                 ref={menuRef}
                 role="menu"
                 className={[
-                    "absolute right-0 mt-3 w-[250px] origin-top-right overflow-hidden rounded-2xl",
-                    "border border-white/60 bg-white backdrop-blur-xl",
-                    "shadow-[0_20px_60px_rgba(0,0,0,0.20)]",
-                    "transition-all duration-200",
+                    "absolute bottom-[calc(100%+10px)] left-0 right-0",
+                    "z-[10000]",
+                    "origin-bottom",
+                    "overflow-hidden rounded-[16px]",
+                    "border border-[#DDD8CC]",
+                    "bg-[#FBFAF6]",
+                    "shadow-[0_18px_48px_rgba(0,0,0,0.28)]",
+                    "transition-all duration-200 ease-out",
                     open
                         ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-                        : "pointer-events-none -translate-y-1 scale-95 opacity-0",
-                    "z-[10000]",
+                        : "pointer-events-none translate-y-1 scale-[0.97] opacity-0",
                 ].join(" ")}
             >
-                <div className="relative">
-                    <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-br from-[#233F39] via-[#2b4d45] to-[#C79257]" />
-                    <div className="relative px-4 pb-3 pt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="relative h-12 w-12 shrink-0 rounded-full p-[2px] bg-white/30">
-                                <div className="absolute inset-0 rounded-full bg-white/15" />
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={avatarSrc}
-                                    alt="Profile"
-                                    className="relative h-full w-full rounded-full border-2 border-white object-cover"
-                                />
+                {/* Account summary */}
+                <div className="relative overflow-hidden bg-[#173C2E] px-3.5 py-3">
+                    <div className="pointer-events-none absolute -right-7 -top-8 h-24 w-24 rounded-full bg-white/[0.04]" />
+
+                    <div className="relative flex items-center gap-3">
+                        <Avatar
+                            size={44}
+                        />
+
+                        <div className="min-w-0 flex-1">
+                            <div className="truncate text-[12px] font-black text-white">
+                                {
+                                    prettyHandle
+                                }
                             </div>
 
-                            <div className="min-w-0 flex-1">
-                                <div className="truncate text-sm font-semibold text-white">
-                                    {prettyHandle}
-                                </div>
-                                <div className="mt-0.5 text-[11px] text-white/80">
-                                    Account menu
-                                </div>
+                            <div className="mt-1 flex items-center gap-1.5">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+
+                                <span className="text-[9px] font-semibold text-white/50">
+                                    Signed in to
+                                    ekarihub
+                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="px-2 pb-2 pt-2">
+                <div className="p-2">
+                    {/* Profile */}
                     <button
                         role="menuitem"
                         type="button"
-                        onClick={gotoProfile}
+                        onClick={
+                            gotoProfile
+                        }
                         className={[
-                            "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left",
+                            "group flex w-full items-center gap-3",
+                            "rounded-xl px-2.5 py-2.5",
+                            "text-left",
                             "transition-all duration-150",
-                            "hover:bg-[#233F39]/6 active:scale-[0.99]",
+                            "hover:bg-[#EEF3EE]",
+                            "active:scale-[0.99]",
                         ].join(" ")}
                     >
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#233F39]/8 text-[#233F39]">
-                            <IoPersonCircleOutline className="h-5 w-5" aria-hidden="true" />
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                            <IoPersonCircleOutline
+                                size={
+                                    18
+                                }
+                            />
                         </span>
 
                         <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold text-[#233F39]">
-                                View profile
+                            <span className="block text-[10px] font-black text-slate-800">
+                                View
+                                profile
                             </span>
-                            <span className="block truncate text-[12px] text-[#233F39]/65">
-                                Open your public profile
+
+                            <span className="mt-0.5 block truncate text-[9px] font-medium text-slate-400">
+                                Open your
+                                public
+                                profile
                             </span>
                         </span>
 
-                        <IoChevronForward className="h-4 w-4 text-[#233F39]/45" />
+                        <IoChevronForward
+                            size={
+                                13
+                            }
+                            className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#173C2E]"
+                        />
                     </button>
 
-                    <div className="mx-2 my-1 h-px bg-gradient-to-r from-transparent via-[#233F39]/10 to-transparent" />
+                    <div className="mx-2 my-1 h-px bg-[#EEEAE2]" />
 
+                    {/* Logout */}
                     <button
                         role="menuitem"
                         type="button"
-                        onClick={doLogout}
+                        onClick={
+                            doLogout
+                        }
                         className={[
-                            "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left",
+                            "group flex w-full items-center gap-3",
+                            "rounded-xl px-2.5 py-2.5",
+                            "text-left",
                             "transition-all duration-150",
-                            "hover:bg-[#C79257]/10 active:scale-[0.99]",
+                            "hover:bg-rose-50",
+                            "active:scale-[0.99]",
                         ].join(" ")}
                     >
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#C79257]/14 text-[#233F39]">
-                            <IoLogOutOutline className="h-5 w-5" aria-hidden="true" />
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600">
+                            <IoLogOutOutline
+                                size={
+                                    17
+                                }
+                            />
                         </span>
 
                         <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold text-[#233F39]">
+                            <span className="block text-[10px] font-black text-slate-800">
                                 Log out
                             </span>
-                            <span className="block text-[12px] text-[#233F39]/65">
-                                Sign out of your account
+
+                            <span className="mt-0.5 block text-[9px] font-medium text-slate-400">
+                                Sign out
+                                of your
+                                account
                             </span>
                         </span>
 
-                        <IoChevronForward className="h-4 w-4 text-[#233F39]/45" />
+                        <IoChevronForward
+                            size={
+                                13
+                            }
+                            className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-rose-500"
+                        />
                     </button>
                 </div>
             </div>

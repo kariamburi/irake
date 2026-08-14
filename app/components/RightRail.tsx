@@ -219,18 +219,18 @@ function EmojiPopup({
         >
             <div
                 className={[
-                    "absolute h-3 w-3 rotate-45 bg-white border border-gray-200",
+                    "absolute h-3 w-3 rotate-45 bg-[#15231B] border border-white/10",
                     pos.placement === "top" ? "bottom-[-6px] right-4" : "top-[-6px] right-4",
                     "shadow-[0_1px_6px_rgba(0,0,0,.08)]",
                 ].join(" ")}
             />
-            <div className="rounded-xl border border-gray-200 bg-white shadow-xl p-2">
+            <div className="rounded-2xl border border-white/10 bg-[#15231B] p-2 shadow-[0_18px_45px_rgba(0,0,0,0.42)] backdrop-blur-xl">
                 <div className="grid grid-cols-8 gap-1 text-xl max-h-56 overflow-auto">
                     {DEFAULT_EMOJIS.map((e) => (
                         <button
                             key={e}
                             type="button"
-                            className="h-8 w-8 grid place-items-center rounded hover:bg-gray-100 focus:outline-none"
+                            className="grid h-8 w-8 place-items-center rounded-lg transition hover:scale-110 hover:bg-white/[0.08] focus:outline-none"
                             onMouseDown={(ev) => ev.preventDefault()}
                             onClick={() => onSelect(e)}
                             aria-label={`Insert ${e}`}
@@ -597,12 +597,15 @@ function useUserLiteById(userId?: string) {
 /* RightRail                                                           */
 /* ------------------------------------------------------------------ */
 const EKARI = {
-    forest: "#233F39",
-    leaf: "#1F3A34",
-    gold: "#C79257",
-    hair: "#E5E7EB",
-    text: "#111827",
-    subtext: "#6B7280",
+    forest: "#0D1510",
+    leaf: "#15231B",
+    gold: "#F3A526",
+    green: "#22C55E",
+    cyan: "#22D3EE",
+    coral: "#FB7185",
+    hair: "rgba(255,255,255,0.10)",
+    text: "#F8FAFC",
+    subtext: "rgba(255,255,255,0.50)",
 };
 
 type RightRailProps = {
@@ -676,8 +679,10 @@ export default function RightRail({
     className,
 }: RightRailProps) {
     const outer = [
-        mode === "sidebar" ? "hidden lg:flex h-screen w-[400px] border-l" : "flex lg:hidden",
-        "h-full flex-col",
+        mode === "sidebar"
+            ? "hidden lg:flex h-screen w-[360px] border-l border-white/10"
+            : "flex lg:hidden",
+        "h-full flex-col bg-[#0D1510] text-white",
         className || "",
     ].join(" ");
 
@@ -831,14 +836,18 @@ export default function RightRail({
                 type="button"
                 onClick={() => setTab(k)}
                 className={[
-                    "flex items-center justify-center gap-1.5",
-                    "w-full py-2 text-xs font-bold border-b-2 transition",
-                    active ? "text-gray-900 border-gray-900" : "text-gray-500 border-transparent hover:text-gray-800",
+                    "flex min-w-0 items-center justify-center gap-1",
+                    "w-full px-1 py-2.5 text-[11px] font-bold border-b-2 transition-all duration-200",
+                    active
+                        ? "border-[#F3A526] text-white"
+                        : "border-transparent text-white/45 hover:text-white/80",
                 ].join(" ")}
             >
-                <span className="text-base">{icon}</span>
-                <span>{label}</span>
-                <span className="text-gray-400 font-semibold">{nfmt(count)}</span>
+                <span className="shrink-0 text-[15px]">{icon}</span>
+                <span className="truncate">{label}</span>
+                <span className="shrink-0 font-semibold text-white/30">
+                    {nfmt(count)}
+                </span>
             </button>
         );
     };
@@ -859,70 +868,156 @@ export default function RightRail({
             style={{ borderColor: EKARI.hair }}
             aria-live="polite"
         >
-            <div className="flex flex-col w-full h-full">
+            <div className="flex h-full w-full flex-col bg-[#0D1510]">
                 {/* Meta + Tabs header */}
-                <div className="border-b" style={{ borderColor: EKARI.hair }}>
-                    <div className="px-4 pt-4 pb-3">
+                <div
+                    className="shrink-0 border-b bg-[#0D1510]/95 backdrop-blur-xl"
+                    style={{ borderColor: EKARI.hair }}
+                >
+                    <div className="px-4 pb-0 pt-3.5">
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={onClose}
                                 type="button"
                                 aria-label="Close"
-                                className="relative z-40 text-black pointer-events-auto p-2 rounded-full hover:text-gray-400"
+                                className={[
+                                    "relative z-40 grid h-9 w-9 shrink-0 place-items-center",
+                                    "rounded-full border border-white/10 bg-white/[0.04]",
+                                    "text-white/85",
+                                    "transition-all duration-200 ease-out",
+                                    "hover:scale-105 hover:bg-white/[0.09] hover:text-white",
+                                    "active:scale-95",
+                                ].join(" ")}
                             >
-                                <IoClose size={22} />
+                                <IoClose size={21} />
                             </button>
-                            <div className="text-xs text-gray-500">Posted {posted ? posted.toLocaleString() : "—"}</div>
 
-                        </div>
-
-                        <div className="mt-3 flex w-full border-b border-gray-200">
-                            <TabButton k="comments" label="Comments" count={stats?.comments} icon={<IoChatbubbleOutline />} />
-                            <TabButton k="likes" label="Likes" count={stats?.likes} icon={<IoHeartOutline />} />
-                            <TabButton k="views" label="Views" count={stats?.views} icon={<IoEyeOutline />} />
-                            <TabButton k="shares" label="Shares" count={stats?.shares} icon={<IoShareOutline />} />
-                        </div>
-
-                        {tab === "comments" && (
-                            <div className="mt-3 flex items-center justify-between">
-                                <button
-                                    onClick={() => setSort((s) => (s === "newest" ? "oldest" : "newest"))}
-                                    className="p-2 rounded-full hover:bg-gray-100"
-                                    title="Toggle sort"
-                                    aria-label="Toggle sort"
-                                    type="button"
-                                >
-                                    <IoSwapVertical size={20} />
-                                </button>
-
-                                <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
-                                    {stats?.comments ? `Comments · ${stats.comments}` : "Comments"}
+                            <div className="min-w-0 flex-1">
+                                <div className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-white/25">
+                                    Deed activity
                                 </div>
 
-                                <div className="w-10" />
+                                <div className="mt-0.5 truncate text-[11px] font-medium text-white/45">
+                                    Posted {posted ? posted.toLocaleString() : "—"}
+                                </div>
                             </div>
-                        )}
+
+                            {tab === "comments" ? (
+                                <button
+                                    onClick={() =>
+                                        setSort((s) =>
+                                            s === "newest" ? "oldest" : "newest"
+                                        )
+                                    }
+                                    className={[
+                                        "grid h-9 w-9 shrink-0 place-items-center",
+                                        "rounded-full border border-white/10 bg-white/[0.035]",
+                                        "text-white/55",
+                                        "transition-all duration-200 ease-out",
+                                        "hover:scale-105 hover:bg-white/[0.08] hover:text-white",
+                                        "active:scale-95",
+                                    ].join(" ")}
+                                    title={
+                                        sort === "newest"
+                                            ? "Newest comments first"
+                                            : "Oldest comments first"
+                                    }
+                                    aria-label="Toggle comment sort"
+                                    type="button"
+                                >
+                                    <IoSwapVertical size={18} />
+                                </button>
+                            ) : (
+                                <div className="h-9 w-9 shrink-0" />
+                            )}
+                        </div>
+
+                        <div className="mt-3 flex w-full border-b border-white/10">
+                            <TabButton
+                                k="comments"
+                                label="Comments"
+                                count={stats?.comments}
+                                icon={<IoChatbubbleOutline />}
+                            />
+                            <TabButton
+                                k="likes"
+                                label="Likes"
+                                count={stats?.likes}
+                                icon={<IoHeartOutline />}
+                            />
+                            <TabButton
+                                k="views"
+                                label="Views"
+                                count={stats?.views}
+                                icon={<IoEyeOutline />}
+                            />
+                            <TabButton
+                                k="shares"
+                                label="Shares"
+                                count={stats?.shares}
+                                icon={<IoShareOutline />}
+                            />
+                        </div>
                     </div>
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="min-h-0 flex-1 overflow-y-auto bg-[#0D1510] no-scrollbar">
                     {tab === "comments" ? (
                         !enabled ? (
-                            <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-500">
-                                <span className="text-4xl">🔒</span>
-                                <div className="font-semibold">Comments are turned off</div>
+                            <div className="flex h-full items-center justify-center px-6 py-8">
+                                <div
+                                    className={[
+                                        "w-full max-w-[280px] rounded-3xl",
+                                        "border border-white/[0.08] bg-white/[0.035]",
+                                        "px-6 py-8 text-center",
+                                        "shadow-[0_18px_45px_rgba(0,0,0,0.18)]",
+                                    ].join(" ")}
+                                >
+                                    <div className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-2xl">
+                                        🔒
+                                    </div>
+
+                                    <div className="mt-4 text-base font-black text-white">
+                                        Comments are turned off
+                                    </div>
+
+                                    <div className="mt-1.5 text-sm leading-5 text-white/35">
+                                        This creator is not accepting comments on this deed.
+                                    </div>
+                                </div>
                             </div>
                         ) : items.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-500">
-                                <span className="text-4xl">
-                                    <IoChatbubbleOutline />
-                                </span>
-                                <div className="font-extrabold text-gray-900">Start the conversation</div>
-                                <div>Be the first to leave a comment.</div>
+                            <div className="flex h-full items-center justify-center px-6 py-8">
+                                <div
+                                    className={[
+                                        "w-full max-w-[280px] rounded-3xl",
+                                        "border border-white/[0.08] bg-white/[0.035]",
+                                        "px-6 py-8 text-center",
+                                        "shadow-[0_18px_45px_rgba(0,0,0,0.18)]",
+                                    ].join(" ")}
+                                >
+                                    <div
+                                        className={[
+                                            "mx-auto grid h-14 w-14 place-items-center",
+                                            "rounded-full border border-white/10 bg-white/[0.04]",
+                                            "text-2xl text-white/40",
+                                        ].join(" ")}
+                                    >
+                                        <IoChatbubbleOutline />
+                                    </div>
+
+                                    <div className="mt-4 text-base font-black text-white">
+                                        Start the conversation
+                                    </div>
+
+                                    <div className="mt-1.5 text-sm leading-5 text-white/35">
+                                        Be the first to leave a comment.
+                                    </div>
+                                </div>
                             </div>
                         ) : (
-                            <ul className="px-3 py-2 space-y-3">
+                            <ul className="space-y-3 px-3 py-3">
                                 {items.map((c) => (
                                     <CommentRow
                                         key={c.id}
@@ -934,13 +1029,13 @@ export default function RightRail({
                                 ))}
                                 <li className="py-2">
                                     {paging ? (
-                                        <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
-                                            <Spinner size={14} className="border-gray-400 border-t-gray-600" /> Loading…
+                                        <div className="flex items-center justify-center gap-2 text-center text-sm text-white/40">
+                                            <Spinner size={14} className="border-white/20 border-t-[#F3A526]" /> Loading…
                                         </div>
                                     ) : (
                                         <button
                                             onClick={loadMore}
-                                            className="w-full text-sm text-gray-600 hover:text-gray-900"
+                                            className="w-full text-sm font-semibold text-white/45 transition hover:text-[#F3A526]"
                                             type="button"
                                         >
                                             Load more
@@ -957,7 +1052,13 @@ export default function RightRail({
                 {/* Guest chip (only comments tab) */}
                 {tab === "comments" && enabled && isGuest && (
                     <div className="px-3 py-2">
-                        <div className="text-center text-xs font-bold text-gray-600 bg-gray-100 rounded-full py-2">
+                        <div
+                            className={[
+                                "rounded-2xl border border-white/10",
+                                "bg-white/[0.045] px-3 py-2.5 text-center",
+                                "text-xs font-bold text-white/50",
+                            ].join(" ")}
+                        >
                             Sign in to join the conversation
                         </div>
                     </div>
@@ -965,13 +1066,16 @@ export default function RightRail({
 
                 {/* Composer (only comments tab) */}
                 {tab === "comments" && (
-                    <div className="border-t p-3" style={{ borderColor: EKARI.hair }}>
+                    <div
+                        className="shrink-0 border-t bg-[#101A13]/95 px-3 py-2.5 backdrop-blur-xl"
+                        style={{ borderColor: EKARI.hair }}
+                    >
                         {replyTo && (
-                            <div className="mb-2 flex items-center justify-between rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-600">
+                            <div className="mb-2 flex items-center justify-between rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white/50">
                                 <span>Replying to {replyTo.handle ? `${replyTo.handle}` : "comment"}</span>
                                 <button
                                     onClick={() => setReplyTo(null)}
-                                    className="p-1 rounded hover:bg-gray-200"
+                                    className="rounded p-1 transition hover:bg-white/10 hover:text-white"
                                     aria-label="Cancel reply"
                                     type="button"
                                 >
@@ -980,15 +1084,19 @@ export default function RightRail({
                             </div>
                         )}
 
-                        <div className="flex items-center items-end gap-2 relative">
-                            <div className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                        <div className="relative flex items-end gap-2">
+                            <div className="mb-0.5 h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10">
 
                                 <SmartAvatar src={currentUser?.photoURL || "/avatar-placeholder.png"} alt={"user"} size={30} />
                             </div>
 
                             <div
                                 className={[
-                                    "flex-1 bg-gray-100 items-center rounded-3xl px-3 py-2 flex items-end gap-2",
+                                    "flex min-w-0 flex-1 items-end gap-2 rounded-[22px]",
+                                    "border border-white/10 bg-[#15231B] px-3 py-2",
+                                    "transition-all duration-200",
+                                    "focus-within:border-[#F3A526]/45",
+                                    "focus-within:shadow-[0_0_0_3px_rgba(243,165,38,0.07)]",
                                     sending ? "opacity-80" : "",
                                 ].join(" ")}
                             >
@@ -1014,7 +1122,7 @@ export default function RightRail({
                                         syncComposerSelection();
                                         resizeComposerTextarea();
                                     }}
-                                    className="flex-1 text-black bg-transparent outline-none text-sm resize-none leading-5 min-h-[20px] overflow-hidden"
+                                    className="min-h-[20px] flex-1 resize-none overflow-hidden bg-transparent text-sm leading-5 text-white outline-none placeholder:text-white/30"
                                     placeholder={!enabled ? "Comments are off" : isGuest ? "Sign in to comment…" : "Add a comment…"}
                                     disabled={!enabled || isGuest || sending}
                                     rows={1}
@@ -1045,9 +1153,12 @@ export default function RightRail({
                                     aria-haspopup="dialog"
                                     aria-expanded={showEmoji}
                                     title="Add emoji"
-                                    className={["h-8 w-8 rounded-full bg-white text-lg grid place-items-center", "shadow border hover:bg-gray-50 disabled:opacity-50"].join(
-                                        " "
-                                    )}
+                                    className={[
+                                        "grid h-8 w-8 place-items-center rounded-full",
+                                        "border border-white/10 bg-white/[0.06] text-lg shadow-sm",
+                                        "transition-all duration-200 hover:scale-105 hover:bg-white/[0.10]",
+                                        "disabled:opacity-40",
+                                    ].join(" ")}
                                 >
                                     😊
                                 </button>
@@ -1057,8 +1168,13 @@ export default function RightRail({
                                 onClick={send}
                                 disabled={!canSend}
                                 aria-busy={sending}
-                                className={`ml-1 h-9 px-3 rounded-full text-white text-sm font-bold inline-flex items-center gap-2 ${canSend ? "bg-gray-900 hover:opacity-90" : "bg-gray-400 cursor-not-allowed"
-                                    }`}
+                                className={[
+                                    "ml-0.5 inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-black",
+                                    "transition-all duration-200",
+                                    canSend
+                                        ? "bg-[#F3A526] text-[#102219] hover:scale-[1.03] hover:bg-[#FFB536] active:scale-95"
+                                        : "cursor-not-allowed bg-white/10 text-white/30",
+                                ].join(" ")}
                                 type="button"
                             >
                                 {sending ? <Spinner size={14} /> : null}
@@ -1098,10 +1214,16 @@ function ActivityPanel({
 
     return (
         <div className="p-3">
-            <div className="text-sm font-extrabold text-gray-900 mb-2">{title}</div>
+            <div className="mb-3 text-[11px] font-black uppercase tracking-[0.12em] text-white/35">
+                {title}
+            </div>
 
             {queryData.items.length === 0 ? (
-                <div className="py-10 text-center text-sm text-gray-500">No {tab} yet.</div>
+                <div className="flex min-h-[220px] items-center justify-center">
+                    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] px-6 py-5 text-center text-sm text-white/40">
+                        No {tab} yet.
+                    </div>
+                </div>
             ) : (
                 <>
                     <ul className="space-y-2">
@@ -1128,11 +1250,11 @@ function ActivityPanel({
                     {showLoadMore && (
                         <div className="pt-3">
                             {queryData.paging ? (
-                                <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
-                                    <Spinner size={14} className="border-gray-400 border-t-gray-600" /> Loading…
+                                <div className="flex items-center justify-center gap-2 text-center text-sm text-white/40">
+                                    <Spinner size={14} className="border-white/20 border-t-[#F3A526]" /> Loading…
                                 </div>
                             ) : (
-                                <button onClick={queryData.loadMore} className="w-full text-sm text-gray-600 hover:text-gray-900" type="button">
+                                <button onClick={queryData.loadMore} className="w-full text-sm font-semibold text-white/45 transition hover:text-[#F3A526]" type="button">
                                     Load more
                                 </button>
                             )}
@@ -1180,11 +1302,19 @@ function ActivityRow({
     };
 
     return (
-        <li className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2">
+        <li
+            className={[
+                "flex items-center gap-3 rounded-2xl",
+                "border border-white/[0.08] bg-white/[0.04]",
+                "px-3 py-2.5",
+                "transition-all duration-200",
+                "hover:translate-x-0.5 hover:border-white/15 hover:bg-white/[0.065]",
+            ].join(" ")}
+        >
             <button
                 type="button"
                 onClick={go}
-                className="h-9 w-9 rounded-full overflow-hidden bg-gray-200 shrink-0"
+                className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10"
                 aria-label="Open profile"
                 disabled={!canOpen}
             >
@@ -1197,24 +1327,24 @@ function ActivityRow({
                     type="button"
                     onClick={go}
                     disabled={!canOpen}
-                    className="text-sm font-bold text-gray-800 hover:underline text-left truncate disabled:opacity-70"
+                    className="truncate text-left text-sm font-bold text-white/80 transition hover:text-white hover:underline disabled:opacity-70"
                 >
 
-                    <div className="text-sm font-extrabold text-gray-900 truncate">{name || "Someone"}</div>
-                    <div className="text-[12px] font-semibold text-gray-500 truncate">
+                    <div className="truncate text-sm font-extrabold text-white">{name || "Someone"}</div>
+                    <div className="truncate text-[12px] font-semibold text-white/40">
                         {handle || (fallbackDeviceId ? "Guest viewer" : "Someone")}
                     </div>
                 </button>
 
                 {!userId && !handle && fallbackDeviceId && (
-                    <div className="text-[11px] text-gray-500">Anonymous device activity</div>
+                    <div className="text-[11px] text-white/35">Anonymous device activity</div>
                 )}
                 {!userId && !handle && !fallbackDeviceId && (
-                    <div className="text-[11px] text-gray-500">No user data stored on this event doc</div>
+                    <div className="text-[11px] text-white/35">No user data stored on this event doc</div>
                 )}
             </div>
 
-            {rightText && <div className="text-xs font-bold text-gray-500 whitespace-nowrap">{rightText}</div>}
+            {rightText && <div className="whitespace-nowrap text-xs font-bold text-white/40">{rightText}</div>}
         </li>
     );
 }
@@ -1337,7 +1467,7 @@ function CommentRow({
     return (
         <li className="rounded-2xl">
             <div className="flex items-start gap-2.5">
-                <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10">
                     <button
                         type="button"
                         onClick={() => goToProfile(embeddedHandle)}
@@ -1355,7 +1485,7 @@ function CommentRow({
                             type="button"
                             onClick={() => goToProfile(embeddedHandle)}
                             disabled={!embeddedHandle}
-                            className="truncate text-left text-[12px] font-semibold text-gray-900 hover:underline disabled:no-underline"
+                            className="truncate text-left text-[12px] font-bold text-white/90 transition hover:text-white hover:underline disabled:no-underline"
                         >
                             {embeddedName}
                         </button>
@@ -1365,36 +1495,42 @@ function CommentRow({
                                 type="button"
                                 onClick={() => goToProfile(embeddedHandle)}
                                 disabled={!embeddedHandle}
-                                className="truncate text-[11px] font-medium text-gray-500 hover:text-gray-700 disabled:hover:text-gray-500"
+                                className="truncate text-[11px] font-medium text-white/35 transition hover:text-white/65 disabled:hover:text-white/35"
                             >
                                 {embeddedHandle.startsWith("@") ? embeddedHandle : `@${embeddedHandle}`}
                             </button>
                         ) : null}
 
                         {created ? (
-                            <span className="shrink-0 text-[11px] text-gray-400">{created}</span>
+                            <span className="shrink-0 text-[11px] text-white/25">{created}</span>
                         ) : null}
 
                         {comment?.edited ? (
-                            <span className="shrink-0 text-[10px] font-medium text-gray-400">
+                            <span className="shrink-0 text-[10px] font-medium text-white/25">
                                 edited
                             </span>
                         ) : null}
                     </div>
 
                     {!isEditing ? (
-                        <div className="mt-1.5 inline-block max-w-full rounded-2xl bg-gray-100 px-3 py-2">
-                            <p className="whitespace-pre-wrap break-words text-[13px] leading-[1.35] text-gray-900">
+                        <div
+                            className={[
+                                "mt-1.5 inline-block max-w-full rounded-2xl",
+                                "border border-white/[0.07] bg-white/[0.05]",
+                                "px-3 py-2",
+                            ].join(" ")}
+                        >
+                            <p className="whitespace-pre-wrap break-words text-[13px] leading-[1.4] text-white/85">
                                 {comment?.text || ""}
                             </p>
                         </div>
                     ) : (
-                        <div className="mt-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+                        <div className="mt-2 rounded-2xl border border-white/10 bg-[#15231B] p-2 shadow-sm">
                             <textarea
                                 ref={editTextareaRef}
                                 value={editText}
                                 onChange={(e) => setEditText(clipGraphemes(e.target.value, 400))}
-                                className="min-h-[72px] w-full resize-none rounded-xl bg-gray-50 px-3 py-2 text-[13px] leading-[1.35] text-gray-900 outline-none"
+                                className="min-h-[72px] w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13px] leading-[1.4] text-white outline-none focus:border-[#F3A526]/45"
                                 disabled={saving}
                             />
 
@@ -1403,7 +1539,7 @@ function CommentRow({
                                     ref={editEmojiBtnRef}
                                     type="button"
                                     onClick={() => setShowEditEmoji((v) => !v)}
-                                    className="grid h-8 w-8 place-items-center rounded-full border border-gray-200 bg-white text-[16px] hover:bg-gray-50"
+                                    className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-[16px] transition hover:bg-white/[0.10]"
                                     title="Add emoji"
                                 >
                                     😊
@@ -1416,7 +1552,7 @@ function CommentRow({
                                             setIsEditing(false);
                                             setEditText(comment?.text ?? "");
                                         }}
-                                        className="rounded-full bg-gray-100 px-3 py-1.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-200"
+                                        className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[12px] font-semibold text-white/60 transition hover:bg-white/[0.10] hover:text-white"
                                         type="button"
                                     >
                                         Cancel
@@ -1425,7 +1561,7 @@ function CommentRow({
                                     <button
                                         onClick={saveEdit}
                                         disabled={saving || !editText.trim()}
-                                        className="rounded-full bg-gray-900 px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
+                                        className="rounded-full bg-[#F3A526] px-3 py-1.5 text-[12px] font-bold text-[#102219] transition hover:bg-[#FFB536] disabled:opacity-40"
                                         type="button"
                                     >
                                         {saving ? "Saving" : "Save"}
@@ -1442,10 +1578,10 @@ function CommentRow({
                         </div>
                     )}
 
-                    <div className="mt-2 flex items-center gap-4 text-[11px] text-gray-500">
+                    <div className="mt-2 flex items-center gap-4 text-[11px] text-white/35">
                         <button
                             onClick={() => onReply(comment.id, embeddedHandle)}
-                            className="font-semibold hover:text-gray-900"
+                            className="font-semibold transition hover:text-[#F3A526]"
                             type="button"
                         >
                             Reply
@@ -1453,7 +1589,7 @@ function CommentRow({
 
                         <button
                             onClick={() => setOpen((v) => !v)}
-                            className="hover:text-gray-900"
+                            className="transition hover:text-white"
                             type="button"
                         >
                             {open
@@ -1464,7 +1600,7 @@ function CommentRow({
                         {canModify && !isEditing ? (
                             <button
                                 onClick={() => setIsEditing(true)}
-                                className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-gray-900"
+                                className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-white/35 transition hover:text-[#F3A526]"
                                 title="Edit"
                                 type="button"
                             >
@@ -1478,7 +1614,7 @@ function CommentRow({
                                 onClick={deleteMine}
                                 disabled={deleting}
                                 aria-busy={deleting}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-red-600 disabled:opacity-60"
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-white/25 transition hover:text-rose-400 disabled:opacity-60"
                                 title="Delete"
                                 type="button"
                             >
@@ -1489,7 +1625,7 @@ function CommentRow({
                     </div>
 
                     {open && replies.length > 0 ? (
-                        <div className="mt-3 space-y-3 border-l border-gray-200 pl-3">
+                        <div className="mt-3 space-y-3 border-l border-white/10 pl-3">
                             {replies.map((reply) => (
                                 <CommentRow
                                     key={reply.id}
@@ -1549,7 +1685,7 @@ function RepliesList({
             ))}
             {hasMore && (
                 <li>
-                    <button onClick={loadMore} className="py-1.5 text-xs text-gray-600 hover:text-gray-900" type="button">
+                    <button onClick={loadMore} className="py-1.5 text-xs font-semibold text-white/40 transition hover:text-[#F3A526]" type="button">
                         Load more
                     </button>
                 </li>
@@ -1630,11 +1766,11 @@ function ReplyRow({
 
     return (
         <li className="flex items-start gap-3">
-            <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
+            <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10">
                 <button
                     type="button"
                     onClick={() => (handle ? goToProfile(handle) : null)}
-                    className="h-8 w-8 rounded-full overflow-hidden bg-gray-200 shrink-0 cursor-pointer"
+                    className="h-8 w-8 shrink-0 cursor-pointer overflow-hidden rounded-full bg-white/10 ring-1 ring-white/10"
                     aria-label="Open profile"
                     disabled={!handle}
                 >
@@ -1645,20 +1781,20 @@ function ReplyRow({
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                     {!!handle && (
-                        <button type="button" onClick={() => goToProfile(handle)} className="text-xs font-bold text-gray-600 hover:underline">
+                        <button type="button" onClick={() => goToProfile(handle)} className="text-xs font-bold text-white/55 transition hover:text-white hover:underline">
                             {handle}
                         </button>
                     )}
 
-                    <span className="text-[11px] text-gray-400">{timeAgo(reply.createdAt)}</span>
+                    <span className="text-[11px] text-white/25">{timeAgo(reply.createdAt)}</span>
                 </div>
 
                 {!isEditing ? (
                     <>
                         {!!reply.text && (
-                            <div className="text-sm text-gray-900 whitespace-pre-wrap">
+                            <div className="whitespace-pre-wrap text-sm text-white/85">
                                 {reply.text}
-                                {reply.edited && <span className="ml-2 text-[10px] text-gray-500">(edited)</span>}
+                                {reply.edited && <span className="ml-2 text-[10px] text-white/30">(edited)</span>}
                             </div>
                         )}
                     </>
@@ -1672,7 +1808,7 @@ function ReplyRow({
                                 rows={2}
                                 disabled={saving}
                                 aria-busy={saving}
-                                className="w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-gray-900 disabled:opacity-70"
+                                className="w-full rounded-xl border border-white/10 bg-white/[0.04] p-2 text-sm text-white outline-none focus:border-[#F3A526]/45 focus:ring-2 focus:ring-[#F3A526]/10 disabled:opacity-70"
                                 maxLength={800}
                             />
                             <button
@@ -1684,8 +1820,8 @@ function ReplyRow({
                                 aria-expanded={showEditEmoji}
                                 title="Add emoji"
                                 className={[
-                                    "h-8 w-8 rounded-full bg-white text-lg grid place-items-center",
-                                    "shadow border hover:bg-gray-50 disabled:opacity-50",
+                                    "grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-lg",
+                                    "border border-white/10 shadow transition hover:bg-white/[0.10] disabled:opacity-50",
                                 ].join(" ")}
                             >
                                 😊
@@ -1710,7 +1846,7 @@ function ReplyRow({
                                     setIsEditing(false);
                                     setEditText(reply?.text ?? "");
                                 }}
-                                className="px-3 py-1.5 rounded-full text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200"
+                                className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-sm font-semibold text-white/55 transition hover:bg-white/[0.10] hover:text-white"
                                 type="button"
                             >
                                 Cancel
@@ -1730,7 +1866,7 @@ function ReplyRow({
                     <div className="mt-2 flex items-center gap-3 text-xs">
                         <button
                             onClick={() => setIsEditing(true)}
-                            className="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900"
+                            className="inline-flex items-center gap-1 text-white/40 transition hover:text-[#F3A526]"
                             title="Edit reply"
                             type="button"
                         >
@@ -1740,11 +1876,11 @@ function ReplyRow({
                             onClick={deleteMine}
                             disabled={deleting}
                             aria-busy={deleting}
-                            className="inline-flex items-center gap-2 text-gray-500 hover:text-red-600 disabled:opacity-60"
+                            className="inline-flex items-center gap-2 text-white/30 transition hover:text-rose-400 disabled:opacity-60"
                             title="Delete reply"
                             type="button"
                         >
-                            {deleting ? <Spinner size={12} className="border-gray-500 border-t-red-600" /> : <IoTrashOutline size={14} />}
+                            {deleting ? <Spinner size={12} className="border-white/20 border-t-rose-400" /> : <IoTrashOutline size={14} />}
                             {deleting ? "Deleting" : "Delete"}
                         </button>
                     </div>

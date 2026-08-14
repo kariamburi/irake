@@ -4,13 +4,23 @@ import React from "react";
 import { IoCompassOutline, IoMenu, IoPartlySunnyOutline, IoSearch } from "react-icons/io5";
 import { FeedTabKey } from "../data/deedsFeedWeb";
 
-const TABS: FeedTabKey[] = ["forYou", "following", "nearby"];
+const TABS: FeedTabKey[] = [
+    "trending",
+    "forYou",
+    "following",
+    "nearby",
+];
 
 const LABEL: Record<FeedTabKey, string> = {
+    trending: "Trending",
     forYou: "For You",
     following: "Following",
     nearby: "Nearby",
 };
+
+function isPublicTab(tab: FeedTabKey) {
+    return tab === "trending" || tab === "forYou";
+}
 
 type Props = {
     uid?: string | null;
@@ -112,10 +122,10 @@ export function DeedsTopBar({
                             </div>
                         </div>
 
-                        <div className="mt-2 flex items-center justify-center gap-8 px-2">
+                        <div className="mt-2 flex items-center justify-center gap-4 px-2 sm:gap-6">
                             {TABS.map((k) => {
                                 const isActive = activeTab === k;
-                                const locked = !uid && k !== "forYou";
+                                const locked = !uid && !isPublicTab(k);
 
                                 return (
                                     <button
@@ -126,7 +136,7 @@ export function DeedsTopBar({
                                             onChangeTab(k);
                                         }}
                                         className={[
-                                            "relative pb-1 text-[18px] tracking-[0.01em] transition",
+                                            "relative whitespace-nowrap pb-1 text-[15px] tracking-[0.01em] transition sm:text-[17px]",
                                             isActive
                                                 ? "font-extrabold text-white"
                                                 : "font-bold text-white/72",
@@ -138,7 +148,7 @@ export function DeedsTopBar({
                                     >
                                         {LABEL[k]}
                                         {isActive ? (
-                                            <span className="absolute inset-x-0 -bottom-0.5 mx-auto h-[2px] w-8 rounded-full bg-white" />
+                                            <span className="absolute inset-x-0 -bottom-0.5 mx-auto h-[2px] w-7 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.30)]" />
                                         ) : null}
                                     </button>
                                 );
@@ -148,7 +158,7 @@ export function DeedsTopBar({
                 ) : (
                     <div className="flex h-[58px] items-center justify-between px-4">
 
-                        <button
+                        {/** <button
                             type="button"
                             onClick={onOpenDive}
                             className="flex h-10 items-center gap-2 rounded-full bg-black/28 px-2 text-white backdrop-blur-md"
@@ -157,12 +167,23 @@ export function DeedsTopBar({
                             <IoCompassOutline size={19} />
                             <span className="text-[12px] font-bold tracking-[0.01em]">
                                 Dive
-                            </span>  </button>
+                            </span>  </button>*/}
+                        <button
+                            type="button"
+                            onClick={onOpenSearch}
+                            className="grid h-10 w-10 place-items-center rounded-full text-white transition-all duration-200 ease-out hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95"
+                            aria-label="Search"
+                            style={{
+                                textShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                            }}
+                        >
+                            <IoSearch size={20} />
+                        </button>
                         <div className="h-12" />
-                        <div className="flex items-center gap-7">
+                        <div className="flex items-center gap-5 xl:gap-6">
                             {TABS.map((k) => {
                                 const isActive = activeTab === k;
-                                const locked = !uid && k !== "forYou";
+                                const locked = !uid && !isPublicTab(k);
 
                                 return (
                                     <button
@@ -173,7 +194,7 @@ export function DeedsTopBar({
                                             onChangeTab(k);
                                         }}
                                         className={[
-                                            "relative pb-1 text-[17px] tracking-[0.01em] transition",
+                                            "relative whitespace-nowrap pb-1 text-[16px] tracking-[0.01em] transition xl:text-[17px]",
                                             isActive
                                                 ? "font-extrabold text-white"
                                                 : "font-bold text-white/70",
@@ -185,7 +206,7 @@ export function DeedsTopBar({
                                     >
                                         {LABEL[k]}
                                         {isActive ? (
-                                            <span className="absolute inset-x-0 -bottom-0.5 mx-auto h-[2px] w-8 rounded-full bg-white" />
+                                            <span className="absolute inset-x-0 -bottom-0.5 mx-auto h-[2px] w-7 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.30)]" />
                                         ) : null}
                                     </button>
                                 );
@@ -193,17 +214,7 @@ export function DeedsTopBar({
                         </div>
 
                         <div className="flex w-12 items-center justify-end">
-                            <button
-                                type="button"
-                                onClick={onOpenSearch}
-                                className="grid h-10 w-10 place-items-center rounded-full text-white transition-all duration-200 ease-out hover:scale-105 hover:bg-white/10 hover:text-white active:scale-95"
-                                aria-label="Search"
-                                style={{
-                                    textShadow: "0 2px 6px rgba(0,0,0,0.35)",
-                                }}
-                            >
-                                <IoSearch size={20} />
-                            </button>
+
                         </div>
                     </div>
                 )}

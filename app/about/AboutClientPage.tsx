@@ -21,15 +21,17 @@ import {
     IoRibbonOutline,
 } from "react-icons/io5";
 import { useAuth } from "../hooks/useAuth";
+import AppShell from "../components/AppShell";
 
 const EKARI = {
-    forest: "#233F39",
-    leaf: "#1F3A34",
-    gold: "#C79257",
-    sand: "#FFFFFF",
-    text: "#1F2F2B",
-    subtext: "#5C6B66",
-    border: "#E5E7EB",
+    forest: "#173C2E",
+    leaf: "#214C3A",
+    gold: "#F39A22",
+    sand: "#F8F7F2",
+    paper: "#FBFAF6",
+    text: "#0F172A",
+    subtext: "#64748B",
+    border: "#DDD8CC",
 };
 
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -69,14 +71,7 @@ function Pill({
     icon?: React.ReactNode;
 }) {
     return (
-        <span
-            className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-medium tracking-wide"
-            style={{
-                borderColor: "rgba(255,255,255,0.20)",
-                background: "rgba(255,255,255,0.10)",
-                color: "rgba(255,255,255,0.92)",
-            }}
-        >
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.07] px-3 py-1.5 text-[10px] font-black text-white/85 backdrop-blur-sm">
             {icon}
             {children}
         </span>
@@ -93,558 +88,789 @@ function Feature({
     icon: React.ReactNode;
 }) {
     return (
-        <div
-            className="group rounded-3xl border bg-white/80 backdrop-blur-xl p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-            style={{ borderColor: "rgba(229,231,235,0.75)" }}
+        <motion.div
+            variants={item}
+            whileHover={{ y: -2 }}
+            className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition"
         >
             <div className="flex items-start gap-3">
-                <div
-                    className="flex h-10 w-10 items-center justify-center"
-                    style={{
-                        // borderColor: "rgba(35,63,57,0.16)",
-                        // background:
-                        //   "linear-gradient(135deg, rgba(35,63,57,0.10), rgba(199,146,87,0.10))",
-                        color: EKARI.forest,
-                    }}
-                    aria-hidden
-                >
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
                     {icon}
                 </div>
 
                 <div className="min-w-0">
-                    <h4 className="font-semibold" style={{ color: EKARI.text }}>
+                    <h4 className="text-[12px] font-black text-slate-900">
                         {title}
                     </h4>
-                    <p className="mt-1 text-sm leading-6" style={{ color: EKARI.subtext }}>
+
+                    <p className="mt-1 text-[10px] font-medium leading-5 text-slate-500">
                         {desc}
                     </p>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 }
 
-function StatChip({
-    label,
-    value,
+function InfoCard({
+    eyebrow,
+    title,
+    body,
     icon,
 }: {
-    label: string;
-    value: string;
+    eyebrow: string;
+    title: string;
+    body: React.ReactNode;
     icon: React.ReactNode;
 }) {
     return (
-        <div
-            className="rounded-2xl border bg-white/80 backdrop-blur-xl px-4 py-3 shadow-sm"
-            style={{ borderColor: "rgba(229,231,235,0.75)" }}
+        <motion.section
+            variants={item}
+            className="rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 shadow-[0_10px_28px_rgba(15,23,42,0.03)]"
         >
-            <div className="flex items-center gap-3">
-                <div
-                    className="flex h-9 w-9 items-center justify-center rounded-2xl border"
-                    style={{
-                        borderColor: "rgba(35,63,57,0.16)",
-                        background:
-                            "linear-gradient(135deg, rgba(35,63,57,0.10), rgba(199,146,87,0.10))",
-                        color: EKARI.forest,
-                    }}
-                    aria-hidden
-                >
+            <div className="flex items-start gap-3">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-[#E8ECE8] text-[#173C2E]">
                     {icon}
                 </div>
+
                 <div className="min-w-0">
-                    <div
-                        className="text-[11px] font-semibold uppercase tracking-wide"
-                        style={{ color: EKARI.subtext }}
-                    >
-                        {label}
+                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                        {eyebrow}
                     </div>
-                    <div
-                        className="text-sm font-extrabold leading-5"
-                        style={{ color: EKARI.text }}
-                    >
-                        {value}
+
+                    <h3 className="mt-1 text-[15px] font-black text-slate-900">
+                        {title}
+                    </h3>
+
+                    <div className="mt-2 text-[10px] font-medium leading-5 text-slate-500">
+                        {body}
                     </div>
                 </div>
+            </div>
+        </motion.section>
+    );
+}
+
+function MiniStat({
+    label,
+    value,
+}: {
+    label: string;
+    value: string;
+}) {
+    return (
+        <div className="rounded-[14px] border border-white/12 bg-white/[0.06] px-3 py-3">
+            <div className="text-[9px] font-black uppercase tracking-[0.08em] text-white/45">
+                {label}
+            </div>
+
+            <div className="mt-1 text-[11px] font-black text-white">
+                {value}
             </div>
         </div>
     );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function StepCard({
+    number,
+    title,
+    body,
+}: {
+    number: string;
+    title: string;
+    body: string;
+}) {
     return (
-        <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3">
-            <div className="text-[11px] font-semibold text-white/80 uppercase tracking-wide">
-                {label}
+        <motion.div
+            variants={item}
+            className="rounded-[18px] border border-[#DDD8CC] bg-white p-4"
+        >
+            <div className="flex items-start gap-3">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#173C2E] text-[10px] font-black text-white">
+                    {number}
+                </span>
+
+                <div>
+                    <div className="text-[11px] font-black text-slate-800">
+                        {title}
+                    </div>
+
+                    <p className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
+                        {body}
+                    </p>
+                </div>
             </div>
-            <div className="mt-0.5 text-sm font-semibold text-white">{value}</div>
-        </div>
+        </motion.div>
     );
 }
 
 export default function AboutPage() {
-    const reduceMotion = useReducedMotion();
+    const reduceMotion =
+        useReducedMotion();
 
-    const { user, loading: authLoading } = useAuth();
-    const isGuest = !authLoading && !user?.uid;
-    // Right-side “serious” stats
-    const stats = {
-        verifiedProfiles: "Verified profiles • Trust layer",
-        marketplace: "Marketplace listings • Trade",
-        events: "Events & trainings • Learn",
-        community: "Community discussions • Connect",
-    };
+    const {
+        user,
+        loading: authLoading,
+    } = useAuth();
 
-    return (
-        <main
-            className="min-h-screen w-full px-4 py-8"
-            style={{
-                background:
-                    "radial-gradient(circle at top left, rgba(35,63,57,0.14), transparent 50%), radial-gradient(circle at bottom right, rgba(199,146,87,0.18), #F3F4F6)",
-            }}
-        >
-            <motion.div
-                className="w-full max-w-6xl mx-auto"
-                initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-            >
-                {/* Top header */}
-                <div className="mb-6 flex items-center justify-between">
-                    <Link href="/" className="inline-flex items-center gap-3">
+    const isGuest =
+        !authLoading &&
+        !user?.uid;
+
+    const MainContent = (
+        <div className="w-full bg-[#F8F7F2]">
+            {/* Public/top navigation */}
+            <div className="sticky top-0 z-40 border-b border-[#DDD8CC] bg-[#FBFAF6]/95 backdrop-blur-xl">
+                <div className="mx-auto flex h-[64px] max-w-[1180px] items-center gap-3 px-3 sm:px-5 md:px-6">
+                    <Link
+                        href="/"
+                        className="inline-flex items-center"
+                    >
                         <Image
                             src="/ekarihub-logo.png"
                             alt="ekarihub"
-                            width={180}
-                            height={54}
+                            width={160}
+                            height={48}
                             priority
                             className="h-auto w-auto"
                         />
                     </Link>
 
-                    <div className="flex items-center gap-2">
-                        {/* ✅ Premium gold leadership button on desktop */}
-                        <Link
-                            href="/leadership"
-                            className="hidden md:inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition hover:shadow-md active:scale-[0.98]"
-                            style={{
-                                background: "linear-gradient(135deg, #C79257, #fbbf77)",
-                                color: "#111827",
-                            }}
-                        >
-                            <IoRibbonOutline className="text-base" />
-                            Meet our leadership
-                        </Link>
+                    <div className="flex-1" />
 
-                        <Link
-                            href="/market"
-                            className="hidden sm:inline-flex rounded-full border bg-white/70 backdrop-blur-xl px-4 py-2 text-sm font-semibold shadow-sm transition hover:shadow-md"
-                            style={{
-                                borderColor: "rgba(229,231,235,0.75)",
-                                color: EKARI.text,
-                            }}
-                        >
-                            Explore Marketplace
-                        </Link>
-
-                        {isGuest ? (
-                            <Link
-                                href="/getstarted?next=/"
-                                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
-                                style={{ background: "linear-gradient(135deg, #233F39, #111827)" }}
-                            >
-                                Get Started <IoArrowForwardOutline className="text-base" />
-                            </Link>
-                        ) : (
-                            <Link
-                                href="/"
-                                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
-                                style={{ background: "linear-gradient(135deg, #233F39, #111827)" }}
-                            >
-                                Get Started <IoArrowForwardOutline className="text-base" />
-                            </Link>
-                        )}
-
-                    </div>
-                </div>
-
-                {/* MAIN CARD */}
-                <motion.div
-                    className="grid md:grid-cols-2 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_24px_80px_rgba(15,23,42,0.25)] overflow-hidden"
-                    initial={
-                        reduceMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.98 }
-                    }
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.28, ease: "easeOut" }}
-                >
-                    {/* LEFT: Brand gradient side */}
-                    <div
-                        className="relative px-6 py-7 sm:px-8 sm:py-8 flex flex-col"
-                        style={{
-                            background:
-                                "radial-gradient(circle at top, rgba(253,230,138,0.12), transparent 60%), linear-gradient(160deg, #233F39, #111827)",
-                            color: "white",
-                        }}
+                    <Link
+                        href="/leadership"
+                        className="hidden h-9 items-center gap-1.5 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB] md:inline-flex"
                     >
-                        <motion.div
-                            variants={container}
-                            initial={reduceMotion ? "show" : "hidden"}
-                            animate="show"
-                            className="flex-1"
-                        >
-                            <motion.div variants={item} className="flex flex-wrap gap-2">
-                                <Pill icon={<IoSparklesOutline />}>AI + Data + Community</Pill>
-                                <Pill icon={<IoLeafOutline />}>Agribusiness Ecosystem</Pill>
-                                <Pill icon={<IoShieldCheckmarkOutline />}>Trusted Network</Pill>
+                        <IoRibbonOutline size={14} />
+                        Leadership
+                    </Link>
+
+                    <Link
+                        href="/market"
+                        className="hidden h-9 items-center rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] sm:inline-flex"
+                    >
+                        Marketplace
+                    </Link>
+
+                    <Link
+                        href={
+                            isGuest
+                                ? "/getstarted?next=/about"
+                                : "/"
+                        }
+                        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#173C2E] px-3.5 text-[10px] font-black text-white transition hover:bg-[#214C3A]"
+                    >
+                        {isGuest
+                            ? "Get started"
+                            : "Back to ekarihub"}
+                        <IoArrowForwardOutline size={13} />
+                    </Link>
+                </div>
+            </div>
+
+            <main className="mx-auto max-w-[1180px] px-3 py-4 sm:px-5 md:px-6 md:py-5">
+                {/* HERO */}
+                <motion.section
+                    initial={
+                        reduceMotion
+                            ? {
+                                opacity: 1,
+                                y: 0,
+                            }
+                            : {
+                                opacity: 0,
+                                y: 8,
+                            }
+                    }
+                    animate={{
+                        opacity: 1,
+                        y: 0,
+                    }}
+                    transition={{
+                        duration: 0.24,
+                        ease: "easeOut",
+                    }}
+                    className="relative overflow-hidden rounded-[22px] bg-[#173C2E] px-5 py-7 text-white shadow-[0_16px_40px_rgba(15,23,42,0.10)] sm:px-7 md:py-9"
+                >
+                    <div
+                        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+                        style={{
+                            backgroundImage:
+                                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+                        }}
+                    />
+
+                    <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-24 right-24 h-52 w-52 rounded-full bg-[#F39A22]/10" />
+
+                    <motion.div
+                        variants={container}
+                        initial={
+                            reduceMotion
+                                ? "show"
+                                : "hidden"
+                        }
+                        animate="show"
+                        className="relative grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end"
+                    >
+                        <div className="min-w-0">
+                            <motion.div
+                                variants={item}
+                                className="flex flex-wrap gap-2"
+                            >
+                                <Pill
+                                    icon={
+                                        <IoSparklesOutline />
+                                    }
+                                >
+                                    AI + Data + Community
+                                </Pill>
+
+                                <Pill
+                                    icon={
+                                        <IoLeafOutline />
+                                    }
+                                >
+                                    Agribusiness ecosystem
+                                </Pill>
+
+                                <Pill
+                                    icon={
+                                        <IoShieldCheckmarkOutline />
+                                    }
+                                >
+                                    Trusted network
+                                </Pill>
+                            </motion.div>
+
+                            <motion.div
+                                variants={item}
+                                className="mt-5 text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]"
+                            >
+                                About ekarihub
                             </motion.div>
 
                             <motion.h1
                                 variants={item}
-                                className="mt-4 text-2xl sm:text-3xl font-semibold tracking-tight"
+                                className="mt-1 max-w-3xl text-[28px] font-black leading-tight tracking-[-0.04em] sm:text-[34px] lg:text-[42px]"
                             >
-                                About ekarihub
+                                Collaborate.
+                                Innovate.
+                                Cultivate.
                             </motion.h1>
 
                             <motion.p
                                 variants={item}
-                                className="mt-3 text-sm sm:text-[15px] text-emerald-100 leading-relaxed"
+                                className="mt-4 max-w-3xl text-[12px] font-medium leading-6 text-white/70 sm:text-[13px]"
                             >
-                                ekarihub is a digital agribusiness ecosystem built to{" "}
-                                <span className="font-semibold text-white">
-                                    Collaborate, Innovate, and Cultivate
-                                </span>{" "}value across agribusiness, green living, and wildlife conservation. Powered by data, artificial intelligence (AI), and social connectivity, we bring together farmers, agronomists, agro-vets, suppliers, buyers, exporters, conservationists, and sustainability advocates into one intelligent network.
-
-
+                                ekarihub is a digital agribusiness ecosystem built to create value across agribusiness, green living, and wildlife conservation. Powered by data, artificial intelligence and social connectivity, we bring together farmers, agronomists, agro-vets, suppliers, buyers, exporters, conservationists and sustainability advocates into one intelligent network.
                             </motion.p>
+
                             <motion.p
                                 variants={item}
-                                className="mt-3 text-sm sm:text-[15px] text-emerald-100 leading-relaxed"
+                                className="mt-3 max-w-3xl text-[12px] font-medium leading-6 text-white/60 sm:text-[13px]"
                             >
-                                Our platform enables users to share knowledge, build meaningful partnerships, access markets, and adopt sustainable practices that protect natural ecosystems while driving economic growth. From farm to forest, and from soil to wildlife, ekarihub is shaping a future where agribusiness, environmental stewardship, and community prosperity thrive together.
+                                From farm to forest, and from soil to wildlife, ekarihub helps people share knowledge, build meaningful partnerships, access markets and adopt sustainable practices that support both economic growth and environmental stewardship.
                             </motion.p>
 
-                            <motion.div variants={item} className="mt-6 grid gap-3">
-                                {[
-                                    {
-                                        n: "1",
-                                        title: "Cultivating Communities",
-                                        desc: "A social network that helps agribusiness actors connect, share, and support each other.",
-                                    },
-                                    {
-                                        n: "2",
-                                        title: "Growing Opportunities",
-                                        desc: "A marketplace and partnership layer that unlocks access to buyers, suppliers, and new markets.",
-                                    },
-                                    {
-                                        n: "3",
-                                        title: "Smarter Decisions",
-                                        desc: "Learning + AI + insights to help you improve practices, productivity, and outcomes.",
-                                    },
-                                ].map((x) => (
-                                    <div key={x.n} className="flex items-start gap-3">
-                                        <span className="mt-0.5 h-6 w-6 inline-flex items-center justify-center rounded-full bg-white/10 border border-white/20 text-[12px] font-semibold">
-                                            {x.n}
-                                        </span>
-                                        <div>
-                                            <div className="font-semibold">{x.title}</div>
-                                            <div className="text-[13px] text-emerald-100/80 leading-relaxed">
-                                                {x.desc}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </motion.div>
-
-                            <motion.div variants={item} className="mt-6 text-[12px] text-emerald-100/80">
-                                Cultivating Communities, Growing Agribusiness Opportunities.
-                            </motion.div>
-
-                            {/* CTAs */}
-                            <motion.div variants={item} className="mt-6 flex flex-wrap gap-2">
+                            <motion.div
+                                variants={item}
+                                className="mt-5 flex flex-wrap gap-2"
+                            >
                                 <Link
                                     href="/"
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition active:scale-[0.98]"
-                                    style={{
-                                        background: "linear-gradient(135deg, #C79257, #fbbf77)",
-                                        color: "#111827",
-                                    }}
+                                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
                                 >
-                                    Explore Deeds <IoArrowForwardOutline className="text-base" />
+                                    Explore deeds
+                                    <IoArrowForwardOutline size={13} />
                                 </Link>
 
                                 <Link
                                     href="/market"
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-white/10 border border-white/20 text-white shadow-sm transition active:scale-[0.98]"
+                                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/[0.11]"
                                 >
-                                    Visit ekariMarket <IoArrowForwardOutline className="text-base" />
+                                    Visit ekariMarket
+                                    <IoArrowForwardOutline size={13} />
                                 </Link>
 
-                                {/* ✅ Mobile: outlined leadership button (matches left panel style) */}
                                 <Link
                                     href="/leadership"
-                                    className="md:hidden inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-white/10 border border-white/20 text-white shadow-sm transition active:scale-[0.98]"
+                                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/[0.11] md:hidden"
                                 >
-                                    Meet our leadership <IoArrowForwardOutline className="text-base" />
+                                    Leadership
+                                    <IoArrowForwardOutline size={13} />
                                 </Link>
                             </motion.div>
-
-                            {/* ✅ Fill extra left space */}
-                            <motion.div variants={item} className="mt-8">
-                                <div className="text-[12px] font-semibold text-white/80">
-                                    ekarihub at a glance
-                                </div>
-
-                                <div className="mt-3 grid grid-cols-2 gap-3">
-                                    <MiniStat label="Trust" value="Verified profiles" />
-                                    <MiniStat label="Market" value="Buy & sell goods" />
-                                    <MiniStat label="Learn" value="Guides + ekari AI" />
-                                    <MiniStat label="Events" value="Trainings & talks" />
-                                </div>
-
-                                <div className="mt-5 rounded-2xl border border-white/15 bg-white/10 p-4">
-                                    <div className="text-[12px] font-semibold text-white">
-                                        How it works
-                                    </div>
-                                    <div className="mt-2 space-y-2 text-[13px] text-emerald-100/80 leading-relaxed">
-                                        <div className="flex gap-2">
-                                            <span className="h-5 w-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[11px] font-semibold text-white">
-                                                1
-                                            </span>
-                                            <span>Join the community and build your trusted profile.</span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <span className="h-5 w-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[11px] font-semibold text-white">
-                                                2
-                                            </span>
-                                            <span>Connect, learn, and share insights across the value chain.</span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <span className="h-5 w-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[11px] font-semibold text-white">
-                                                3
-                                            </span>
-                                            <span>Trade on ekariMarket and unlock new opportunities.</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    </div>
-
-                    {/* RIGHT: Content side */}
-                    <div className="px-6 py-7 sm:px-8 sm:py-8 flex flex-col">
-                        {/* Stats row 
-            <motion.div
-              initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05, duration: 0.35, ease: "easeOut" }}
-              className="grid gap-3 sm:grid-cols-2"
-            >
-              <StatChip
-                label="Trust"
-                value={stats.verifiedProfiles}
-                icon={<IoCheckmarkCircleOutline className="text-xl" />}
-              />
-              <StatChip
-                label="Marketplace"
-                value={stats.marketplace}
-                icon={<IoTrendingUpOutline className="text-xl" />}
-              />
-              <StatChip
-                label="Events"
-                value={stats.events}
-                icon={<IoCalendarOutline className="text-xl" />}
-              />
-              <StatChip
-                label="Community"
-                value={stats.community}
-                icon={<IoChatbubblesOutline className="text-xl" />}
-              />
-            </motion.div>
-*/}
-                        {/* Mission / Vision */}
-                        <div className="mt-4 grid gap-4">
-                            <div
-                                className="rounded-2xl border bg-white/70 backdrop-blur-xl p-5 shadow-sm"
-                                style={{ borderColor: "rgba(229,231,235,0.75)" }}
-                            >
-                                <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
-                                    Our Mission
-                                </div>
-                                <p className="mt-2 text-sm leading-6" style={{ color: EKARI.subtext }}>
-                                    To empower the global agribusiness community by fostering collaboration,
-                                    enabling seamless market access, and driving knowledge sharing through
-                                    technology, data, and artificial intelligence — supporting sustainable growth
-                                    for every player across the value chain.
-                                </p>
-                            </div>
-
-                            <div
-                                className="rounded-2xl border bg-white/70 backdrop-blur-xl p-5 shadow-sm"
-                                style={{ borderColor: "rgba(229,231,235,0.75)" }}
-                            >
-                                <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
-                                    Our Vision
-                                </div>
-                                <p className="mt-2 text-sm leading-6" style={{ color: EKARI.subtext }}>
-                                    To be the leading social network and digital marketplace for agribusiness —
-                                    connecting stakeholders in one intelligent ecosystem that{" "}
-                                    <span className="font-semibold" style={{ color: EKARI.text }}>
-                                        Cultivates Communities
-                                    </span>
-                                    ,{" "}
-                                    <span className="font-semibold" style={{ color: EKARI.text }}>
-                                        Grows Agribusiness Opportunities
-                                    </span>
-                                    , and redefines how the world connects, trades, learns, and thrives in agriculture.
-                                </p>
-                            </div>
                         </div>
 
-                        {/* What we do */}
-                        <div className="mt-6">
-                            <h3 className="text-lg font-semibold" style={{ color: EKARI.text }}>
-                                What We Do
-                            </h3>
-                            <p className="mt-1 text-sm" style={{ color: EKARI.subtext }}>
-                                ekarihub makes it easier to connect, trade, learn, and grow by offering:
-                            </p>
-
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                <Feature
-                                    title="Social Networking for Agribusiness"
-                                    desc="Engage with peers, share updates, exchange insights, and build relationships."
-                                    icon={<IoPeopleOutline className="text-xl" />}
-                                />
-                                <Feature
-                                    title="Marketplace for Goods & Services"
-                                    desc="Buy and sell products, equipment, and services with transparent pricing and verified profiles."
-                                    icon={<IoCartOutline className="text-xl" />}
-                                />
-                                <Feature
-                                    title="Learning & Resources Hub"
-                                    desc="Access expert content, ekari AI, practical guides, and data-driven insights."
-                                    icon={<IoSchoolOutline className="text-xl" />}
-                                />
-                                <Feature
-                                    title="Business Opportunities & Partnerships"
-                                    desc="Discover new markets, collaborators, and growth avenues across the value chain."
-                                    icon={<IoSparklesOutline className="text-xl" />}
-                                />
-                                <Feature
-                                    title="Events & Discussions"
-                                    desc="Join discussions and training to expand expertise and professional networks."
-                                    icon={<IoCalendarOutline className="text-xl" />}
-                                />
-                                <Feature
-                                    title="Agricultural News & Insights"
-                                    desc="Stay informed with trends, policies, and technologies shaping agribusiness."
-                                    icon={<IoNewspaperOutline className="text-xl" />}
-                                />
-                            </div>
-
-                            <div
-                                className="mt-4 rounded-3xl border bg-white/70 backdrop-blur-xl p-5 shadow-sm"
-                                style={{ borderColor: "rgba(229,231,235,0.75)" }}
-                            >
-                                <div className="flex items-start gap-3">
-                                    <div
-                                        className="flex h-10 w-10 items-center justify-center"
-                                        style={{
-                                            //  borderColor: "rgba(35,63,57,0.16)",
-                                            // background:
-                                            //   "linear-gradient(135deg, rgba(35,63,57,0.10), rgba(199,146,87,0.10))",
-                                            color: EKARI.forest,
-                                        }}
-                                        aria-hidden
-                                    >
-                                        <IoLeafOutline className="text-xl" />
-                                    </div>
-                                    <div>
-                                        <div className="text-sm font-semibold" style={{ color: EKARI.text }}>
-                                            Sustainable Farming Support
-                                        </div>
-                                        <p className="mt-1 text-sm leading-6" style={{ color: EKARI.subtext }}>
-                                            Learn eco-friendly techniques that promote environmental stewardship and
-                                            long-term productivity.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Why */}
-                        <div
-                            className="mt-6 rounded-2xl border bg-slate-50/70 px-4 py-3 text-[12px] leading-relaxed"
-                            style={{
-                                borderColor: "rgba(229,231,235,0.85)",
-                                color: EKARI.subtext,
-                            }}
+                        <motion.div
+                            variants={item}
+                            className="grid grid-cols-2 gap-2"
                         >
-                            <span className="font-semibold" style={{ color: EKARI.text }}>
-                                Why ekarihub?
-                            </span>{" "}
-                            We’re a thriving community where agribusiness actors collaborate, innovate, and
-                            cultivate success. Whether you’re a smallholder farmer or a global exporter,
-                            ekarihub supports your journey with tools that make agribusiness simpler, smarter,
-                            and more secure.
+                            <MiniStat
+                                label="Trust"
+                                value="Verified profiles"
+                            />
+                            <MiniStat
+                                label="Market"
+                                value="Buy & sell goods"
+                            />
+                            <MiniStat
+                                label="Learn"
+                                value="Guides + ekari AI"
+                            />
+                            <MiniStat
+                                label="Events"
+                                value="Trainings & talks"
+                            />
+                        </motion.div>
+                    </motion.div>
+                </motion.section>
+
+                {/* MISSION + VISION */}
+                <motion.div
+                    variants={container}
+                    initial={
+                        reduceMotion
+                            ? "show"
+                            : "hidden"
+                    }
+                    whileInView="show"
+                    viewport={{
+                        once: true,
+                        amount: 0.15,
+                    }}
+                    className="mt-5 grid gap-4 md:grid-cols-2"
+                >
+                    <InfoCard
+                        eyebrow="Our mission"
+                        title="Empower the agribusiness community"
+                        icon={
+                            <IoTrendingUpOutline size={19} />
+                        }
+                        body={
+                            <>
+                                To empower the global agribusiness community by fostering collaboration, enabling seamless market access, and driving knowledge sharing through technology, data and artificial intelligence — supporting sustainable growth for every player across the value chain.
+                            </>
+                        }
+                    />
+
+                    <InfoCard
+                        eyebrow="Our vision"
+                        title="One intelligent agribusiness ecosystem"
+                        icon={
+                            <IoSparklesOutline size={19} />
+                        }
+                        body={
+                            <>
+                                To be the leading social network and digital marketplace for agribusiness — connecting stakeholders in one intelligent ecosystem that <strong className="font-black text-slate-700">Cultivates Communities</strong>, <strong className="font-black text-slate-700">Grows Agribusiness Opportunities</strong>, and redefines how the world connects, trades, learns and thrives in agriculture.
+                            </>
+                        }
+                    />
+                </motion.div>
+
+                {/* WHAT WE DO */}
+                <motion.section
+                    variants={container}
+                    initial={
+                        reduceMotion
+                            ? "show"
+                            : "hidden"
+                    }
+                    whileInView="show"
+                    viewport={{
+                        once: true,
+                        amount: 0.12,
+                    }}
+                    className="mt-5 rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+                >
+                    <motion.div
+                        variants={item}
+                        className="max-w-2xl"
+                    >
+                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                            What we do
                         </div>
 
-                        {/* Bottom CTA */}
-                        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <h2 className="mt-1 text-[20px] font-black tracking-[-0.03em] text-slate-900">
+                            One ecosystem for connection, trade and growth
+                        </h2>
 
-                            {isGuest ? (
-                                <Link
-                                    href="/getstarted?next=/about"
-                                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
-                                    style={{ background: "linear-gradient(135deg, #233F39, #111827)" }}
-                                >
-                                    Join ekarihub <IoArrowForwardOutline className="text-base" />
-                                </Link>
-                            ) : (<Link
-                                href="/"
-                                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
-                                style={{ background: "linear-gradient(135deg, #233F39, #111827)" }}
-                            >
-                                Join ekarihub <IoArrowForwardOutline className="text-base" />
-                            </Link>)}
+                        <p className="mt-1 text-[10px] font-medium leading-5 text-slate-400">
+                            ekarihub makes it easier to connect, trade, learn and grow through an integrated set of agribusiness tools.
+                        </p>
+                    </motion.div>
 
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <Feature
+                            title="Social Networking for Agribusiness"
+                            desc="Engage with peers, share updates, exchange insights, and build relationships."
+                            icon={
+                                <IoPeopleOutline size={18} />
+                            }
+                        />
 
-                            <Link
-                                href="/terms"
-                                className="text-xs font-semibold underline underline-offset-4"
-                                style={{ color: EKARI.subtext }}
-                            >
-                                Terms
-                            </Link>
-                            <Link
-                                href="/privacy"
-                                className="text-xs font-semibold underline underline-offset-4"
-                                style={{ color: EKARI.subtext }}
-                            >
-                                Privacy
-                            </Link>
-                            <Link
-                                href="/careers"
-                                className="text-xs font-semibold underline underline-offset-4"
-                                style={{ color: EKARI.subtext }}
-                            >
-                                Careers
-                            </Link>
+                        <Feature
+                            title="Marketplace for Goods & Services"
+                            desc="Buy and sell products, equipment, and services with transparent pricing and trusted profiles."
+                            icon={
+                                <IoCartOutline size={18} />
+                            }
+                        />
 
-                            <Link
-                                href="/support"
-                                className="text-xs font-semibold underline underline-offset-4"
-                                style={{ color: EKARI.subtext }}
-                            >
-                                Support
-                            </Link>
+                        <Feature
+                            title="Learning & Resources Hub"
+                            desc="Access expert content, ekari AI, practical guides, and data-driven insights."
+                            icon={
+                                <IoSchoolOutline size={18} />
+                            }
+                        />
 
-                            <div className="sm:ml-auto text-xs font-semibold" style={{ color: EKARI.subtext }}>
-                                © {new Date().getFullYear()} ekarihub
+                        <Feature
+                            title="Business Opportunities & Partnerships"
+                            desc="Discover new markets, collaborators, and growth avenues across the value chain."
+                            icon={
+                                <IoSparklesOutline size={18} />
+                            }
+                        />
+
+                        <Feature
+                            title="Events & Discussions"
+                            desc="Join discussions and training to expand expertise and professional networks."
+                            icon={
+                                <IoCalendarOutline size={18} />
+                            }
+                        />
+
+                        <Feature
+                            title="Agricultural News & Insights"
+                            desc="Stay informed with trends, policies, and technologies shaping agribusiness."
+                            icon={
+                                <IoNewspaperOutline size={18} />
+                            }
+                        />
+                    </div>
+                </motion.section>
+
+                {/* WHY + HOW */}
+                <motion.div
+                    variants={container}
+                    initial={
+                        reduceMotion
+                            ? "show"
+                            : "hidden"
+                    }
+                    whileInView="show"
+                    viewport={{
+                        once: true,
+                        amount: 0.12,
+                    }}
+                    className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"
+                >
+                    <motion.section
+                        variants={item}
+                        className="rounded-[20px] border border-[#DDD8CC] bg-[#173C2E] p-5 text-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
+                    >
+                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                            Why ekarihub
+                        </div>
+
+                        <h2 className="mt-1 text-[18px] font-black">
+                            Built for the whole value chain
+                        </h2>
+
+                        <p className="mt-2 text-[11px] font-medium leading-5 text-white/65">
+                            We’re a thriving community where agribusiness actors collaborate, innovate and cultivate success. Whether you’re a smallholder farmer or a global exporter, ekarihub supports your journey with tools that make agribusiness simpler, smarter and more secure.
+                        </p>
+
+                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+                            <MiniStat
+                                label="Community"
+                                value="Connect & collaborate"
+                            />
+                            <MiniStat
+                                label="Opportunity"
+                                value="Trade & partnerships"
+                            />
+                            <MiniStat
+                                label="Intelligence"
+                                value="AI + data insights"
+                            />
+                            <MiniStat
+                                label="Trust"
+                                value="Verified ecosystem"
+                            />
+                        </div>
+                    </motion.section>
+
+                    <motion.section
+                        variants={item}
+                        className="rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
+                    >
+                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                            How it works
+                        </div>
+
+                        <h2 className="mt-1 text-[17px] font-black text-slate-900">
+                            Join. Connect. Grow.
+                        </h2>
+
+                        <div className="mt-4 space-y-2">
+                            <StepCard
+                                number="1"
+                                title="Build your trusted profile"
+                                body="Join the community and establish your presence in the agribusiness ecosystem."
+                            />
+
+                            <StepCard
+                                number="2"
+                                title="Connect, learn and share"
+                                body="Exchange insights, discover expertise and participate across the value chain."
+                            />
+
+                            <StepCard
+                                number="3"
+                                title="Trade and unlock opportunities"
+                                body="Use ekariMarket and community connections to access buyers, suppliers and partnerships."
+                            />
+                        </div>
+                    </motion.section>
+                </motion.div>
+
+                {/* SUSTAINABILITY */}
+                <motion.section
+                    initial={
+                        reduceMotion
+                            ? {
+                                opacity: 1,
+                                y: 0,
+                            }
+                            : {
+                                opacity: 0,
+                                y: 6,
+                            }
+                    }
+                    whileInView={{
+                        opacity: 1,
+                        y: 0,
+                    }}
+                    viewport={{
+                        once: true,
+                        amount: 0.15,
+                    }}
+                    transition={{
+                        duration: 0.22,
+                    }}
+                    className="mt-5 rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
+                >
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div className="max-w-2xl">
+                            <div className="flex items-center gap-3">
+                                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-[#E8ECE8] text-[#173C2E]">
+                                    <IoLeafOutline size={20} />
+                                </span>
+
+                                <div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                        Sustainability
+                                    </div>
+
+                                    <h2 className="mt-0.5 text-[17px] font-black text-slate-900">
+                                        Agribusiness that protects the future
+                                    </h2>
+                                </div>
                             </div>
+
+                            <p className="mt-3 text-[10px] font-medium leading-5 text-slate-500">
+                                Learn eco-friendly techniques that promote environmental stewardship and long-term productivity. ekarihub connects farm productivity with green living, conservation and community prosperity.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:min-w-[390px]">
+                            {[
+                                "Farm",
+                                "Environment",
+                                "Wildlife",
+                                "Prosperity",
+                            ].map(
+                                (
+                                    label,
+                                    index
+                                ) => (
+                                    <div
+                                        key={label}
+                                        className="rounded-xl bg-[#F3F1EB] px-3 py-3 text-center"
+                                    >
+                                        <div className="text-[16px] font-black text-[#173C2E]">
+                                            {index + 1}
+                                        </div>
+
+                                        <div className="mt-1 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+                                            {label}
+                                        </div>
+                                    </div>
+                                )
+                            )}
                         </div>
                     </div>
-                </motion.div>
-            </motion.div>
-        </main>
+                </motion.section>
+
+                {/* FINAL CTA */}
+                <motion.section
+                    initial={
+                        reduceMotion
+                            ? {
+                                opacity: 1,
+                                y: 0,
+                            }
+                            : {
+                                opacity: 0,
+                                y: 6,
+                            }
+                    }
+                    whileInView={{
+                        opacity: 1,
+                        y: 0,
+                    }}
+                    viewport={{
+                        once: true,
+                        amount: 0.18,
+                    }}
+                    transition={{
+                        duration: 0.22,
+                    }}
+                    className="mt-5 overflow-hidden rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6]"
+                >
+                    <div className="flex flex-col gap-4 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
+                        <div className="max-w-2xl">
+                            <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                Grow with ekarihub
+                            </div>
+
+                            <h2 className="mt-1 text-[20px] font-black tracking-[-0.03em] text-slate-900">
+                                Cultivating communities. Growing opportunities.
+                            </h2>
+
+                            <p className="mt-1 text-[10px] font-medium leading-5 text-slate-400">
+                                Join the ecosystem, discover opportunities and connect with people shaping the future of agribusiness.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            <Link
+                                href={
+                                    isGuest
+                                        ? "/getstarted?next=/about"
+                                        : "/"
+                                }
+                                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A]"
+                            >
+                                {isGuest
+                                    ? "Join ekarihub"
+                                    : "Open ekarihub"}
+                                <IoArrowForwardOutline size={13} />
+                            </Link>
+
+                            <Link
+                                href="/market"
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                            >
+                                Explore market
+                            </Link>
+
+                            <Link
+                                href="/leadership"
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB]"
+                            >
+                                Leadership
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#E4DED2] px-5 py-3 sm:px-6">
+                        <Link
+                            href="/terms"
+                            className="text-[9px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                        >
+                            Terms
+                        </Link>
+
+                        <Link
+                            href="/privacy"
+                            className="text-[9px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                        >
+                            Privacy
+                        </Link>
+
+                        <Link
+                            href="/careers"
+                            className="text-[9px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                        >
+                            Careers
+                        </Link>
+
+                        <Link
+                            href="/support"
+                            className="text-[9px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                        >
+                            Support
+                        </Link>
+
+                        <div className="ml-auto text-[9px] font-semibold text-slate-400">
+                            ©{" "}
+                            {new Date().getFullYear()}{" "}
+                            ekarihub
+                        </div>
+                    </div>
+                </motion.section>
+
+                <div
+                    style={{
+                        height:
+                            "env(safe-area-inset-bottom)",
+                    }}
+                />
+            </main>
+        </div>
+    );
+
+    if (
+        !isGuest &&
+        !authLoading
+    ) {
+        return (
+            <AppShell
+                handle={
+                    user?.displayName ??
+                    undefined
+                }
+            >
+                <div
+                    className="h-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F8F7F2]"
+                    style={{
+                        WebkitOverflowScrolling:
+                            "touch",
+                        touchAction:
+                            "pan-y",
+                    }}
+                >
+                    {MainContent}
+                </div>
+            </AppShell>
+        );
+    }
+
+    return (
+        <div
+            className="min-h-[100svh] overflow-x-hidden overflow-y-auto bg-[#F8F7F2]"
+            style={{
+                WebkitOverflowScrolling:
+                    "touch",
+                touchAction: "pan-y",
+            }}
+        >
+            {MainContent}
+        </div>
     );
 }

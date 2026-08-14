@@ -6,23 +6,28 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-    IoMailOutline,
-    IoChevronBack,
+    IoArrowBackOutline,
+    IoArrowForwardOutline,
     IoCheckmarkCircle,
+    IoLeafOutline,
+    IoLockClosedOutline,
+    IoMailOutline,
+    IoShieldCheckmarkOutline,
+    IoSparklesOutline,
 } from "react-icons/io5";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { getAuthSafe } from "@/lib/firebase";
 
 const EKARI = {
-    forest: "#233F39",
-    leaf: "#1F3A34",
-    gold: "#C79257",
-    sand: "#FFFFFF",
-    card: "#FFFFFF",
+    forest: "#173C2E",
+    leaf: "#214C3A",
+    gold: "#F39A22",
+    sand: "#F8F7F2",
+    card: "#FBFAF6",
     text: "#0F172A",
-    dim: "#6B7280",
-    hair: "#E5E7EB",
-    subtext: "#5C6B66",
+    dim: "#64748B",
+    hair: "#DDD8CC",
+    subtext: "#64748B",
     danger: "#B42318",
 };
 
@@ -87,182 +92,346 @@ export default function ForgotPasswordPage() {
         }
     };
 
+
     return (
         <main
-            className="min-h-screen w-full flex flex-col justify-center px-5 items-center"
-            style={{
-                background:
-                    "radial-gradient(circle at top left, rgba(35,63,57,0.12), transparent 55%), radial-gradient(circle at bottom right, rgba(199,146,87,0.16), #F3F4F6)",
-            }}
+            className="h-[100svh] w-full overflow-hidden bg-[#F8F7F2]"
         >
-            <div className="w-full max-w-xl flex flex-col items-center gap-4">
-                <motion.div
-                    className="flex flex-col items-center gap-2 text-center"
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{
-                        type: "spring",
-                        stiffness: 140,
-                        damping: 14,
-                        mass: 0.6,
-                        duration: 0.28,
-                    }}
-                >
-                    <Image
-                        src="/ekarihub-logo.png"
-                        alt="ekarihub"
-                        width={320}
-                        height={86}
-                        priority
-                    />
-                    <p
-                        className="text-xs md:text-sm tracking-wide"
-                        style={{ color: EKARI.subtext }}
-                    >
-                        Reset your ekarihub password
-                    </p>
-                </motion.div>
-
-                <motion.div
-                    className="w-full rounded-3xl bg-white/90 backdrop-blur-xl shadow-[0_18px_60px_rgba(15,23,42,0.26)] border border-white/70 px-4 py-5 md:px-6 md:py-6 mt-2"
-                    initial={{ opacity: 0, y: 12, scale: 0.99 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                >
-                    <div className="flex flex-col gap-1 mb-3">
-                        <h1
-                            className="font-black text-lg md:text-xl"
-                            style={{ color: EKARI.text }}
-                        >
-                            Forgot your password?
-                        </h1>
-                        <p
-                            className="text-xs md:text-sm leading-5"
-                            style={{ color: EKARI.subtext }}
-                        >
-                            Enter the email linked to your ekarihub account and we&apos;ll
-                            send you a secure reset link.
-                        </p>
-                    </div>
-
-                    {!firebaseReady && (
-                        <p className="mb-3 text-sm font-semibold" style={{ color: EKARI.danger }}>
-                            Firebase is not configured yet.
-                        </p>
-                    )}
-
-                    <label className="block text-xs font-semibold mb-1.5">
-                        <span style={{ color: EKARI.dim }}>Email address</span>
-                    </label>
-
+            <div className="grid h-full w-full lg:grid-cols-[0.92fr_1.08fr]">
+                {/* LEFT */}
+                <section className="relative hidden overflow-hidden bg-[#173C2E] px-5 py-6 text-white lg:block lg:h-full lg:px-10 lg:py-10 xl:px-14">
                     <div
-                        className="flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
-                        style={{ borderColor: EKARI.hair }}
-                    >
-                        <IoMailOutline className="mr-2" size={18} color={EKARI.dim} />
-                        <input
-                            type="email"
-                            inputMode="email"
-                            autoComplete="email"
-                            placeholder="you@domain.com"
-                            className="w-full bg-transparent outline-none text-base"
-                            value={email}
-                            onChange={(e) => {
-                                setEmail(e.target.value);
-                                if (sent) setSent(false);
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") handleSend();
-                            }}
-                            aria-label="Email"
-                            disabled={disableAll}
-                        />
-                    </div>
-
-                    {!isValidEmail && email.length > 0 && (
-                        <p className="mt-2 text-xs" style={{ color: EKARI.dim }}>
-                            Enter a valid email like <span className="font-semibold">you@example.com</span>.
-                        </p>
-                    )}
-
-                    {!!errorMsg && (
-                        <p
-                            className="mt-3 text-center text-sm font-semibold"
-                            style={{ color: EKARI.danger }}
-                        >
-                            {errorMsg}
-                        </p>
-                    )}
-
-                    {sent && !errorMsg && (
-                        <motion.div
-                            className="mt-3 rounded-xl border px-3 py-2.5 flex items-start gap-2"
-                            style={{ backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }}
-                            initial={{ opacity: 0, y: 4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                        >
-                            <IoCheckmarkCircle size={18} color="#10B981" />
-                            <div className="text-xs md:text-sm">
-                                <p className="font-semibold" style={{ color: "#065F46" }}>
-                                    Check your inbox.
-                                </p>
-                                <p className="mt-0.5" style={{ color: "#047857" }}>
-                                    If that email exists, we&apos;ve sent a link to reset your
-                                    password. Remember to check spam/promotions.
-                                </p>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    <button
-                        onClick={handleSend}
-                        disabled={!isValidEmail || disableAll}
-                        className="mt-4 w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
+                        className="pointer-events-none absolute inset-0 opacity-[0.045]"
                         style={{
-                            background: "linear-gradient(135deg, #C79257, #fbbf77)",
-                            opacity: !isValidEmail || disableAll ? 0.6 : 1,
+                            backgroundImage:
+                                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.75) 18px 19px)",
                         }}
-                    >
-                        {loading ? "Sending..." : sent ? "Send again" : "Send reset link"}
-                    </button>
+                    />
 
-                    <button
-                        onClick={() => router.back()}
-                        className="mx-auto mt-4 flex items-center gap-1 text-sm font-bold"
-                        style={{ color: EKARI.dim }}
-                    >
-                        <IoChevronBack size={18} />
-                        Back to login
-                    </button>
+                    <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
 
-                    <div className="mt-5 border-t pt-3 border-dashed" style={{ borderColor: EKARI.hair }}>
-                        <p
-                            className="text-[11px] md:text-xs leading-5 text-center"
-                            style={{ color: EKARI.text }}
-                        >
-                            By continuing, you agree to our{" "}
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.24, ease: "easeOut" }}
+                        className="relative mx-auto flex h-full w-full min-w-0 max-w-[560px] flex-col"
+                    >
+                        <div className="flex items-center justify-between gap-3">
                             <Link
-                                href="/terms"
-                                className="underline font-semibold"
-                                style={{ color: EKARI.forest }}
+                                href="/"
+                                aria-label="Go to ekarihub"
+                                className="inline-flex items-center"
                             >
-                                Terms and Conditions
-                            </Link>{" "}
-                            and{" "}
-                            <Link
-                                href="/privacy"
-                                className="underline font-semibold"
-                                style={{ color: EKARI.forest }}
-                            >
-                                Privacy Policy
+                                <Image
+                                    src="/ekarihub-logo-green.png"
+                                    alt="ekarihub"
+                                    width={156}
+                                    height={44}
+                                    priority
+                                    className="h-auto w-[132px] object-contain"
+                                />
                             </Link>
-                            .
-                        </p>
-                    </div>
-                </motion.div>
 
-                <div className="h-2" />
+                            <Link
+                                href="/login"
+                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/70 transition hover:bg-white/[0.11]"
+                            >
+                                Back to login
+                            </Link>
+                        </div>
+
+                        <div className="flex flex-1 flex-col justify-center py-8 lg:py-10">
+                            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/65">
+                                <IoSparklesOutline
+                                    size={12}
+                                    className="text-[#F39A22]"
+                                />
+                                Account recovery
+                            </div>
+
+                            <h1 className="mt-5 max-w-[470px] text-[30px] font-black leading-[1.06] tracking-[-0.045em] sm:text-[36px] xl:text-[42px]">
+                                Recover access without losing your ekarihub journey.
+                            </h1>
+
+                            <p className="mt-4 max-w-[470px] text-[11px] font-medium leading-5 text-white/55 sm:text-[12px]">
+                                Enter the email linked to your account and we&apos;ll send a secure reset link so you can create a new password.
+                            </p>
+
+                            <div className="mt-7 space-y-5">
+                                <FeatureRow
+                                    icon={<IoMailOutline size={18} />}
+                                    title="Reset by email"
+                                    description="We send the password-reset link only to the email address connected to your account."
+                                />
+
+                                <FeatureRow
+                                    icon={<IoShieldCheckmarkOutline size={18} />}
+                                    title="Secure recovery"
+                                    description="Firebase validates the password-reset request and recovery link before your password changes."
+                                />
+
+                                <FeatureRow
+                                    icon={<IoLeafOutline size={18} />}
+                                    title="Keep your profile"
+                                    description="Resetting your password does not remove your profile, deeds, listings, connections or account history."
+                                />
+                            </div>
+
+                            <div className="mt-7 rounded-[17px] border border-white/10 bg-white/[0.055] p-4">
+                                <div className="flex items-start gap-3">
+                                    <IoLockClosedOutline
+                                        size={18}
+                                        className="mt-0.5 shrink-0 text-[#F39A22]"
+                                    />
+
+                                    <div>
+                                        <div className="text-[10px] font-black text-white">
+                                            Keep the reset link private
+                                        </div>
+
+                                        <p className="mt-1 text-[9px] font-medium leading-4 text-white/45">
+                                            Never forward your password-reset email or share the recovery link with another person.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pb-1 text-[9px] font-semibold text-white/30">
+                            Collaborate · Innovate · Cultivate
+                        </div>
+                    </motion.div>
+                </section>
+
+                <section className="relative flex h-full  overflow-y-auto overflow-x-hidden flex-col bg-[#F8F7F2] px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10 xl:px-14">
+                    <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
+                    <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.24, ease: "easeOut" }}
+                        className="relative mx-auto flex h-full w-full min-w-0 max-w-[560px] flex-1 flex-col"
+                    >
+                        <div className="mb-6 flex items-center justify-between lg:hidden">
+                            <Link
+                                href="/"
+                                aria-label="Go to ekarihub"
+                                className="inline-flex items-center"
+                            >
+                                <Image
+                                    src="/ekarihub-logo.png"
+                                    alt="ekarihub"
+                                    width={152}
+                                    height={44}
+                                    priority
+                                    className="h-auto w-[128px]"
+                                />
+                            </Link>
+
+                            <Link
+                                href="/login"
+                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[9px] font-black text-[#173C2E]"
+                            >
+                                Log in
+                            </Link>
+                        </div>
+
+                        <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
+                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                Password reset
+                            </div>
+
+                            <h2 className="mt-1 text-[25px] font-black tracking-[-0.035em] text-slate-900 sm:text-[29px]">
+                                Forgot your password?
+                            </h2>
+
+                            <p className="mt-2 max-w-[480px] text-[10px] font-medium leading-5 text-slate-500">
+                                Enter the email linked to your ekarihub account. We&apos;ll send you a secure password-reset link.
+                            </p>
+
+                            {!firebaseReady ? (
+                                <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[10px] font-semibold text-rose-700">
+                                    Firebase is not configured yet.
+                                </div>
+                            ) : null}
+
+                            <div className="mt-6">
+                                <label className="mb-1.5 block text-[10px] font-black text-slate-700">
+                                    Email address
+                                </label>
+
+                                <div className="flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                                    <IoMailOutline
+                                        className="mr-2 shrink-0 text-slate-400"
+                                        size={17}
+                                    />
+
+                                    <input
+                                        type="email"
+                                        inputMode="email"
+                                        autoComplete="email"
+                                        placeholder="you@example.com"
+                                        className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                        value={email}
+                                        onChange={(e) => {
+                                            setEmail(e.target.value);
+                                            if (sent) setSent(false);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                void handleSend();
+                                            }
+                                        }}
+                                        aria-label="Email"
+                                        disabled={disableAll}
+                                    />
+                                </div>
+
+                                {!isValidEmail && email.length > 0 ? (
+                                    <div className="mt-2 text-[9px] font-semibold text-slate-400">
+                                        Enter a valid email like{" "}
+                                        <span className="font-black text-slate-600">
+                                            you@example.com
+                                        </span>
+                                        .
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            {!!errorMsg ? (
+                                <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[10px] font-semibold leading-4 text-rose-700">
+                                    {errorMsg}
+                                </div>
+                            ) : null}
+
+                            {sent && !errorMsg ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.18, ease: "easeOut" }}
+                                    className="mt-4 rounded-[15px] border border-emerald-200 bg-emerald-50 px-3.5 py-3"
+                                >
+                                    <div className="flex items-start gap-2.5">
+                                        <IoCheckmarkCircle
+                                            size={18}
+                                            className="mt-0.5 shrink-0 text-emerald-600"
+                                        />
+
+                                        <div>
+                                            <div className="text-[10px] font-black text-emerald-800">
+                                                Check your inbox
+                                            </div>
+
+                                            <p className="mt-1 text-[9px] font-medium leading-4 text-emerald-700">
+                                                If that email exists, we&apos;ve sent a password-reset link. Also check your spam or promotions folder.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ) : null}
+
+                            <button
+                                type="button"
+                                onClick={() => void handleSend()}
+                                disabled={!isValidEmail || disableAll}
+                                className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white shadow-[0_10px_24px_rgba(23,60,46,0.14)] transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <>
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                                        Sending reset link...
+                                    </>
+                                ) : (
+                                    <>
+                                        {sent ? "Send again" : "Send reset link"}
+                                        <IoArrowForwardOutline size={14} />
+                                    </>
+                                )}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => router.back()}
+                                className="mx-auto mt-3 inline-flex h-9 items-center gap-1.5 px-3 text-[9px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                            >
+                                <IoArrowBackOutline size={13} />
+                                Back to login
+                            </button>
+
+                            <div className="mt-5 rounded-[16px] border border-[#E5E0D6] bg-[#FBFAF6] px-4 py-3">
+                                <div className="flex items-start gap-2.5">
+                                    <IoLockClosedOutline
+                                        size={14}
+                                        className="mt-0.5 shrink-0 text-[#173C2E]"
+                                    />
+
+                                    <div>
+                                        <div className="text-[9px] font-black text-slate-600">
+                                            Didn&apos;t receive the email?
+                                        </div>
+
+                                        <div className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                                            Confirm the address is correct, check spam, then use Send again after a moment.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-5">
+                            <p className="text-center text-[9px] font-medium leading-4 text-slate-400">
+                                By continuing, you agree to our{" "}
+                                <Link
+                                    href="/terms"
+                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                >
+                                    Terms and Conditions
+                                </Link>{" "}
+                                and{" "}
+                                <Link
+                                    href="/privacy"
+                                    className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                                >
+                                    Privacy Policy
+                                </Link>
+                                .
+                            </p>
+
+                            <div style={{ height: "env(safe-area-inset-bottom)" }} />
+                        </div>
+                    </motion.div>
+                </section>
             </div>
         </main>
+    );
+}
+
+function FeatureRow({
+    icon,
+    title,
+    description,
+}: {
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+}) {
+    return (
+        <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+                {icon}
+            </div>
+
+            <div className="min-w-0">
+                <div className="text-[12px] font-black text-white">
+                    {title}
+                </div>
+
+                <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
+                    {description}
+                </p>
+            </div>
+        </div>
     );
 }

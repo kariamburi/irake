@@ -34,6 +34,7 @@ import {
 
 import { app, db } from "@/lib/firebase";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { motion, AnimatePresence } from "framer-motion";
 import AppShell from "@/app/components/AppShell";
 
 type BookingStatus =
@@ -290,6 +291,57 @@ function useIsMobile() {
     return useMediaQuery("(max-width: 1023px)");
 }
 
+
+function SafeExpertAvatar({
+    src,
+    alt,
+    size = 58,
+}: {
+    src?: string | null;
+    alt: string;
+    size?: number;
+}) {
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        setFailed(false);
+    }, [src]);
+
+    const hasImage =
+        !!src?.trim() && !failed;
+
+    return (
+        <div
+            className="relative shrink-0 overflow-hidden rounded-full border border-[#DDD8CC] bg-[#E8ECE8]"
+            style={{
+                width: size,
+                height: size,
+            }}
+        >
+            {hasImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={src || ""}
+                    alt={alt}
+                    className="h-full w-full object-cover"
+                    onError={() =>
+                        setFailed(true)
+                    }
+                />
+            ) : (
+                <div className="grid h-full w-full place-items-center bg-[#E8ECE8] text-[#173C2E]">
+                    <UserRound
+                        style={{
+                            width: size * 0.46,
+                            height: size * 0.46,
+                        }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function ClientBookingsPage() {
     const router = useRouter();
     const isMobile = useIsMobile();
@@ -540,9 +592,13 @@ export default function ClientBookingsPage() {
     }
 
     if (authLoading) {
-        const loader = <FullPageLoader />;
+        const loader = (
+            <FullPageLoader />
+        );
 
-        return isMobile ? loader : (
+        return isMobile ? (
+            loader
+        ) : (
             <AppShell>
                 {loader}
             </AppShell>
@@ -551,203 +607,528 @@ export default function ClientBookingsPage() {
 
     if (!user) {
         const signedOutContent = (
-            <main className="min-h-[100svh] bg-[#f6f7f5]">
-                {isMobile ? (
-                    <header
-                        className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-xl"
-                        style={{ paddingTop: "env(safe-area-inset-top)" }}
-                    >
-                        <div className="flex h-14 items-center px-3">
-                            <button
-                                type="button"
-                                onClick={() => router.back()}
-                                className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 text-slate-700"
-                                aria-label="Go back"
-                            >
-                                <ArrowLeft className="h-5 w-5" />
-                            </button>
-
-                            <h1 className="flex-1 pr-10 text-center text-base font-bold text-slate-950">
-                                My consultations
-                            </h1>
-                        </div>
-                    </header>
-                ) : null}
-
-                <div className="px-4 py-12 sm:py-16">
-                    <div className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-sm sm:p-8">
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#233f39]/10 text-[#233f39]">
-                            <CalendarDays className="h-7 w-7" />
-                        </div>
-
-                        <h2 className="mt-5 text-2xl font-bold text-slate-950">
-                            Sign in to view your bookings
-                        </h2>
-
-                        <p className="mt-2 text-sm leading-6 text-slate-600">
-                            Your expert consultation requests and confirmed sessions will appear here.
-                        </p>
-
-                        <button
-                            type="button"
-                            onClick={() =>
-                                router.push(
-                                    `/login?next=${encodeURIComponent("/account/bookings")}`
-                                )
-                            }
-                            className="mt-6 inline-flex h-12 items-center justify-center rounded-xl bg-[#233f39] px-6 text-sm font-semibold text-white transition hover:bg-[#1b312c]"
-                        >
-                            Sign in
-                        </button>
+            <main className="grid min-h-[100svh] place-items-center bg-[#F8F7F2] px-4 py-10">
+                <motion.div
+                    initial={{
+                        opacity: 0,
+                        y: 6,
+                    }}
+                    animate={{
+                        opacity: 1,
+                        y: 0,
+                    }}
+                    className="w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-7 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]"
+                >
+                    <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+                        <CalendarDays className="h-6 w-6" />
                     </div>
-                </div>
+
+                    <h2 className="mt-4 text-[18px] font-black text-slate-900">
+                        Sign in to view your consultations
+                    </h2>
+
+                    <p className="mt-2 text-[12px] font-medium leading-5 text-slate-500">
+                        Your expert consultation requests, payments and confirmed sessions will appear here.
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            router.push(
+                                `/login?next=${encodeURIComponent(
+                                    "/account/bookings"
+                                )}`
+                            )
+                        }
+                        className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                    >
+                        Sign in
+                    </button>
+                </motion.div>
             </main>
         );
 
-        return isMobile ? signedOutContent : (
+        return isMobile ? (
+            signedOutContent
+        ) : (
             <AppShell>
                 {signedOutContent}
             </AppShell>
         );
     }
 
+    const pendingCount =
+        counts.pending;
+
+    const upcomingCount =
+        counts.accepted +
+        counts.confirmed;
+
+    const paidCount =
+        bookings.filter(
+            (booking) =>
+                booking.paymentStatus ===
+                "paid"
+        ).length;
+
     const pageContent = (
-        <main className="min-h-[100svh] bg-[#f6f7f5] w-full pb-20">
-            {isMobile ? (
-                <header
-                    className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-xl"
-                    style={{ paddingTop: "env(safe-area-inset-top)" }}
-                >
-                    <div className="flex h-14 items-center gap-2 px-3">
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F8F7F2]">
+            {/* HERO */}
+            <motion.header
+                initial={{
+                    opacity: 0,
+                    y: -6,
+                }}
+                animate={{
+                    opacity: 1,
+                    y: 0,
+                }}
+                transition={{
+                    duration: 0.24,
+                    ease: "easeOut",
+                }}
+                className="relative shrink-0 overflow-hidden bg-[#173C2E] text-white"
+            >
+                <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.07]"
+                    style={{
+                        backgroundImage:
+                            "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+                    }}
+                />
+
+                <div className="relative mx-auto max-w-[1180px] px-4 py-5 md:px-6 md:py-6">
+                    <div className="flex items-start gap-3">
                         <button
                             type="button"
-                            onClick={() => router.back()}
-                            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-200 text-slate-700 transition hover:bg-slate-50"
+                            onClick={() =>
+                                router.back()
+                            }
+                            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
                             aria-label="Go back"
                         >
-                            <ArrowLeft className="h-5 w-5" />
+                            <ArrowLeft className="h-4.5 w-4.5" />
                         </button>
 
-                        <div className="min-w-0 flex-1 text-center">
-                            <h1 className="truncate text-base font-bold text-slate-950">
-                                My consultations
-                            </h1>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => router.push("/ekari-experts")}
-                            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#233f39] px-3 text-xs font-semibold text-white"
-                        >
-                            Find expert
-                        </button>
-                    </div>
-                </header>
-            ) : (
-                <section className="border-b border-slate-200 bg-white">
-                    <div className="mx-auto max-w-6xl px-6 py-7 lg:px-8">
-                        <div className="flex items-end justify-between gap-6">
-                            <div>
-                                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#c79257]">
-                                    EkariExperts
-                                </p>
-
-                                <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
-                                    My consultations
-                                </h1>
-
-                                <p className="mt-2 max-w-2xl text-base leading-6 text-slate-600">
-                                    Track your consultation requests, payments and upcoming sessions.
-                                </p>
+                        <div className="min-w-0 flex-1">
+                            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                ekari Expert
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={() => router.push("/ekari-experts")}
-                                className="inline-flex h-11 items-center justify-center rounded-xl border border-[#233f39] px-5 text-sm font-semibold text-[#233f39] transition hover:bg-[#233f39] hover:text-white"
-                            >
-                                Find an expert
-                            </button>
-                        </div>
-                    </div>
-                </section>
-            )}
+                            <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                    <h1 className="text-[24px] font-black tracking-[-0.035em] md:text-[28px]">
+                                        My consultations
+                                    </h1>
 
-            <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-                <div className="overflow-x-auto pb-2">
-                    <div className="flex min-w-max gap-2">
-                        {FILTERS.map((filter) => {
-                            const selected = activeFilter === filter.key;
-                            return (
+                                    <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                                        Track expert requests, payments, confirmed sessions and consultation history.
+                                    </p>
+                                </div>
+
                                 <button
-                                    key={filter.key}
                                     type="button"
-                                    onClick={() => setActiveFilter(filter.key)}
-                                    className={[
-                                        "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition",
-                                        selected
-                                            ? "border-[#233f39] bg-[#233f39] text-white"
-                                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950",
-                                    ].join(" ")}
+                                    onClick={() =>
+                                        router.push(
+                                            "/ekari-experts"
+                                        )
+                                    }
+                                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
                                 >
-                                    {filter.label}
-                                    <span className={[
-                                        "rounded-full px-2 py-0.5 text-xs",
-                                        selected ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500",
-                                    ].join(" ")}>
-                                        {counts[filter.key]}
-                                    </span>
+                                    Find an expert
                                 </button>
-                            );
-                        })}
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </motion.header>
 
-                {error ? (
-                    <div className="mt-4 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                        <XCircle className="mt-0.5 h-5 w-5 shrink-0" />
-                        <div className="flex-1">
-                            <p className="font-semibold">Unable to complete that action</p>
-                            <p className="mt-1">{error}</p>
-                        </div>
-                    </div>
-                ) : null}
+            {/* FILTER BAR */}
+            <div className="shrink-0 border-b border-[#DDD8CC] bg-[#FBFAF6]">
+                <div className="mx-auto flex max-w-[1180px] items-center gap-1 overflow-x-auto px-3 no-scrollbar sm:px-4 md:px-6">
+                    {FILTERS.map(
+                        (filterItem) => {
+                            const selected =
+                                activeFilter ===
+                                filterItem.key;
 
-                {bookingsLoading ? (
-                    <div className="flex min-h-[360px] items-center justify-center">
-                        <div className="text-center">
-                            <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#233f39]" />
-                            <p className="mt-3 text-sm text-slate-600">Loading your consultations…</p>
-                        </div>
-                    </div>
-                ) : filteredBookings.length === 0 ? (
-                    <EmptyState activeFilter={activeFilter} onBrowse={() => router.push("/ekari-experts")} />
-                ) : (
-                    <div className="mt-5 space-y-4">
-                        {filteredBookings.map((booking) => (
-                            <BookingCard
-                                key={booking.id}
-                                booking={booking}
-                                cancelling={cancellingId === booking.id}
-                                paying={payingId === booking.id}
-                                onCancel={() => cancelBooking(booking)}
-                                onOpenExpert={() => openExpertProfile(booking)}
-                                onOpenBooking={() => router.push(`/account/bookings/${encodeURIComponent(booking.id)}`)}
-                                onPay={() => startConsultationPayment(booking)}
-                            />
-                        ))}
-                    </div>
-                )}
+                            return (
+                                <button
+                                    key={
+                                        filterItem.key
+                                    }
+                                    type="button"
+                                    onClick={() =>
+                                        setActiveFilter(
+                                            filterItem.key
+                                        )
+                                    }
+                                    className={[
+                                        "relative inline-flex h-12 shrink-0 items-center gap-1.5 px-3",
+                                        "text-[11px] font-black transition-colors",
+                                        selected
+                                            ? "text-[#173C2E]"
+                                            : "text-slate-400 hover:text-slate-700",
+                                    ].join(
+                                        " "
+                                    )}
+                                >
+                                    {
+                                        filterItem.label
+                                    }
+
+                                    {counts[
+                                        filterItem
+                                            .key
+                                    ] > 0 ? (
+                                        <span
+                                            className={[
+                                                "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
+                                                selected
+                                                    ? "bg-[#F39A22] text-white"
+                                                    : "bg-[#EFECE5] text-slate-500",
+                                            ].join(
+                                                " "
+                                            )}
+                                        >
+                                            {counts[
+                                                filterItem
+                                                    .key
+                                            ] > 99
+                                                ? "99+"
+                                                : counts[
+                                                filterItem
+                                                    .key
+                                                ]}
+                                        </span>
+                                    ) : null}
+
+                                    {selected ? (
+                                        <motion.span
+                                            layoutId="client-booking-filter"
+                                            className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#173C2E]"
+                                            transition={{
+                                                type: "spring",
+                                                stiffness:
+                                                    420,
+                                                damping:
+                                                    34,
+                                            }}
+                                        />
+                                    ) : null}
+                                </button>
+                            );
+                        }
+                    )}
+                </div>
             </div>
-        </main>
+
+            {/* SCROLLABLE WORKSPACE */}
+            <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F8F7F2] [-webkit-overflow-scrolling:touch]">
+                <div className="mx-auto grid max-w-[1180px] gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+                    <section className="min-w-0">
+                        <AnimatePresence mode="popLayout">
+                            {error ? (
+                                <motion.div
+                                    key="error"
+                                    initial={{
+                                        opacity: 0,
+                                        y: -4,
+                                    }}
+                                    animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                    }}
+                                    exit={{
+                                        opacity: 0,
+                                        y: -4,
+                                    }}
+                                    className="mb-4 flex items-start gap-3 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700"
+                                >
+                                    <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+
+                                    <div>
+                                        <p className="font-black">
+                                            Unable to complete that action
+                                        </p>
+
+                                        <p className="mt-0.5 font-medium">
+                                            {error}
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            ) : null}
+                        </AnimatePresence>
+
+                        {bookingsLoading ? (
+                            <div className="grid gap-3">
+                                {[1, 2, 3].map(
+                                    (item) => (
+                                        <div
+                                            key={
+                                                item
+                                            }
+                                            className="h-[260px] animate-pulse rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6]"
+                                        />
+                                    )
+                                )}
+                            </div>
+                        ) : filteredBookings.length ===
+                            0 ? (
+                            <EmptyState
+                                activeFilter={
+                                    activeFilter
+                                }
+                                onBrowse={() =>
+                                    router.push(
+                                        "/ekari-experts"
+                                    )
+                                }
+                            />
+                        ) : (
+                            <motion.div
+                                key={
+                                    activeFilter
+                                }
+                                initial={{
+                                    opacity: 0,
+                                    y: 4,
+                                }}
+                                animate={{
+                                    opacity: 1,
+                                    y: 0,
+                                }}
+                                transition={{
+                                    duration: 0.18,
+                                }}
+                                className="space-y-3"
+                            >
+                                <AnimatePresence
+                                    initial={false}
+                                >
+                                    {filteredBookings.map(
+                                        (
+                                            booking
+                                        ) => (
+                                            <BookingCard
+                                                key={
+                                                    booking.id
+                                                }
+                                                booking={
+                                                    booking
+                                                }
+                                                cancelling={
+                                                    cancellingId ===
+                                                    booking.id
+                                                }
+                                                paying={
+                                                    payingId ===
+                                                    booking.id
+                                                }
+                                                onCancel={() =>
+                                                    cancelBooking(
+                                                        booking
+                                                    )
+                                                }
+                                                onOpenExpert={() =>
+                                                    openExpertProfile(
+                                                        booking
+                                                    )
+                                                }
+                                                onOpenBooking={() =>
+                                                    router.push(
+                                                        `/account/bookings/${encodeURIComponent(
+                                                            booking.id
+                                                        )}`
+                                                    )
+                                                }
+                                                onPay={() =>
+                                                    startConsultationPayment(
+                                                        booking
+                                                    )
+                                                }
+                                            />
+                                        )
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
+                        )}
+                    </section>
+
+                    {/* DESKTOP STATUS RAIL */}
+                    <motion.aside
+                        initial={{
+                            opacity: 0,
+                            x: 8,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            x: 0,
+                        }}
+                        transition={{
+                            duration: 0.24,
+                            delay: 0.04,
+                            ease: "easeOut",
+                        }}
+                        className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
+                    >
+                        <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                                Consultation overview
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-2 gap-2">
+                                <MiniStat
+                                    label="Pending"
+                                    value={
+                                        pendingCount
+                                    }
+                                    tone="amber"
+                                />
+
+                                <MiniStat
+                                    label="Upcoming"
+                                    value={
+                                        upcomingCount
+                                    }
+                                    tone="blue"
+                                />
+
+                                <MiniStat
+                                    label="Completed"
+                                    value={
+                                        counts.completed
+                                    }
+                                    tone="green"
+                                />
+
+                                <MiniStat
+                                    label="All"
+                                    value={
+                                        counts.all
+                                    }
+                                    tone="slate"
+                                />
+                            </div>
+                        </section>
+
+                        <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                            <div className="flex items-center gap-3">
+                                <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                                    <CircleDollarSign className="h-4 w-4" />
+                                </span>
+
+                                <div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                        Payments
+                                    </div>
+
+                                    <div className="mt-0.5 text-[13px] font-black text-slate-800">
+                                        {
+                                            paidCount
+                                        }{" "}
+                                        paid consultation
+                                        {paidCount ===
+                                            1
+                                            ? ""
+                                            : "s"}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p className="mt-3 text-[10px] font-medium leading-4 text-slate-400">
+                                Payment becomes available after an expert accepts a paid consultation request.
+                            </p>
+                        </section>
+
+                        <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                                Booking flow
+                            </div>
+
+                            <div className="mt-3 space-y-2.5 text-[10px] font-semibold text-slate-500">
+                                <FlowRow
+                                    label="Request sent"
+                                    active
+                                />
+
+                                <FlowRow
+                                    label="Expert accepts"
+                                    active={
+                                        counts.accepted +
+                                        counts.confirmed +
+                                        counts.completed >
+                                        0
+                                    }
+                                />
+
+                                <FlowRow
+                                    label="Payment / confirmation"
+                                    active={
+                                        paidCount > 0 ||
+                                        counts.confirmed >
+                                        0
+                                    }
+                                />
+
+                                <FlowRow
+                                    label="Consultation completed"
+                                    active={
+                                        counts.completed >
+                                        0
+                                    }
+                                />
+                            </div>
+                        </section>
+
+                        <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                                Quick links
+                            </div>
+
+                            <div className="mt-2 space-y-1">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        router.push(
+                                            "/ekari-experts"
+                                        )
+                                    }
+                                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                                >
+                                    Browse experts
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        router.push(
+                                            "/account/expert"
+                                        )
+                                    }
+                                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                                >
+                                    Expert settings
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                        </section>
+                    </motion.aside>
+                </div>
+            </main>
+        </div>
     );
 
-    return isMobile ? pageContent : (
+    return isMobile ? (
+        pageContent
+    ) : (
         <AppShell>
             {pageContent}
         </AppShell>
     );
 }
+
 
 function BookingCard({
     booking,
@@ -766,233 +1147,557 @@ function BookingCard({
     onOpenBooking: () => void;
     onPay: () => void;
 }) {
-    const statusMeta = STATUS_META[booking.status];
-    const StatusIcon = statusMeta.icon;
-    const MethodIcon = methodIcon(booking.consultationMethod);
-    const canCancel = ["pending", "accepted"].includes(booking.status);
+    const statusMeta =
+        STATUS_META[booking.status];
+
+    const StatusIcon =
+        statusMeta.icon;
+
+    const MethodIcon =
+        methodIcon(
+            booking.consultationMethod
+        );
+
+    const canCancel =
+        ["pending", "accepted"].includes(
+            booking.status
+        );
+
     const showPayButton =
         booking.status === "accepted" &&
         booking.fee > 0 &&
-        !["paid", "not_required"].includes(booking.paymentStatus);
+        ![
+            "paid",
+            "not_required",
+        ].includes(
+            booking.paymentStatus
+        );
+
+    const feeText =
+        booking.feeType === "free" ||
+            booking.fee <= 0
+            ? "Free"
+            : booking.feeType ===
+                "starting_from"
+                ? `From ${formatMoney(
+                    booking.fee,
+                    booking.currency
+                )}`
+                : formatMoney(
+                    booking.fee,
+                    booking.currency
+                );
 
     return (
-        <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="p-5 sm:p-6">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex min-w-0 gap-4">
-                        <button type="button" onClick={onOpenExpert} className="shrink-0" aria-label="Open expert profile">
-                            {booking.expertPhotoURL ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                    src={booking.expertPhotoURL}
-                                    alt={booking.expertName || "Expert"}
-                                    className="h-14 w-14 rounded-2xl object-cover ring-1 ring-slate-200 sm:h-16 sm:w-16"
-                                />
-                            ) : (
-                                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#233f39] text-sm font-bold text-white sm:h-16 sm:w-16">
-                                    {getInitials(booking.expertName)}
-                                </span>
-                            )}
+        <motion.article
+            layout
+            initial={{
+                opacity: 0,
+                y: 5,
+            }}
+            animate={{
+                opacity: 1,
+                y: 0,
+            }}
+            exit={{
+                opacity: 0,
+                y: -4,
+            }}
+            transition={{
+                duration: 0.18,
+            }}
+            className="overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
+        >
+            <div className="p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 gap-3">
+                        <button
+                            type="button"
+                            onClick={
+                                onOpenExpert
+                            }
+                            className="shrink-0"
+                            aria-label="Open expert profile"
+                        >
+                            <SafeExpertAvatar
+                                src={
+                                    booking.expertPhotoURL
+                                }
+                                alt={
+                                    booking.expertName ||
+                                    "Expert"
+                                }
+                                size={52}
+                            />
                         </button>
 
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                                <button type="button" onClick={onOpenExpert} className="truncate text-left text-lg font-bold text-slate-950 hover:underline">
-                                    {booking.expertName || "Ekari expert"}
+                                <button
+                                    type="button"
+                                    onClick={
+                                        onOpenExpert
+                                    }
+                                    className="max-w-full truncate text-left text-[14px] font-black text-slate-900 hover:underline"
+                                >
+                                    {booking.expertName ||
+                                        "Ekari expert"}
                                 </button>
-                                <span className={["inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold", statusMeta.className].join(" ")}>
-                                    <StatusIcon className="h-3.5 w-3.5" /> {statusMeta.label}
+
+                                <span
+                                    className={[
+                                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1",
+                                        "text-[9px] font-black",
+                                        statusMeta.className,
+                                    ].join(
+                                        " "
+                                    )}
+                                >
+                                    <StatusIcon className="h-3 w-3" />
+                                    {
+                                        statusMeta.label
+                                    }
                                 </span>
                             </div>
 
                             {booking.expertHeadline ? (
-                                <p className="mt-1 line-clamp-1 text-sm text-slate-500">{booking.expertHeadline}</p>
+                                <p className="mt-1 line-clamp-1 text-[10px] font-medium text-slate-400">
+                                    {
+                                        booking.expertHeadline
+                                    }
+                                </p>
                             ) : null}
 
-                            <h2 className="mt-3 text-base font-semibold text-slate-900">{booking.topic || "Expert consultation"}</h2>
+                            <h2 className="mt-2 text-[13px] font-black text-slate-800">
+                                {booking.topic ||
+                                    "Expert consultation"}
+                            </h2>
                         </div>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 px-4 py-3 lg:text-right">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Consultation fee</p>
-                        <p className="mt-1 text-xl font-bold text-slate-950">
-                            {booking.feeType === "free" || booking.fee <= 0
-                                ? "Free"
-                                : booking.feeType === "starting_from"
-                                    ? `From ${formatMoney(booking.fee, booking.currency)}`
-                                    : formatMoney(booking.fee, booking.currency)}
+                    <div className="shrink-0 rounded-[14px] bg-[#F3F1EB] px-3 py-2.5 sm:min-w-[150px] sm:text-right">
+                        <p className="text-[8px] font-black uppercase tracking-[0.08em] text-slate-400">
+                            Consultation fee
                         </p>
-                        <PaymentBadge status={booking.paymentStatus} />
+
+                        <p className="mt-1 text-[17px] font-black tracking-[-0.03em] text-[#173C2E]">
+                            {feeText}
+                        </p>
+
+                        <PaymentBadge
+                            status={
+                                booking.paymentStatus
+                            }
+                        />
                     </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <InfoTile icon={CalendarDays} label="Date" value={formatDate(booking.consultationDate)} />
-                    <InfoTile icon={Clock3} label="Time" value={formatTime(booking.consultationTime)} />
-                    <InfoTile icon={MethodIcon} label="Method" value={formatMethod(booking.consultationMethod || "Not specified")} />
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <InfoTile
-                        icon={CircleDollarSign}
+                        icon={
+                            CalendarDays
+                        }
+                        label="Date"
+                        value={formatDate(
+                            booking.consultationDate
+                        )}
+                    />
+
+                    <InfoTile
+                        icon={Clock3}
+                        label="Time"
+                        value={formatTime(
+                            booking.consultationTime
+                        )}
+                    />
+
+                    <InfoTile
+                        icon={MethodIcon}
+                        label="Method"
+                        value={formatMethod(
+                            booking.consultationMethod ||
+                            "Not specified"
+                        )}
+                    />
+
+                    <InfoTile
+                        icon={
+                            CircleDollarSign
+                        }
                         label="Payment"
                         value={
-                            booking.paymentStatus === "not_required"
+                            booking.paymentStatus ===
+                                "not_required"
                                 ? "Not required"
-                                : booking.paymentStatus === "paid"
+                                : booking.paymentStatus ===
+                                    "paid"
                                     ? "Paid"
-                                    : booking.paymentStatus === "pending"
+                                    : booking.paymentStatus ===
+                                        "pending"
                                         ? "Processing"
-                                        : booking.paymentStatus === "refunded"
+                                        : booking.paymentStatus ===
+                                            "refunded"
                                             ? "Refunded"
                                             : "Not paid"
                         }
                     />
                 </div>
 
-                {booking.consultationMethod === "physical" && booking.visitLocation ? (
-                    <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                {booking.consultationMethod ===
+                    "physical" &&
+                    booking.visitLocation ? (
+                    <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-3.5">
                         <div className="flex items-start gap-3">
-                            <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+
                             <div className="min-w-0">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Visit location</p>
-                                <p className="mt-1 text-sm font-semibold leading-6 text-slate-900">{booking.visitLocation}</p>
+                                <p className="text-[9px] font-black uppercase tracking-[0.08em] text-amber-700">
+                                    Visit location
+                                </p>
+
+                                <p className="mt-1 text-[11px] font-black leading-5 text-slate-800">
+                                    {
+                                        booking.visitLocation
+                                    }
+                                </p>
+
                                 {booking.visitContactPhone ? (
-                                    <p className="mt-1 text-xs text-slate-600">Contact: {booking.visitContactPhone}</p>
+                                    <p className="mt-1 text-[10px] font-medium text-slate-500">
+                                        Contact:{" "}
+                                        {
+                                            booking.visitContactPhone
+                                        }
+                                    </p>
                                 ) : null}
                             </div>
                         </div>
                     </div>
                 ) : null}
 
-                {(booking.expertTimezone || booking.clientTimezone) ? (
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                {(booking.expertTimezone ||
+                    booking.clientTimezone) ? (
+                    <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-semibold text-slate-400">
                         {booking.expertTimezone ? (
-                            <span className="rounded-full bg-slate-100 px-3 py-1.5">Expert timezone: {formatTimezone(booking.expertTimezone)}</span>
+                            <span className="rounded-full bg-[#F3F1EB] px-2.5 py-1">
+                                Expert timezone:{" "}
+                                {formatTimezone(
+                                    booking.expertTimezone
+                                )}
+                            </span>
                         ) : null}
+
                         {booking.clientTimezone ? (
-                            <span className="rounded-full bg-slate-100 px-3 py-1.5">Your booking timezone: {formatTimezone(booking.clientTimezone)}</span>
+                            <span className="rounded-full bg-[#F3F1EB] px-2.5 py-1">
+                                Your timezone:{" "}
+                                {formatTimezone(
+                                    booking.clientTimezone
+                                )}
+                            </span>
                         ) : null}
                     </div>
                 ) : null}
 
                 {booking.message ? (
-                    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your message</p>
-                        <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{booking.message}</p>
+                    <div className="mt-4 rounded-[14px] bg-[#F3F1EB] px-4 py-3">
+                        <p className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                            Your message
+                        </p>
+
+                        <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-[11px] font-medium leading-5 text-slate-600">
+                            {
+                                booking.message
+                            }
+                        </p>
                     </div>
                 ) : null}
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                <button type="button" onClick={onOpenExpert} className="inline-flex items-center gap-2 text-sm font-semibold text-[#233f39] hover:underline">
-                    View expert profile <ChevronRight className="h-4 w-4" />
+            <div className="flex flex-col gap-3 border-t border-[#E5E0D6] bg-[#F8F7F2] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <button
+                    type="button"
+                    onClick={onOpenExpert}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-black text-[#173C2E] hover:underline"
+                >
+                    View expert profile
+                    <ChevronRight className="h-3.5 w-3.5" />
                 </button>
 
                 <div className="flex flex-col-reverse gap-2 sm:flex-row">
                     {canCancel ? (
-                        <button
+                        <motion.button
+                            whileTap={{
+                                scale: 0.97,
+                            }}
                             type="button"
-                            onClick={onCancel}
-                            disabled={cancelling}
-                            className="inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={
+                                onCancel
+                            }
+                            disabled={
+                                cancelling
+                            }
+                            className="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-[10px] font-black text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {cancelling ? (
-                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cancelling…</>
+                                <>
+                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                    Cancelling…
+                                </>
                             ) : (
                                 "Cancel request"
                             )}
-                        </button>
+                        </motion.button>
                     ) : null}
 
                     {showPayButton ? (
-                        <button
+                        <motion.button
+                            whileTap={{
+                                scale: 0.97,
+                            }}
                             type="button"
                             onClick={onPay}
                             disabled={paying}
-                            className="inline-flex h-10 items-center justify-center rounded-xl bg-[#c79257] px-5 text-sm font-semibold text-white transition hover:bg-[#b58149] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {paying ? (
                                 <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                                     Starting payment…
                                 </>
-                            ) : booking.paymentStatus === "pending" ? (
+                            ) : booking.paymentStatus ===
+                                "pending" ? (
                                 "Continue payment"
                             ) : (
                                 "Pay consultation"
                             )}
-                        </button>
+                        </motion.button>
                     ) : (
-                        <button type="button" onClick={onOpenBooking} className="inline-flex h-10 items-center justify-center rounded-xl bg-[#233f39] px-5 text-sm font-semibold text-white transition hover:bg-[#1b312c]">
+                        <motion.button
+                            whileTap={{
+                                scale: 0.97,
+                            }}
+                            type="button"
+                            onClick={
+                                onOpenBooking
+                            }
+                            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                        >
                             View details
-                        </button>
+                        </motion.button>
                     )}
                 </div>
             </div>
-        </article>
+        </motion.article>
     );
 }
 
-function InfoTile({ icon: Icon, label, value }: { icon: typeof CalendarDays; label: string; value: string }) {
+function InfoTile({
+    icon: Icon,
+    label,
+    value,
+}: {
+    icon: typeof CalendarDays;
+    label: string;
+    value: string;
+}) {
     return (
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3.5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#233f39]/10 text-[#233f39]">
-                <Icon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-500">{label}</p>
-                <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">{value}</p>
+        <div className="rounded-[13px] bg-[#F3F1EB] px-3 py-3">
+            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.07em] text-slate-400">
+                <Icon className="h-3.5 w-3.5 text-[#F39A22]" />
+                {label}
+            </div>
+
+            <p className="mt-1 truncate text-[11px] font-black text-slate-700">
+                {value}
+            </p>
+        </div>
+    );
+}
+
+function PaymentBadge({
+    status,
+}: {
+    status: PaymentStatus;
+}) {
+    const styles: Record<
+        PaymentStatus,
+        string
+    > = {
+        not_required:
+            "border-emerald-200 bg-emerald-50 text-emerald-700",
+        unpaid:
+            "border-slate-200 bg-white text-slate-600",
+        pending:
+            "border-amber-200 bg-amber-50 text-amber-700",
+        paid:
+            "border-emerald-200 bg-emerald-50 text-emerald-700",
+        refunded:
+            "border-purple-200 bg-purple-50 text-purple-700",
+    };
+
+    const labels: Record<
+        PaymentStatus,
+        string
+    > = {
+        not_required:
+            "No payment required",
+        unpaid: "Unpaid",
+        pending:
+            "Payment pending",
+        paid: "Paid",
+        refunded: "Refunded",
+    };
+
+    return (
+        <span
+            className={[
+                "mt-1.5 inline-flex rounded-full border px-2 py-0.5 text-[8px] font-black",
+                styles[status],
+            ].join(" ")}
+        >
+            {labels[status]}
+        </span>
+    );
+}
+
+function EmptyState({
+    activeFilter,
+    onBrowse,
+}: {
+    activeFilter: FilterKey;
+    onBrowse: () => void;
+}) {
+    return (
+        <motion.div
+            initial={{
+                opacity: 0,
+                y: 5,
+            }}
+            animate={{
+                opacity: 1,
+                y: 0,
+            }}
+            className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] px-6 py-16 text-center shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
+        >
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+                {activeFilter ===
+                    "all" ? (
+                    <CalendarDays className="h-6 w-6" />
+                ) : (
+                    <RefreshCcw className="h-6 w-6" />
+                )}
+            </div>
+
+            <h2 className="mt-4 text-[15px] font-black text-slate-900">
+                {activeFilter ===
+                    "all"
+                    ? "No consultations yet"
+                    : `No ${activeFilter} consultations`}
+            </h2>
+
+            <p className="mx-auto mt-1 max-w-md text-[12px] font-medium leading-5 text-slate-400">
+                {activeFilter ===
+                    "all"
+                    ? "Browse ekariExperts and request a consultation from a specialist who matches your needs."
+                    : "Bookings matching this status will appear here when available."}
+            </p>
+
+            {activeFilter ===
+                "all" ? (
+                <button
+                    type="button"
+                    onClick={onBrowse}
+                    className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                >
+                    Browse experts
+                </button>
+            ) : null}
+        </motion.div>
+    );
+}
+
+function MiniStat({
+    label,
+    value,
+    tone,
+}: {
+    label: string;
+    value: number;
+    tone:
+    | "amber"
+    | "blue"
+    | "green"
+    | "slate";
+}) {
+    const toneClass =
+        tone === "amber"
+            ? "bg-amber-50 text-amber-700"
+            : tone === "blue"
+                ? "bg-blue-50 text-blue-700"
+                : tone === "green"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-slate-100 text-slate-600";
+
+    return (
+        <div
+            className={`rounded-xl px-3 py-3 ${toneClass}`}
+        >
+            <div className="text-[20px] font-black leading-none">
+                {value}
+            </div>
+
+            <div className="mt-1 text-[9px] font-black uppercase tracking-[0.07em] opacity-70">
+                {label}
             </div>
         </div>
     );
 }
 
-function PaymentBadge({ status }: { status: PaymentStatus }) {
-    const styles: Record<PaymentStatus, string> = {
-        not_required: "border-emerald-200 bg-emerald-50 text-emerald-700",
-        unpaid: "border-slate-200 bg-white text-slate-600",
-        pending: "border-amber-200 bg-amber-50 text-amber-700",
-        paid: "border-emerald-200 bg-emerald-50 text-emerald-700",
-        refunded: "border-purple-200 bg-purple-50 text-purple-700",
-    };
-    const labels: Record<PaymentStatus, string> = {
-        not_required: "No payment required",
-        unpaid: "Unpaid",
-        pending: "Payment pending",
-        paid: "Paid",
-        refunded: "Refunded",
-    };
-
-    return <span className={["mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", styles[status]].join(" ")}>{labels[status]}</span>;
-}
-
-function EmptyState({ activeFilter, onBrowse }: { activeFilter: FilterKey; onBrowse: () => void }) {
+function FlowRow({
+    label,
+    active,
+}: {
+    label: string;
+    active: boolean;
+}) {
     return (
-        <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#233f39]/10 text-[#233f39]">
-                {activeFilter === "all" ? <CalendarDays className="h-8 w-8" /> : <RefreshCcw className="h-8 w-8" />}
-            </div>
-            <h2 className="mt-5 text-xl font-bold text-slate-950">
-                {activeFilter === "all" ? "No consultations yet" : `No ${activeFilter} consultations`}
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-                {activeFilter === "all"
-                    ? "Browse EkariExperts and request a consultation from a specialist who matches your needs."
-                    : "Bookings matching this status will appear here when available."}
-            </p>
-            {activeFilter === "all" ? (
-                <button type="button" onClick={onBrowse} className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#233f39] px-5 text-sm font-semibold text-white transition hover:bg-[#1b312c]">
-                    Browse experts
-                </button>
-            ) : null}
+        <div className="flex items-center gap-2">
+            <span
+                className={[
+                    "grid h-4 w-4 shrink-0 place-items-center rounded-full",
+                    active
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-100 text-slate-400",
+                ].join(" ")}
+            >
+                {active ? (
+                    <CheckCircle2 className="h-2.5 w-2.5" />
+                ) : (
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                )}
+            </span>
+
+            <span
+                className={
+                    active
+                        ? "text-slate-600"
+                        : "text-slate-400"
+                }
+            >
+                {label}
+            </span>
         </div>
     );
 }
 
 function FullPageLoader() {
     return (
-        <main className="flex min-h-screen items-center justify-center bg-[#f6f7f5]">
+        <main className="grid min-h-[100svh] place-items-center bg-[#F8F7F2]">
             <div className="text-center">
-                <Loader2 className="mx-auto h-9 w-9 animate-spin text-[#233f39]" />
-                <p className="mt-3 text-sm font-medium text-slate-600">Preparing your bookings…</p>
+                <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#173C2E]" />
+
+                <p className="mt-3 text-[11px] font-semibold text-slate-400">
+                    Preparing your consultations…
+                </p>
             </div>
         </main>
     );

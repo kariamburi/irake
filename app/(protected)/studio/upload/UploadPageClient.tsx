@@ -22,6 +22,7 @@ import {
   IoArrowRedo,
   IoBag,
   IoArrowBack,
+  IoPeopleCircleOutline,
 } from "react-icons/io5";
 
 import {
@@ -45,6 +46,7 @@ import AppShell from "@/app/components/AppShell";
 import dynamic from "next/dynamic";
 import { PickedSound } from "@/app/components/SoundSheetWeb";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { ConfirmModal } from "@/app/components/ConfirmModal";
 import { useInitEkariTags } from "@/app/hooks/useInitEkariTags";
 import { buildImageVariants } from "@/utils/imageVariants";
@@ -92,31 +94,31 @@ async function assertNotSuspended(uid: string) {
 }
 /* ---------- EkariHub brand ---------- */
 const EKARI = {
-  forest: "#233F39",
-  leaf: "#1F3A34",
-  gold: "#C79257",
-  sand: "#FFFFFF",
-  hair: "#E5E7EB",
+  forest: "#173C2E",
+  leaf: "#214C3A",
+  gold: "#F39A22",
+  sand: "#F8F7F2",
+  paper: "#FBFAF6",
+  hair: "#DDD8CC",
   text: "#0F172A",
-  dim: "#6B7280",
+  dim: "#64748B",
   danger: "#B42318",
 };
 
 /* ---------- Premium UI tokens ---------- */
 const UI = {
-  radius: "24px",
-  radiusSm: "16px",
-  border: "rgba(15,23,42,0.08)",
-  borderStrong: "rgba(15,23,42,0.12)",
-  card: "rgba(255,255,255,0.86)",
-  cardSolid: "#FFFFFF",
-  soft: "rgba(15,23,42,0.03)",
-  soft2: "rgba(15,23,42,0.05)",
-  shadow: "0 18px 50px -28px rgba(16,24,40,0.35)",
-  shadow2: "0 10px 30px -18px rgba(16,24,40,0.25)",
-  glow: "0 0 0 6px rgba(199,146,87,0.15)",
-  gradient:
-    "radial-gradient(900px 500px at 15% -10%, rgba(199,146,87,0.18), transparent 55%), radial-gradient(900px 500px at 85% 0%, rgba(35,63,57,0.14), transparent 55%), linear-gradient(180deg, #ffffff 0%, #fbfbfd 70%, #f7f8fb 100%)",
+  radius: "18px",
+  radiusSm: "14px",
+  border: "#DDD8CC",
+  borderStrong: "#CFC8BB",
+  card: "#FBFAF6",
+  cardSolid: "#FBFAF6",
+  soft: "#F3F1EB",
+  soft2: "#EEEAE2",
+  shadow: "0 16px 38px rgba(15,23,42,0.06)",
+  shadow2: "0 10px 28px rgba(15,23,42,0.025)",
+  glow: "0 0 0 5px rgba(243,154,34,0.12)",
+  gradient: "#F8F7F2",
 };
 
 const MAX_VIDEO_SEC = 240;
@@ -254,18 +256,14 @@ function Card({
   solid?: boolean;
 }) {
   return (
-    <div
-      className={`overflow-hidden ${className}`}
-      style={{
-        borderRadius: UI.radius,
-        border: `1px solid ${UI.border}`,
-        background: solid ? UI.cardSolid : UI.card,
-        boxShadow: UI.shadow2,
-        backdropFilter: "blur(14px)",
-      }}
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className={`overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_10px_28px_rgba(15,23,42,0.025)] ${className}`}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -1426,7 +1424,7 @@ export default function UploadPage() {
             style={{
               borderRadius: UI.radiusSm,
               border: `1px solid ${UI.border}`,
-              background: "rgba(255,255,255,0.7)",
+              background: "#FBFAF6",
               boxShadow: UI.shadow2,
               color: EKARI.text,
             }}
@@ -1474,7 +1472,7 @@ export default function UploadPage() {
                   style={{
                     borderRadius: UI.radiusSm,
                     background: EKARI.forest,
-                    boxShadow: "0 14px 30px -22px rgba(35,63,57,0.55)",
+                    boxShadow: "0 14px 30px -22px rgba(23,60,46,0.55)",
                   }}
                   onClick={() => setBannerDraft(false)}
                 >
@@ -1487,7 +1485,7 @@ export default function UploadPage() {
 
       {/* STEP 0: Select */}
       {!isEditing && step === 0 && (
-        <Card className="p-2">
+        <Card className="p-3 sm:p-4">
           <DropZone onDropFiles={onDropFiles} />
           <div className="px-4 pb-8 pt-2 text-center sm:py-10">
             <input
@@ -1503,10 +1501,10 @@ export default function UploadPage() {
             />
 
             <button
-              className="relative mx-auto mt-3 rounded-2xl px-6 py-3 text-sm font-extrabold text-white transition active:scale-[0.99]"
+              className="relative mx-auto mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-[#F39A22] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] active:scale-[0.98]"
               style={{
                 background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
-                boxShadow: `0 16px 40px -24px rgba(199,146,87,0.65)`,
+                boxShadow: `0 16px 40px -24px rgba(243,154,34,0.65)`,
               }}
               onClick={() => document.getElementById("file-input-drop")?.click()}
             >
@@ -1536,7 +1534,7 @@ export default function UploadPage() {
                 className="inline-flex overflow-hidden rounded-full backdrop-blur"
                 style={{
                   border: `1px solid ${UI.border}`,
-                  background: "rgba(255,255,255,0.75)",
+                  background: "rgba(251,250,246,0.94)",
                   boxShadow: UI.shadow2,
                 }}
               >
@@ -1659,7 +1657,7 @@ export default function UploadPage() {
                 style={{
                   borderRadius: UI.radius,
                   border: `1px solid ${UI.border}`,
-                  background: "rgba(255,255,255,0.86)",
+                  background: "#FBFAF6",
                   boxShadow: UI.shadow2,
                   backdropFilter: "blur(14px)",
                 }}
@@ -1888,7 +1886,7 @@ export default function UploadPage() {
                     style={{
                       borderRadius: UI.radius,
                       border: `1px solid ${UI.border}`,
-                      background: "rgba(255,255,255,0.7)",
+                      background: "#FBFAF6",
                       boxShadow: UI.shadow2,
                     }}
                   >
@@ -1980,7 +1978,7 @@ export default function UploadPage() {
                                     }`,
                                   boxShadow:
                                     idx === 0
-                                      ? "0 14px 30px -24px rgba(199,146,87,0.55)"
+                                      ? "0 14px 30px -24px rgba(243,154,34,0.55)"
                                       : "none",
                                 }}
                                 title={idx === 0 ? "Primary preview" : `Photo ${idx + 1}`}
@@ -2079,7 +2077,7 @@ export default function UploadPage() {
                             borderRadius: UI.radiusSm,
                             border: `1px solid ${isActive ? EKARI.gold : UI.border}`,
                             boxShadow: isActive
-                              ? "0 14px 30px -24px rgba(199,146,87,0.55)"
+                              ? "0 14px 30px -24px rgba(243,154,34,0.55)"
                               : "none",
                           }}
                           title={`${(tMs / 1000).toFixed(1)}s`}
@@ -2342,7 +2340,7 @@ export default function UploadPage() {
                     className="relative inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 font-extrabold text-white disabled:opacity-60 transition active:scale-[0.99]"
                     style={{
                       background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
-                      boxShadow: `0 16px 40px -24px rgba(199,146,87,0.65)`,
+                      boxShadow: `0 16px 40px -24px rgba(243,154,34,0.65)`,
                     }}
                     disabled={!canPost || busy}
                     onClick={saveDeed}
@@ -2433,7 +2431,7 @@ export default function UploadPage() {
                       style={{
                         borderRadius: "18px",
                         background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
-                        boxShadow: `0 16px 40px -24px rgba(199,146,87,0.65)`,
+                        boxShadow: `0 16px 40px -24px rgba(243,154,34,0.65)`,
                       }}
                       disabled={!canPost || busy}
                       onClick={saveDeed}
@@ -2492,11 +2490,14 @@ export default function UploadPage() {
   // ✅ MOBILE: fixed inset + glass header + scroll area (no AppShell)
   if (isMobile) {
     return (
-      <div className="fixed inset-0 flex flex-col" style={{ background: UI.gradient }}>
+      <div
+        className="fixed inset-0 flex flex-col overflow-hidden bg-[#F8F7F2]"
+        style={{ touchAction: "pan-y" }}
+      >
         <div
           className="sticky top-0 z-50 backdrop-blur-xl"
           style={{
-            background: "rgba(255,255,255,0.75)",
+            background: "rgba(251,250,246,0.94)",
             borderBottom: `1px solid ${UI.border}`,
             boxShadow: "0 8px 30px -22px rgba(16,24,40,0.35)",
           }}
@@ -2509,7 +2510,7 @@ export default function UploadPage() {
               onClick={goBack}
               className="h-10 w-10 rounded-full grid place-items-center transition active:scale-[0.98]"
               style={{
-                background: "rgba(255,255,255,0.75)",
+                background: "rgba(251,250,246,0.94)",
                 border: `1px solid ${UI.border}`,
                 boxShadow: "0 10px 24px -18px rgba(16,24,40,0.35)",
               }}
@@ -2532,7 +2533,7 @@ export default function UploadPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
           <div className="mx-auto w-full max-w-6xl px-2 sm:px-6 lg:px-8 py-4">
             {Body}
           </div>
@@ -2557,11 +2558,17 @@ export default function UploadPage() {
     );
   }
 
-  // ✅ DESKTOP: keep AppShell + premium background container
+  // ✅ DESKTOP: AppShell + one vertical scroll owner
   return (
     <AppShell>
-      <div className="min-h-[100dvh] w-full" style={{ background: UI.gradient }}>
-        <div className="mx-auto w-full max-w-6xl px-3 sm:px-6 lg:px-8 py-6">{Body}</div>
+      <div
+        className="h-full w-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F8F7F2]"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y",
+        }}
+      >
+        <div className="mx-auto w-full max-w-[1180px] px-3 py-4 sm:px-5 md:px-6">{Body}</div>
 
         <ConfirmModal
           open={confirmState.open}
@@ -2611,7 +2618,7 @@ function SettingsPanel({
       style={{
         borderRadius: UI.radius,
         border: `1px solid ${UI.border}`,
-        background: "rgba(255,255,255,0.86)",
+        background: "#FBFAF6",
         boxShadow: UI.shadow2,
         backdropFilter: "blur(14px)",
       }}
@@ -2704,16 +2711,16 @@ function SettingRow({
 }) {
   return (
     <div
-      className="flex items-center justify-between px-4 py-3 transition"
+      className="flex items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-[#F8F7F2]"
       style={{ background: "transparent" }}
       role="group"
     >
       <div className="min-w-0 flex items-center gap-3">
         <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
           style={{
             border: `1px solid ${UI.border}`,
-            backgroundColor: "rgba(35,63,57,0.06)",
+            backgroundColor: "#E8ECE8",
             color: EKARI.text,
           }}
         >
@@ -2744,15 +2751,15 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: () => void 
       role="switch"
       aria-checked={checked}
       onClick={onChange}
-      className="relative inline-flex h-6 w-11 items-center rounded-full transition outline-none ring-0 focus-visible:ring-2 focus-visible:ring-offset-2"
+      className="relative h-[28px] w-[50px] shrink-0 rounded-full border transition-all duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-[#173C2E]/25 active:scale-[0.98]"
       style={{
         backgroundColor: checked ? EKARI.forest : "#D1D5DB",
         boxShadow: `0 0 0 1px ${UI.border}`,
       }}
     >
       <span
-        className="inline-block h-5 w-5 transform rounded-full bg-white transition"
-        style={{ transform: `translateX(${checked ? "22px" : "2px"})` }}
+        className="absolute top-[3px] h-[20px] w-[20px] rounded-full bg-white shadow-[0_2px_6px_rgba(15,23,42,0.20)] transition-all duration-300 ease-out"
+        style={{ left: checked ? "26px" : "3px" }}
       />
     </button>
   );
@@ -2772,14 +2779,14 @@ function Select({
       style={{
         borderRadius: UI.radiusSm,
         border: `1px solid ${UI.border}`,
-        background: "rgba(255,255,255,0.85)",
+        background: "#FBFAF6",
         boxShadow: UI.shadow2,
       }}
     >
       <select
         value={value}
         onChange={onChange}
-        className="bg-transparent text-sm font-extrabold outline-none"
+        className="bg-transparent text-[10px] font-black outline-none"
         style={{ color: EKARI.text }}
       >
         {options.map((o) => (
@@ -2801,7 +2808,7 @@ function UploadProgress({ value, compact = false }: { value: number; compact?: b
           style={{
             width: `${pct}%`,
             transition: "width .25s ease",
-            background: `linear-gradient(90deg, ${EKARI.gold}, ${EKARI.forest})`,
+            background: `linear-gradient(90deg, ${EKARI.forest}, ${EKARI.gold})`,
           }}
         />
       </div>
@@ -2871,9 +2878,9 @@ function BottomTabsMock({ active = "Home" }: { active?: "Home" | "Mates" | "Crea
       <div className="relative mx-auto max-w-[320px] px-3 pb-2">
         <nav className="flex items-end justify-between text-[10px] text-white/80">
           <TabItem label="Deeds" Icon={IoHomeOutline} active={active === "Home"} />
-          <TabItem label="ekariMarket" Icon={IoBag} active={active === "Mates"} />
+          <TabItem label="Market" Icon={IoBag} active={active === "Mates"} />
           <CreateTab />
-          <TabItem label="Dive" Icon={IoCompassOutline} active={active === "Bonga"} />
+          <TabItem label="Expert" Icon={IoPeopleCircleOutline} active={active === "Bonga"} />
           <TabItem label="Bonga" Icon={IoChatbubblesOutline} active={active === "Profile"} />
         </nav>
       </div>

@@ -34,7 +34,24 @@ import {
   RecaptchaVerifier,
 } from "firebase/auth";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { IoArrowBack, IoPencil, IoLockClosed } from "react-icons/io5";
+import {
+  IoArrowBack,
+  IoPencil,
+  IoLockClosed,
+  IoPersonOutline,
+  IoCameraOutline,
+  IoCheckmarkCircleOutline,
+  IoLinkOutline,
+  IoCallOutline,
+  IoHeartOutline,
+  IoBriefcaseOutline,
+  IoCashOutline,
+  IoNotificationsOutline,
+  IoMailOutline,
+  IoShieldCheckmarkOutline,
+  IoChevronForward,
+  IoInformationCircleOutline,
+} from "react-icons/io5";
 import Cropper from "react-easy-crop";
 
 import AppShell from "@/app/components/AppShell";
@@ -45,15 +62,16 @@ import { createPortal } from "react-dom";
 
 /* ===================== Brand ===================== */
 const EKARI = {
-  forest: "#233F39",
-  leaf: "#1F3A34",
-  gold: "#C79257",
-  sand: "#FFFFFF",
-  hair: "#E5E7EB",
+  forest: "#173C2E",
+  leaf: "#214C3A",
+  gold: "#F39A22",
+  sand: "#F8F7F2",
+  paper: "#FBFAF6",
+  hair: "#DDD8CC",
   text: "#0F172A",
-  dim: "#6B7280",
+  dim: "#64748B",
   danger: "#B42318",
-  subtext: "#5C5B66",
+  subtext: "#64748B",
 };
 
 type GroupConfig = {
@@ -338,6 +356,56 @@ const INTERESTS_FALLBACK = null;
 /* =========================================================
    PAGE (/[handle]/edit)
    ========================================================= */
+
+function SafeProfileAvatar({
+  src,
+  alt,
+  size = 104,
+}: {
+  src?: string | null;
+  alt: string;
+  size?: number;
+}) {
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  const hasImage =
+    !!src?.trim() && !failed;
+
+  return (
+    <div
+      className="relative shrink-0 overflow-hidden rounded-full bg-[#E8ECE8]"
+      style={{
+        width: size,
+        height: size,
+      }}
+      aria-label={alt}
+    >
+      {hasImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src || ""}
+          alt={alt}
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center bg-[#E8ECE8] text-[#173C2E]">
+          <IoPersonOutline
+            style={{
+              width: size * 0.44,
+              height: size * 0.44,
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EditProfilePage() {
   const params = useParams<{ handle: string }>();
   const router = useRouter();
@@ -876,237 +944,606 @@ export default function EditProfilePage() {
   };
   const validWebsite = validateUrl(website || "");
 
+  const displayName =
+    `${firstName || ""} ${surname || ""}`.trim() ||
+    handle ||
+    "ekarihub member";
+
+  const profileCompletion = useMemo(() => {
+    const checks = [
+      {
+        label: "Profile photo",
+        complete: !!photoURL,
+      },
+      {
+        label: "Name",
+        complete: !!firstName.trim() || !!surname.trim(),
+      },
+      {
+        label: "Bio",
+        complete: bio.trim().length >= 20,
+      },
+      {
+        label: "Phone",
+        complete: !!phone && phoneVerified,
+      },
+      {
+        label: "Website",
+        complete: !!website?.trim(),
+      },
+      {
+        label: "Interests",
+        complete: areaOfInterest.length > 0,
+      },
+      {
+        label: "Roles",
+        complete: roles.length > 0,
+      },
+    ];
+
+    const completed = checks.filter((item) => item.complete).length;
+
+    return {
+      checks,
+      completed,
+      total: checks.length,
+      percentage: Math.round((completed / checks.length) * 100),
+    };
+  }, [
+    photoURL,
+    firstName,
+    surname,
+    bio,
+    phone,
+    phoneVerified,
+    website,
+    areaOfInterest,
+    roles,
+  ]);
+
   // ✅ Build the main content once, then wrap it differently for mobile/desktop
   const PageContent = (
     <>
-      <div className="w-full min-h-screen px-4 py-4">
-        {/* Desktop header only (mobile uses sticky header wrapper) */}
-        {isDesktop && (
-          <div className="flex h-12 items-center justify-between border-b border-gray-200">
-            <button
-              onClick={goBack}
-              className="p-2 -ml-2 rounded hover:bg-gray-50"
-              aria-label="Back"
-            >
-              <IoArrowBack size={20} />
-            </button>
-            <div className="font-extrabold text-slate-900">Edit Profile</div>
-            <div className="w-8" />
-          </div>
-        )}
+      <div className="flex w-full flex-col bg-[#F8F7F2]">
+        {/* HERO */}
+        <motion.header
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: "easeOut" }}
+          className="relative overflow-hidden bg-[#173C2E] text-white"
+        >
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+            }}
+          />
 
-        {profileUpdatedAtText && (
-          <p className="mt-2 text-xs text-center text-slate-500">
-            Last updated: {profileUpdatedAtText}
-          </p>
-        )}
-
-        {/* Avatar */}
-        <div className="flex flex-col items-center mt-4 mb-2">
-          <div className="p-1 rounded-full bg-gradient-to-tr from-[#C79257] to-[#233F39] shadow-sm">
-            <div className="p-1 rounded-full bg-white">
-              <div
-                className="h-26 w-26 relative rounded-full overflow-hidden"
-                style={{ height: 104, width: 104 }}
+          <div className="relative mx-auto max-w-[1180px] px-4 py-5 md:px-6 md:py-6">
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={goBack}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
+                aria-label="Back"
               >
-                {photoURL ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photoURL} alt="avatar" className="h-full w-full object-cover" />
-                ) : (
-                  <Image
-                    src="/avatar-placeholder.png"
-                    alt="avatar"
-                    fill
-                    className="object-cover"
-                  />
-                )}
+                <IoArrowBack size={19} />
+              </button>
+
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                  Profile settings
+                </div>
+
+                <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h1 className="text-[24px] font-black tracking-[-0.035em] md:text-[28px]">
+                      Edit profile
+                    </h1>
+
+                    <p className="mt-1 text-[11px] font-medium text-white/50 md:text-[12px]">
+                      {handle ? (handle.startsWith("@") ? handle : `@${handle}`) : "Your ekarihub profile"}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(
+                        `/${encodeURIComponent(
+                          String(handle || params?.handle || "").replace(/^@/, "")
+                        )}`
+                      )
+                    }
+                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/[0.11]"
+                  >
+                    View profile
+                    <IoChevronForward size={13} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+        </motion.header>
 
-          {/* Change / reset controls */}
-          <div className="mt-2 flex flex-col items-center gap-1">
-            <label className="text-[#C79257] font-bold underline cursor-pointer">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={onPickAvatar}
-              />
-              Change Photo
-            </label>
+        <main className="flex-1 bg-[#F8F7F2]">
+          <div className="mx-auto grid max-w-[1180px] gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+            <section className="min-w-0 space-y-4">
+              {/* PROFILE IDENTITY */}
+              <motion.section
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+              >
+                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+                  <div className="relative">
+                    <div className="rounded-full bg-gradient-to-br from-[#F39A22] to-[#173C2E] p-[3px] shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
+                      <div className="rounded-full bg-[#FBFAF6] p-[3px]">
+                        <SafeProfileAvatar
+                          src={photoURL}
+                          alt={displayName}
+                          size={104}
+                        />
+                      </div>
+                    </div>
 
-            <button
-              type="button"
-              onClick={onResetAvatar}
-              disabled={saving || (!photoURL && !initialPhotoURL)}
-              className="text-xs text-slate-500 hover:text-rose-500 disabled:opacity-40"
+                    <label
+                      className="absolute bottom-0 right-0 grid h-9 w-9 cursor-pointer place-items-center rounded-full border-[3px] border-[#FBFAF6] bg-[#173C2E] text-white shadow-lg transition hover:scale-105 hover:bg-[#214C3A]"
+                      title="Change profile photo"
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={onPickAvatar}
+                      />
+                      <IoCameraOutline size={16} />
+                    </label>
+                  </div>
+
+                  <div className="min-w-0 flex-1 text-center sm:text-left">
+                    <h2 className="truncate text-[18px] font-black tracking-[-0.025em] text-slate-900">
+                      {displayName}
+                    </h2>
+
+                    <p className="mt-1 truncate text-[10px] font-semibold text-slate-400">
+                      {handle ? (handle.startsWith("@") ? handle : `@${handle}`) : "Username unavailable"}
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
+                      <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-[#173C2E] px-3 text-[10px] font-black text-white transition hover:bg-[#214C3A]">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={onPickAvatar}
+                        />
+                        <IoCameraOutline size={13} />
+                        Change photo
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={onResetAvatar}
+                        disabled={saving || (!photoURL && !initialPhotoURL)}
+                        className="h-9 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB] hover:text-rose-600 disabled:opacity-40"
+                      >
+                        Reset photo
+                      </button>
+                    </div>
+
+                    {profileUpdatedAtText ? (
+                      <p className="mt-2 text-[9px] font-medium text-slate-400">
+                        Last updated: {profileUpdatedAtText}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </motion.section>
+
+              {/* ALERTS */}
+              <AnimatePresence mode="popLayout">
+                {errorMsg ? (
+                  <motion.div
+                    key="error"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[11px] font-semibold text-rose-700"
+                  >
+                    {errorMsg}
+                  </motion.div>
+                ) : null}
+
+                {successMsg ? (
+                  <motion.div
+                    key="success"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[11px] font-semibold text-emerald-700"
+                  >
+                    {successMsg}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+
+              {/* PROFILE */}
+              <SettingsSection
+                title="Profile"
+                subtitle="How people identify and understand you on ekarihub."
+                icon={<IoPersonOutline size={17} />}
+              >
+                <div className="grid gap-2 md:grid-cols-2">
+                  <ItemRow
+                    label="Name"
+                    value={`${firstName || "-"} ${surname || ""}`.trim() || "-"}
+                    onEdit={() => setSheet("name")}
+                  />
+
+                  <ItemRow
+                    label="Username"
+                    value={handle || "-"}
+                    locked
+                  />
+
+                  <div className="md:col-span-2">
+                    <ItemRow
+                      label="Bio"
+                      value={bio || "Add bio"}
+                      onEdit={() => setSheet("bio")}
+                    />
+                  </div>
+                </div>
+              </SettingsSection>
+
+              {/* CONTACT */}
+              <SettingsSection
+                title="Contact"
+                subtitle="Manage your verified contact information and public web link."
+                icon={<IoCallOutline size={17} />}
+              >
+                <div className="grid gap-2 md:grid-cols-2">
+                  <ItemRow
+                    label="Phone"
+                    value={phone ? `${phoneVerified ? "Verified · " : "Unverified · "}${phone}` : "Add phone"}
+                    status={phone ? (phoneVerified ? "success" : "warning") : undefined}
+                    onEdit={() => {
+                      setSmsSent(false);
+                      setSmsCode("");
+                      confirmationResultRef.current = null;
+                      setErrorMsg("");
+                      setSheet("phone");
+                    }}
+                  />
+
+                  <ItemRow
+                    label="Website"
+                    value={website || "Add website"}
+                    onEdit={() => setSheet("website")}
+                  />
+                </div>
+              </SettingsSection>
+
+              {/* INTERESTS + ROLES */}
+              <SettingsSection
+                title="Identity & discovery"
+                subtitle="Help ekarihub understand what you care about and how you participate."
+                icon={<IoHeartOutline size={17} />}
+              >
+                <div className="grid gap-2 md:grid-cols-2">
+                  <ItemRow
+                    label="Interests"
+                    value={
+                      areaOfInterest.length
+                        ? `${areaOfInterest.length} selected`
+                        : "Add interests"
+                    }
+                    onEdit={() => setSheet("interests")}
+                  />
+
+                  <ItemRow
+                    label="Roles"
+                    value={
+                      roles.length
+                        ? `${roles.length} selected`
+                        : "Add roles"
+                    }
+                    onEdit={() => setSheet("roles")}
+                  />
+                </div>
+              </SettingsSection>
+
+              {/* PREFERENCES */}
+              <SettingsSection
+                title="Preferences"
+                subtitle="Control currency and the notifications you receive."
+                icon={<IoCashOutline size={17} />}
+              >
+                <div className="grid gap-2 md:grid-cols-2">
+                  <ItemRow
+                    label="Preferred currency"
+                    value={
+                      preferredCurrency
+                        ? preferredCurrency === "KES"
+                          ? "KES · Kenyan Shilling"
+                          : "USD · US Dollar"
+                        : "Auto based on country"
+                    }
+                    onEdit={() => setSheet("currency")}
+                  />
+
+                  <ToggleItemRow
+                    label="Push notifications"
+                    value="Likes, comments, messages and updates"
+                    checked={allowPushNotifications}
+                    icon={<IoNotificationsOutline size={15} />}
+                    onChange={(value) =>
+                      saveNotificationSetting(
+                        "allowPushNotifications",
+                        value
+                      )
+                    }
+                  />
+
+                  <ToggleItemRow
+                    label="Email notifications"
+                    value="Receive important alerts by email"
+                    checked={allowEmailNotifications}
+                    icon={<IoMailOutline size={15} />}
+                    onChange={(value) =>
+                      saveNotificationSetting(
+                        "allowEmailNotifications",
+                        value
+                      )
+                    }
+                  />
+                </div>
+              </SettingsSection>
+
+              {/* DANGER ZONE */}
+              <motion.section
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, delay: 0.06 }}
+                className="rounded-[18px] border border-rose-200 bg-rose-50 p-4 sm:p-5"
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="max-w-xl">
+                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-rose-600">
+                      Danger zone
+                    </div>
+
+                    <h3 className="mt-1 text-[14px] font-black text-rose-900">
+                      Delete account
+                    </h3>
+
+                    <p className="mt-1 text-[10px] font-medium leading-5 text-rose-700">
+                      This permanently removes your ekarihub profile, deeds, listings, discussions, events and uploaded files. This action cannot be undone.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    disabled={deleting}
+                    className="h-10 shrink-0 rounded-xl bg-rose-600 px-4 text-[10px] font-black text-white transition hover:bg-rose-700 disabled:opacity-60"
+                  >
+                    {deleting ? "Deleting…" : "Delete account"}
+                  </button>
+                </div>
+              </motion.section>
+
+              {isMobile ? (
+                <div
+                  style={{
+                    height: "env(safe-area-inset-bottom)",
+                  }}
+                />
+              ) : null}
+            </section>
+
+            {/* RIGHT RAIL */}
+            <motion.aside
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.24, delay: 0.04, ease: "easeOut" }}
+              className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
             >
-              Reset to default avatar
-            </button>
-          </div>
-        </div>
+              <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                <div className="flex items-center gap-3">
+                  <SafeProfileAvatar
+                    src={photoURL}
+                    alt={displayName}
+                    size={52}
+                  />
 
-        {/* Alerts */}
-        <div className="mt-3 space-y-2">
-          {!!errorMsg && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-              {errorMsg}
-            </div>
-          )}
-          {!!successMsg && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-              {successMsg}
-            </div>
-          )}
-        </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-[13px] font-black text-slate-900">
+                      {displayName}
+                    </div>
 
-        {/* Sections */}
-        <div className="mt-5 space-y-6">
-          {/* Profile section */}
-          <section>
-            <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-              Profile
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-3">
-              <ItemRow
-                label="Name"
-                value={`${firstName || "-"} ${surname || ""}`.trim() || "-"}
-                onEdit={() => setSheet("name")}
-              />
-              <ItemRow label="Username" value={handle || "-"} locked />
-              <ItemRow label="Bio" value={bio || "Add bio"} onEdit={() => setSheet("bio")} />
-            </div>
-          </section>
+                    <div className="mt-0.5 truncate text-[9px] font-semibold text-slate-400">
+                      {handle ? (handle.startsWith("@") ? handle : `@${handle}`) : "Profile"}
+                    </div>
+                  </div>
+                </div>
 
-          {/* Contact section */}
-          <section>
-            <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-              Contact
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-3">
-              <ItemRow
-                label="Phone"
-                value={phone ? `${phoneVerified ? "✅ " : "⚠️ "}${phone}` : "Add phone"}
-                onEdit={() => {
-                  setSmsSent(false);
-                  setSmsCode("");
-                  confirmationResultRef.current = null;
-                  setErrorMsg("");
-                  setSheet("phone");
-                }}
-              />
-              <ItemRow
-                label="Website"
-                value={website || "Add website"}
-                onEdit={() => setSheet("website")}
-              />
-            </div>
-          </section>
+                {bio ? (
+                  <p className="mt-3 line-clamp-3 text-[10px] font-medium leading-4 text-slate-500">
+                    {bio}
+                  </p>
+                ) : null}
 
-          {/* Preferences section */}
-          <section>
-            <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-              Preferences
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-3">
-              <ItemRow
-                label="Preferred currency"
-                value={
-                  preferredCurrency
-                    ? preferredCurrency === "KES"
-                      ? "KES – Kenyan Shilling (M-Pesa available)"
-                      : "USD – US Dollar"
-                    : "Auto (based on country)"
-                }
-                onEdit={() => setSheet("currency")}
-              />
-              <ToggleItemRow
-                label="Push notifications"
-                value="Likes, comments, messages and updates"
-                checked={allowPushNotifications}
-                onChange={(v) =>
-                  saveNotificationSetting("allowPushNotifications", v)
-                }
-              />
-
-              <ToggleItemRow
-                label="Email notifications"
-                value="Receive important alerts by email"
-                checked={allowEmailNotifications}
-                onChange={(v) =>
-                  saveNotificationSetting("allowEmailNotifications", v)
-                }
-              />
-              <ItemRow
-                label="Interests"
-                value={areaOfInterest.length ? `${areaOfInterest.length} selected` : "Add interests"}
-                onEdit={() => setSheet("interests")}
-              />
-              <ItemRow
-                label="Roles"
-                value={roles.length ? `${roles.length} selected` : "Add roles"}
-                onEdit={() => setSheet("roles")}
-              />
-            </div>
-          </section>
-
-          {/* Danger zone section */}
-          <section>
-            <h2 className="text-[11px] font-bold uppercase tracking-wide text-rose-600 mb-2">
-              Danger zone
-            </h2>
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 flex flex-col gap-2">
-              <div className="text-sm font-semibold text-rose-800">Delete account</div>
-              <p className="text-xs text-rose-700 leading-relaxed">
-                This will permanently delete your ekarihub account, all your deeds, listings,
-                discussions, events any uploaded files. This action cannot be undone.
-              </p>
-              <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setConfirmDeleteOpen(true)}
-                  disabled={deleting}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60"
+                  onClick={() =>
+                    router.push(
+                      `/${encodeURIComponent(
+                        String(handle || params?.handle || "").replace(/^@/, "")
+                      )}`
+                    )
+                  }
+                  className="mt-3 flex h-9 w-full items-center justify-between rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                 >
-                  {deleting ? "Deleting…" : "Delete account"}
+                  View public profile
+                  <IoChevronForward size={13} />
                 </button>
-              </div>
-            </div>
-          </section>
-        </div>
+              </section>
 
-        {/* ✅ Mobile safe-area bottom spacer */}
-        {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+              <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  Profile completeness
+                </div>
+
+                <div className="mt-1 text-[26px] font-black tracking-[-0.04em] text-[#173C2E]">
+                  {profileCompletion.percentage}%
+                </div>
+
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EAE6DD]">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{
+                      width: `${profileCompletion.percentage}%`,
+                    }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                    className="h-full rounded-full bg-[#173C2E]"
+                  />
+                </div>
+
+                <p className="mt-2 text-[9px] font-semibold text-slate-400">
+                  {profileCompletion.completed} of {profileCompletion.total} profile areas complete
+                </p>
+
+                <div className="mt-3 space-y-1.5">
+                  {profileCompletion.checks.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-center gap-2 text-[10px]"
+                    >
+                      <span
+                        className={[
+                          "grid h-4 w-4 shrink-0 place-items-center rounded-full",
+                          item.complete
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-slate-100 text-slate-400",
+                        ].join(" ")}
+                      >
+                        {item.complete ? (
+                          <IoCheckmarkCircleOutline size={10} />
+                        ) : (
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        )}
+                      </span>
+
+                      <span
+                        className={
+                          item.complete
+                            ? "font-semibold text-slate-600"
+                            : "font-semibold text-slate-400"
+                        }
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                <div className="flex items-start gap-3">
+                  <span
+                    className={[
+                      "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+                      phoneVerified
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-amber-100 text-amber-700",
+                    ].join(" ")}
+                  >
+                    <IoShieldCheckmarkOutline size={17} />
+                  </span>
+
+                  <div>
+                    <div className="text-[12px] font-black text-slate-800">
+                      Account security
+                    </div>
+
+                    <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                      {phoneVerified
+                        ? "Your phone number is verified."
+                        : "Verify your phone number to strengthen account recovery and trust."}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  Quick links
+                </div>
+
+                <div className="mt-2 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(
+                        `/${encodeURIComponent(
+                          String(handle || params?.handle || "").replace(/^@/, "")
+                        )}/connections`
+                      )
+                    }
+                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                  >
+                    Connections
+                    <IoChevronForward size={13} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => router.push("/account/verification")}
+                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                  >
+                    Verification
+                    <IoChevronForward size={13} />
+                  </button>
+                </div>
+              </section>
+            </motion.aside>
+          </div>
+        </main>
       </div>
 
       {/* Avatar crop sheet */}
-      <BottomSheet open={avatarCropOpen} title="Crop profile photo" onClose={onCancelAvatarCrop}>
+      <BottomSheet
+        open={avatarCropOpen}
+        title="Crop profile photo"
+        onClose={onCancelAvatarCrop}
+      >
         {avatarPreview ? (
           <div className="space-y-4">
-            {/* Live circular preview */}
-            <div className="flex justify-center mb-1">
-              <div className="w-24 h-24 rounded-full border-2 border-[#C79257] shadow-sm overflow-hidden bg-slate-100">
+            <div className="flex justify-center">
+              <div className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-[#F39A22] bg-slate-100 shadow-sm">
                 {avatarPreviewCropped ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={avatarPreviewCropped}
                     alt="Crop preview"
-                    className="w-full h-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={avatarPreview}
                     alt="Crop preview"
-                    className="w-full h-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                 )}
               </div>
             </div>
 
-            {/* Main crop area */}
-            <div className="relative w-full aspect-square bg-black rounded-xl overflow-hidden">
+            <div className="relative aspect-square w-full overflow-hidden rounded-[16px] bg-black">
               <Cropper
                 image={avatarPreview}
                 crop={crop}
@@ -1120,201 +1557,230 @@ export default function EditProfilePage() {
               />
             </div>
 
-            {/* Zoom slider */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600">Zoom</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-600">
+                Zoom
+              </label>
+
               <input
                 type="range"
                 min={1}
                 max={3}
                 step={0.1}
                 value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
+                onChange={(event) =>
+                  setZoom(Number(event.target.value))
+                }
                 className="w-full"
                 style={{ accentColor: EKARI.forest }}
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-1">
-              <button className="h-10 px-4 rounded-xl border" onClick={onCancelAvatarCrop} disabled={saving}>
-                Cancel
-              </button>
-              <button
-                className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
-                onClick={onConfirmAvatarCrop}
-                disabled={saving || !croppedAreaPixels}
-              >
-                {saving ? "Saving…" : "Save"}
-              </button>
-            </div>
+            <SheetActions
+              onCancel={onCancelAvatarCrop}
+              onSave={onConfirmAvatarCrop}
+              saveText={saving ? "Saving…" : "Save photo"}
+              disabled={saving || !croppedAreaPixels}
+            />
           </div>
         ) : (
-          <p className="text-sm text-slate-600">No image selected. Choose a photo to crop.</p>
+          <p className="text-[11px] font-medium text-slate-500">
+            No image selected. Choose a photo to crop.
+          </p>
         )}
       </BottomSheet>
 
-      {/* SHEETS */}
-      <BottomSheet open={sheet === "name"} title="Edit name" onClose={() => setSheet(null)}>
+      {/* NAME */}
+      <BottomSheet
+        open={sheet === "name"}
+        title="Edit name"
+        onClose={() => setSheet(null)}
+      >
         <div className="space-y-3">
-          <div>
-            <label className="text-sm font-semibold text-slate-800">First name</label>
+          <FieldLabel label="First name">
             <input
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              onChange={(event) => setFirstName(event.target.value)}
               placeholder="First name"
-              className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+              className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-sm outline-none transition focus:border-[#173C2E]/45"
             />
-          </div>
-          <div>
-            <label className="text-sm font-semibold text-slate-800">Surname</label>
+          </FieldLabel>
+
+          <FieldLabel label="Surname">
             <input
               value={surname}
-              onChange={(e) => setSurname(e.target.value)}
+              onChange={(event) => setSurname(event.target.value)}
               placeholder="Surname"
-              className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+              className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-sm outline-none transition focus:border-[#173C2E]/45"
             />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
-              Cancel
-            </button>
-            <button
-              className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold"
-              onClick={async () => {
-                await saveField({ firstName, surname });
-                setSheet(null);
-              }}
-            >
-              Save
-            </button>
-          </div>
+          </FieldLabel>
+
+          <SheetActions
+            onCancel={() => setSheet(null)}
+            onSave={async () => {
+              await saveField({ firstName, surname });
+              setSheet(null);
+            }}
+          />
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "bio"} title="Edit bio" onClose={() => setSheet(null)}>
+      {/* BIO */}
+      <BottomSheet
+        open={sheet === "bio"}
+        title="Edit bio"
+        onClose={() => setSheet(null)}
+      >
         <div className="space-y-2">
           <textarea
             value={bio}
-            onChange={(e) => setBio(e.target.value)}
+            onChange={(event) => setBio(event.target.value)}
             maxLength={220}
             placeholder="Tell people about you…"
-            className="mt-1 h-32 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+            className="h-32 w-full resize-none rounded-xl border border-[#D9D3C7] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#173C2E]/45"
           />
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>{bio.length}/220</span>
+
+          <div className="text-right text-[9px] font-semibold text-slate-400">
+            {bio.length}/220
           </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
-              Cancel
-            </button>
-            <button
-              className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold"
-              onClick={async () => {
-                await saveField({ bio });
-                setSheet(null);
-              }}
-            >
-              Save
-            </button>
-          </div>
+
+          <SheetActions
+            onCancel={() => setSheet(null)}
+            onSave={async () => {
+              await saveField({ bio });
+              setSheet(null);
+            }}
+          />
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "website"} title="Website URL" onClose={() => setSheet(null)}>
+      {/* WEBSITE */}
+      <BottomSheet
+        open={sheet === "website"}
+        title="Website URL"
+        onClose={() => setSheet(null)}
+      >
         <div className="space-y-2">
-          <input
-            value={website || ""}
-            onChange={(e: any) => setWebsite(e.target.value)}
-            placeholder="https://example.com"
-            className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+          <FieldLabel label="Website">
+            <div className="flex h-11 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
+              <IoLinkOutline size={14} className="text-slate-400" />
+
+              <input
+                value={website || ""}
+                onChange={(event) => setWebsite(event.target.value)}
+                placeholder="https://example.com"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
+            </div>
+          </FieldLabel>
+
+          {!validWebsite ? (
+            <p className="text-[10px] font-semibold text-rose-600">
+              Enter a valid website URL.
+            </p>
+          ) : null}
+
+          <SheetActions
+            onCancel={() => setSheet(null)}
+            disabled={!validWebsite}
+            onSave={async () => {
+              await saveField({
+                website: (website || "").trim() || null,
+              });
+              setSheet(null);
+            }}
           />
-          {!validWebsite && <p className="text-xs text-rose-600">Invalid URL</p>}
-          <div className="flex justify-end gap-2 pt-1">
-            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
-              Cancel
-            </button>
-            <button
-              disabled={!validWebsite}
-              className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
-              onClick={async () => {
-                await saveField({
-                  website: (website || "")?.trim() || null,
-                });
-                setSheet(null);
-              }}
-            >
-              Save
-            </button>
-          </div>
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "currency"} title="Preferred currency" onClose={() => setSheet(null)}>
+      {/* CURRENCY */}
+      <BottomSheet
+        open={sheet === "currency"}
+        title="Preferred currency"
+        onClose={() => setSheet(null)}
+      >
         <div className="space-y-3">
-          <p className="text-xs text-slate-600">
-            This will be the default currency for uplifts you make.
-          </p>
-          <p className="text-xs text-slate-500">
-            M-Pesa is only available when donating in{" "}
-            <span className="font-semibold">KES</span>.
+          <p className="text-[10px] font-medium leading-4 text-slate-500">
+            This is the default currency for uplifts you make. M-Pesa is available when using KES.
           </p>
 
-          <div className="mt-3 space-y-2">
+          <div className="space-y-2">
             {(["KES", "USD"] as ("KES" | "USD")[]).map((code) => {
               const active = preferredCurrency === code;
-              const label = code === "KES" ? "KES – Kenyan Shilling" : "USD – US Dollar";
-              const note =
-                code === "KES"
-                  ? "Best for Kenya-based uplifts (M-Pesa supported)."
-                  : "Good for global / international donors.";
 
               return (
                 <button
                   key={code}
                   type="button"
                   onClick={() => setPreferredCurrency(code)}
-                  className={`w-full flex items-start gap-2 rounded-xl border px-3 py-2 text-left ${active ? "border-[#233F39] bg-[#233F39]/5" : "border-gray-200 bg-white"
-                    }`}
+                  className={[
+                    "flex w-full items-start gap-3 rounded-[14px] border px-3 py-3 text-left transition",
+                    active
+                      ? "border-[#173C2E] bg-[#EEF3EE]"
+                      : "border-[#D9D3C7] bg-white hover:bg-[#F8F7F2]",
+                  ].join(" ")}
                 >
-                  <div className="mt-1">
-                    <div
-                      className={`h-4 w-4 rounded-full border flex items-center justify-center ${active ? "border-[#233F39]" : "border-gray-300"
-                        }`}
-                    >
-                      {active && <div className="h-2.5 w-2.5 rounded-full bg-[#233F39]" />}
-                    </div>
-                  </div>
+                  <span
+                    className={[
+                      "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border",
+                      active
+                        ? "border-[#173C2E]"
+                        : "border-slate-300",
+                    ].join(" ")}
+                  >
+                    {active ? (
+                      <span className="h-2 w-2 rounded-full bg-[#173C2E]" />
+                    ) : null}
+                  </span>
+
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">{label}</div>
-                    <div className="text-xs text-slate-500">{note}</div>
+                    <div className="text-[11px] font-black text-slate-800">
+                      {code === "KES"
+                        ? "KES · Kenyan Shilling"
+                        : "USD · US Dollar"}
+                    </div>
+
+                    <div className="mt-0.5 text-[9px] font-medium leading-4 text-slate-400">
+                      {code === "KES"
+                        ? "Recommended for Kenya-based activity and M-Pesa."
+                        : "Useful for global and international activity."}
+                    </div>
                   </div>
                 </button>
               );
             })}
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
-              Cancel
-            </button>
-            <button
-              disabled={!preferredCurrency}
-              className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
-              onClick={async () => {
-                if (!preferredCurrency) return;
-                await saveField({ preferredCurrency });
-                setSheet(null);
-              }}
-            >
-              Save
-            </button>
-          </div>
+          <SheetActions
+            onCancel={() => setSheet(null)}
+            disabled={!preferredCurrency}
+            onSave={async () => {
+              if (!preferredCurrency) return;
+              await saveField({ preferredCurrency });
+              setSheet(null);
+            }}
+          />
         </div>
       </BottomSheet>
 
-      <BottomSheet open={sheet === "interests"} title="Edit interests" onClose={() => setSheet(null)}>
-        {taxonomyLoading && <p className="text-xs text-gray-500 mb-1">Loading interest options…</p>}
-        {taxonomyError && <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>}
+      {/* INTERESTS */}
+      <BottomSheet
+        open={sheet === "interests"}
+        title="Edit interests"
+        onClose={() => setSheet(null)}
+      >
+        {taxonomyLoading ? (
+          <p className="mb-2 text-[10px] font-semibold text-slate-400">
+            Loading interest options…
+          </p>
+        ) : null}
+
+        {taxonomyError ? (
+          <p className="mb-2 text-[10px] font-semibold text-rose-600">
+            {taxonomyError}
+          </p>
+        ) : null}
+
         <TagPicker
           label="Interests"
           value={areaOfInterest}
@@ -1323,25 +1789,35 @@ export default function EditProfilePage() {
           popular={interestOptions}
           max={10}
         />
-        <div className="flex justify-end gap-2 pt-3">
-          <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
-            Cancel
-          </button>
-          <button
-            className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold"
-            onClick={async () => {
-              await saveField({ areaOfInterest });
-              setSheet(null);
-            }}
-          >
-            Save
-          </button>
-        </div>
+
+        <SheetActions
+          className="mt-4"
+          onCancel={() => setSheet(null)}
+          onSave={async () => {
+            await saveField({ areaOfInterest });
+            setSheet(null);
+          }}
+        />
       </BottomSheet>
 
-      <BottomSheet open={sheet === "roles"} title="Edit roles" onClose={() => setSheet(null)}>
-        {taxonomyLoading && <p className="text-xs text-gray-500 mb-1">Loading role options…</p>}
-        {taxonomyError && <p className="text-xs text-rose-600 mb-1">{taxonomyError}</p>}
+      {/* ROLES */}
+      <BottomSheet
+        open={sheet === "roles"}
+        title="Edit roles"
+        onClose={() => setSheet(null)}
+      >
+        {taxonomyLoading ? (
+          <p className="mb-2 text-[10px] font-semibold text-slate-400">
+            Loading role options…
+          </p>
+        ) : null}
+
+        {taxonomyError ? (
+          <p className="mb-2 text-[10px] font-semibold text-rose-600">
+            {taxonomyError}
+          </p>
+        ) : null}
+
         <TagPicker
           label="Roles"
           value={roles}
@@ -1350,122 +1826,133 @@ export default function EditProfilePage() {
           popular={roleOptions}
           max={10}
         />
-        <div className="flex justify-end gap-2 pt-3">
-          <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
-            Cancel
-          </button>
-          <button
-            className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold"
-            onClick={async () => {
-              await saveField({ roles });
-              setSheet(null);
-            }}
-          >
-            Save
-          </button>
-        </div>
+
+        <SheetActions
+          className="mt-4"
+          onCancel={() => setSheet(null)}
+          onSave={async () => {
+            await saveField({ roles });
+            setSheet(null);
+          }}
+        />
       </BottomSheet>
 
-      <BottomSheet open={sheet === "phone"} title="Verify & link phone" onClose={() => setSheet(null)}>
+      {/* PHONE */}
+      <BottomSheet
+        open={sheet === "phone"}
+        title="Verify & link phone"
+        onClose={() => setSheet(null)}
+      >
         {!smsSent ? (
           <div className="space-y-3">
-            <div>
-              <label className="text-sm font-semibold">Phone number</label>
+            <FieldLabel label="Phone number">
+              <div className="flex h-11 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-2 transition focus-within:border-[#173C2E]/45">
+                <CountryPicker
+                  value={phoneCountry}
+                  onChange={setPhoneCountry}
+                  disabled={phoneBusy}
+                />
 
-              <div
-                className="mt-1 flex items-center h-11 rounded-xl border bg-[#F6F7FB] px-2 gap-2
-            focus-within:border-[rgba(35,63,57,0.7)]
-            focus-within:ring-1 focus-within:ring-[rgba(35,63,57,0.6)]"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <CountryPicker value={phoneCountry} onChange={setPhoneCountry} disabled={phoneBusy} />
-                <div className="h-6 w-px bg-gray-300" />
+                <div className="h-6 w-px bg-[#E2DED5]" />
+
                 <input
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel-national"
                   placeholder="712345678"
                   maxLength={12}
-                  className="flex-1 bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                   value={localPhone}
-                  onChange={(e) => setLocalPhone(e.target.value.replace(/[^\d]/g, ""))}
+                  onChange={(event) =>
+                    setLocalPhone(
+                      event.target.value.replace(/[^\d]/g, "")
+                    )
+                  }
                   disabled={phoneBusy}
                 />
               </div>
+            </FieldLabel>
 
-              <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
-                Sending to: <span className="font-semibold">{phoneE164 || `${phoneCountry.dial}…`}</span>
-              </div>
+            <div className="text-[9px] font-medium text-slate-400">
+              Sending to:{" "}
+              <span className="font-black text-slate-600">
+                {phoneE164 || `${phoneCountry.dial}…`}
+              </span>
             </div>
 
-            <div className="flex justify-end gap-2">
-              <button className="h-10 px-4 rounded-xl border" onClick={() => setSheet(null)}>
-                Cancel
-              </button>
-              <button
-                disabled={phoneBusy || !validPhoneE164}
-                className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
-                onClick={() => sendSms(phoneE164)}
-              >
-                {phoneBusy ? "Sending…" : "Send code"}
-              </button>
-            </div>
+            <SheetActions
+              onCancel={() => setSheet(null)}
+              disabled={phoneBusy || !validPhoneE164}
+              saveText={phoneBusy ? "Sending…" : "Send code"}
+              onSave={() => sendSms(phoneE164)}
+            />
 
-            {!!errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
+            {errorMsg ? (
+              <p className="text-[10px] font-semibold text-rose-600">
+                {errorMsg}
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="space-y-3">
-            <div>
-              <label className="text-sm font-semibold">Enter verification code</label>
+            <FieldLabel label="Verification code">
               <input
                 value={smsCode}
-                onChange={(e) => setSmsCode(e.target.value.replace(/[^\d]/g, "").slice(0, 6))}
+                onChange={(event) =>
+                  setSmsCode(
+                    event.target.value.replace(/[^\d]/g, "").slice(0, 6)
+                  )
+                }
                 placeholder="6-digit code"
-                className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3"
+                className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-sm font-bold tracking-[0.2em] outline-none transition focus:border-[#173C2E]/45"
               />
-            </div>
+            </FieldLabel>
 
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <button
-                className="text-sm underline"
+                type="button"
                 disabled={phoneBusy}
                 onClick={() => {
                   setSmsSent(false);
                   setSmsCode("");
                 }}
+                className="text-[10px] font-black text-slate-500 hover:text-[#173C2E]"
               >
-                Back
+                Change number
               </button>
 
               <div className="flex gap-2">
                 <button
+                  type="button"
                   disabled={phoneBusy || !validPhoneE164}
-                  className="h-10 px-4 rounded-xl border"
                   onClick={() => sendSms(phoneE164)}
+                  className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
                 >
                   Resend
                 </button>
 
                 <button
+                  type="button"
                   disabled={phoneBusy || smsCode.length !== 6}
-                  className="h-10 px-4 rounded-xl bg-[#C79257] text-white font-bold disabled:opacity-60"
                   onClick={confirmSms}
+                  className="h-10 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
                 >
-                  {phoneBusy ? "Verifying…" : "Verify & Link"}
+                  {phoneBusy ? "Verifying…" : "Verify & link"}
                 </button>
               </div>
             </div>
 
-            {!!errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
+            {errorMsg ? (
+              <p className="text-[10px] font-semibold text-rose-600">
+                {errorMsg}
+              </p>
+            ) : null}
           </div>
         )}
       </BottomSheet>
 
-
-      {/* invisible recaptcha node */}
       <div id="recaptcha-container" />
 
-      {/* Global confirm modal for delete account */}
       <ConfirmModal
         open={confirmDeleteOpen}
         title="Permanently delete your ekarihub account?"
@@ -1480,161 +1967,207 @@ export default function EditProfilePage() {
     </>
   );
 
-  // ✅ Loading UI (wrapped)
+  // ✅ Loading UI
   if (loading) {
     const LoadingBody = (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-pulse text-[color:var(--ekari-gold,#C79257)]">
+      <div className="grid min-h-[100svh] place-items-center bg-[#F8F7F2]">
+        <div className="text-center">
           <BouncingBallLoader />
+          <p className="mt-3 text-[10px] font-semibold text-slate-400">
+            Loading profile settings…
+          </p>
         </div>
       </div>
     );
 
-    if (isMobile) {
-      return (
-        <div className="fixed inset-0 flex flex-col bg-white">
-          <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
-            <div
-              className="h-14 px-3 flex items-center gap-2"
-              style={{ paddingTop: "env(safe-area-inset-top)" }}
-            >
-              <button
-                onClick={goBack}
-                className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
-                aria-label="Back"
-              >
-                <IoArrowBack size={18} />
-              </button>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
-                  Edit Profile
-                </div>
-                <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
-                  {String(params?.handle || "").replace(/^@/, "")}
-                </div>
-              </div>
-              <div className="w-10" />
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto overscroll-contain">{LoadingBody}</div>
-        </div>
-      );
-    }
-
-    return <AppShell>{LoadingBody}</AppShell>;
+    return isMobile ? (
+      LoadingBody
+    ) : (
+      <AppShell>{LoadingBody}</AppShell>
+    );
   }
 
-  // ✅ Mobile wrapper: sticky header + scroll area (no AppShell)
   if (isMobile) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-white">
-        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
-          <div
-            className="h-14 px-3 flex items-center gap-2"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
-          >
-            <button
-              onClick={goBack}
-              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
-              aria-label="Back"
-              title="Back"
-            >
-              <IoArrowBack size={18} />
-            </button>
-
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
-                Edit Profile
-              </div>
-              <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
-                {String(params?.handle || "").replace(/^@/, "")}
-              </div>
-            </div>
-
-            <div className="w-10" />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto overscroll-contain">{PageContent}</div>
+      <div
+        className="fixed inset-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F8F7F2]"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y",
+        }}
+      >
+        {PageContent}
       </div>
     );
   }
 
-  // ✅ Desktop wrapper: keep AppShell
-  return <AppShell>{PageContent}</AppShell>;
+  return (
+    <AppShell>
+      <div
+        className="h-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F8F7F2]"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y",
+        }}
+      >
+        {PageContent}
+      </div>
+    </AppShell>
+  );
 }
+
+function SettingsSection({
+  title,
+  subtitle,
+  icon,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+    >
+      <div className="mb-4 flex items-start gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+          {icon}
+        </span>
+
+        <div>
+          <h2 className="text-[13px] font-black text-slate-900">
+            {title}
+          </h2>
+
+          <p className="mt-0.5 text-[9px] font-medium leading-4 text-slate-400">
+            {subtitle}
+          </p>
+        </div>
+      </div>
+
+      {children}
+    </motion.section>
+  );
+}
+
 function ToggleItemRow({
   label,
   value,
   checked,
+  icon,
   onChange,
 }: {
   label: string;
   value: string;
   checked: boolean;
+  icon?: React.ReactNode;
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-4 flex items-center justify-between hover:border-[#C79257]/70 hover:shadow-md transition-all">
-      <div className="pr-3">
-        <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-          {label}
-        </div>
-        <div className="mt-1 text-sm text-slate-900 font-semibold">
-          {value}
+    <div className="flex min-h-[76px] items-center justify-between gap-3 rounded-[14px] border border-[#E4DED2] bg-white px-3.5 py-3 transition hover:border-[#CFC8BB]">
+      <div className="flex min-w-0 items-start gap-2.5">
+        {icon ? (
+          <span className="mt-0.5 text-[#F39A22]">
+            {icon}
+          </span>
+        ) : null}
+
+        <div className="min-w-0">
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+            {label}
+          </div>
+
+          <div className="mt-1 text-[10px] font-semibold leading-4 text-slate-600">
+            {value}
+          </div>
         </div>
       </div>
 
       <button
         type="button"
+        role="switch"
+        aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${checked ? "bg-[#233F39]" : "bg-gray-300"
-          }`}
+        className={[
+          "relative h-[28px] w-[50px] shrink-0 rounded-full",
+          "border transition-all duration-300 ease-out",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#173C2E]/25",
+          "active:scale-[0.98]",
+          checked
+            ? "border-[#173C2E] bg-[#173C2E]"
+            : "border-[#D5D9D6] bg-[#E7EAE8]",
+        ].join(" ")}
       >
         <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${checked ? "translate-x-6" : "translate-x-1"
-            }`}
+          className={[
+            "absolute top-[3px] h-[20px] w-[20px] rounded-full bg-white",
+            "shadow-[0_2px_6px_rgba(15,23,42,0.20)]",
+            "transition-all duration-300 ease-out",
+            checked ? "left-[26px]" : "left-[3px]",
+          ].join(" ")}
         />
       </button>
     </div>
   );
 }
-/* =========================================================
-   ItemRow — card-style row
-   ========================================================= */
+
 function ItemRow({
   label,
   value,
   onEdit,
   locked,
+  status,
 }: {
   label: string;
   value: string;
   onEdit?: () => void;
   locked?: boolean;
+  status?: "success" | "warning";
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-4 flex items-center justify-between hover:border-[#C79257]/70 hover:shadow-md transition-all">
-      <div className="pr-3">
-        <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-          {label}
+    <div className="flex min-h-[76px] items-center justify-between gap-3 rounded-[14px] border border-[#E4DED2] bg-white px-3.5 py-3 transition hover:border-[#CFC8BB]">
+      <div className="min-w-0 pr-2">
+        <div className="flex items-center gap-2">
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+            {label}
+          </div>
+
+          {status ? (
+            <span
+              className={[
+                "h-2 w-2 rounded-full",
+                status === "success"
+                  ? "bg-emerald-500"
+                  : "bg-amber-500",
+              ].join(" ")}
+            />
+          ) : null}
         </div>
-        <div className="mt-1 text-sm text-slate-900 font-semibold break-words">
+
+        <div className="mt-1 break-words text-[11px] font-black leading-5 text-slate-700">
           {value}
         </div>
       </div>
+
       <div className="shrink-0">
         {locked ? (
-          <span className="inline-flex items-center gap-1 text-slate-400 text-xs">
-            <IoLockClosed size={14} /> Locked
+          <span className="inline-flex items-center gap-1 rounded-lg bg-[#F3F1EB] px-2.5 py-1.5 text-[9px] font-black text-slate-400">
+            <IoLockClosed size={11} />
+            Locked
           </span>
         ) : (
           <button
+            type="button"
             onClick={onEdit}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-xs font-bold text-slate-800"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[9px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
           >
-            <IoPencil size={14} /> Edit
+            <IoPencil size={11} />
+            Edit
           </button>
         )}
       </div>
@@ -1642,9 +2175,58 @@ function ItemRow({
   );
 }
 
-/* =========================================================
-   BottomSheet primitive (accessible)
-   ========================================================= */
+function FieldLabel({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[10px] font-black text-slate-600">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function SheetActions({
+  onCancel,
+  onSave,
+  saveText = "Save",
+  disabled = false,
+  className = "",
+}: {
+  onCancel: () => void;
+  onSave: () => void | Promise<void>;
+  saveText?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={["flex justify-end gap-2 pt-1", className].join(" ")}>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB]"
+      >
+        Cancel
+      </button>
+
+      <button
+        type="button"
+        onClick={() => void onSave()}
+        disabled={disabled}
+        className="h-10 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
+      >
+        {saveText}
+      </button>
+    </div>
+  );
+}
+
 function BottomSheet({
   open,
   title,
@@ -1658,7 +2240,6 @@ function BottomSheet({
 }) {
   const [mounted, setMounted] = React.useState(false);
 
-  // Avoid SSR document access issues
   React.useEffect(() => {
     setMounted(true);
   }, []);
@@ -1667,54 +2248,66 @@ function BottomSheet({
 
   return createPortal(
     <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center">
-          {/* Backdrop */}
+      {open ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center px-3">
           <motion.div
-            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
 
-          {/* Centered dialog */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-labelledby="sheet-title"
-            className="relative z-[91] w-[92vw] max-w-md md:max-w-lg rounded-2xl bg-white border border-gray-200 shadow-xl"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            className="relative z-[91] w-full max-w-lg overflow-hidden rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_24px_70px_rgba(0,0,0,0.22)]"
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 6 }}
-            transition={{ type: "spring", stiffness: 240, damping: 22, mass: 0.7 }}
+            transition={{
+              type: "spring",
+              stiffness: 260,
+              damping: 24,
+              mass: 0.7,
+            }}
           >
-            <div className="flex items-center justify-between p-4 border-b">
-              <div id="sheet-title" className="font-extrabold text-slate-900">
-                {title}
+            <div className="flex items-center justify-between border-b border-[#E4DED2] px-4 py-3.5">
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#F39A22]">
+                  Profile settings
+                </div>
+
+                <div
+                  id="sheet-title"
+                  className="mt-0.5 text-[14px] font-black text-slate-900"
+                >
+                  {title}
+                </div>
               </div>
+
               <button
-                className="px-2 py-1 text-slate-600 hover:text-slate-900"
+                type="button"
+                className="grid h-9 w-9 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-500 transition hover:bg-[#F3F1EB] hover:text-slate-900"
                 onClick={onClose}
+                aria-label="Close"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-4 overflow-auto max-h-[70vh] md:max-h-[75vh]">
+            <div className="max-h-[75vh] overflow-y-auto p-4">
               {children}
             </div>
           </motion.div>
         </div>
-      )}
+      ) : null}
     </AnimatePresence>,
     document.body
   );
 }
 
-/* =========================================================
-   TagPicker — lightweight multi-select chips with search
-   ========================================================= */
 function TagPicker({
   label,
   value,
@@ -1736,87 +2329,102 @@ function TagPicker({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+
     if (!q) return [] as string[];
+
     return options
-      .filter((o) => !selected.has(o))
-      .filter((o) => o.toLowerCase().includes(q))
+      .filter((option) => !selected.has(option))
+      .filter((option) => option.toLowerCase().includes(q))
       .slice(0, 12);
   }, [query, options, selected]);
 
-  const add = (t: string) => {
-    if (!canAddMore || selected.has(t)) return;
-    onChange([...value, t]);
+  const add = (tag: string) => {
+    if (!canAddMore || selected.has(tag)) return;
+    onChange([...value, tag]);
   };
-  const remove = (t: string) => onChange(value.filter((x) => x !== t));
-  const toggle = (t: string) => (selected.has(t) ? remove(t) : add(t));
+
+  const remove = (tag: string) =>
+    onChange(value.filter((item) => item !== tag));
+
+  const toggle = (tag: string) =>
+    selected.has(tag) ? remove(tag) : add(tag);
 
   return (
     <div>
       <div className="flex items-center justify-between">
-        <span className="font-extrabold text-slate-900">{label}</span>
-        <span className="text-xs text-gray-500">
+        <span className="text-[11px] font-black text-slate-800">
+          {label}
+        </span>
+
+        <span className="text-[9px] font-semibold text-slate-400">
           {value.length}/{max}
         </span>
       </div>
 
-      {!!value.length && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {value.map((t) => (
+      {value.length ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {value.map((tag) => (
             <button
-              key={t}
-              onClick={() => remove(t)}
-              className="rounded-full border border-gray-200 px-3 py-1 text-sm font-semibold"
+              key={tag}
+              type="button"
+              onClick={() => remove(tag)}
+              className="rounded-full bg-[#173C2E] px-2.5 py-1 text-[9px] font-black text-white"
             >
-              {t} ×
+              {tag} ×
             </button>
           ))}
         </div>
-      )}
+      ) : null}
 
-      {!!popular.length && (
-        <div className="flex flex-wrap gap-2 mt-3">
-          {popular.map((p) => {
-            const active = selected.has(p);
+      {popular.length ? (
+        <div className="mt-3 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+          {popular.map((tag) => {
+            const active = selected.has(tag);
+
             return (
               <button
-                key={p}
-                onClick={() => toggle(p)}
+                key={tag}
+                type="button"
+                onClick={() => toggle(tag)}
                 disabled={!active && !canAddMore}
-                className={`rounded-full px-3 py-2 text-sm font-extrabold border ${active
-                  ? "bg-[#233F39] text-white border-[#233F39]"
-                  : "bg-white text-slate-900 border-gray-200"
-                  }`}
+                className={[
+                  "rounded-full border px-2.5 py-1.5 text-[9px] font-black transition",
+                  active
+                    ? "border-[#173C2E] bg-[#173C2E] text-white"
+                    : "border-[#D9D3C7] bg-white text-slate-600 hover:bg-[#F3F1EB]",
+                ].join(" ")}
               >
-                {p}
+                {tag}
               </button>
             );
           })}
         </div>
-      )}
+      ) : null}
 
-      <div className="mt-3 border border-gray-200 rounded-xl bg-gray-50 px-3">
+      <div className="mt-3 flex h-11 items-center rounded-xl border border-[#D9D3C7] bg-white px-3 transition focus-within:border-[#173C2E]/45">
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder={`Search ${label.toLowerCase()}…`}
-          className="h-11 w-full bg-transparent outline-none"
+          className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
         />
       </div>
 
-      {!!filtered.length && (
-        <div className="mt-2 max-h-56 overflow-auto border border-gray-200 rounded-lg bg-white">
-          {filtered.map((opt) => (
+      {filtered.length ? (
+        <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-[#D9D3C7] bg-white">
+          {filtered.map((option) => (
             <button
-              key={opt}
-              onClick={() => add(opt)}
+              key={option}
+              type="button"
+              onClick={() => add(option)}
               disabled={!canAddMore}
-              className="w-full text-left px-3 py-2 hover:bg-gray-50"
+              className="w-full border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[10px] font-semibold text-slate-600 transition last:border-b-0 hover:bg-[#F8F7F2]"
             >
-              {opt}
+              {option}
             </button>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -73,12 +74,14 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import OpenInAppBanner from "../components/OpenInAppBanner";
 
 const EKARI = {
-  forest: "#233F39",
-  bg: "#ffffff",
+  forest: "#173C2E",
+  forestSoft: "#214C3A",
+  bg: "#F8F7F2",
+  paper: "#FBFAF6",
   text: "#111827",
   subtext: "#6B7280",
-  hair: "#E5E7EB",
-  primary: "#C79257",
+  hair: "#DDD8CC",
+  primary: "#F39A22",
   green: "#16A34A",
 };
 /* ---------- helpers (add near your other helpers) ---------- */
@@ -104,25 +107,31 @@ function StatPill({
   onClick?: () => void;
 }) {
   const Comp: any = onClick ? "button" : "div";
+
   return (
     <Comp
       onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black",
-        onClick && "hover:bg-black/[0.02] cursor-pointer"
-      )}
-      style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
+      className={[
+        "inline-flex items-baseline gap-1.5",
+        "text-left transition-all duration-200",
+        onClick ? "hover:-translate-y-0.5 hover:text-[#173C2E]" : "",
+      ].join(" ")}
       title={label}
       type={onClick ? "button" : undefined}
     >
-      {icon}
-      <span>{value}</span>
-      <span className="font-semibold" style={{ color: EKARI.subtext }}>
+      <span className="hidden text-[#F39A22] sm:inline-flex">{icon}</span>
+
+      <span className="text-[17px] font-black leading-none text-slate-900">
+        {value}
+      </span>
+
+      <span className="text-[12px] font-semibold text-slate-400">
         {label}
       </span>
     </Comp>
   );
 }
+
 // ===============================
 // Storefront-style Profile Hero UI
 // ===============================
@@ -161,9 +170,14 @@ function IconBtn({
   label: string;
   target?: string;
 }) {
-  const cls =
-    "h-11 w-11 rounded-2xl border grid place-items-center transition hover:bg-black/[0.02]";
-  const st = { borderColor: EKARI.hair, background: "white", color: EKARI.text };
+  const cls = [
+    "grid h-10 w-10 place-items-center rounded-full",
+    "border border-[#D9D3C7] bg-[#FBFAF6] text-slate-600",
+    "shadow-[0_6px_16px_rgba(15,23,42,0.04)]",
+    "transition-all duration-200 ease-out",
+    "hover:-translate-y-0.5 hover:border-[#F39A22]/55 hover:bg-[#FFF9F0] hover:text-[#173C2E]",
+    "active:translate-y-0 active:scale-95",
+  ].join(" ");
 
   if (href) {
     return (
@@ -172,7 +186,6 @@ function IconBtn({
         target={target}
         rel={target ? "noopener noreferrer" : undefined}
         className={cls}
-        style={st}
         aria-label={label}
         title={label}
       >
@@ -186,7 +199,6 @@ function IconBtn({
       type="button"
       onClick={onClick}
       className={cls}
-      style={st}
       aria-label={label}
       title={label}
     >
@@ -202,46 +214,69 @@ function SegmentedTabs({
   value: TabKey;
   onChange: (k: TabKey) => void;
 }) {
-  const Tab = ({
-    k,
-    label,
-    icon,
-  }: {
-    k: TabKey;
+  const tabs: Array<{
+    key: TabKey;
     label: string;
     icon: React.ReactNode;
-  }) => {
-    const active = value === k;
-    return (
-      <button
-        type="button"
-        onClick={() => onChange(k)}
-        className={cn(
-          "relative flex-1 h-10 rounded-2xl text-xs font-black transition",
-          active ? "text-white" : "text-slate-900 hover:bg-black/[0.03]"
-        )}
-        style={{ backgroundColor: active ? EKARI.forest : "transparent" }}
-      >
-        <span className="inline-flex items-center gap-2 justify-center w-full">
-          <span className="inline-flex items-center gap-1.5">
-            {icon}
-            {label}
-          </span>
-        </span>
-      </button>
-    );
-  };
+  }> = [
+      {
+        key: "deeds",
+        label: "Deeds",
+        icon: <IoFilmOutline size={15} />,
+      },
+      {
+        key: "events",
+        label: "Events",
+        icon: <IoCalendarOutline size={15} />,
+      },
+      {
+        key: "discussions",
+        label: "Discussions",
+        icon: <IoChatbubblesOutline size={15} />,
+      },
+      {
+        key: "reviews",
+        label: "Reviews",
+        icon: <IoStarOutline size={15} />,
+      },
+    ];
 
   return (
-    <div
-      className="w-full rounded-[22px] border bg-white p-1 shadow-[0_12px_30px_rgba(15,23,42,0.06)]"
-      style={{ borderColor: EKARI.hair }}
-    >
-      <div className="flex gap-1">
-        <Tab k="deeds" label="Deeds" icon={<IoFilmOutline size={14} />} />
-        <Tab k="events" label="Events" icon={<IoCalendarOutline size={14} />} />
-        <Tab k="discussions" label="Discussions" icon={<IoChatbubblesOutline size={14} />} />
-        <Tab k="reviews" label="Reviews" icon={<IoStarOutline size={14} />} />
+    <div className="border-b border-[#DDD8CC] bg-[#FBFAF6]">
+      <div className="mx-auto flex max-w-[1040px] items-center gap-2 overflow-x-auto px-4 no-scrollbar">
+        {tabs.map((tab) => {
+          const active = value === tab.key;
+
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onChange(tab.key)}
+              className={[
+                "relative inline-flex h-12 shrink-0 items-center gap-2 px-3",
+                "text-[12px] font-black transition-colors duration-200",
+                active
+                  ? "text-[#173C2E]"
+                  : "text-slate-400 hover:text-slate-700",
+              ].join(" ")}
+            >
+              {tab.icon}
+              {tab.label}
+
+              {active ? (
+                <motion.span
+                  layoutId="profile-tab-indicator"
+                  className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#173C2E]"
+                  transition={{
+                    type: "spring",
+                    stiffness: 420,
+                    damping: 34,
+                  }}
+                />
+              ) : null}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -265,36 +300,34 @@ function SectionHeader({
           ? "Discussions"
           : "Reviews";
 
-  return (
-    <div className="px-3 md:px-6 mb-3">
-      <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base md:text-lg font-black" style={{ color: EKARI.text }}>
-              {tabLabel}
-            </h2>
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black"
-              style={{ background: "rgba(35,63,57,0.08)", color: EKARI.forest }}
-            >
-              <IoFunnelOutline size={13} />
-              {tabLabel}
-            </span>
-          </div>
-          <p className="mt-1 text-sm" style={{ color: EKARI.subtext }}>
-            {subtitle ||
-              (tab === "deeds"
-                ? "Videos and moments from this profile."
-                : tab === "events"
-                  ? "Upcoming and past events."
-                  : tab === "discussions"
-                    ? "Questions and conversations."
-                    : "Ratings and feedback.")}
-          </p>
-        </div>
+  const defaultSubtitle =
+    tab === "deeds"
+      ? "Videos and moments from this profile."
+      : tab === "events"
+        ? "Upcoming and past events."
+        : tab === "discussions"
+          ? "Questions and conversations."
+          : "Ratings and feedback.";
 
-        {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
+  return (
+    <div className="mx-auto mb-3 flex max-w-[1040px] items-center justify-between gap-3 px-4 pt-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <IoFunnelOutline size={14} className="text-slate-400" />
+
+        <h2 className="text-[13px] font-black text-slate-700">
+          {tabLabel}
+        </h2>
+
+        <span className="rounded-full bg-[#EFECE5] px-2 py-0.5 text-[9px] font-bold text-slate-500">
+          {tabLabel}
+        </span>
       </div>
+
+      <p className="hidden truncate text-[10px] font-medium text-slate-400 sm:block">
+        {subtitle || defaultSubtitle}
+      </p>
+
+      {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
     </div>
   );
 }
@@ -336,387 +369,477 @@ function ProfileHeroStorefront({
 }) {
   const verificationStatus: VerificationStatus =
     (profile.verificationStatus as VerificationStatus) || "none";
+
   const verificationType: VerificationType =
     (profile.verificationType as VerificationType) || "individual";
 
   const isPremium =
     profile.storefrontUntil && profile.storefrontUntil > Date.now();
+
   const router = useRouter();
 
   const phone = cleanPhone(profile.phone || null);
   const website = toWebsiteLink(profile.website || null);
   const whatsapp = toWhatsAppLink(profile?.phone || profile.phone || null);
+
   const handleSlug = React.useMemo(
     () => (profile.handle || "").replace(/^@/, ""),
     [profile.handle]
   );
-  const openConnections = (tabKey: "following" | "followers" | "partners" | "mutual") => {
+
+  const openConnections = (
+    tabKey: "following" | "followers" | "partners" | "mutual"
+  ) => {
     if (!handleSlug) return;
-    router.push(`/${encodeURIComponent(handleSlug)}/connections?tab=${tabKey}`);
+
+    router.push(
+      `/${encodeURIComponent(handleSlug)}/connections?tab=${tabKey}`
+    );
   };
-  const heroBg =
-    "radial-gradient(900px circle at 10% 10%, rgba(199,146,87,0.90), transparent 45%), linear-gradient(135deg, rgba(35,63,57,0.80), rgba(35,63,57,1))";
-  const verificationOrgName = profile.verificationOrganizationName;
+
+  const verificationOrgName =
+    profile.verificationOrganizationName;
 
   const reviewsText =
     reviewsSummary && reviewsSummary.count > 0
       ? `${reviewsSummary.rating.toFixed(1)} (${reviewsSummary.count})`
       : "—";
 
+  const verificationLabel =
+    verificationStatus === "approved"
+      ? `Verified ${verificationType}`
+      : verificationStatus === "pending" ||
+        verificationStatus === "payment_pending"
+        ? "Verification pending"
+        : null;
+
+  const storefrontExpired =
+    !!profile.storefrontUntil &&
+    profile.storefrontUntil <= Date.now();
+
   return (
-    <section className="mb-4">
-      <div className="max-w-5xl mx-auto px-0 lg:px-4">
+    <motion.section
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="bg-[#FBFAF6]"
+    >
+      {/* COVER */}
+      <div
+        className="relative h-[120px] overflow-hidden bg-[#173C2E] md:h-[138px]"
+        style={{
+          backgroundImage:
+            "linear-gradient(135deg, rgba(23,60,46,1), rgba(21,69,49,.96))",
+        }}
+      >
         <div
-          className="relative overflow-hidden rounded-[0px] lg:rounded-[28px] border bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]"
-          style={{ borderColor: EKARI.hair }}
-        >
-          {/* Cover */}
-          <div className="relative h-[110px] md:h-[140px]" style={{ background: heroBg }}>
-            <div className="absolute inset-0 bg-black/0" />
+          className="pointer-events-none absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+          }}
+        />
 
-          </div>
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/[0.025]" />
 
-          {/* Content */}
-          <div className="relative px-4 pb-4 md:px-6 md:pb-6">
-            <div className="-mt-8 md:-mt-12 flex flex-col sm:flex-row sm:items-end gap-3 md:gap-4">
+        {/* desktop primary actions live in cover */}
+        <div className="absolute right-4 top-4 hidden items-center gap-2 md:flex lg:right-6">
+          {isOwner ? (
+            <Link
+              href={
+                profile.isSuspended
+                  ? ""
+                  : `/${(profile.handle || "@user").replace(/^@/, "")}/edit`
+              }
+              className={[
+                "inline-flex h-10 items-center gap-2 rounded-xl px-4",
+                "border border-white/15 bg-[#FBFAF6] text-[12px] font-black text-slate-800",
+                "shadow-[0_8px_20px_rgba(0,0,0,0.10)]",
+                "transition-all duration-200",
+                "hover:-translate-y-0.5 hover:bg-white",
+                profile.isSuspended ? "pointer-events-none opacity-60" : "",
+              ].join(" ")}
+            >
+              <IoPencilOutline size={16} />
+              Edit
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (profile.isSuspended) return;
+                hasUser
+                  ? followState.toggle()
+                  : onRequireAuth();
+              }}
+              className={[
+                "h-10 rounded-xl px-4 text-[12px] font-black",
+                "transition-all duration-200",
+                followState.isFollowing
+                  ? "border border-white/20 bg-white/10 text-white hover:bg-white/15"
+                  : "bg-[#F39A22] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]",
+              ].join(" ")}
+              disabled={followState.isFollowing === null}
+            >
+              {followState.isFollowing
+                ? "Following"
+                : "Follow"}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onMessage}
+            disabled={isOwner || profile.isSuspended}
+            className={[
+              "inline-flex h-10 items-center gap-2 rounded-xl px-4",
+              "bg-[#F39A22] text-[12px] font-black text-white",
+              "transition-all duration-200",
+              "hover:-translate-y-0.5 hover:bg-[#E98C12]",
+              "disabled:cursor-not-allowed disabled:opacity-45",
+            ].join(" ")}
+          >
+            <IoChatbubbleEllipsesOutline size={17} />
+            Message
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              profile.isSuspended ? null : onShare()
+            }
+            className={[
+              "grid h-10 w-10 place-items-center rounded-full",
+              "border border-white/15 bg-[#FBFAF6] text-slate-700",
+              "transition-all duration-200",
+              "hover:-translate-y-0.5 hover:bg-white",
+            ].join(" ")}
+            aria-label="Share"
+            title="Share"
+          >
+            <IoShareSocialOutline size={17} />
+          </button>
+        </div>
+      </div>
+
+      {/* PROFILE MAIN */}
+      <div className="mx-auto max-w-[1040px] px-4">
+        <div className="relative pb-4">
+          <div className="-mt-[48px] flex flex-col gap-3 md:-mt-[58px] md:flex-row md:items-end md:gap-4">
+            <div className="relative shrink-0 self-start">
               <div
-                className="relative h-24 w-24 rounded-3xl overflow-hidden border bg-white shadow-[0_12px_30px_rgba(15,23,42,0.10)]"
-                style={{ borderColor: EKARI.hair }}
+                className={[
+                  "relative grid h-[104px] w-[104px] place-items-center overflow-hidden rounded-full",
+                  "border-[5px] border-[#FBFAF6] bg-[#173C2E]",
+                  "shadow-[0_14px_34px_rgba(15,23,42,0.12)]",
+                ].join(" ")}
               >
                 <LargeAvatar
                   src={profile.photoURL || "/avatar-placeholder.png"}
                   alt={profile.handle || "avatar"}
-                  size={96}
-                //rounded="full"
+                  size={104}
                 />
-
               </div>
 
-              <div className="min-w-0 pt-1 flex-1 pb-1">
-                <h1 className="text-[12px] md:text-xs font-bold" style={{ color: EKARI.text }}>
-                  {loading ? "Loading…" : profile.name || profile.handle || "Profile"}
-                </h1>
-
-                <div className="flex flex-block items-center gap-x-3 gap-y-1">
-                  <span className="text-xs font-bold" style={{ color: EKARI.subtext }}>
-                    {profile.handle || "@user"}
-                  </span>
-
-
-                </div>
-              </div>
-
-              {/* Desktop actions */}
-              <div className="hidden md:flex items-center gap-2  pb-1">
-                {isOwner ? (
-                  <> {profile.isSuspended ? (
-                    <Link
-                      href={``}
-                      className="h-9 px-5 rounded-2xl font-black text-sm border hover:bg-black/[0.02] inline-flex items-center gap-2"
-                      style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
-                    >
-                      <IoPencilOutline size={16} />
-                      Edit
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/${(profile.handle || "@user").replace(/^@/, "")}/edit`}
-                      className="h-9 px-5 rounded-2xl font-black text-sm border hover:bg-black/[0.02] inline-flex items-center gap-2"
-                      style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
-                    >
-                      <IoPencilOutline size={16} />
-                      Edit
-                    </Link>
-                  )}</>
-
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (profile.isSuspended) return;
-                      hasUser ? followState.toggle() : onRequireAuth();
-                    }}
-                    className={cn(
-                      "h-9 px-5 rounded-2xl font-black text-sm transition",
-                      followState.isFollowing ? "border bg-white hover:bg-black/[0.02]" : "text-white"
-                    )}
-                    style={
-                      followState.isFollowing
-                        ? { borderColor: EKARI.hair, color: EKARI.text }
-                        : { backgroundColor: EKARI.primary, color: "white" }
-                    }
-                    disabled={followState.isFollowing === null}
-                    title={followState.isFollowing ? "Unfollow" : "Follow"}
-                  >
-                    {followState.isFollowing ? "Following" : "Follow"}
-                  </button>
-                )}
-
-                <button
-                  onClick={onMessage}
-                  className="h-9 px-5 rounded-2xl text-sm text-white inline-flex items-center gap-2 disabled:opacity-60"
-                  style={{ backgroundColor: EKARI.forest }}
-                  disabled={isOwner || profile.isSuspended}
-                  type="button"
-                >
-                  <IoChatbubbleEllipsesOutline size={18} />
-                  Message
-                </button>
-                {/* visit store */}
-                {isPremium && (
-                  profile.isSuspended ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="h-9 px-4 rounded-xl text-white/70 inline-flex items-center gap-2 cursor-not-allowed"
-                      style={{ backgroundColor: "#9CA3AF" }}
-                      title="Store disabled because account is suspended"
-                    >
-                      <IoStorefrontOutline size={16} />
-                      Store unavailable
-                    </button>
-                  ) : (
-                    <Link
-                      href={`/store/${profile.id}?src=profile`}
-                      className="h-9 px-4 rounded-xl text-white inline-flex items-center gap-2"
-                      style={{ backgroundColor: EKARI.green }}
-                    >
-                      <IoStorefrontOutline size={16} />
-                      Visit Store
-                    </Link>
-                  )
-                )}
-                <IconBtn onClick={() => profile.isSuspended ? null : onShare()} icon={<IoShareSocialOutline size={16} />} label="Share" />
-              </div>
-            </div>
-            {profile.isSuspended && (
-              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                <div className="font-black">Account suspended</div>
-                <div className="mt-1">
-                  This profile has been suspended for violating ekarihub community guidelines.
-                </div>
-              </div>
-            )}
-            <div className="mt-3">
-              {profile.bio ? (
-                <div
-                  className="relative flex flex-col rounded-xl border p-3 shadow"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  {/* light-hand vertical gradient border (3px) */}
-                  <div
-                    className="pointer-events-none absolute left-0 top-0 h-full w-[3px] rounded-l-xl"
-                    style={{
-                      background: `linear-gradient(180deg, ${EKARI.forest} 0%, ${EKARI.primary} 100%)`,
-                      opacity: 0.85,
-                    }}
-                  />
-
-                  <span className="text-xs pl-2" style={{ color: EKARI.subtext }}>
-                    • {profile.bio}
-                  </span>
-                </div>
+              {verificationStatus === "approved" ? (
+                <span className="absolute bottom-1 right-1 grid h-7 w-7 place-items-center rounded-full border-[3px] border-[#FBFAF6] bg-[#173C2E] text-white">
+                  <IoCheckmarkDone size={15} />
+                </span>
               ) : null}
             </div>
 
-            {/* stats row */}
-            <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              {/* stats pills (storefront style) */}
-              <div className="mt-2 flex flex-wrap gap-2">
-                <StatPill
-                  icon={<IoPeopleOutline size={13} />}
-                  label="Followers"
-                  value={nfmt(Number(profile.followersCount || 0))}
-                  onClick={() => profile.isSuspended ? null : openConnections("followers")}
-                />
-                <StatPill
-                  icon={<IoListOutline size={13} />}
-                  label="Following"
-                  value={nfmt(Number(profile.followingCount || 0))}
-                  onClick={() => profile.isSuspended ? null : openConnections("following")}
-                />
-                <StatPill
-                  icon={<IoChatbubbleEllipsesOutline size={13} />}
-                  label="Partners"
-                  value={nfmt(partners || 0)}
-                  onClick={() => profile.isSuspended ? null : openConnections("partners")}
-                />
-                <StatPill
-                  icon={<IoChatbubblesOutline size={13} />}
-                  label="Mutual"
-                  value={nfmt(mutualPartners || 0)}
-                  onClick={() => profile.isSuspended ? null : openConnections("mutual")}
-                />
-                <StatPill
-                  icon={<IoHeartOutline size={13} />}
-                  label="Likes"
-                  value={nfmt(Number(likesValue || 0))}
-                />
-                <StatPill icon={<IoStarOutline size={13} />} label="Rating" value={reviewsText} />
-              </div>
+            <div className="min-w-0 flex-1 pb-1 md:pt-[55px]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h1 className="truncate text-[25px] font-black tracking-[-0.035em] text-slate-900">
+                    {loading
+                      ? "Loading…"
+                      : profile.name ||
+                      profile.handle ||
+                      "Profile"}
+                  </h1>
 
+                  <div className="mt-0.5 truncate text-[13px] font-bold text-slate-400">
+                    {profile.handle || "@user"}
+                  </div>
 
-              {/* contacts */}
-              <div className="flex items-center gap-2">
-                {canSeeContacts && phone && (
-                  <IconBtn href={`tel:${phone}`} icon={<IoCallOutline size={18} />} label="Call" />
-                )}
-                {canSeeContacts && whatsapp && (
-                  <IconBtn href={whatsapp} icon={<IoLogoWhatsapp size={18} />} label="WhatsApp" target="_blank" />
-                )}
-                {canSeeContacts && website && (
-                  <IconBtn href={website} icon={<IoGlobeOutline size={18} />} label="Website" target="_blank" />
-                )}
-              </div>
-            </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {verificationLabel ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[10px] font-black text-[#3E6F28]">
+                        <IoShieldCheckmarkOutline size={13} />
+                        {verificationLabel}
+                      </span>
+                    ) : null}
 
-            {/* Mobile action bar */}
+                    {showAdminBadge && isOwner ? (
+                      <span className="rounded-full bg-[#E9EEFF] px-2.5 py-1 text-[10px] font-black text-[#214E87]">
+                        Admin
+                      </span>
+                    ) : null}
 
-            <div className="mt-4 md:hidden">
-              <div
-                className="rounded-3xl border p-3 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <div className="grid grid-cols-4 gap-2">
-                  {isOwner ? (
-                    <Link
-                      href={`/${(profile.handle || "@user").replace(/^@/, "")}/edit`}
-                      className="col-span-2 h-11 rounded-2xl font-black border text-sm inline-flex items-center justify-center gap-2"
-                      style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
-                    >
-                      <IoPencilOutline size={16} />
-                      Edit
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        if (profile.isSuspended) return;
-                        hasUser ? followState.toggle() : onRequireAuth();
-                      }}
-                      className={cn(
-                        "col-span-2 h-11 rounded-2xl font-black text-sm transition",
-                        followState.isFollowing ? "border bg-white hover:bg-black/[0.02]" : "text-white"
-                      )}
-                      style={
-                        followState.isFollowing
-                          ? { borderColor: EKARI.hair, color: EKARI.text }
-                          : { backgroundColor: EKARI.primary, color: "white" }
-                      }
-                      disabled={followState.isFollowing === null}
-                      type="button"
-                    >
-                      {followState.isFollowing ? "Following" : "Follow"}
-                    </button>
-                  )}
+                    {isOwner && storefrontExpired ? (
+                      <Link
+                        href="/seller/dashboard?tab=packages"
+                        className="rounded-full bg-[#FDECEC] px-2.5 py-1 text-[10px] font-black text-[#B3312C]"
+                      >
+                        Storefront expired
+                      </Link>
+                    ) : null}
 
-                  <button
-                    onClick={() => profile.isSuspended ? null : onShare()}
-                    className="h-11 rounded-2xl border grid place-items-center hover:bg-black/[0.02]"
-                    style={{ borderColor: EKARI.hair, background: "white", color: EKARI.text }}
-                    aria-label="Share"
-                    title="Share"
-                    type="button"
-                  >
-                    <IoShareSocialOutline size={18} />
-                  </button>
+                    {isPremium && !profile.isSuspended ? (
+                      <Link
+                        href={`/store/${profile.id}?src=profile`}
+                        className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[10px] font-black text-[#3E6F28]"
+                      >
+                        <IoStorefrontOutline size={12} />
+                        Store
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
 
-                  <button
-                    onClick={() => profile.isSuspended ? null : onMessage()}
-                    className="h-11 rounded-2xl font-black text-sm text-white inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                    style={{ backgroundColor: EKARI.forest }}
-                    disabled={isOwner || profile.isSuspended}
-                    type="button"
-                  >
-                    <IoChatbubbleEllipsesOutline size={18} />
-                  </button>
+                <div className="hidden shrink-0 items-center gap-2 md:flex">
+                  {canSeeContacts && phone ? (
+                    <IconBtn
+                      href={`tel:${phone}`}
+                      icon={<IoCallOutline size={17} />}
+                      label="Call"
+                    />
+                  ) : null}
 
+                  {canSeeContacts && whatsapp ? (
+                    <IconBtn
+                      href={whatsapp}
+                      icon={<IoLogoWhatsapp size={17} />}
+                      label="WhatsApp"
+                      target="_blank"
+                    />
+                  ) : null}
+
+                  {canSeeContacts && website ? (
+                    <IconBtn
+                      href={website}
+                      icon={<IoGlobeOutline size={17} />}
+                      label="Website"
+                      target="_blank"
+                    />
+                  ) : null}
                 </div>
               </div>
+
+              {profile.bio ? (
+                <p className="mt-2 max-w-3xl text-[13px] font-medium leading-5 text-slate-600">
+                  {profile.bio}
+                </p>
+              ) : null}
+
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                {website ? (
+                  <a
+                    href={website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex max-w-[360px] items-center gap-1.5 truncate text-[11px] font-bold text-[#173C2E] underline decoration-[#173C2E]/25 underline-offset-2"
+                  >
+                    <IoGlobeOutline size={13} />
+                    {profile.website}
+                  </a>
+                ) : null}
+
+                {canSeeContacts && phone ? (
+                  <a
+                    href={`tel:${phone}`}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#173C2E]"
+                  >
+                    <IoCallOutline size={13} />
+                    {phone}
+                  </a>
+                ) : null}
+              </div>
             </div>
+          </div>
 
-
-
-            {/* tiny footer */}
-            <div className="mt-4 flex gap-2 text-[11px]" style={{ color: EKARI.subtext }}>
-              {/** <span>
-                Powered by <span className="font-black" style={{ color: EKARI.text }}>ekarihub</span>
-              </span>
-               */}
-              {isOwner && (<>
-                <Link
-                  href={`/${handleSlug}/earnings`}
-                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]"
-                  style={{ color: EKARI.text }}
-                >
-                  💰 Earnings
-                </Link>
-                <Link href="/seller/dashboard?tab=packages" className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]" style={{ color: EKARI.text }}>
-                  <IoGridOutline size={16} /> Seller dashboard
-                </Link>
-
-                <Link
-                  href={`/store/${profile.id}?src=mystore`}
-                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]"
-                  style={{ color: EKARI.text }}
-                >
-                  <IoListOutline size={16} />
-                  My Listings
-                </Link>
-
-                <Link
-                  href="/nexus/events/saved"
-                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]"
-                  style={{ color: EKARI.text, borderColor: EKARI.hair }}
-                >
-                  <IoBookmarkOutline size={16} />
-                  Saved events
-                </Link>
-
-              </>)}
-              {showAdminBadge && isOwner && (
-                <Link href="/admin/overview" className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-1 border hover:bg-black/[0.02]" style={{ color: EKARI.text }}>
-                  <IoAnalyticsOutline size={16} />
-                  Admin dashboard
-                </Link>
-              )}
-
-              {/**  {(verificationStatus === "none" || verificationStatus === "rejected") && isOwner && (
-                <Link
-                  href="/account/verification"
-                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-2 border hover:bg-black/[0.02]"
-                  style={{ borderColor: `${EKARI.primary}55`, color: EKARI.primary, background: "white" }}
-                >
-                  <IoShieldCheckmarkOutline size={16} />
-                  {verificationStatus === "rejected" ? "Re-request" : "Get Verified"}
-                </Link>
-              )} */}
-
-              {verificationStatus === "pending" && isOwner && (
-                <button
-                  type="button"
-                  disabled
-                  className="h-10 px-4 rounded-xl font-black inline-flex items-center gap-2 border"
-                  style={{
-                    borderColor: EKARI.hair,
-                    color: "#92400E",
-                    background: "#FFFBEB",
-                  }}
-                >
-                  <IoTimeOutline size={16} />
-                  Pending
-                </button>
-              )}
-
-              {!isOwner && (<><div className="font-semibold flex gap-2 items-center">
-                {verificationType === "business" ? "Business" : verificationType === "company" ? "Company" : "Individual"}
-                {(verificationType === "business" || verificationType === "company") && verificationOrgName && (<span className="gap-2 font-bold">{verificationOrgName}</span>)}
-              </div></>)}
-
+          {profile.isSuspended ? (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-800">
+              <div className="font-black">
+                Account suspended
+              </div>
+              <div className="mt-1">
+                This profile has been suspended for violating
+                ekarihub community guidelines.
+              </div>
             </div>
+          ) : null}
+
+          {/* MOBILE ACTIONS */}
+          <div className="mt-4 grid grid-cols-[1fr_1fr_44px] gap-2 md:hidden">
+            {isOwner ? (
+              <Link
+                href={`/${(profile.handle || "@user").replace(/^@/, "")}/edit`}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white text-[12px] font-black text-slate-700"
+              >
+                <IoPencilOutline size={16} />
+                Edit
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  if (profile.isSuspended) return;
+                  hasUser
+                    ? followState.toggle()
+                    : onRequireAuth();
+                }}
+                className={[
+                  "h-11 rounded-xl text-[12px] font-black",
+                  followState.isFollowing
+                    ? "border border-[#D9D3C7] bg-white text-slate-700"
+                    : "bg-[#173C2E] text-white",
+                ].join(" ")}
+                type="button"
+              >
+                {followState.isFollowing
+                  ? "Following"
+                  : "Follow"}
+              </button>
+            )}
+
+            <button
+              onClick={() =>
+                profile.isSuspended ? null : onMessage()
+              }
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F39A22] text-[12px] font-black text-white disabled:opacity-50"
+              disabled={isOwner || profile.isSuspended}
+              type="button"
+            >
+              <IoChatbubbleEllipsesOutline size={17} />
+              Message
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                profile.isSuspended ? null : onShare()
+              }
+              className="grid h-11 w-11 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-700"
+              aria-label="Share"
+            >
+              <IoShareSocialOutline size={17} />
+            </button>
           </div>
         </div>
       </div>
-    </section>
+
+      {/* STATS STRIP */}
+      <div className="border-y border-[#DDD8CC] bg-[#FBFAF6]">
+        <div className="mx-auto flex max-w-[1040px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <StatPill
+              icon={<IoPeopleOutline size={13} />}
+              label="Followers"
+              value={nfmt(Number(profile.followersCount || 0))}
+              onClick={() =>
+                profile.isSuspended
+                  ? null
+                  : openConnections("followers")
+              }
+            />
+
+            <StatPill
+              icon={<IoListOutline size={13} />}
+              label="Following"
+              value={nfmt(Number(profile.followingCount || 0))}
+              onClick={() =>
+                profile.isSuspended
+                  ? null
+                  : openConnections("following")
+              }
+            />
+
+            <StatPill
+              icon={<IoChatbubbleEllipsesOutline size={13} />}
+              label="Partners"
+              value={nfmt(partners || 0)}
+              onClick={() =>
+                profile.isSuspended
+                  ? null
+                  : openConnections("partners")
+              }
+            />
+
+            <StatPill
+              icon={<IoChatbubblesOutline size={13} />}
+              label="Mutual"
+              value={nfmt(mutualPartners || 0)}
+              onClick={() =>
+                profile.isSuspended
+                  ? null
+                  : openConnections("mutual")
+              }
+            />
+
+            <StatPill
+              icon={<IoHeartOutline size={13} />}
+              label="Likes"
+              value={nfmt(Number(likesValue || 0))}
+            />
+          </div>
+
+          <div className="inline-flex items-center gap-1 rounded-full border border-[#F39A22]/35 bg-[#FFF8ED] px-3 py-1.5 text-[11px] font-black text-[#8A5109]">
+            <IoStarOutline size={14} className="text-[#F39A22]" />
+            {reviewsText} Rating
+          </div>
+        </div>
+      </div>
+
+      {/* OWNER SHORTCUTS */}
+      {isOwner ? (
+        <div className="border-b border-[#DDD8CC] bg-[#FBFAF6]">
+          <div className="mx-auto flex max-w-[1040px] gap-2 overflow-x-auto px-4 py-2.5 no-scrollbar">
+            <Link
+              href={`/${handleSlug}/earnings`}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+            >
+              <IoCashOutline size={14} className="text-[#F39A22]" />
+              Earnings
+            </Link>
+
+            <Link
+              href="/seller/dashboard?tab=packages"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+            >
+              <IoGridOutline size={14} className="text-[#F39A22]" />
+              Seller dashboard
+            </Link>
+
+            <Link
+              href={`/store/${profile.id}?src=mystore`}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+            >
+              <IoListOutline size={14} className="text-[#F39A22]" />
+              My listings
+            </Link>
+
+            {/**  <Link
+              href="/nexus/events/saved"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+            >
+              <IoBookmarkOutline size={14} className="text-[#F39A22]" />
+              Saved events
+            </Link>*/}
+
+            {showAdminBadge ? (
+              <Link
+                href="/admin/overview"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+              >
+                <IoAnalyticsOutline size={14} className="text-[#F39A22]" />
+                Admin dashboard
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </motion.section>
   );
 }
 
@@ -746,17 +869,7 @@ function ProfessionalAccountSection({
   const isRejected =
     verificationStatus === "rejected";
 
-  /*
-   * Owners always see this section so that they can
-   * create or manage an expert profile.
-   *
-   * Visitors only see it when a public expert profile
-   * has been published.
-   */
-  if (
-    !isOwner &&
-    !hasPublishedExpertProfile
-  ) {
+  if (!isOwner && !hasPublishedExpertProfile) {
     return null;
   }
 
@@ -785,7 +898,7 @@ function ProfessionalAccountSection({
     profile.storefrontUntil <= Date.now();
 
   const description = isVerified
-    ? "Identity and professional information have been reviewed by ekarihub."
+    ? "Identity and professional credentials have been reviewed by ekarihub."
     : isVerificationPending
       ? "This expert profile can remain active while the verification request is being reviewed."
       : isRejected
@@ -795,249 +908,183 @@ function ProfessionalAccountSection({
           : "Create an expert profile to publish your services and receive consultation requests. Verification is optional.";
 
   return (
-    <section className="mx-auto mb-6 max-w-5xl px-3 md:px-4">
-      <div
-        className="overflow-hidden rounded-[26px] border bg-white shadow-[0_14px_44px_rgba(15,23,42,0.06)]"
-        style={{
-          borderColor: EKARI.hair,
-        }}
-      >
-        <div className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:p-6">
-          <div className="flex min-w-0 items-start gap-4">
-            <div
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl"
-              style={{
-                backgroundColor: isVerified
-                  ? "#E6F1EE"
-                  : isVerificationPending
-                    ? "#FFFBEB"
-                    : "#F8FAFC",
-
-                color: isVerified
-                  ? EKARI.forest
-                  : isVerificationPending
-                    ? "#B45309"
-                    : "#64748B",
-              }}
-            >
-              {isVerified ? (
-                <IoShieldCheckmarkOutline
-                  size={24}
-                />
-              ) : isVerificationPending ? (
-                <IoTimeOutline size={23} />
-              ) : (
-                <IoInformationCircleOutline
-                  size={23}
-                />
-              )}
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2
-                  className="text-base font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  {hasPublishedExpertProfile
-                    ? "Expert profile"
-                    : "Become an Ekari Expert"}
-                </h2>
-
-                <span
-                  className={[
-                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-black",
-
-                    isVerified
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : isVerificationPending
-                        ? "border-amber-200 bg-amber-50 text-amber-700"
-                        : "border-slate-200 bg-slate-50 text-slate-600",
-                  ].join(" ")}
-                >
-                  {isVerified ? (
-                    <IoShieldCheckmarkOutline
-                      size={13}
-                    />
-                  ) : isVerificationPending ? (
-                    <IoTimeOutline size={13} />
-                  ) : (
-                    <IoInformationCircleOutline
-                      size={13}
-                    />
-                  )}
-
-                  {badgeLabel}
-                </span>
-
-                {isOwner &&
-                  profile.isAdmin ? (
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-600">
-                    Admin
-                  </span>
-                ) : null}
-
-                {isOwner &&
-                  storefrontExpired ? (
-                  <Link
-                    href="/seller/dashboard?tab=packages"
-                    className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-black text-rose-700 hover:bg-rose-100"
-                  >
-                    Storefront expired
-                  </Link>
-                ) : null}
+    <motion.section
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.28,
+        delay: 0.04,
+        ease: "easeOut",
+      }}
+      className="bg-[#F3F1EB] px-4 py-4"
+    >
+      <div className="mx-auto max-w-[1040px]">
+        <div
+          className={[
+            "rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6]",
+            "px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.035)]",
+          ].join(" ")}
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div
+                className={[
+                  "grid h-12 w-12 shrink-0 place-items-center rounded-full",
+                  isVerified
+                    ? "bg-[#E8ECE8] text-[#173C2E]"
+                    : isVerificationPending
+                      ? "bg-[#FFF4E3] text-[#B66A0C]"
+                      : "bg-slate-100 text-slate-500",
+                ].join(" ")}
+              >
+                {isVerified ? (
+                  <IoShieldCheckmarkOutline size={23} />
+                ) : isVerificationPending ? (
+                  <IoTimeOutline size={22} />
+                ) : (
+                  <IoInformationCircleOutline size={22} />
+                )}
               </div>
 
-              <p
-                className="mt-1.5 text-sm font-bold"
-                style={{
-                  color: isVerified
-                    ? EKARI.forest
-                    : EKARI.text,
-                }}
-              >
-                {professionalLabel}
-              </p>
+              <div className="min-w-0">
+                <h2 className="text-[15px] font-black text-slate-900">
+                  {hasPublishedExpertProfile
+                    ? "Professional account"
+                    : "Become an ekari Expert"}
+                </h2>
 
-              <p
-                className="mt-1 text-xs leading-5"
-                style={{
-                  color: EKARI.subtext,
-                }}
-              >
-                {description}
+                <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
+                  {hasPublishedExpertProfile
+                    ? "Expert profile · Farmer specialist"
+                    : "Professional services on ekarihub"}
+                </p>
 
-                {isVerified &&
-                  isOwner &&
-                  !hasPublishedExpertProfile
-                  ? " Complete your expert settings to start receiving consultation requests."
-                  : ""}
-              </p>
-            </div>
-          </div>
-
-          {isOwner ? (
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap md:justify-end">
-              <Link
-                href="/account/expert"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-black text-white"
-                style={{
-                  backgroundColor:
-                    EKARI.forest,
-                }}
-              >
-                <IoPencilOutline size={15} />
-
-                {hasPublishedExpertProfile
-                  ? "Expert settings"
-                  : "Create expert profile"}
-              </Link>
-
-              {hasPublishedExpertProfile ? (
-                <Link
-                  href="/account/expert/bookings"
-                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                  style={{
-                    borderColor:
-                      EKARI.hair,
-                    color: EKARI.text,
-                  }}
-                >
-                  <IoCalendarOutline
-                    size={15}
-                  />
-
-                  <span>
-                    Expert bookings
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={[
+                      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black",
+                      isVerified
+                        ? "bg-[#EAF4E7] text-[#3E6F28]"
+                        : isVerificationPending
+                          ? "bg-[#FFF4E3] text-[#9A5A08]"
+                          : "bg-slate-100 text-slate-600",
+                    ].join(" ")}
+                  >
+                    {isVerified ? (
+                      <IoShieldCheckmarkOutline size={12} />
+                    ) : null}
+                    {badgeLabel}
                   </span>
 
-                  {expertBookingsBadge >
-                    0 ? (
-                    <span
-                      className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white"
-                      style={{
-                        backgroundColor:
-                          EKARI.primary,
-                      }}
+                  {isOwner && profile.isAdmin ? (
+                    <span className="rounded-full bg-[#E9EEFF] px-2.5 py-1 text-[10px] font-black text-[#214E87]">
+                      Admin
+                    </span>
+                  ) : null}
+
+                  {isOwner && storefrontExpired ? (
+                    <Link
+                      href="/seller/dashboard?tab=packages"
+                      className="rounded-full bg-[#FDECEC] px-2.5 py-1 text-[10px] font-black text-[#B3312C]"
                     >
-                      {expertBookingsBadge >
-                        99
+                      Storefront expired
+                    </Link>
+                  ) : null}
+                </div>
+
+                <p className="mt-3 text-[12px] font-bold text-slate-600">
+                  {professionalLabel}
+                </p>
+
+                <p className="mt-1 max-w-3xl text-[11px] font-medium leading-5 text-slate-500">
+                  {description}
+                  {isVerified &&
+                    isOwner &&
+                    !hasPublishedExpertProfile
+                    ? " Complete your expert settings to start receiving consultation requests."
+                    : ""}
+                </p>
+              </div>
+            </div>
+
+            {isOwner ? (
+              <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <Link
+                  href="/account/expert"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                >
+                  <IoPencilOutline size={14} />
+                  {hasPublishedExpertProfile
+                    ? "Expert settings"
+                    : "Create expert profile"}
+                </Link>
+
+                {hasPublishedExpertProfile ? (
+                  <Link
+                    href="/account/expert/bookings"
+                    className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[11px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+                  >
+                    <IoCalendarOutline size={14} />
+                    Expert bookings
+
+                    {expertBookingsBadge > 0 ? (
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#F39A22] px-1 text-[9px] text-white">
+                        {expertBookingsBadge > 99
+                          ? "99+"
+                          : expertBookingsBadge}
+                      </span>
+                    ) : null}
+                  </Link>
+                ) : null}
+
+                <Link
+                  href="/account/bookings"
+                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[11px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]"
+                >
+                  <IoListOutline size={14} />
+                  My bookings
+
+                  {myBookingsBadge > 0 ? (
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#F39A22] px-1 text-[9px] text-white">
+                      {myBookingsBadge > 99
                         ? "99+"
-                        : expertBookingsBadge}
+                        : myBookingsBadge}
                     </span>
                   ) : null}
                 </Link>
-              ) : null}
 
-              <Link
-                href="/account/bookings"
-                className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                style={{
-                  borderColor: EKARI.hair,
-                  color: EKARI.text,
-                }}
-              >
-                <IoListOutline size={15} />
-
-                <span>My bookings</span>
-
-                {myBookingsBadge > 0 ? (
-                  <span
-                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black text-white"
-                    style={{
-                      backgroundColor:
-                        EKARI.primary,
-                    }}
-                  >
-                    {myBookingsBadge > 99
-                      ? "99+"
-                      : myBookingsBadge}
-                  </span>
-                ) : null}
-              </Link>
-
-              <Link
-                href="/account/verification"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-black hover:bg-slate-50"
-                style={{
-                  borderColor: isVerified
-                    ? EKARI.hair
-                    : "#FCD34D",
-
-                  color: isVerified
-                    ? EKARI.subtext
-                    : "#92400E",
-
-                  backgroundColor:
+                <Link
+                  href="/account/verification"
+                  className={[
+                    "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4",
+                    "text-[11px] font-black transition",
                     isVerified
-                      ? "white"
-                      : "#FFFBEB",
-                }}
-              >
-                {isVerificationPending ? (
-                  <IoTimeOutline size={15} />
-                ) : (
-                  <IoShieldCheckmarkOutline
-                    size={15}
-                  />
-                )}
+                      ? "border-[#D9D3C7] bg-white text-slate-600 hover:bg-[#FFF9F0]"
+                      : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
+                  ].join(" ")}
+                >
+                  {isVerificationPending ? (
+                    <IoTimeOutline size={14} />
+                  ) : (
+                    <IoShieldCheckmarkOutline size={14} />
+                  )}
 
-                {isVerified
-                  ? "Verification"
-                  : isVerificationPending
-                    ? "Verification status"
-                    : isRejected
-                      ? "Verify again"
-                      : "Get verified"}
-              </Link>
-            </div>
-          ) : null}
+                  {isVerified
+                    ? "Verification"
+                    : isVerificationPending
+                      ? "Verification status"
+                      : isRejected
+                        ? "Verify again"
+                        : "Get verified"}
+                </Link>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }
-
 
 const cn = (...xs: Array<string | false | null | undefined>) =>
   xs.filter(Boolean).join(" ");
@@ -4905,7 +4952,7 @@ export default function HandleProfilePage() {
       {isOwner && <DeedProcessingGate authorUid={uid ?? null} handle={handleWithAt} />}
 
       {/* container: desktop has max width, mobile full width */}
-      <div className={isDesktop ? "min-h-screen w-full" : "min-h-screen w-full"}>
+      <div className="min-h-screen w-full bg-[#F8F7F2]">
         {/* header with tabs */}
         {loadingProfile ? (
           <div className="p-6 animate-pulse">
@@ -5014,25 +5061,23 @@ export default function HandleProfilePage() {
               />
             ) : null}
 
-            <div className="max-w-5xl mx-auto px-4 -mt-2 md:-mt-3 mb-5">
-              {profile?.isSuspended && !isOwner ? (
-                <div className="py-16 text-center text-sm text-slate-500">
-                  This account is currently suspended. Content is not available.
-                </div>
-              ) : (
+            {profile?.isSuspended && !isOwner ? (
+              <div className="mx-auto max-w-[1040px] px-4 py-12 text-center text-sm text-slate-500">
+                This account is currently suspended. Content is not available.
+              </div>
+            ) : (
+              <>
                 <SegmentedTabs value={tab} onChange={setTab} />
-              )}
-
-            </div>
-
-            <SectionHeader tab={tab} />
+                <SectionHeader tab={tab} />
+              </>
+            )}
           </>
         ) : (
           <div
             className="flex p-6 items-center justify-center h-[60vh] w-full text-sm"
             style={{ color: EKARI.subtext }}
           >
-            {uid === undefined ? <BouncingBallLoader /> : "Profile not found."}
+            {uid === undefined ? <BouncingBallLoader /> : <BouncingBallLoader />}
           </div>
         )}
 
@@ -5082,29 +5127,32 @@ export default function HandleProfilePage() {
   );
 
   // ---- MOBILE: fixed inset, sticky header w/ back button ----
+  // ---- MOBILE: fixed viewport with independent profile scrolling ----
   if (isMobile) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-white">
-        {/* Sticky top bar */}
-        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+      <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-[#F8F7F2]">
+
+        {/* Fixed top bar */}
+        <div className="relative z-50 shrink-0 border-b border-white/10 bg-[#173C2E]/95 backdrop-blur-xl">
           <div
-            className="h-14 px-3 flex items-center gap-2"
+            className="flex h-14 items-center gap-2 px-3"
             style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             <button
               onClick={goBack}
-              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
+              className="grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-white/[0.06] text-white transition active:scale-95"
               aria-label="Back"
               title="Back"
             >
-              <IoArrowBack size={20} color={EKARI.text} />
+              <IoArrowBack size={20} color="#FFFFFF" />
             </button>
 
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
+              <div className="truncate text-[15px] font-black text-white">
                 {handleWithAt}
               </div>
-              <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
+
+              <div className="truncate text-[11px] text-white/45">
                 Profile
               </div>
             </div>
@@ -5113,15 +5161,49 @@ export default function HandleProfilePage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
+        {/* SCROLLABLE PROFILE CONTENT */}
+        <main
+          className="
+          min-h-0
+          flex-1
+          overflow-x-hidden
+          overflow-y-auto
+          overscroll-y-contain
+          scroll-smooth
+          [-webkit-overflow-scrolling:touch]
+        "
+        >
+          {Body}
+
+          {/* iPhone / mobile bottom safe area */}
+          <div
+            className="shrink-0"
+            style={{
+              height: "max(16px, env(safe-area-inset-bottom))",
+            }}
+          />
+        </main>
       </div>
     );
   }
 
-  // ---- DESKTOP: keep AppShell ----
+
+  // ---- DESKTOP ----
   return (
     <AppShell>
-      <div className="min-h-screen w-full bg-white">{Body}</div>
+      <main
+        className="
+        h-full
+        min-h-0
+        w-full
+        overflow-x-hidden
+        overflow-y-auto
+        scroll-smooth
+        bg-[#F8F7F2]
+      "
+      >
+        {Body}
+      </main>
     </AppShell>
   );
 }

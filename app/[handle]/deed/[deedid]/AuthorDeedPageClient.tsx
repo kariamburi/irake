@@ -13,6 +13,7 @@ import {
     where,
 } from "firebase/firestore";
 
+import AppShell from "@/app/components/AppShell";
 import OpenInAppBanner from "@/app/components/OpenInAppBanner";
 import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
 import RightRail from "@/app/components/RightRail";
@@ -31,8 +32,16 @@ import {
 import { DeedsScrollerWeb } from "@/app/deeds/components/DeedsScrollerWeb";
 import { DesktopDeedRailWeb } from "@/app/deeds/components/DesktopDeedRailWeb";
 import { GlobalMuteProviderWeb } from "@/app/deeds/hooks/useGlobalMuteWeb";
-import { IoArrowBack, IoRepeatOutline } from "react-icons/io5";
+import {
+    IoArrowBack,
+    IoRepeatOutline,
+    IoChevronForward,
+    IoPersonOutline,
+    IoSparklesOutline,
+    IoClose,
+} from "react-icons/io5";
 import { repostDeed } from "@/lib/repostDeed";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Props = {
     handle: string;
@@ -242,6 +251,56 @@ async function resolveAuthorFromRoute(handle: string, deedId: string): Promise<R
     }
 
     return null;
+}
+
+
+function SafeAuthorAvatar({
+    src,
+    alt,
+    size = 42,
+}: {
+    src?: string | null;
+    alt: string;
+    size?: number;
+}) {
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        setFailed(false);
+    }, [src]);
+
+    const hasImage =
+        !!src?.trim() && !failed;
+
+    return (
+        <div
+            className="relative shrink-0 overflow-hidden rounded-full border border-white/15 bg-[#173C2E]"
+            style={{
+                width: size,
+                height: size,
+            }}
+        >
+            {hasImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={src || ""}
+                    alt={alt}
+                    className="h-full w-full object-cover"
+                    onError={() =>
+                        setFailed(true)
+                    }
+                />
+            ) : (
+                <div className="grid h-full w-full place-items-center text-white">
+                    <IoPersonOutline
+                        size={Math.round(
+                            size * 0.46
+                        )}
+                    />
+                </div>
+            )}
+        </div>
+    );
 }
 
 export default function AuthorDeedPageClient({
@@ -688,295 +747,596 @@ export default function AuthorDeedPageClient({
     const canGoNext = activeIndex < items.length - 1;
     const desktopRailOpen = isDesktop && !!commentsId;
 
+    const authorHandle =
+        cleanHandleValue(
+            author?.handle || handle
+        );
+
     const contentLoading = (
-        <div className="relative min-h-[100svh]">
-            <OpenInAppBanner
-                webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
-                appUrl="ekarihub://"
-                title="Open ekarihub"
-                subtitle="Best experience in the app."
-            />
-
-            <div className="flex h-[100svh] w-full items-center justify-center">
-                <div className="flex h-full w-full items-center justify-center bg-black px-6 text-center text-sm text-white/80">
-                    <BouncingBallLoader />
-                </div>
-            </div>
-        </div>
-    );
-
-    const contentError = (
-        <div className="relative min-h-[100svh] bg-black text-white">
-            <OpenInAppBanner
-                webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
-                appUrl="ekarihub://"
-                title="Open ekarihub"
-                subtitle="Best experience in the app."
-            />
-
-            <div className="mx-auto flex min-h-[100svh] max-w-2xl flex-col items-center justify-center px-6 text-center">
-                <h1 className="text-xl font-bold">{errorText || "Something went wrong"}</h1>
-                <button
-                    type="button"
-                    onClick={() => router.push(`/${cleanHandleValue(handle)}`)}
-                    className="mt-5 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black"
-                >
-                    Open profile
-                </button>
-            </div>
-        </div>
-    );
-
-    const contentEmpty = (
-        <div className="relative min-h-[100svh] bg-black text-white">
-            <OpenInAppBanner
-                webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
-                appUrl="ekarihub://"
-                title="Open ekarihub"
-                subtitle="Best experience in the app."
-            />
-
-            <div className="mx-auto flex min-h-[100svh] max-w-2xl flex-col items-center justify-center px-6 text-center">
-                <h1 className="text-xl font-bold">No deeds found</h1>
-                <p className="mt-2 text-sm text-white/70">
-                    This creator does not have visible deeds yet.
+        <div className="grid h-full min-h-[100svh] place-items-center bg-[#07110B] text-white">
+            <div className="text-center">
+                <BouncingBallLoader />
+                <p className="mt-3 text-[10px] font-semibold text-white/45">
+                    Loading creator deeds…
                 </p>
             </div>
         </div>
     );
 
-    const contentLive = (
-        <GlobalMuteProviderWeb initialMuted={true}>
-            <div className="relative min-h-[100svh] bg-black text-white">
+    const contentError = (
+        <div className="grid h-full min-h-[100svh] place-items-center bg-[#F8F7F2] px-4">
+            <motion.div
+                initial={{
+                    opacity: 0,
+                    y: 6,
+                }}
+                animate={{
+                    opacity: 1,
+                    y: 0,
+                }}
+                className="w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-7 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]"
+            >
+                <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+                    <IoSparklesOutline size={23} />
+                </div>
+
+                <h1 className="mt-4 text-[17px] font-black text-slate-900">
+                    {errorText ||
+                        "Something went wrong"}
+                </h1>
+
+                <p className="mt-2 text-[10px] font-medium leading-4 text-slate-400">
+                    We could not open this creator deed.
+                </p>
+
+                <button
+                    type="button"
+                    onClick={() =>
+                        router.push(
+                            `/${cleanHandleValue(
+                                handle
+                            )}`
+                        )
+                    }
+                    className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[10px] font-black text-white transition hover:bg-[#214C3A]"
+                >
+                    Open profile
+                </button>
+            </motion.div>
+        </div>
+    );
+
+    const contentEmpty = (
+        <div className="grid h-full min-h-[100svh] place-items-center bg-[#F8F7F2] px-4">
+            <motion.div
+                initial={{
+                    opacity: 0,
+                    y: 6,
+                }}
+                animate={{
+                    opacity: 1,
+                    y: 0,
+                }}
+                className="w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-7 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]"
+            >
+                <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+                    <IoSparklesOutline size={23} />
+                </div>
+
+                <h1 className="mt-4 text-[17px] font-black text-slate-900">
+                    No deeds found
+                </h1>
+
+                <p className="mt-2 text-[10px] font-medium leading-4 text-slate-400">
+                    This creator does not have visible deeds yet.
+                </p>
+            </motion.div>
+        </div>
+    );
+
+    const deedViewer = (
+        <GlobalMuteProviderWeb
+            initialMuted={true}
+        >
+            <div className="relative h-full min-h-0 w-full overflow-hidden bg-[#07110B] text-white">
                 <OpenInAppBanner
-                    webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}
+                    webUrl={
+                        typeof window !==
+                            "undefined"
+                            ? window.location.href
+                            : "https://ekarihub.com/"
+                    }
                     appUrl="ekarihub://"
                     title="Open ekarihub"
                     subtitle="Best experience in the app."
                 />
 
-                <div className="relative h-[100svh] w-full overflow-hidden text-white">
-                    <div className="flex h-full w-full">
-                        <div className="relative h-full min-w-0 flex-1 overflow-hidden">
-                            <div className="mx-auto flex h-full w-full max-w-[980px] items-stretch justify-center gap-4 xl:gap-6">
-                                <div className="relative flex h-full w-full items-stretch justify-center gap-4 xl:gap-6">
-                                    <section
-                                        ref={scrollerRef}
-                                        tabIndex={0}
-                                        className="h-[100svh] w-full overflow-y-scroll scroll-smooth outline-none no-scrollbar lg:w-[420px] xl:w-[460px]"
-                                        style={{
-                                            scrollSnapType: "y mandatory",
-                                            overscrollBehaviorY: "contain",
-                                            paddingBottom: isDesktop
+                <div className="relative flex h-full min-h-0 w-full">
+                    {/* Main deed stage */}
+                    <div className="relative min-w-0 flex-1 overflow-hidden">
+                        <div className="mx-auto flex h-full w-full max-w-[1000px] items-stretch justify-center">
+                            <div className="relative flex h-full min-w-0 flex-1 items-stretch justify-center">
+                                {/* Creator header - overlay, not part of scroller height */}
+                                <motion.div
+                                    initial={{
+                                        opacity: 0,
+                                        y: -5,
+                                    }}
+                                    animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                    }}
+                                    transition={{
+                                        duration: 0.2,
+                                    }}
+                                    className="pointer-events-none absolute inset-x-0 top-0 z-50"
+                                >
+                                    <div className="mx-auto flex h-[64px] w-full max-w-[520px] items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                router.push(
+                                                    `/${authorHandle}`
+                                                )
+                                            }
+                                            className="pointer-events-auto grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-black/35 text-white backdrop-blur transition hover:bg-black/50 active:scale-95"
+                                            aria-label="Go back"
+                                        >
+                                            <IoArrowBack size={18} />
+                                        </button>
+
+                                        <SafeAuthorAvatar
+                                            src={
+                                                author?.photoURL
+                                            }
+                                            alt={`@${authorHandle}`}
+                                            size={38}
+                                        />
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                router.push(
+                                                    `/${authorHandle}`
+                                                )
+                                            }
+                                            className="pointer-events-auto min-w-0 flex-1 text-left"
+                                        >
+                                            <div className="truncate text-[12px] font-black text-white">
+                                                @{authorHandle}
+                                            </div>
+
+                                            <div className="mt-0.5 truncate text-[9px] font-semibold text-white/55">
+                                                Creator deeds
+                                            </div>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                router.push(
+                                                    `/${authorHandle}`
+                                                )
+                                            }
+                                            className="pointer-events-auto hidden h-9 items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.07] px-3 text-[9px] font-black text-white transition hover:bg-white/[0.12] sm:inline-flex"
+                                        >
+                                            Profile
+                                            <IoChevronForward size={12} />
+                                        </button>
+                                    </div>
+                                </motion.div>
+
+                                {/* Deed scroller */}
+                                <section
+                                    ref={scrollerRef}
+                                    tabIndex={0}
+                                    className={[
+                                        "h-full min-h-0 w-full overflow-y-scroll scroll-smooth outline-none",
+                                        "overscroll-y-contain",
+                                        "lg:w-[560px] xl:w-[600px]",
+                                        "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                                    ].join(" ")}
+                                    style={{
+                                        scrollSnapType:
+                                            "y mandatory",
+                                        WebkitOverflowScrolling:
+                                            "touch",
+                                        touchAction: "pan-y",
+                                        paddingBottom:
+                                            isDesktop
                                                 ? "0px"
                                                 : "calc(72px + env(safe-area-inset-bottom))",
-                                        }}
-                                    >
-                                        <div className="sticky top-0 z-40 border-b border-white/10 bg-black/35 backdrop-blur-md">
-                                            <div className="mx-auto flex h-14 w-full max-w-[460px] items-center gap-3 px-4">
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        router.push(`/${cleanHandleValue(author?.handle || handle)}`)
-                                                    }
-                                                    className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-white/10 text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition hover:bg-white/15 active:scale-[0.98]"
-                                                    aria-label="Go back"
-                                                >
-                                                    <IoArrowBack className="text-[18px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]" />
-                                                </button>
-
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="truncate text-sm font-bold tracking-[0.01em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,1)]">
-                                                        @{cleanHandleValue(author?.handle || handle)}
-                                                    </div>
-                                                    <div className="truncate text-[11px] font-medium text-white/75 drop-shadow-[0_1px_6px_rgba(0,0,0,0.95)]">
-                                                        Creator deeds
-                                                    </div>
-                                                </div>
-                                            </div>
+                                    }}
+                                >
+                                    {items.length ===
+                                        0 ? (
+                                        <div className="grid h-full place-items-center text-[10px] font-semibold text-white/45">
+                                            No deeds yet.
                                         </div>
+                                    ) : (
+                                        <DeedsScrollerWeb
+                                            items={items}
+                                            uid={
+                                                user?.uid ??
+                                                null
+                                            }
+                                            cardH={
+                                                pageHeight
+                                            }
+                                            scrollerRef={
+                                                scrollerRef
+                                            }
+                                            commentedMap={
+                                                commentedMap
+                                            }
+                                            loading={
+                                                loadingMore
+                                            }
+                                            onNeedMore={(
+                                                index
+                                            ) => {
+                                                const remaining =
+                                                    items.length -
+                                                    1 -
+                                                    index;
 
-                                        {items.length === 0 ? (
-                                            <div className="grid h-[calc(100svh-56px)] place-items-center text-sm text-white/70">
-                                                No deeds yet.
-                                            </div>
-                                        ) : (
-                                            <DeedsScrollerWeb
-                                                items={items}
-                                                uid={user?.uid ?? null}
-                                                cardH={pageHeight}
-                                                scrollerRef={scrollerRef}
-                                                commentedMap={commentedMap}
-                                                loading={loadingMore}
-                                                onNeedMore={(index) => {
-                                                    const remaining = items.length - 1 - index;
-                                                    if (remaining <= 4) {
-                                                        loadMore();
-                                                    }
-                                                }}
-                                                onOpenComments={openComments}
-                                                onActiveItemChange={handleActiveItemChange}
-                                                initialIndex={initialIndex}
-                                            />
-                                        )}
+                                                if (
+                                                    remaining <=
+                                                    4
+                                                ) {
+                                                    loadMore();
+                                                }
+                                            }}
+                                            onOpenComments={
+                                                openComments
+                                            }
+                                            onActiveItemChange={
+                                                handleActiveItemChange
+                                            }
+                                            initialIndex={
+                                                initialIndex
+                                            }
+                                        />
+                                    )}
 
-                                        {loadingMore && items.length > 0 && (
-                                            <div className="pointer-events-none fixed bottom-24 left-1/2 z-40 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs text-white/90 backdrop-blur-md">
-                                                Loading more.
-                                            </div>
-                                        )}
-                                    </section>
-
-                                    {isDesktop ? (
-                                        <div className="hidden lg:flex w-[96px] xl:w-[108px] items-center justify-center">
-                                            <DesktopDeedRailWeb
-                                                item={activeDeed}
-                                                uid={user?.uid ?? null}
-                                                following={following}
-                                                commented={activeDeed ? !!commentedMap[activeDeed.id] : false}
-                                                onOpenComments={openComments}
-                                                onPrev={goPrev}
-                                                onNext={goNext}
-                                                canGoPrev={canGoPrev}
-                                                canGoNext={canGoNext}
-                                                authordeeds={true}
-                                            />
+                                    {loadingMore &&
+                                        items.length >
+                                        0 ? (
+                                        <div className="pointer-events-none fixed bottom-24 left-1/2 z-40 -translate-x-1/2 rounded-full border border-white/10 bg-black/65 px-3 py-1.5 text-[9px] font-black text-white/80 backdrop-blur-md">
+                                            Loading more…
                                         </div>
                                     ) : null}
-                                </div>
+                                </section>
+
+                                {/* Desktop action rail */}
+                                {isDesktop ? (
+                                    <div className="hidden w-[60px] shrink-0 items-center justify-center lg:flex xl:w-[60px]">
+                                        <DesktopDeedRailWeb
+                                            item={
+                                                activeDeed
+                                            }
+                                            uid={
+                                                user?.uid ??
+                                                null
+                                            }
+                                            following={
+                                                following
+                                            }
+                                            commented={
+                                                activeDeed
+                                                    ? !!commentedMap[
+                                                    activeDeed
+                                                        .id
+                                                    ]
+                                                    : false
+                                            }
+                                            onOpenComments={
+                                                openComments
+                                            }
+                                            onPrev={
+                                                goPrev
+                                            }
+                                            onNext={
+                                                goNext
+                                            }
+                                            canGoPrev={
+                                                canGoPrev
+                                            }
+                                            canGoNext={
+                                                canGoNext
+                                            }
+                                            authordeeds={
+                                                true
+                                            }
+                                        />
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
-
-                        {isDesktop ? (
-                            <div
-                                className={[
-                                    "hidden lg:block bg-white h-full shrink-0 transition-all duration-300",
-                                    desktopRailOpen ? "w-[400px]" : "w-0",
-                                ].join(" ")}
-                            >
-                                <RightRail
-                                    open={!!commentsId}
-                                    mode="sidebar"
-                                    deedId={commentsId ?? undefined}
-                                    onClose={closeComments}
-                                    onsuccesfulcomment={markCommented}
-                                    currentUser={{
-                                        uid: user?.uid || undefined,
-                                        photoURL: profileForShell.photoURL ?? undefined,
-                                        handle: profileForShell.handle ?? undefined,
-                                        name: profileForShell.name ?? undefined,
-                                    }}
-                                />
-                            </div>
-                        ) : null}
                     </div>
 
-                    {!isDesktop ? (
+                    {/* Desktop comments rail */}
+                    {isDesktop ? (
+                        <AnimatePresence
+                            initial={false}
+                        >
+                            {desktopRailOpen ? (
+                                <motion.aside
+                                    initial={{
+                                        width: 0,
+                                        opacity: 0,
+                                    }}
+                                    animate={{
+                                        width: 400,
+                                        opacity: 1,
+                                    }}
+                                    exit={{
+                                        width: 0,
+                                        opacity: 0,
+                                    }}
+                                    transition={{
+                                        duration: 0.22,
+                                        ease: "easeOut",
+                                    }}
+                                    className="hidden h-full shrink-0 overflow-hidden border-l border-[#1F3328] bg-[#0C1710] lg:block"
+                                >
+                                    <RightRail
+                                        open={
+                                            !!commentsId
+                                        }
+                                        mode="sidebar"
+                                        deedId={
+                                            commentsId ??
+                                            undefined
+                                        }
+                                        onClose={
+                                            closeComments
+                                        }
+                                        onsuccesfulcomment={
+                                            markCommented
+                                        }
+                                        currentUser={{
+                                            uid:
+                                                user?.uid ||
+                                                undefined,
+                                            photoURL:
+                                                profileForShell.photoURL ??
+                                                undefined,
+                                            handle:
+                                                profileForShell.handle ??
+                                                undefined,
+                                            name:
+                                                profileForShell.name ??
+                                                undefined,
+                                        }}
+                                        className="!h-full !w-[400px]"
+                                    />
+                                </motion.aside>
+                            ) : null}
+                        </AnimatePresence>
+                    ) : null}
+                </div>
+
+                {/* Mobile comments sheet */}
+                {!isDesktop ? (
+                    <div
+                        className={[
+                            "fixed inset-0 z-[90] transition",
+                            commentsId
+                                ? "pointer-events-auto"
+                                : "pointer-events-none",
+                        ].join(" ")}
+                        aria-hidden={!commentsId}
+                    >
                         <div
                             className={[
-                                "fixed inset-0 z-[90] transition",
-                                commentsId ? "pointer-events-auto" : "pointer-events-none",
+                                "absolute inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity",
+                                commentsId
+                                    ? "opacity-100"
+                                    : "opacity-0",
                             ].join(" ")}
-                            aria-hidden={!commentsId}
+                            onClick={
+                                closeComments
+                            }
+                        />
+
+                        <div
+                            className={[
+                                "absolute inset-x-0 bottom-0 h-[82vh] max-h-[90vh]",
+                                "overflow-hidden rounded-t-[22px] border-t border-[#263A2E] bg-[#0C1710]",
+                                "shadow-[0_-18px_50px_rgba(0,0,0,0.35)]",
+                                "transition-transform duration-300 will-change-transform",
+                                commentsId
+                                    ? "translate-y-0"
+                                    : "translate-y-full",
+                            ].join(" ")}
+                            role="dialog"
+                            aria-modal="true"
                         >
-                            <div
-                                className={[
-                                    "absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity",
-                                    commentsId ? "opacity-100" : "opacity-0",
-                                ].join(" ")}
-                                onClick={closeComments}
-                            />
+                            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-white/20" />
 
-                            <div
-                                className={[
-                                    "absolute inset-x-0 bottom-0 h-[82vh] max-h-[90vh]",
-                                    "rounded-t-2xl bg-white shadow-xl",
-                                    "transition-transform duration-300 will-change-transform",
-                                    commentsId ? "translate-y-0" : "translate-y-full",
-                                ].join(" ")}
-                                role="dialog"
-                                aria-modal="true"
-                            >
-                                <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-gray-300" />
-
-                                <div className="h-[calc(100%-12px)]">
-                                    <RightRail
-                                        open={!!commentsId}
-                                        mode="sheet"
-                                        deedId={commentsId ?? undefined}
-                                        onClose={closeComments}
-                                        onsuccesfulcomment={markCommented}
-                                        currentUser={{
-                                            uid: user?.uid || undefined,
-                                            photoURL: profileForShell.photoURL ?? undefined,
-                                            handle: profileForShell.handle ?? undefined,
-                                            name: profileForShell.name ?? undefined,
-                                        }}
-                                        className="!flex !h-full !w-full"
-                                    />
-                                </div>
+                            <div className="h-[calc(100%-12px)]">
+                                <RightRail
+                                    open={
+                                        !!commentsId
+                                    }
+                                    mode="sheet"
+                                    deedId={
+                                        commentsId ??
+                                        undefined
+                                    }
+                                    onClose={
+                                        closeComments
+                                    }
+                                    onsuccesfulcomment={
+                                        markCommented
+                                    }
+                                    currentUser={{
+                                        uid:
+                                            user?.uid ||
+                                            undefined,
+                                        photoURL:
+                                            profileForShell.photoURL ??
+                                            undefined,
+                                        handle:
+                                            profileForShell.handle ??
+                                            undefined,
+                                        name:
+                                            profileForShell.name ??
+                                            undefined,
+                                    }}
+                                    className="!flex !h-full !w-full"
+                                />
                             </div>
                         </div>
-                    ) : null}
-                    {activeDeedIsOwnedByViewer && (
-                        <button
-                            type="button"
-                            disabled={reposting}
-                            onClick={() => setRepostConfirmOpen(true)}
-                            className={[
-                                "fixed z-[70]",
-                                "right-4 top-[calc(env(safe-area-inset-top)+72px)]",
-                                "lg:right-6 lg:top-6",
-                                "inline-flex h-11 items-center gap-2 rounded-full",
-                                "border border-white/20 bg-black/65 px-4",
-                                "text-xs font-black text-white",
-                                "shadow-[0_12px_32px_rgba(0,0,0,0.4)]",
-                                "backdrop-blur-md transition",
-                                "hover:bg-black/80 active:scale-[0.97]",
-                                "disabled:cursor-not-allowed disabled:opacity-60",
-                            ].join(" ")}
-                            aria-label="Repost deed"
-                            title="Repost this deed"
-                        >
-                            {reposting ? (
-                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                            ) : (
-                                <IoRepeatOutline size={18} />
-                            )}
+                    </div>
+                ) : null}
 
-                            <span>
-                                {reposting ? "Reposting" : "Repost"}
-                            </span>
-                        </button>
-                    )}
-                </div>
+                {/* Repost action */}
+                {activeDeedIsOwnedByViewer ? (
+                    <motion.button
+                        initial={{
+                            opacity: 0,
+                            y: -4,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            y: 0,
+                        }}
+                        whileTap={{
+                            scale: 0.97,
+                        }}
+                        type="button"
+                        disabled={reposting}
+                        onClick={() =>
+                            setRepostConfirmOpen(
+                                true
+                            )
+                        }
+                        className={[
+                            "fixed z-[70]",
+                            "right-4 top-[calc(env(safe-area-inset-top)+76px)]",
+                            "lg:right-5 lg:top-5",
+                            "inline-flex h-10 items-center gap-2 rounded-xl",
+                            "border border-white/15 bg-[#173C2E]/90 px-3.5",
+                            "text-[9px] font-black text-white",
+                            "shadow-[0_12px_30px_rgba(0,0,0,0.35)]",
+                            "backdrop-blur transition hover:bg-[#214C3A]",
+                            "disabled:cursor-not-allowed disabled:opacity-60",
+                        ].join(" ")}
+                        aria-label="Repost deed"
+                        title="Repost this deed"
+                    >
+                        {reposting ? (
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                        ) : (
+                            <IoRepeatOutline size={15} />
+                        )}
+
+                        <span>
+                            {reposting
+                                ? "Reposting"
+                                : "Repost"}
+                        </span>
+                    </motion.button>
+                ) : null}
 
                 <EkariSideMenuSheet
                     open={menuOpen}
-                    onClose={() => setMenuOpen(false)}
+                    onClose={() =>
+                        setMenuOpen(false)
+                    }
                     uid={user?.uid}
-                    handle={(profile as any)?.handle ?? null}
-                    photoURL={(profile as any)?.photoURL ?? null}
-                    profileHref={profileHref}
-                    unreadDM={user?.uid ? unreadDM ?? 0 : 0}
-                    notifTotal={user?.uid ? notifTotal ?? 0 : 0}
-                    onLogout={signOutUser}
+                    handle={
+                        (profile as any)
+                            ?.handle ?? null
+                    }
+                    photoURL={
+                        (profile as any)
+                            ?.photoURL ?? null
+                    }
+                    profileHref={
+                        profileHref
+                    }
+                    unreadDM={
+                        user?.uid
+                            ? unreadDM ?? 0
+                            : 0
+                    }
+                    notifTotal={
+                        user?.uid
+                            ? notifTotal ?? 0
+                            : 0
+                    }
+                    onLogout={
+                        signOutUser
+                    }
                 />
             </div>
         </GlobalMuteProviderWeb>
     );
 
+    const contentLive = isDesktop ? (
+        <AppShell
+            handle={
+                profile?.handle ??
+                undefined
+            }
+        >
+            <div className="h-full min-h-0 overflow-hidden bg-[#07110B]">
+                {deedViewer}
+            </div>
+        </AppShell>
+    ) : (
+        <div className="fixed inset-0 overflow-hidden bg-[#07110B]">
+            {deedViewer}
+        </div>
+    );
+
     if (loading) {
-        return <div>{contentLoading}</div>;
+        return isDesktop ? (
+            <AppShell
+                handle={
+                    profile?.handle ??
+                    undefined
+                }
+            >
+                {contentLoading}
+            </AppShell>
+        ) : (
+            contentLoading
+        );
     }
 
     if (errorText) {
-        return <div>{contentError}</div>;
+        return isDesktop ? (
+            <AppShell
+                handle={
+                    profile?.handle ??
+                    undefined
+                }
+            >
+                {contentError}
+            </AppShell>
+        ) : (
+            contentError
+        );
     }
 
     if (!items.length) {
-        return <div>{contentEmpty}</div>;
+        return isDesktop ? (
+            <AppShell
+                handle={
+                    profile?.handle ??
+                    undefined
+                }
+            >
+                {contentEmpty}
+            </AppShell>
+        ) : (
+            contentEmpty
+        );
     }
 
-    return <div>{contentLive}</div>;
+    return contentLive;
 }

@@ -20,37 +20,43 @@ import {
   IoLockOpenOutline,
   IoChatbubbleOutline,
   IoPlayOutline,
+  IoSparklesOutline,
+  IoChevronForward,
+  IoTrendingUpOutline,
+  IoPricetagOutline,
+  IoInformationCircleOutline,
 } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
 import StudioShell from "../../components/StudioShell";
 import { DeedDoc } from "@/lib/fire-queries";
 import AppShell from "@/app/components/AppShell";
+import { motion, AnimatePresence } from "framer-motion";
 
 /** Avoid static optimization since we read client-side */
 export const dynamic = "force-dynamic";
 
 /* ---------------- Premium theme ---------------- */
 const EKARI = {
-  forest: "#233F39",
-  leaf: "#1F3A34",
-  gold: "#C79257",
-  sand: "#FFFFFF",
-  hair: "#E5E7EB",
+  forest: "#173C2E",
+  leaf: "#214C3A",
+  gold: "#F39A22",
+  sand: "#F8F7F2",
+  paper: "#FBFAF6",
+  hair: "#DDD8CC",
   text: "#0F172A",
-  dim: "#6B7280",
+  dim: "#64748B",
 };
 
 const UI = {
-  radius: "24px",
-  radiusSm: "16px",
-  border: "rgba(15,23,42,0.08)",
-  card: "rgba(255,255,255,0.86)",
-  cardSolid: "#FFFFFF",
-  soft: "rgba(15,23,42,0.03)",
-  shadow: "0 18px 50px -28px rgba(16,24,40,0.35)",
-  shadow2: "0 10px 30px -18px rgba(16,24,40,0.25)",
-  gradient:
-    "radial-gradient(900px 500px at 15% -10%, rgba(199,146,87,0.18), transparent 55%), radial-gradient(900px 500px at 85% 0%, rgba(35,63,57,0.14), transparent 55%), linear-gradient(180deg, #ffffff 0%, #fbfbfd 70%, #f7f8fb 100%)",
+  radius: "18px",
+  radiusSm: "14px",
+  border: "#DDD8CC",
+  card: "#FBFAF6",
+  cardSolid: "#FBFAF6",
+  soft: "#F3F1EB",
+  shadow: "0 16px 38px rgba(15,23,42,0.06)",
+  shadow2: "0 10px 28px rgba(15,23,42,0.025)",
+  gradient: "#F8F7F2",
 };
 
 /* ---------------- responsive helpers ---------------- */
@@ -74,12 +80,25 @@ function useIsMobile() {
 }
 
 /* ----------------------------- Helpers ---------------------------- */
-const nfmt = (n = 0) =>
-  n >= 1_000_000
-    ? `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
+const nfmt = (
+  input: number | string | null | undefined = 0
+) => {
+  const n = Number(input ?? 0);
+
+  if (!Number.isFinite(n)) {
+    return "0";
+  }
+
+  return n >= 1_000_000
+    ? `${(n / 1_000_000)
+      .toFixed(1)
+      .replace(/\.0$/, "")}M`
     : n >= 1_000
-      ? `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`
+      ? `${(n / 1_000)
+        .toFixed(1)
+        .replace(/\.0$/, "")}K`
       : `${n}`;
+};
 
 const durHHMMSS = (sec = 0) => {
   const s = Math.max(0, Math.floor(sec));
@@ -104,29 +123,28 @@ function safeUserHandleToPath(handleMaybe?: string | null) {
   return `/${encodeURIComponent(withAt)}`;
 }
 
-/* ---------------- Premium UI primitives ---------------- */
+/* ---------------- UI primitives ---------------- */
 function Card({
   children,
   className = "",
-  solid,
 }: {
   children: React.ReactNode;
   className?: string;
   solid?: boolean;
 }) {
   return (
-    <div
-      className={`overflow-hidden ${className}`}
-      style={{
-        borderRadius: UI.radius,
-        border: `1px solid ${UI.border}`,
-        background: solid ? UI.cardSolid : UI.card,
-        boxShadow: UI.shadow2,
-        backdropFilter: "blur(14px)",
-      }}
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className={[
+        "overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6]",
+        "shadow-[0_10px_28px_rgba(15,23,42,0.025)]",
+        className,
+      ].join(" ")}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -139,13 +157,12 @@ function Chip({
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold"
-      style={{
-        borderRadius: "999px",
-        border: `1px solid ${active ? "rgba(199,146,87,0.45)" : UI.border}`,
-        background: active ? "rgba(199,146,87,0.10)" : UI.soft,
-        color: active ? EKARI.text : EKARI.dim,
-      }}
+      className={[
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[9px] font-black",
+        active
+          ? "border-[#F3D7B2] bg-[#FFF4E3] text-[#9A5A08]"
+          : "border-[#D9D3C7] bg-[#F3F1EB] text-slate-500",
+      ].join(" ")}
     >
       {children}
     </span>
@@ -163,16 +180,12 @@ function StatPill({
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-extrabold"
-      style={{
-        borderRadius: "999px",
-        border: `1px solid ${UI.border}`,
-        background: "rgba(255,255,255,0.75)",
-        color: EKARI.text,
-      }}
+      className="inline-flex items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-slate-600"
       title={title}
     >
-      <span style={{ color: EKARI.dim }}>{icon}</span>
+      <span className="text-[#F39A22]">
+        {icon}
+      </span>
       {nfmt(value)}
     </span>
   );
@@ -191,34 +204,31 @@ function PremiumButton({
   variant?: "primary" | "ghost";
   className?: string;
 }) {
-  const base =
-    "inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-extrabold transition active:scale-[0.99] focus:outline-none";
-  const style: React.CSSProperties =
+  const classes = [
+    "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[10px] font-black transition",
     variant === "primary"
-      ? {
-        color: "white",
-        borderRadius: UI.radiusSm,
-        background: `linear-gradient(135deg, ${EKARI.gold} 0%, #e1b27a 45%, ${EKARI.forest} 140%)`,
-        boxShadow: "0 16px 40px -24px rgba(199,146,87,0.55)",
-      }
-      : {
-        color: EKARI.text,
-        borderRadius: UI.radiusSm,
-        border: `1px solid ${UI.border}`,
-        background: "rgba(255,255,255,0.72)",
-        boxShadow: UI.shadow2,
-      };
+      ? "bg-[#F39A22] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]"
+      : "border border-[#D9D3C7] bg-white text-[#173C2E] hover:bg-[#EEF3EE]",
+    className,
+  ].join(" ");
 
   if (href) {
     return (
-      <Link href={href} className={`${base} ${className}`} style={style}>
+      <Link
+        href={href}
+        className={classes}
+      >
         {children}
       </Link>
     );
   }
 
   return (
-    <button onClick={onClick} className={`${base} ${className}`} style={style}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={classes}
+    >
       {children}
     </button>
   );
@@ -234,36 +244,94 @@ function Kpi({
   icon?: React.ReactNode;
 }) {
   return (
-    <div
-      className="p-4"
-      style={{
-        borderRadius: UI.radius,
-        border: `1px solid ${UI.border}`,
-        background: "rgba(255,255,255,0.82)",
-        boxShadow: "0 10px 30px -22px rgba(16,24,40,0.20)",
-      }}
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      className="rounded-[16px] border border-[#E4DED2] bg-white p-4"
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-extrabold uppercase tracking-wide" style={{ color: EKARI.dim }}>
+          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
             {title}
           </div>
-          <div className="mt-2 text-2xl font-black tracking-tight truncate" style={{ color: EKARI.text }}>
+
+          <div className="mt-1 truncate text-[20px] font-black tracking-[-0.03em] text-[#173C2E]">
             {value}
           </div>
         </div>
+
         {icon ? (
-          <div
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl"
-            style={{
-              border: `1px solid ${UI.border}`,
-              background: "rgba(35,63,57,0.06)",
-              color: EKARI.forest,
-            }}
-          >
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
             {icon}
           </div>
         ) : null}
+      </div>
+    </motion.div>
+  );
+}
+
+function SafePoster({
+  src,
+  alt,
+}: {
+  src?: string | null;
+  alt: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  const hasImage =
+    !!src?.trim() && !failed;
+
+  return (
+    <div className="relative h-[128px] w-[92px] shrink-0 overflow-hidden rounded-[14px] border border-[#DDD8CC] bg-[#E8ECE8] sm:h-[150px] sm:w-[106px]">
+      {hasImage ? (
+        <Image
+          src={src || ""}
+          alt={alt}
+          fill
+          sizes="106px"
+          className="object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center text-[#173C2E]">
+          <IoPlayOutline size={25} />
+        </div>
+      )}
+
+      <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+    </div>
+  );
+}
+
+function RailStat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[#F39A22]">
+          {icon}
+        </span>
+
+        <span className="text-[18px] font-black tracking-[-0.03em] text-[#173C2E]">
+          {nfmt(value)}
+        </span>
+      </div>
+
+      <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+        {label}
       </div>
     </div>
   );
@@ -321,12 +389,30 @@ export default function AnalyticsPage() {
     const s = deed?.stats ?? {};
     const tiles: { key: string; label: string; value: number; icon: React.ReactNode }[] = [];
 
-    if (typeof s.views === "number") tiles.push({ key: "views", label: "Views", value: s.views, icon: <IoEyeOutline /> });
-    if (typeof s.comments === "number") tiles.push({ key: "comments", label: "Comments", value: s.comments, icon: <IoChatbubbleOutline /> });
-    if (typeof s.likes === "number") tiles.push({ key: "likes", label: "Likes", value: s.likes, icon: <IoHeartOutline /> });
-    if (typeof s.shares === "number") tiles.push({ key: "shares", label: "Shares", value: s.shares, icon: <IoShareOutline /> });
-    if (typeof s.saves === "number") tiles.push({ key: "saves", label: "Saves", value: s.saves, icon: <IoBookmarkOutline /> });
-    if (typeof s.completions === "number") tiles.push({ key: "completions", label: "Completions", value: s.completions, icon: <IoCheckmarkCircle /> });
+    const maybePush = (
+      key: string,
+      label: string,
+      raw: unknown,
+      icon: React.ReactNode
+    ) => {
+      const value = Number(raw ?? 0);
+
+      if (Number.isFinite(value)) {
+        tiles.push({
+          key,
+          label,
+          value,
+          icon,
+        });
+      }
+    };
+
+    maybePush("views", "Views", s.views, <IoEyeOutline />);
+    maybePush("comments", "Comments", s.comments, <IoChatbubbleOutline />);
+    maybePush("likes", "Likes", s.likes, <IoHeartOutline />);
+    maybePush("shares", "Shares", s.shares, <IoShareOutline />);
+    maybePush("saves", "Saves", s.saves, <IoBookmarkOutline />);
+    maybePush("completions", "Completions", s.completions, <IoCheckmarkCircle />);
 
     return tiles;
   }, [deed?.stats]);
@@ -355,265 +441,492 @@ export default function AnalyticsPage() {
   const createdAtRaw = (deed as any)?.createdAt ?? (deed as any)?.createdAtMs;
   const durationSec = Number(deed?.durationSec || deed?.media?.[0]?.durationSec || 0);
 
-  /* ---------------- Premium Header ---------------- */
+  /* ---------------- Header ---------------- */
   const Header = (
-    <div
-      className="sticky top-0 z-50 backdrop-blur-xl"
-      style={{
-        background: "rgba(255,255,255,0.75)",
-        borderBottom: `1px solid ${UI.border}`,
-        boxShadow: "0 8px 30px -22px rgba(16,24,40,0.35)",
-      }}
+    <motion.header
+      initial={{ opacity: 0, y: -5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
+      className="relative overflow-hidden bg-[#173C2E] text-white"
     >
-      <div className={isDesktop ? "h-14 px-4 max-w-[1180px] mx-auto" : "h-14 px-3"}>
-        <div className="h-full flex items-center justify-between gap-2">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+        }}
+      />
+
+      <div className={isDesktop ? "mx-auto max-w-[1180px] px-4 sm:px-5 md:px-6" : "px-3"}>
+        <div className="relative flex min-h-[96px] items-center gap-3 py-4">
           <button
+            type="button"
             onClick={goBack}
-            className="h-10 w-10 rounded-full grid place-items-center transition active:scale-[0.98]"
-            style={{
-              background: "rgba(255,255,255,0.75)",
-              border: `1px solid ${UI.border}`,
-              boxShadow: "0 10px 24px -18px rgba(16,24,40,0.35)",
-            }}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
             aria-label="Go back"
-            title="Back"
           >
-            <ArrowLeft size={18} style={{ color: EKARI.text }} />
+            <ArrowLeft size={18} />
           </button>
 
-          <div className="flex-1 min-w-0">
-            <div className="font-black text-[18px] leading-none truncate" style={{ color: EKARI.text }}>
-              Analytics
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              Deed studio
             </div>
-            <div className="text-[11px] mt-0.5 truncate" style={{ color: EKARI.dim }}>
-              Deed overview
-            </div>
-          </div>
 
-          <div className="hidden sm:flex items-center gap-2">
-            <Chip>Updated {updatedOn}</Chip>
-            {!!deedPath && (
-              <PremiumButton href={deedPath} variant="ghost">
-                <IoEyeOutline /> Open
-              </PremiumButton>
-            )}
+            <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="text-[22px] font-black tracking-[-0.03em] sm:text-[25px]">
+                  Deed analytics
+                </h1>
+
+                <p className="mt-1 text-[10px] font-medium text-white/50 sm:text-[11px]">
+                  Review the performance and details of this individual deed.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Chip>
+                  Updated {updatedOn}
+                </Chip>
+
+                {!!deedPath ? (
+                  <PremiumButton
+                    href={deedPath}
+                    variant="primary"
+                  >
+                    <IoEyeOutline size={14} />
+                    Open deed
+                  </PremiumButton>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </motion.header>
   );
 
   const Body = (
-    <div className={isDesktop ? "max-w-[1180px] mx-auto px-4 pb-10" : "px-3 pb-10"}>
+    <div className={isDesktop ? "mx-auto max-w-[1180px] px-4 pb-10 pt-4 sm:px-5 md:px-6" : "px-3 pb-10 pt-3"}>
       {loading ? (
-        <div className={isDesktop ? "py-16" : "py-10"}>
-          <TikBallsLoader />
+        <div className="grid min-h-[360px] place-items-center">
+          <div className="text-center">
+            <TikBallsLoader />
+
+            <p className="mt-3 text-[10px] font-semibold text-slate-400">
+              Loading deed analytics…
+            </p>
+          </div>
         </div>
       ) : !deed ? (
-        <div className="py-10 text-sm" style={{ color: EKARI.dim }}>
-          Deed not found.
+        <div className="grid min-h-[360px] place-items-center">
+          <div className="text-center">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+              <IoAnalyticsOutline size={23} />
+            </div>
+
+            <div className="mt-4 text-[15px] font-black text-slate-800">
+              Deed not found
+            </div>
+
+            <p className="mt-1 text-[10px] font-medium text-slate-400">
+              This deed may have been removed or is no longer available.
+            </p>
+
+            <PremiumButton
+              href="/studio/deeds"
+              variant="ghost"
+              className="mt-4"
+            >
+              Back to deeds
+            </PremiumButton>
+          </div>
         </div>
       ) : (
-        <div className="w-full">
-          {/* Title row */}
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <IoAnalyticsOutline className="shrink-0" style={{ color: EKARI.dim }} />
-              <h1 className="text-xl font-black truncate" style={{ color: EKARI.text }}>
-                Deed overview
-              </h1>
-            </div>
-            <div className="sm:hidden">
-              <Chip>Updated {updatedOn}</Chip>
-            </div>
-          </div>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_290px] xl:items-start">
+          <section className="min-w-0 space-y-4">
+            {/* Deed summary */}
+            <Card>
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start gap-4">
+                  <SafePoster
+                    src={poster}
+                    alt={captionText}
+                  />
 
-          {/* Hero card */}
-          <Card className="mt-4" solid>
-            <div className="p-4 sm:p-5">
-              <div className="flex items-start gap-4">
-                <div
-                  className="relative h-20 w-14 sm:h-24 sm:w-16 overflow-hidden shrink-0"
-                  style={{
-                    borderRadius: UI.radiusSm,
-                    border: `1px solid ${UI.border}`,
-                    background: "rgba(15,23,42,0.04)",
-                    boxShadow: "0 14px 34px -26px rgba(16,24,40,0.35)",
-                  }}
-                >
-                  <Image src={poster} alt="thumb" fill className="object-cover" sizes="64px" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#F39A22]">
+                      Deed overview
+                    </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm sm:text-base font-black" style={{ color: EKARI.text }}>
-                    {captionText}
-                  </div>
+                    <h2 className="mt-1 line-clamp-3 text-[16px] font-black leading-6 text-slate-900 sm:text-[18px]">
+                      {captionText}
+                    </h2>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" style={{ color: EKARI.dim }}>
-                    <span className="inline-flex items-center gap-1">
-                      <IoTimeOutline />
-                      Posted {postedDateStr(createdAtRaw)}
-                    </span>
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      <Chip>
+                        <IoTimeOutline size={11} />
+                        Posted {postedDateStr(createdAtRaw)}
+                      </Chip>
 
-                    {deed?.visibility ? (
-                      <span className="inline-flex items-center gap-1">
-                        <IoLockOpenOutline />
-                        {String(deed.visibility)}
-                      </span>
-                    ) : null}
+                      {deed?.visibility ? (
+                        <Chip>
+                          <IoLockOpenOutline size={11} />
+                          {String(deed.visibility)}
+                        </Chip>
+                      ) : null}
 
-                    {deed?.status ? (
-                      <span className="inline-flex items-center gap-1">
-                        <IoCheckmarkCircle />
-                        {String(deed.status)}
-                      </span>
+                      {deed?.status ? (
+                        <Chip active>
+                          <IoCheckmarkCircle size={11} />
+                          {String(deed.status)}
+                        </Chip>
+                      ) : null}
+                    </div>
+
+                    {statTiles.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {statTiles.slice(0, 6).map((stat) => (
+                          <StatPill
+                            key={stat.key}
+                            icon={stat.icon}
+                            value={Number(stat.value || 0)}
+                            title={stat.label}
+                          />
+                        ))}
+                      </div>
                     ) : null}
 
                     {!!deedPath ? (
                       <Link
                         href={deedPath}
-                        className="font-extrabold underline-offset-2 hover:underline"
-                        style={{ color: EKARI.text }}
+                        className="mt-3 inline-flex items-center gap-1 text-[10px] font-black text-[#173C2E] hover:underline"
                       >
-                        Open deed
+                        View public deed
+                        <IoChevronForward size={12} />
                       </Link>
                     ) : null}
                   </div>
-
-                  {/* Quick pills */}
-                  {statTiles.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {statTiles.slice(0, 6).map((s) => (
-                        <StatPill key={s.key} icon={s.icon} value={s.value} title={s.label} />
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* Stat grid */}
-              {statTiles.length > 0 && (
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                  {statTiles.map((s) => (
-                    <div
-                      key={s.key}
-                      className="p-3"
-                      style={{
-                        borderRadius: UI.radius,
-                        border: `1px solid ${UI.border}`,
-                        background: "rgba(255,255,255,0.78)",
-                      }}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="inline-flex items-center gap-2 text-xs font-extrabold" style={{ color: EKARI.dim }}>
-                          <span style={{ color: EKARI.forest }}>{s.icon}</span>
-                          {s.label}
-                        </div>
-                        <div className="text-sm font-black" style={{ color: EKARI.text }}>
-                          {nfmt(s.value)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Card>
-
-          {/* KPI row */}
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Kpi
-              title="Video duration"
-              value={durHHMMSS(durationSec)}
-              icon={<IoPlayOutline />}
-            />
-            <Kpi
-              title="Watch time"
-              value={durHHMMSS(Math.floor(((deed?.stats?.watchMs as number) || 0) / 1000))}
-              icon={<IoTimeOutline />}
-            />
-            {/**    <Kpi
-              title="Country"
-              value={String(deed?.countryTag || deed?.countryCode || "—")}
-            />
-            <Kpi
-              title="County"
-              value={String(deed?.countyTag || "—")}
-            />*/}
-            <Kpi
-              title="Type"
-              value={String(deed?.type || deed?.media?.[0]?.mediaType || "—")}
-            />
-          </div>
-
-          {/* Tags */}
-          {Array.isArray(deed?.tags) && deed.tags.length > 0 && (
-            <Card className="mt-6" solid>
-              <div className="p-4 sm:p-5">
-                <div className="mb-3 text-sm font-black" style={{ color: EKARI.text }}>
-                  Tags
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {deed.tags.map((t: string) => (
-                    <span
-                      key={t}
-                      className="px-2.5 py-1 text-xs font-extrabold"
-                      style={{
-                        borderRadius: "999px",
-                        border: `1px solid ${UI.border}`,
-                        background: "rgba(35,63,57,0.06)",
-                        color: EKARI.text,
-                      }}
-                    >
-                      #{t}
-                    </span>
-                  ))}
                 </div>
               </div>
             </Card>
-          )}
 
-          {/* Footer actions */}
-          <div className="mt-6 flex items-center justify-between">
+            {/* Main performance metrics */}
+            {statTiles.length > 0 ? (
+              <Card>
+                <div className="p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                        Performance
+                      </div>
+
+                      <h2 className="mt-1 text-[15px] font-black text-slate-900">
+                        Engagement metrics
+                      </h2>
+                    </div>
+
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                      <IoTrendingUpOutline size={16} />
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    {statTiles.map((stat) => (
+                      <motion.div
+                        key={stat.key}
+                        initial={{ opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.16 }}
+                        className="rounded-[14px] border border-[#E4DED2] bg-white px-3 py-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[#F39A22]">
+                            {stat.icon}
+                          </span>
+
+                          <span className="text-[17px] font-black tracking-[-0.03em] text-[#173C2E]">
+                            {nfmt(stat.value)}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+                          {stat.label}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            ) : null}
+
+            {/* Technical/content KPIs */}
+            <Card>
+              <div className="p-4 sm:p-5">
+                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  Content details
+                </div>
+
+                <h2 className="mt-1 text-[15px] font-black text-slate-900">
+                  Media performance
+                </h2>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Kpi
+                    title="Video duration"
+                    value={durHHMMSS(durationSec)}
+                    icon={<IoPlayOutline size={16} />}
+                  />
+
+                  <Kpi
+                    title="Watch time"
+                    value={durHHMMSS(
+                      Math.floor(
+                        Number(
+                          deed?.stats?.watchMs ?? 0
+                        ) / 1000
+                      )
+                    )}
+                    icon={<IoTimeOutline size={16} />}
+                  />
+
+                  <Kpi
+                    title="Type"
+                    value={String(
+                      deed?.type ||
+                      deed?.media?.[0]?.mediaType ||
+                      "—"
+                    )}
+                    icon={<IoAnalyticsOutline size={16} />}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Tags */}
+            {Array.isArray(deed?.tags) &&
+              deed.tags.length > 0 ? (
+              <Card>
+                <div className="p-4 sm:p-5">
+                  <div className="flex items-center gap-2">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                      <IoPricetagOutline size={16} />
+                    </span>
+
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                        Discovery
+                      </div>
+
+                      <h2 className="mt-0.5 text-[13px] font-black text-slate-900">
+                        Tags
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {deed.tags.map((tag: string) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-[#173C2E]"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            ) : null}
+
+            {/* Bottom actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Link
+                href="/studio/deeds"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+              >
+                ← Back to deeds
+              </Link>
+
+              {!!deedPath ? (
+                <PremiumButton
+                  href={deedPath}
+                  variant="primary"
+                >
+                  <IoEyeOutline size={14} />
+                  View deed
+                </PremiumButton>
+              ) : null}
+            </div>
+          </section>
+
+          {/* Right rail */}
+          <motion.aside
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{
+              duration: 0.24,
+              delay: 0.04,
+              ease: "easeOut",
+            }}
+            className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
+          >
+            <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                Performance snapshot
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <RailStat
+                  label="Views"
+                  value={Number(
+                    deed?.stats?.views ?? 0
+                  )}
+                  icon={<IoEyeOutline size={14} />}
+                />
+
+                <RailStat
+                  label="Likes"
+                  value={Number(
+                    deed?.stats?.likes ?? 0
+                  )}
+                  icon={<IoHeartOutline size={14} />}
+                />
+
+                <RailStat
+                  label="Comments"
+                  value={Number(
+                    deed?.stats?.comments ?? 0
+                  )}
+                  icon={<IoChatbubbleOutline size={14} />}
+                />
+
+                <RailStat
+                  label="Shares"
+                  value={Number(
+                    deed?.stats?.shares ?? 0
+                  )}
+                  icon={<IoShareOutline size={14} />}
+                />
+              </div>
+            </section>
+
+            <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+              <div className="flex items-start gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                  <IoSparklesOutline size={17} />
+                </span>
+
+                <div>
+                  <div className="text-[12px] font-black text-slate-800">
+                    Performance tip
+                  </div>
+
+                  <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                    Compare views with likes, comments and shares to understand whether reach is translating into engagement.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+              <div className="flex items-start gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                  <IoInformationCircleOutline size={17} />
+                </span>
+
+                <div>
+                  <div className="text-[12px] font-black text-slate-800">
+                    Deed state
+                  </div>
+
+                  <div className="mt-2 space-y-1.5 text-[10px] font-semibold text-slate-500">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Visibility</span>
+                      <span className="font-black text-slate-700">
+                        {String(
+                          deed?.visibility || "—"
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Status</span>
+                      <span className="font-black text-slate-700">
+                        {String(
+                          deed?.status || "—"
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Updated</span>
+                      <span className="font-black text-slate-700">
+                        {updatedOn}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <Link
               href="/studio/deeds"
-              className="text-sm font-extrabold underline-offset-4 hover:underline"
-              style={{ color: EKARI.text }}
+              className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[10px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
             >
-              ← Back to deeds
+              Manage deeds
+              <IoChevronForward size={14} />
             </Link>
-
-            {!!deedPath && (
-              <div className="flex items-center gap-2">
-                <PremiumButton href={deedPath} variant="primary">
-                  <IoEyeOutline /> View deed
-                </PremiumButton>
-              </div>
-            )}
-          </div>
-
-          {isMobile && <div style={{ height: "env(safe-area-inset-bottom)" }} />}
+          </motion.aside>
         </div>
       )}
+
+      {isMobile ? (
+        <div
+          style={{
+            height:
+              "env(safe-area-inset-bottom)",
+          }}
+        />
+      ) : null}
     </div>
   );
 
-  // MOBILE: fixed inset
+  // MOBILE
   if (isMobile) {
     return (
-      <div className="fixed inset-0 flex flex-col" style={{ background: UI.gradient }}>
+      <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-[#F8F7F2]">
         {Header}
-        <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
+
+        <div
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain"
+          style={{
+            WebkitOverflowScrolling:
+              "touch",
+            touchAction: "pan-y",
+          }}
+        >
+          {Body}
+        </div>
       </div>
     );
   }
 
-  // DESKTOP: AppShell + StudioShell
+  // DESKTOP
   return (
     <AppShell>
-      <div style={{ background: UI.gradient, minHeight: "100dvh" }}>
-        <StudioShell>
+      <div
+        className="h-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F8F7F2]"
+        style={{
+          WebkitOverflowScrolling:
+            "touch",
+          touchAction: "pan-y",
+        }}
+      >
+        <StudioShell
+          title="Analytics"
+          ctaHref="/studio/upload"
+          ctaLabel="Upload"
+        >
           {Header}
           {Body}
         </StudioShell>

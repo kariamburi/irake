@@ -11,6 +11,7 @@ import React, {
 import { collection, getDocs, getFirestore, query, where } from "firebase/firestore";
 import Image from "next/image";
 import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 
 export type Tab = "library" | "upload" | "link";
 
@@ -39,11 +40,11 @@ type SoundDoc = {
 };
 
 const EKARI = {
-    forest: "#233F39",
-    gold: "#C79257",
-    hair: "#E5E7EB",
+    forest: "#173C2E",
+    gold: "#F39A22",
+    hair: "#DDD8CC",
     text: "#0F172A",
-    dim: "#6B7280",
+    dim: "#64748B",
 };
 
 const MOOD_LABEL: Record<string, string> = {
@@ -240,10 +241,10 @@ export default function SoundSheetWeb({
     if (!open) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[1000] flex items-end md:items-center justify-center">
+        <div className="fixed inset-0 z-[1000] flex items-end justify-center md:items-center">
             {/* backdrop */}
             <button
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
                 onClick={closeAll}
                 aria-label="Close sound sheet"
             />
@@ -252,11 +253,10 @@ export default function SoundSheetWeb({
             <div className="relative w-full max-w-2xl px-3 pb-3 md:px-0 md:pb-0">
                 <div
                     className="
-                        w-full max-h-[80vh]
-                        rounded-t-2xl md:rounded-2xl
-                        bg-white shadow-2xl
-                        overflow-hidden flex flex-col
-                        transition-transform duration-200 ease-out
+                        flex max-h-[82vh] w-full flex-col overflow-hidden
+                        rounded-t-[20px] border border-[#DDD8CC]
+                        bg-[#FBFAF6] shadow-2xl
+                        md:rounded-[20px]
                     "
                 >
                     {/* drag handle (mobile feel) */}
@@ -266,12 +266,12 @@ export default function SoundSheetWeb({
 
                     <div className="p-4 pt-2 md:pt-4 flex-1 flex flex-col">
                         <div className="flex items-center justify-between gap-3">
-                            <div className="text-base font-extrabold text-gray-900">
+                            <div className="text-[16px] font-black text-slate-900">
                                 Use Sound
                             </div>
                             <button
                                 onClick={closeAll}
-                                className="hidden md:inline-flex items-center justify-center rounded-full border px-2 py-1 text-[11px] font-bold text-gray-600 hover:bg-gray-50"
+                                className="hidden h-9 items-center justify-center rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB] md:inline-flex"
                                 style={{ borderColor: EKARI.hair }}
                             >
                                 Close
@@ -304,7 +304,7 @@ export default function SoundSheetWeb({
                                     value={filter}
                                     onChange={(e) => setFilter(e.target.value)}
                                     placeholder="Search title or artist"
-                                    className="w-full rounded-xl border bg-[#F6F7FB] px-3 py-2 text-sm outline-none"
+                                    className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/45"
                                     style={{ borderColor: EKARI.hair, color: EKARI.text }}
                                 />
                                 {loading ? (
@@ -336,7 +336,7 @@ export default function SoundSheetWeb({
                                             return (
                                                 <div
                                                     key={it.id}
-                                                    className="flex items-center gap-3 border-b py-2"
+                                                    className="flex items-center gap-3 border-b border-[#EAE6DD] py-3"
                                                     style={{ borderColor: "#F3F4F6" }}
                                                 >
                                                     {/* Artist avatar / cover */}
@@ -358,10 +358,10 @@ export default function SoundSheetWeb({
                                                     </div>
 
                                                     <div className="min-w-0 flex-1">
-                                                        <div className="truncate text-sm font-extrabold text-gray-900">
+                                                        <div className="truncate text-[11px] font-black text-slate-800">
                                                             {it.title}
                                                         </div>
-                                                        <div className="truncate text-[11px] text-gray-500 flex flex-wrap gap-1">
+                                                        <div className="flex flex-wrap gap-1 truncate text-[9px] font-medium text-slate-400">
                                                             <span>{it.artist || "Unknown"}</span>
                                                             {moodLabel && (
                                                                 <>
@@ -398,7 +398,7 @@ export default function SoundSheetWeb({
 
                                                     <button
                                                         onClick={() => togglePreview(it)}
-                                                        className="rounded-lg border px-2 py-1 text-sm font-bold"
+                                                        className="h-8 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[9px] font-black text-slate-600 transition hover:bg-[#F3F1EB]"
                                                         style={{ borderColor: EKARI.hair }}
                                                         title="Preview"
                                                     >
@@ -410,8 +410,7 @@ export default function SoundSheetWeb({
                                                     </button>
                                                     <button
                                                         onClick={() => selectLibrary(it)}
-                                                        className="rounded-lg border px-2 py-1 text-sm font-bold"
-                                                        style={{ borderColor: EKARI.hair }}
+                                                        className="grid h-8 w-8 place-items-center rounded-lg bg-[#F39A22] text-[14px] font-black text-white transition hover:bg-[#E98C12]"
                                                         title="Select"
                                                     >
                                                         +
@@ -434,7 +433,7 @@ export default function SoundSheetWeb({
                         <div className="mt-4 flex justify-center md:hidden">
                             <button
                                 onClick={closeAll}
-                                className="rounded-xl px-4 py-2 text-sm font-extrabold text-white"
+                                className="h-10 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white"
                                 style={{ backgroundColor: EKARI.forest }}
                             >
                                 Close

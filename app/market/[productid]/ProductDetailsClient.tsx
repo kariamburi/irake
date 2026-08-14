@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -42,11 +43,18 @@ import {
     IoArrowForwardOutline,
     IoSparklesOutline,
     IoLockClosedOutline,
+    IoCartOutline,
+    IoLocationOutline,
+    IoCallOutline,
+    IoLogoWhatsapp,
+    IoGlobeOutline,
+    IoInformationCircleOutline,
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SellerReviewsSection from "@/app/components/SellerReviewsSection";
 import { createPortal } from "react-dom";
 import AppShell from "@/app/components/AppShell";
+import AppShellRightRail from "@/app/components/AppShellRightRail";
 import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
 import OpenInAppBanner from "@/app/components/OpenInAppBanner";
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -120,12 +128,14 @@ type ProductDoc = {
 };
 
 const EKARI = {
-    forest: "#233F39",
-    gold: "#C79257",
-    sand: "#FFFFFF",
+    forest: "#173C2E",
+    forestSoft: "#214C3A",
+    gold: "#F39A22",
+    sand: "#F8F7F2",
+    paper: "#FBFAF6",
     text: "#0F172A",
-    dim: "#6B7280",
-    hair: "#E5E7EB",
+    dim: "#64748B",
+    hair: "#DDD8CC",
 };
 
 const KES = (n: number) =>
@@ -147,6 +157,43 @@ function formatMoney(
         currency === "USD" || currency === "KES" ? currency : "KES";
     if (!n || n <= 0) return safeCurrency === "USD" ? "USD 0.00" : "KSh 0";
     return safeCurrency === "USD" ? USD(n) : KES(n);
+}
+
+
+function SafeSellerAvatar({
+    src,
+    alt,
+    size = 44,
+}: {
+    src?: string | null;
+    alt: string;
+    size?: number;
+}) {
+    const [failed, setFailed] = useState(false);
+
+    const safeSrc =
+        !failed && src && String(src).trim()
+            ? String(src).trim()
+            : "/avatar-placeholder.png";
+
+    return (
+        <div
+            className="relative shrink-0 overflow-hidden rounded-full bg-[#EDEBE4]"
+            style={{
+                width: size,
+                height: size,
+            }}
+        >
+            <Image
+                src={safeSrc}
+                alt={alt}
+                fill
+                sizes={`${size}px`}
+                className="object-cover"
+                onError={() => setFailed(true)}
+            />
+        </div>
+    );
 }
 
 export default function ProductDetailsClient({
@@ -559,7 +606,8 @@ export default function ProductDetailsClient({
             const lqs = buildListingContextQs(product);
             lqs.forEach((v, k) => qs.set(k, v));
             bumpLead({ sellerId: peerId, listingId: null, kind: "message" }).catch(() => { });
-            router.push(`/bonga/${encodeURIComponent(threadId)}?${qs.toString()}`);
+            qs.set("thread", threadId);
+            router.push(`/bonga?${qs.toString()}`);
         } finally {
             setMsgLoading(false);
         }
@@ -567,54 +615,513 @@ export default function ProductDetailsClient({
     const sellerId = product.seller?.id ?? product.sellerId;
     const storeUrl = sellerId ? `/store/${encodeURIComponent(sellerId)}?src=market` : null;
 
+
+    const sellerPhone =
+        String((product as any)?.seller?.phone || (product as any)?.sellerPhone || "")
+            .trim();
+
+    const sellerWebsite =
+        String((product as any)?.seller?.website || (product as any)?.sellerWebsite || "")
+            .trim();
+
+    const normalizedPhone = sellerPhone
+        ? sellerPhone.replace(/[^\d+]/g, "")
+        : "";
+
+    const whatsappHref = normalizedPhone
+        ? `https://wa.me/${normalizedPhone.replace(/^\+/, "")}`
+        : "";
+
+    const websiteHref = sellerWebsite
+        ? /^https?:\/\//i.test(sellerWebsite)
+            ? sellerWebsite
+            : `https://${sellerWebsite}`
+        : "";
+
+    const listingPriceText =
+        product.type === "lease" || product.type === "service"
+            ? `${product.rate ? KES(Number(product.rate)) : "-"}${product.billingUnit ? ` / ${product.billingUnit}` : ""}`
+            : formatMoney(product.price, product.currency);
+
+    const listingStatusText = isSold
+        ? "Sold"
+        : isReserved
+            ? "Reserved"
+            : "Available";
+
+    const sellerDisplayName =
+        product.seller?.name ||
+        product.seller?.handle ||
+        "Seller";
+
+    const sellerHandle =
+        product.seller?.handle || "";
+
+    const sellerPhoto =
+        product.seller?.photoURL || null;
+
     /* ===================== Shared Body ===================== */
+
+    const SellerSummary = ({
+        compact = false,
+    }: {
+        compact?: boolean;
+    }) => (
+        <section
+            className={[
+                "rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6]",
+                compact
+                    ? "p-3.5"
+                    : "p-4",
+                "shadow-[0_10px_28px_rgba(15,23,42,0.035)]",
+            ].join(" ")}
+        >
+            <div className="flex items-center gap-3">
+                <button
+                    type="button"
+                    onClick={() =>
+                        openProfile(
+                            product?.seller?.handle ??
+                            ""
+                        )
+                    }
+                    className="relative shrink-0 rounded-full border border-[#DDD8CC]"
+                    title="Open seller profile"
+                >
+                    <SafeSellerAvatar
+                        src={sellerPhoto}
+                        alt={sellerDisplayName}
+                        size={44}
+                    />
+                </button>
+
+                <div className="min-w-0 flex-1">
+                    <button
+                        type="button"
+                        onClick={() =>
+                            openProfile(
+                                product?.seller?.handle ??
+                                ""
+                            )
+                        }
+                        className="block max-w-full truncate text-left text-[13px] font-black text-slate-900 hover:underline"
+                    >
+                        {sellerDisplayName}
+                    </button>
+
+                    {sellerHandle ? (
+                        <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
+                            {sellerHandle}
+                        </div>
+                    ) : null}
+
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {showVerified ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2 py-0.5 text-[9px] font-black text-[#3E6F28]">
+                                <IoShieldCheckmark
+                                    size={11}
+                                />
+                                Verified
+                            </span>
+                        ) : null}
+
+                        <AuthorBadgePill
+                            badge={
+                                (product as any)
+                                    .authorBadge
+                            }
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+                {!isOwner ? (
+                    <button
+                        type="button"
+                        onClick={handleMessageClick}
+                        disabled={msgLoading}
+                        className={[
+                            "inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl",
+                            "bg-[#F39A22] px-4 text-[11px] font-black text-white",
+                            "shadow-[0_8px_18px_rgba(243,154,34,0.16)]",
+                            "transition-all duration-200",
+                            msgLoading
+                                ? "cursor-not-allowed opacity-65"
+                                : "hover:-translate-y-0.5 hover:bg-[#E98C12]",
+                        ].join(" ")}
+                    >
+                        {msgLoading ? (
+                            <>
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/50 border-t-white" />
+                                Opening…
+                            </>
+                        ) : (
+                            <>
+                                <IoChatbubbleEllipsesOutline
+                                    size={16}
+                                />
+                                Message seller
+                            </>
+                        )}
+                    </button>
+                ) : (
+                    <div className="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-[#E8ECE8] px-4 text-[11px] font-black text-[#173C2E]">
+                        Your listing
+                    </div>
+                )}
+
+                {showStorefront && storeUrl ? (
+                    <button
+                        type="button"
+                        onClick={() =>
+                            router.push(storeUrl)
+                        }
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-[#173C2E] transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]"
+                        title="Visit seller store"
+                    >
+                        <IoStorefrontOutline
+                            size={16}
+                        />
+                    </button>
+                ) : null}
+            </div>
+
+            {(normalizedPhone ||
+                whatsappHref ||
+                websiteHref) ? (
+                <div className="mt-2 flex items-center gap-2">
+                    {normalizedPhone ? (
+                        <a
+                            href={`tel:${normalizedPhone}`}
+                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]"
+                            title="Call seller"
+                        >
+                            <IoCallOutline
+                                size={14}
+                            />
+                        </a>
+                    ) : null}
+
+                    {whatsappHref ? (
+                        <a
+                            href={whatsappHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]"
+                            title="WhatsApp seller"
+                        >
+                            <IoLogoWhatsapp
+                                size={15}
+                            />
+                        </a>
+                    ) : null}
+
+                    {websiteHref ? (
+                        <a
+                            href={websiteHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="grid h-9 w-9 place-items-center rounded-full border border-[#D9D3C7] bg-white text-slate-600 transition hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]"
+                            title="Seller website"
+                        >
+                            <IoGlobeOutline
+                                size={15}
+                            />
+                        </a>
+                    ) : null}
+                </div>
+            ) : null}
+        </section>
+    );
+
+    const BuyerSafetyCard = () => (
+        <section className="rounded-[18px] border border-[#E8D8B9] bg-[#FFF9EE] p-4">
+            <div className="flex items-start gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#F39A22]/12 text-[#B66A0C]">
+                    <IoShieldCheckmark
+                        size={17}
+                    />
+                </span>
+
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#8A5109]">
+                            Buyer safety
+                        </h3>
+
+                        <span className="rounded-full bg-[#F39A22]/15 px-2 py-0.5 text-[8px] font-black text-[#9A5A08]">
+                            Stay safe
+                        </span>
+                    </div>
+
+                    <p className="mt-2 text-[10px] font-medium leading-5 text-slate-600">
+                        Inspect the item before paying,
+                        avoid advance payments and meet
+                        the seller in a safe place where
+                        possible.
+                    </p>
+
+                    <p className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+                        ekarihub provides the marketplace
+                        platform and does not handle
+                        payments or deliveries between
+                        users.
+                    </p>
+                </div>
+            </div>
+        </section>
+    );
+
+    const OwnerPerksCard = () => {
+        if (!isOwner) return null;
+
+        return (
+            <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
+                <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+                        <IoSparklesOutline
+                            size={17}
+                        />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                            <div>
+                                <h3 className="text-[12px] font-black text-slate-900">
+                                    Listing perks
+                                </h3>
+
+                                <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                                    Improve reach and featured
+                                    placement.
+                                </p>
+                            </div>
+
+                            {!hasActivePlan ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[8px] font-black text-slate-500">
+                                    <IoLockClosedOutline
+                                        size={10}
+                                    />
+                                    Locked
+                                </span>
+                            ) : null}
+                        </div>
+
+                        {!hasActivePlan ? (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    router.push(
+                                        "/seller/dashboard"
+                                    )
+                                }
+                                className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                            >
+                                <IoSparklesOutline
+                                    size={15}
+                                />
+                                Upgrade to unlock
+                                <IoArrowForwardOutline
+                                    size={13}
+                                />
+                            </button>
+                        ) : (
+                            <>
+                                <div className="mt-3 grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={doBoost}
+                                        disabled={
+                                            perkLoading !==
+                                            null
+                                        }
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white text-[10px] font-black text-slate-600 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0] disabled:opacity-50"
+                                    >
+                                        {perkLoading ===
+                                            "boost" ? (
+                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-[#173C2E]" />
+                                        ) : (
+                                            <IoRocketOutline
+                                                size={15}
+                                                className="text-[#F39A22]"
+                                            />
+                                        )}
+                                        Boost
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={doFeature}
+                                        disabled={
+                                            perkLoading !==
+                                            null
+                                        }
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#173C2E] text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
+                                    >
+                                        {perkLoading ===
+                                            "feature" ? (
+                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                                        ) : (
+                                            <IoStarOutline
+                                                size={15}
+                                            />
+                                        )}
+                                        Feature
+                                    </button>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        router.push(
+                                            "/market/packages"
+                                        )
+                                    }
+                                    className="mt-2 text-[9px] font-black text-[#173C2E] underline underline-offset-2"
+                                >
+                                    Manage plan
+                                </button>
+                            </>
+                        )}
+
+                        {perkMsg ? (
+                            <div className="mt-3 rounded-xl border border-[#DDD8CC] bg-white px-3 py-2 text-[9px] font-semibold text-slate-500">
+                                {perkMsg}
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+            </section>
+        );
+    };
+
+    const RightRail = (
+        <aside className="h-full overflow-y-auto bg-[#F8F7F2] px-3 py-3 no-scrollbar">
+            <div className="space-y-3">
+                <SellerSummary compact />
+
+                {!isOwner ? (
+                    <BuyerSafetyCard />
+                ) : (
+                    <OwnerPerksCard />
+                )}
+
+                <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
+                    <div className="flex items-center gap-2 text-[#F39A22]">
+                        <IoCartOutline
+                            size={15}
+                        />
+
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                            ekariMarket
+                        </h3>
+                    </div>
+
+                    <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-600">
+                        Browse more products, services,
+                        animals, land and lease listings.
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            router.push("/market")
+                        }
+                        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-3 text-[10px] font-black text-white transition hover:bg-[#214C3A]"
+                    >
+                        Back to market
+                        <IoArrowForwardOutline
+                            size={13}
+                        />
+                    </button>
+                </section>
+            </div>
+        </aside>
+    );
+
     const Body = (
         <main
-            className={
+            className={[
+                "w-full bg-[#F8F7F2]",
                 isMobile
-                    ? "min-h-screen w-full bg-white"
-                    : "min-h-screen w-full bg-white pb-10"
-            }
+                    ? "min-h-screen"
+                    : "h-[100svh] min-h-0 overflow-y-auto no-scrollbar",
+            ].join(" ")}
             style={
                 isMobile
-                    ? { paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }
+                    ? {
+                        paddingBottom:
+                            "calc(18px + env(safe-area-inset-bottom))",
+                    }
                     : undefined
             }
         >
-            {/* Sticky header */}
-            <div
-                className="sticky top-0 z-50 border-b"
-                style={{
-                    backgroundColor: "rgba(255,255,255,0.95)",
-                    borderColor: EKARI.hair,
+            {/* MARKET-STYLE HEADER */}
+            <motion.header
+                initial={{
+                    opacity: 0,
+                    y: -5,
                 }}
+                animate={{
+                    opacity: 1,
+                    y: 0,
+                }}
+                transition={{
+                    duration: 0.24,
+                    ease: "easeOut",
+                }}
+                className={[
+                    "sticky top-0 z-50",
+                    "border-b border-[#E5E0D6]",
+                    "bg-[#FBFAF6]/95 backdrop-blur-xl",
+                ].join(" ")}
             >
-                <div className="justify-between h-[56px] lg:h-14 px-3 lg:px-4 flex items-center max-w-4xl mx-auto">
-                    <div className="flex items-center gap-2">
-
-                        <button
-                            onClick={() => router.back()}
-                            className="w-10 h-10 rounded-full border grid place-items-center hover:bg-black/[0.03]"
-                            style={{ borderColor: EKARI.hair }}
-                        >
-                            <IoArrowBack style={{ color: EKARI.text }} size={20} />
-                        </button>
-                        <h1 className="ml-3 font-black text-base" style={{ color: EKARI.text }}>
-                            Product Details
-                        </h1>
-                    </div>
+                <div className="mx-auto flex h-[64px] max-w-[980px] items-center gap-3 px-3 sm:px-5">
                     <button
+                        type="button"
+                        onClick={() =>
+                            router.back()
+                        }
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-700 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0] active:scale-95"
+                        aria-label="Back"
+                    >
+                        <IoArrowBack
+                            size={18}
+                        />
+                    </button>
+
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E9ECE7] text-[#173C2E]">
+                        <IoCartOutline
+                            size={19}
+                        />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                            ekariMarket
+                        </div>
+
+                        <div className="truncate text-[14px] font-black text-slate-900">
+                            Product details
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
                         onClick={shareProduct}
-                        className="w-10 h-10 rounded-full border grid place-items-center hover:bg-black/[0.03]"
-                        style={{ borderColor: EKARI.hair }}
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-700 transition hover:border-[#F39A22]/50 hover:bg-[#FFF9F0] active:scale-95"
                         aria-label="Share product"
                         title="Share"
                     >
-                        <IoArrowRedo size={18} color={EKARI.text} />
+                        <IoArrowRedo
+                            size={17}
+                        />
                     </button>
                 </div>
-            </div>
-            {isMobile && (
+            </motion.header>
+
+            {isMobile ? (
                 <OpenInAppBanner
                     webUrl={webUrl}
                     appUrl={appUrl}
@@ -623,554 +1130,698 @@ export default function ProductDetailsClient({
                     playStoreUrl="https://play.google.com/store/apps/details?id=com.ekarihub.app"
                     appStoreUrl="https://apps.apple.com"
                 />
-            )}
+            ) : null}
 
-            {/* Body container */}
-            <div className="max-w-4xl mx-auto px-3 lg:px-4 pt-3 lg:pt-4 pb-4 lg:pb-6">
-                {/* Carousel */}
-                <div
-                    className="relative w-full rounded-2xl overflow-hidden shadow-sm bg-gray-100"
-                    onMouseEnter={() => setIsPaused(true)}
-                    onMouseLeave={() => setIsPaused(false)}
-                    onTouchStart={onTouchStart}
-                    onTouchMove={onTouchMove}
-                    onTouchEnd={onTouchEnd}
+            <div className="mx-auto max-w-[980px] px-3 pb-7 pt-3 sm:px-5 sm:pt-5">
+                {/* PRIMARY PRODUCT WORKSPACE */}
+                <motion.section
+                    initial={{
+                        opacity: 0,
+                        y: 6,
+                    }}
+                    animate={{
+                        opacity: 1,
+                        y: 0,
+                    }}
+                    transition={{
+                        duration: 0.28,
+                        ease: "easeOut",
+                    }}
+                    className="space-y-4"
                 >
-                    {images.length ? (
-                        <>
-                            <div
-                                ref={scrollRef}
-                                className="flex overflow-x-hidden snap-x snap-mandatory h-[320px] lg:h-96 scroll-smooth"
-                                onScroll={(e) => {
-                                    const L = e.currentTarget.scrollLeft;
-                                    const W = e.currentTarget.clientWidth;
-                                    setActive(Math.round(L / W));
-                                }}
-                            >
-                                {images.map((url: string, i: number) => (
-                                    <div key={i} className="flex-shrink-0 snap-center w-full h-full relative">
-                                        <Image
-                                            src={url}
-                                            alt={`${product.name} ${i + 1}`}
-                                            fill
-                                            className="object-cover cursor-zoom-in"
-                                            sizes="100vw"
-                                            priority={i === 0}
-                                            onClick={() => openFullscreen(i)}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-
-                            {images.length > 1 && (
-                                <>
-                                    <button
-                                        onClick={() => goTo(active > 0 ? active - 1 : images.length - 1)}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white rounded-full p-2 shadow-md transition"
-                                        aria-label="Previous image"
-                                    >
-                                        <IoChevronBack size={20} className="text-gray-700" />
-                                    </button>
-                                    <button
-                                        onClick={() => goTo(active + 1 < images.length ? active + 1 : 0)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/85 hover:bg-white rounded-full p-2 shadow-md transition"
-                                        aria-label="Next image"
-                                    >
-                                        <IoChevronForward size={20} className="text-gray-700" />
-                                    </button>
-                                </>
-                            )}
-
-                            {/* dots + count */}
-                            <div className="absolute bottom-3 left-0 right-0 flex flex-col items-center gap-1">
-                                <div className="flex gap-1">
-                                    {images.map((_: any, i: number) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => goTo(i)}
-                                            className={`w-2.5 h-2.5 rounded-full ${i === active ? "bg-white" : "bg-white/60"
-                                                }`}
-                                        />
-                                    ))}
-                                </div>
-                                <div className="text-[11px] font-bold text-white/85 bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                                    {active + 1} / {images.length}
-                                </div>
-                            </div>
-
-                            {/* fullscreen button */}
-                            <button
-                                onClick={() => openFullscreen(active)}
-                                className="absolute top-3 right-3 bg-white/85 hover:bg-white rounded-full p-2 shadow-md"
-                                aria-label="View fullscreen"
-                                title="View fullscreen"
-                            >
-                                <IoExpandOutline size={18} className="text-gray-800" />
-                            </button>
-                        </>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-[320px] text-gray-400">
-                            <IoImageOutline size={40} />
-                            <p>No image</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Info card */}
-                <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
-                    <h2 className="font-black text-2xl" style={{ color: EKARI.text }}>
-                        {product.name}
-                    </h2>
-                    <p className="text-sm" style={{ color: EKARI.dim }}>
-                        {product.type} {product.unit && `• ${product.unit}`}
-                    </p>
-
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {product.category && (
-                            <span
-                                className="inline-flex items-center gap-1 border bg-[#FAFAFA] text-xs font-semibold rounded-full px-3 py-1"
-                                style={{ borderColor: EKARI.hair }}
-                            >
-                                <IoPricetagOutline size={14} />
-                                {product.category}
-                            </span>
-                        )}
-
-                        {product.unit && (
-                            <span
-                                className="inline-flex items-center gap-1 border bg-[#F9FAFB] text-xs font-semibold rounded-full px-3 py-1"
-                                style={{ borderColor: EKARI.hair }}
-                            >
-                                <IoCubeOutline size={14} style={{ color: EKARI.dim }} />
-                                <span>
-                                    {product.typicalPackSize ? `${product.typicalPackSize} ` : ""}
-                                    {product.unit}
-                                </span>
-                            </span>
-                        )}
-
-                        {isTree && product.useCase && (
-                            <span className="inline-flex items-center gap-1 border border-emerald-200 bg-emerald-50 text-xs font-semibold rounded-full px-3 py-1">
-                                <IoLeafOutline size={14} className="text-emerald-600" />
-                                <span className="text-emerald-700 truncate max-w-[180px]">{product.useCase}</span>
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-3 mt-3 flex-wrap">
-                        <span className="text-3xl font-black" style={{ color: EKARI.forest }}>
-                            {product.type === "lease" || product.type === "service"
-                                ? `${product.rate ? KES(Number(product.rate)) : "-"}${product.billingUnit ? ` / ${product.billingUnit}` : ""
-                                }`
-                                : formatMoney(product.price, product.currency)}
-                        </span>
-
-                        <span
+                    {/* GALLERY */}
+                    <div>
+                        <div
                             className={[
-                                "inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1 rounded-full",
-                                isSold ? "bg-red-600 text-white" : isReserved ? "bg-yellow-500 text-white" : "bg-emerald-600 text-white",
+                                "relative overflow-hidden rounded-[20px]",
+                                "border border-[#DDD8CC] bg-[#EDEBE4]",
+                                "shadow-[0_12px_32px_rgba(15,23,42,0.055)]",
                             ].join(" ")}
+                            onMouseEnter={() =>
+                                setIsPaused(true)
+                            }
+                            onMouseLeave={() =>
+                                setIsPaused(false)
+                            }
+                            onTouchStart={
+                                onTouchStart
+                            }
+                            onTouchMove={
+                                onTouchMove
+                            }
+                            onTouchEnd={
+                                onTouchEnd
+                            }
                         >
-                            {isSold ? <IoCloseCircle size={14} /> : isReserved ? <IoTimeOutline size={14} /> : <IoCheckmarkCircle size={14} />}
-                            {isSold ? "Sold" : isReserved ? "Reserved" : "Available"}
-                        </span>
-                    </div>
-                    {Boolean(descriptionText?.trim()) && (
-                        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                            <div className="mb-1 text-xs font-extrabold text-slate-500">Description</div>
-                            <div className="whitespace-pre-wrap text-slate-900 font-semibold leading-6">
-                                {descriptionText}
-                            </div>
-                        </div>
-                    )}
-                    {created && (
-                        <p className="text-sm mt-1" style={{ color: EKARI.dim }}>
-                            Posted {created.toLocaleDateString()}
-                        </p>
-                    )}
-                    {/* Badges row */}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {showFeatured && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500 text-black text-[11px] font-extrabold px-3 py-1">
-                                <IoStar size={14} />
-                                Featured
-                            </span>
-                        )}
+                            {images.length ? (
+                                <>
+                                    <div
+                                        ref={
+                                            scrollRef
+                                        }
+                                        className="flex h-[250px] snap-x snap-mandatory overflow-x-hidden scroll-smooth sm:h-[300px] lg:h-[350px]"
+                                        onScroll={(
+                                            e
+                                        ) => {
+                                            const L =
+                                                e
+                                                    .currentTarget
+                                                    .scrollLeft;
+                                            const W =
+                                                e
+                                                    .currentTarget
+                                                    .clientWidth;
 
-                        {showVerified && (
-                            <span
-                                className="inline-flex items-center gap-1 rounded-full text-[11px] font-extrabold px-3 py-1 border bg-white"
-                                style={{ borderColor: EKARI.hair, color: EKARI.forest }}
-                                title="Verified seller"
-                            >
-                                <IoShieldCheckmark size={14} />
-                                Verified
-                            </span>
-                        )}
-
-
-                        {/* Visit Store (only for storefront sellers) */}
-                        {showStorefront && storeUrl && (
-                            <button
-                                type="button"
-                                onClick={() => router.push(storeUrl)}
-                                className="inline-flex items-center gap-1 rounded-full text-[11px] font-extrabold px-3 py-1 border bg-white hover:bg-gray-100"
-                                style={{ borderColor: EKARI.hair, color: EKARI.text }}
-
-                                title="Open seller storefront"
-                            >
-                                <IoStorefrontOutline size={14} />
-                                Visit Store
-                            </button>
-                        )}
-                    </div>
-
-                </div>
-
-                {/* Seller card */}
-
-                {/* Seller card */}
-                <div className="bg-white rounded-2xl shadow-sm mt-4 p-5 border" style={{ borderColor: EKARI.hair }}>
-                    <div className="flex items-center gap-3">
-                        <Image
-                            onClick={() => openProfile(product?.seller?.handle ?? "")}
-                            src={product.seller?.photoURL || "/avatar-placeholder.png"}
-                            alt="Seller"
-                            width={44}
-                            height={44}
-                            className="rounded-full cursor-pointer object-cover border bg-[#F3F4F6]"
-                            style={{ borderColor: EKARI.hair }}
-                        />
-
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <div onClick={() => openProfile(product?.seller?.handle ?? "")} className="flex cursor-pointer items-center gap-2 min-w-0">
-                                    <p className="font-extrabold truncate" style={{ color: EKARI.text }}>
-                                        {product.seller?.name || "Seller"}
-                                    </p>
-
-                                </div>
-
-
-                            </div>
-
-                            {product.seller?.handle && (
-                                <p className="text-xs truncate" style={{ color: EKARI.dim }}>
-                                    {product.seller.handle}
-                                </p>
-                            )}
-                        </div>
-
-                        <AuthorBadgePill badge={(product as any).authorBadge} />
-
-                    </div>
-
-                    <div className="mt-3">
-                        {!isOwner ? (
-                            <>
-                                <button
-                                    onClick={handleMessageClick}
-                                    disabled={msgLoading}
-                                    className={[
-                                        "w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white transition",
-                                        msgLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-95",
-                                    ].join(" ")}
-                                    style={{ backgroundColor: EKARI.gold }}
-                                >
-                                    {msgLoading ? (
-                                        <>
-                                            <span className="inline-block h-4 w-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
-                                            Opening…
-                                        </>
-                                    ) : (
-                                        <>
-                                            <IoChatbubbleEllipsesOutline size={18} />
-                                            Message seller
-                                        </>
-                                    )}
-                                </button>
-
-                                <div
-                                    className="mt-3 rounded-2xl border bg-gradient-to-br from-amber-50 via-white to-red-50 p-4 shadow-sm"
-                                    style={{ borderColor: "rgba(199,146,87,0.22)" }}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
-                                            <IoShieldCheckmark size={18} className="text-amber-700" />
-                                        </div>
-
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <h3 className="text-[13px] font-extrabold tracking-[0.01em] text-slate-900">
-                                                    Buyer Safety Notice
-                                                </h3>
-
-                                                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-amber-800">
-                                                    Stay Safe
-                                                </span>
-                                            </div>
-
-                                            <p className="mt-2 text-[12px] leading-6 font-medium text-slate-700">
-                                                For your security, please follow these guidelines when transacting on ekariMarket:
-                                            </p>
-
-                                            <ul className="mt-2 space-y-2 text-[12px] leading-6 text-slate-700">
-                                                <li className="flex items-start gap-2">
-                                                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
-                                                    <span>Do not make advance payments.</span>
-                                                </li>
-
-                                                <li className="flex items-start gap-2">
-                                                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
-                                                    <span>Meet the seller in person where possible.</span>
-                                                </li>
-
-                                                <li className="flex items-start gap-2">
-                                                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
-                                                    <span>Inspect and verify the product or service before paying.</span>
-                                                </li>
-
-                                                <li className="flex items-start gap-2">
-                                                    <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
-                                                    <span>Only complete payment after confirming quality and satisfaction.</span>
-                                                </li>
-                                            </ul>
-
-                                            <div className="mt-3 rounded-xl border border-slate-200 bg-white/90 px-3 py-2">
-                                                <p className="text-[11px] leading-5 font-semibold italic text-slate-600">
-                                                    ekarihub provides the marketplace platform but does not handle payments
-                                                    or deliveries, and therefore cannot be held liable for transactions
-                                                    between users.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="space-y-2">
-                                <div className="w-full h-11 rounded-xl flex items-center justify-center font-black text-white bg-gray-300">
-                                    This is you
-                                </div>
-
-                                {/* Owner perks */}
-                                <div
-                                    className="rounded-2xl border p-3"
-                                    style={{ borderColor: EKARI.hair, background: "#FAFAFA" }}
-                                >
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <span
-                                                className="h-8 w-8 rounded-xl grid place-items-center"
-                                                style={{ background: "rgba(199,146,87,0.16)" }}
-                                            >
-                                                <IoSparklesOutline size={16} style={{ color: EKARI.gold }} />
-                                            </span>
-                                            <div className="min-w-0">
-                                                <div className="text-sm font-black" style={{ color: EKARI.text }}>
-                                                    Listing perks
+                                            setActive(
+                                                Math.round(
+                                                    L /
+                                                    W
+                                                )
+                                            );
+                                        }}
+                                    >
+                                        {images.map(
+                                            (
+                                                url,
+                                                i
+                                            ) => (
+                                                <div
+                                                    key={
+                                                        i
+                                                    }
+                                                    className="relative h-full w-full shrink-0 snap-center overflow-hidden"
+                                                >
+                                                    <Image
+                                                        src={
+                                                            url
+                                                        }
+                                                        alt={`${product.name} ${i +
+                                                            1
+                                                            }`}
+                                                        fill
+                                                        className="cursor-zoom-in object-cover transition-transform duration-500 hover:scale-[1.015]"
+                                                        sizes="(max-width: 1024px) 100vw, 620px"
+                                                        priority={
+                                                            i ===
+                                                            0
+                                                        }
+                                                        onClick={() =>
+                                                            openFullscreen(
+                                                                i
+                                                            )
+                                                        }
+                                                    />
                                                 </div>
-                                                <div className="text-[12px]" style={{ color: EKARI.dim }}>
-                                                    Boost reach & get featured placement
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {!hasActivePlan && (
-                                            <span
-                                                className="shrink-0 inline-flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full border bg-white"
-                                                style={{ borderColor: EKARI.hair, color: EKARI.dim }}
-                                                title="Upgrade required"
-                                            >
-                                                <IoLockClosedOutline size={12} />
-                                                Locked
-                                            </span>
+                                            )
                                         )}
                                     </div>
 
-                                    {/* If NOT subscribed -> CTA */}
-                                    {!hasActivePlan ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => router.push("/seller/dashboard")} // <-- change to your real packages route
-                                            className="mt-3 w-full h-11 rounded-xl flex items-center justify-center gap-2 font-black text-white hover:opacity-95 transition focus:ring-2"
-                                            style={{ backgroundColor: EKARI.forest, ["--tw-ring-color" as any]: EKARI.forest }}
-                                            title="Upgrade to unlock Boost & Feature"
+                                    <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
+                                        <span
+                                            className={[
+                                                "inline-flex items-center gap-1 rounded-full px-2.5 py-1",
+                                                "text-[9px] font-black text-white shadow-sm backdrop-blur-md",
+                                                isSold
+                                                    ? "bg-rose-600"
+                                                    : isReserved
+                                                        ? "bg-amber-500"
+                                                        : "bg-emerald-600",
+                                            ].join(
+                                                " "
+                                            )}
                                         >
-                                            <IoSparklesOutline size={18} />
-                                            Upgrade to unlock perks
-                                            <IoArrowForwardOutline size={16} />
-                                        </button>
-                                    ) : (
+                                            {isSold ? (
+                                                <IoCloseCircle
+                                                    size={
+                                                        11
+                                                    }
+                                                />
+                                            ) : isReserved ? (
+                                                <IoTimeOutline
+                                                    size={
+                                                        11
+                                                    }
+                                                />
+                                            ) : (
+                                                <IoCheckmarkCircle
+                                                    size={
+                                                        11
+                                                    }
+                                                />
+                                            )}
+
+                                            {
+                                                listingStatusText
+                                            }
+                                        </span>
+
+                                        {showFeatured ? (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#F39A22] px-2.5 py-1 text-[9px] font-black text-white shadow-sm">
+                                                <IoStar
+                                                    size={
+                                                        11
+                                                    }
+                                                />
+                                                Featured
+                                            </span>
+                                        ) : null}
+                                    </div>
+
+                                    {images.length >
+                                        1 ? (
                                         <>
-                                            {/* Subscribed -> show real actions */}
-                                            <div className="mt-3 grid grid-cols-2 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={doBoost}
-                                                    disabled={perkLoading !== null}
-                                                    className="h-11 rounded-xl border font-extrabold text-sm disabled:opacity-60 hover:bg-black/[0.03] transition flex items-center justify-center gap-2"
-                                                    style={{ borderColor: EKARI.hair, color: EKARI.text, background: "#fff" }}
-                                                    title="Use a boost credit to improve ranking"
-                                                >
-                                                    {perkLoading === "boost" ? (
-                                                        <>
-                                                            <span className="inline-block h-4 w-4 rounded-full border-2 border-black/20 border-t-black/60 animate-spin" />
-                                                            Boosting…
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <IoRocketOutline size={18} style={{ color: EKARI.gold }} />
-                                                            Boost
-                                                        </>
-                                                    )}
-                                                </button>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    goTo(
+                                                        active >
+                                                            0
+                                                            ? active -
+                                                            1
+                                                            : images.length -
+                                                            1
+                                                    )
+                                                }
+                                                className="absolute left-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-md transition hover:bg-black/50"
+                                                aria-label="Previous image"
+                                            >
+                                                <IoChevronBack
+                                                    size={
+                                                        18
+                                                    }
+                                                />
+                                            </button>
 
-                                                <button
-                                                    type="button"
-                                                    onClick={doFeature}
-                                                    disabled={perkLoading !== null}
-                                                    className="h-11 rounded-xl font-extrabold text-sm text-white disabled:opacity-60 hover:opacity-95 transition flex items-center justify-center gap-2"
-                                                    style={{ backgroundColor: EKARI.forest }}
-                                                    title="Use a featured credit to appear in featured slots"
-                                                >
-                                                    {perkLoading === "feature" ? (
-                                                        <>
-                                                            <span className="inline-block h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                                                            Featuring…
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <IoStarOutline size={18} />
-                                                            Feature
-                                                        </>
-                                                    )}
-                                                </button>
-                                            </div>
-
-                                            {/* Optional small helper row */}
-                                            <div className="mt-2 flex items-center justify-between text-[12px]" style={{ color: EKARI.dim }}>
-                                                <span>Available on your plan</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => router.push("/market/packages")}
-                                                    className="underline font-bold"
-                                                    style={{ color: EKARI.forest }}
-                                                >
-                                                    Manage plan
-                                                </button>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    goTo(
+                                                        active +
+                                                            1 <
+                                                            images.length
+                                                            ? active +
+                                                            1
+                                                            : 0
+                                                    )
+                                                }
+                                                className="absolute right-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-md transition hover:bg-black/50"
+                                                aria-label="Next image"
+                                            >
+                                                <IoChevronForward
+                                                    size={
+                                                        18
+                                                    }
+                                                />
+                                            </button>
                                         </>
-                                    )}
+                                    ) : null}
 
-                                    {perkMsg && (
-                                        <div
-                                            className="mt-3 text-xs rounded-xl px-3 py-2 border"
-                                            style={{ borderColor: EKARI.hair, color: EKARI.dim, background: "#FFFFFF" }}
-                                        >
-                                            {perkMsg}
-                                        </div>
-                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            openFullscreen(
+                                                active
+                                            )
+                                        }
+                                        className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-md transition hover:bg-black/50"
+                                        aria-label="View fullscreen"
+                                    >
+                                        <IoExpandOutline
+                                            size={15}
+                                        />
+                                    </button>
+
+                                    <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/35 px-2.5 py-1 backdrop-blur-md">
+                                        {images.map(
+                                            (
+                                                _,
+                                                i
+                                            ) => (
+                                                <button
+                                                    key={
+                                                        i
+                                                    }
+                                                    type="button"
+                                                    onClick={() =>
+                                                        goTo(
+                                                            i
+                                                        )
+                                                    }
+                                                    className={[
+                                                        "h-1.5 rounded-full transition-all",
+                                                        i ===
+                                                            active
+                                                            ? "w-5 bg-white"
+                                                            : "w-1.5 bg-white/50",
+                                                    ].join(
+                                                        " "
+                                                    )}
+                                                    aria-label={`Go to image ${i +
+                                                        1
+                                                        }`}
+                                                />
+                                            )
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="grid h-[250px] place-items-center text-slate-400 sm:h-[300px] lg:h-[350px]">
+                                    <div className="text-center">
+                                        <IoImageOutline
+                                            size={
+                                                38
+                                            }
+                                            className="mx-auto"
+                                        />
+
+                                        <p className="mt-2 text-[11px] font-bold">
+                                            No photo
+                                        </p>
+                                    </div>
                                 </div>
+                            )}
+                        </div>
+                    </div>
 
+
+                    {/* PRODUCT DETAILS BELOW IMAGE */}
+                    <div
+                        className={[
+                            "rounded-[20px] border border-[#DDD8CC]",
+                            "bg-[#FBFAF6] p-4 sm:p-5",
+                            "shadow-[0_10px_28px_rgba(15,23,42,0.035)]",
+                        ].join(" ")}
+                    >
+                        {/* Listing labels */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            {product.category ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#EFECE5] px-2.5 py-1 text-[9px] font-black text-slate-500">
+                                    <IoPricetagOutline size={11} />
+                                    {product.category}
+                                </span>
+                            ) : null}
+
+                            <span
+                                className={[
+                                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1",
+                                    "text-[9px] font-black text-white",
+                                    isSold
+                                        ? "bg-rose-600"
+                                        : isReserved
+                                            ? "bg-amber-500"
+                                            : "bg-emerald-600",
+                                ].join(" ")}
+                            >
+                                {isSold ? (
+                                    <IoCloseCircle size={11} />
+                                ) : isReserved ? (
+                                    <IoTimeOutline size={11} />
+                                ) : (
+                                    <IoCheckmarkCircle size={11} />
+                                )}
+
+                                {listingStatusText}
+                            </span>
+
+                            {showFeatured ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#F39A22] px-2.5 py-1 text-[9px] font-black text-white">
+                                    <IoStar size={11} />
+                                    Featured
+                                </span>
+                            ) : null}
+                        </div>
+
+                        {/* Title + price */}
+                        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                                <h1 className="text-[24px] font-black leading-[1.1] tracking-[-0.035em] text-slate-900 sm:text-[28px]">
+                                    {product.name}
+                                </h1>
+
+                                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-400">
+                                    {product.type ? (
+                                        <span className="capitalize">
+                                            {product.type}
+                                        </span>
+                                    ) : null}
+
+                                    {product.unit ? (
+                                        <span>
+                                            {product.typicalPackSize
+                                                ? `${product.typicalPackSize} `
+                                                : ""}
+                                            {product.unit}
+                                        </span>
+                                    ) : null}
+
+                                    {created ? (
+                                        <span>
+                                            Posted{" "}
+                                            {created.toLocaleDateString()}
+                                        </span>
+                                    ) : null}
+                                </div>
                             </div>
 
-                        )}
+                            <div className="shrink-0 sm:text-right">
+                                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                                    Price
+                                </div>
+
+                                <div className="mt-1 text-[28px] font-black tracking-[-0.035em] text-[#173C2E] sm:text-[30px]">
+                                    {listingPriceText}
+                                </div>
+
+                                {product.billingUnit ? (
+                                    <div className="mt-1 text-[9px] font-semibold text-slate-400">
+                                        per {product.billingUnit}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        {descriptionText ? (
+                            <div className="mt-5 border-t border-[#E4DED2] pt-4">
+                                <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                    About this listing
+                                </div>
+
+                                <p className="mt-2 whitespace-pre-wrap text-[12px] font-medium leading-6 text-slate-600">
+                                    {descriptionText}
+                                </p>
+                            </div>
+                        ) : null}
+
+                        {/* Other listing details */}
+                        <div className="mt-5 border-t border-[#E4DED2] pt-4">
+                            <div className="mb-3 flex items-center gap-2">
+                                <IoInformationCircleOutline
+                                    size={14}
+                                    className="text-[#F39A22]"
+                                />
+
+                                <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                    Listing details
+                                </div>
+                            </div>
+
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                {product.category ? (
+                                    <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                            Category
+                                        </div>
+
+                                        <div className="mt-1 text-[11px] font-black text-slate-700">
+                                            {product.category}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {product.type ? (
+                                    <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                            Listing type
+                                        </div>
+
+                                        <div className="mt-1 capitalize text-[11px] font-black text-slate-700">
+                                            {product.type}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {product.unit ? (
+                                    <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                            Quantity / unit
+                                        </div>
+
+                                        <div className="mt-1 text-[11px] font-black text-slate-700">
+                                            {product.typicalPackSize
+                                                ? `${product.typicalPackSize} `
+                                                : ""}
+                                            {product.unit}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {product.billingUnit ? (
+                                    <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                            Billing unit
+                                        </div>
+
+                                        <div className="mt-1 text-[11px] font-black text-slate-700">
+                                            {product.billingUnit}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                        Status
+                                    </div>
+
+                                    <div className="mt-1 text-[11px] font-black text-slate-700">
+                                        {listingStatusText}
+                                    </div>
+                                </div>
+
+                                {created ? (
+                                    <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
+                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                            Posted
+                                        </div>
+
+                                        <div className="mt-1 text-[11px] font-black text-slate-700">
+                                            {created.toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        {isTree && product.useCase ? (
+                            <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#EEF6EC] px-3 py-2.5 text-[10px] font-semibold leading-5 text-[#3E6F28]">
+                                <IoLeafOutline
+                                    size={14}
+                                    className="mt-0.5 shrink-0"
+                                />
+                                {product.useCase}
+                            </div>
+                        ) : null}
                     </div>
+                </motion.section>
+
+                {/* MOBILE / TABLET SELLER + SAFETY */}
+                <div className="mt-4 space-y-3 lg:hidden">
+                    <SellerSummary />
+
+                    {!isOwner ? (
+                        <BuyerSafetyCard />
+                    ) : (
+                        <OwnerPerksCard />
+                    )}
                 </div>
 
-                {/* Seller Reviews */}
-                {sellerId ? <SellerReviewsSection sellerId={sellerId} /> : null}
+                {/* REVIEWS */}
+                {sellerId ? (
+                    <motion.div
+                        initial={{
+                            opacity: 0,
+                            y: 6,
+                        }}
+                        animate={{
+                            opacity: 1,
+                            y: 0,
+                        }}
+                        transition={{
+                            delay: 0.06,
+                            duration: 0.24,
+                        }}
+                        className="mt-4"
+                    >
+                        <SellerReviewsSection
+                            sellerId={
+                                sellerId
+                            }
+                        />
+                    </motion.div>
+                ) : null}
             </div>
 
-            {/* Fullscreen modal */}
+            {/* FULLSCREEN GALLERY */}
             {fsOpen &&
                 createPortal(
-                    <div className="fixed inset-0 z-[70] bg-black/90 text-white">
-                        <div className="absolute top-0 left-0 right-0 h-12 px-3 flex items-center justify-between">
+                    <motion.div
+                        initial={{
+                            opacity: 0,
+                        }}
+                        animate={{
+                            opacity: 1,
+                        }}
+                        className="fixed inset-0 z-[9999] bg-black/95 text-white"
+                    >
+                        <div className="absolute left-0 right-0 top-0 z-20 flex h-14 items-center justify-between px-3">
                             <button
-                                onClick={closeFullscreen}
-                                className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                                type="button"
+                                onClick={
+                                    closeFullscreen
+                                }
+                                className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
                             >
-                                <IoContractOutline size={18} />
+                                <IoContractOutline
+                                    size={17}
+                                />
                             </button>
+
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => zoomBy(-0.2)}
-                                    className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                                    type="button"
+                                    onClick={() =>
+                                        zoomBy(
+                                            -0.2
+                                        )
+                                    }
+                                    className="grid h-9 w-9 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
                                 >
-                                    <IoRemove size={18} />
+                                    <IoRemove
+                                        size={16}
+                                    />
                                 </button>
+
                                 <button
-                                    onClick={() => setFsScale(1)}
-                                    className="px-2 h-9 rounded-full bg-white/10 text-xs font-bold"
+                                    type="button"
+                                    onClick={() =>
+                                        setFsScale(
+                                            1
+                                        )
+                                    }
+                                    className="h-9 rounded-full bg-white/10 px-3 text-[10px] font-black"
                                 >
-                                    {Math.round(fsScale * 100)}%
+                                    {Math.round(
+                                        fsScale *
+                                        100
+                                    )}
+                                    %
                                 </button>
+
                                 <button
-                                    onClick={() => zoomBy(0.2)}
-                                    className="w-9 h-9 grid place-items-center rounded-full hover:bg-white/10"
+                                    type="button"
+                                    onClick={() =>
+                                        zoomBy(
+                                            0.2
+                                        )
+                                    }
+                                    className="grid h-9 w-9 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
                                 >
-                                    <IoAdd size={18} />
+                                    <IoAdd
+                                        size={16}
+                                    />
                                 </button>
                             </div>
                         </div>
 
                         <div
-                            className="h-full w-full flex items-center justify-center select-none"
-                            onWheel={onFsWheel}
-                            onDoubleClick={onFsDouble}
-                            onPointerDown={onFsPointerDown}
-                            onPointerMove={onFsPointerMove}
-                            onPointerUp={onFsPointerUp}
+                            className="flex h-full w-full select-none items-center justify-center"
+                            onWheel={
+                                onFsWheel
+                            }
+                            onDoubleClick={
+                                onFsDouble
+                            }
+                            onPointerDown={
+                                onFsPointerDown
+                            }
+                            onPointerMove={
+                                onFsPointerMove
+                            }
+                            onPointerUp={
+                                onFsPointerUp
+                            }
                         >
                             <div
                                 className="relative"
                                 style={{
                                     transform: `translate(${fsTx}px, ${fsTy}px) scale(${fsScale})`,
-                                    transition: drag.current ? "none" : "transform 120ms ease",
+                                    transition:
+                                        drag.current
+                                            ? "none"
+                                            : "transform 120ms ease",
                                 }}
                             >
                                 <Image
-                                    src={images[fsIndex]}
-                                    alt={`image ${fsIndex + 1}`}
+                                    src={
+                                        images[
+                                        fsIndex
+                                        ]
+                                    }
+                                    alt={`image ${fsIndex +
+                                        1
+                                        }`}
                                     width={1600}
                                     height={1000}
-                                    className="object-contain max-h-[80vh] lg:max-h-[88vh] rounded"
+                                    className="max-h-[86vh] rounded-lg object-contain lg:max-h-[90vh]"
                                     priority
                                 />
                             </div>
 
-                            {images.length > 1 && (
+                            {images.length >
+                                1 ? (
                                 <>
                                     <button
-                                        onClick={fsPrev}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
+                                        type="button"
+                                        onClick={
+                                            fsPrev
+                                        }
+                                        className="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
                                     >
-                                        <IoChevronBack size={22} />
+                                        <IoChevronBack
+                                            size={
+                                                21
+                                            }
+                                        />
                                     </button>
+
                                     <button
-                                        onClick={fsNext}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
+                                        type="button"
+                                        onClick={
+                                            fsNext
+                                        }
+                                        className="absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
                                     >
-                                        <IoChevronForward size={22} />
+                                        <IoChevronForward
+                                            size={
+                                                21
+                                            }
+                                        />
                                     </button>
                                 </>
-                            )}
+                            ) : null}
 
-                            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[12px] font-bold bg-white/10 rounded-full px-3 py-1">
-                                {fsIndex + 1} / {images.length}
+                            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black">
+                                {fsIndex + 1} /{" "}
+                                {images.length}
                             </div>
                         </div>
-                    </div>,
+                    </motion.div>,
                     document.body
                 )}
         </main>
     );
 
-    // ✅ Desktop: wrap in AppShell
-    if (!isMobile) return <AppShell>{Body}</AppShell>;
+    if (!isMobile) {
+        return (
+            <AppShellRightRail
+                rightRail={RightRail}
+                rightRailClassName="border-l border-[#E4DED2] bg-[#F8F7F2]"
+            >
+                {Body}
+            </AppShellRightRail>
+        );
+    }
 
-    // ✅ Mobile: DO NOT use AppShell
     return Body;
+
 }

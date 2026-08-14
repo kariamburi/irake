@@ -6,11 +6,15 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  IoLockClosedOutline,
-  IoEyeOutline,
-  IoEyeOffOutline,
+  IoArrowBackOutline,
+  IoArrowForwardOutline,
   IoCheckmarkCircle,
-  IoChevronBack,
+  IoEyeOffOutline,
+  IoEyeOutline,
+  IoLeafOutline,
+  IoLockClosedOutline,
+  IoShieldCheckmarkOutline,
+  IoSparklesOutline,
 } from "react-icons/io5";
 import {
   confirmPasswordReset,
@@ -19,12 +23,12 @@ import {
 import { getAuthSafe } from "@/lib/firebase";
 
 const EKARI = {
-  forest: "#233F39",
-  gold: "#C79257",
+  forest: "#173C2E",
+  gold: "#F39A22",
   text: "#0F172A",
-  dim: "#6B7280",
-  hair: "#E5E7EB",
-  subtext: "#5C6B66",
+  dim: "#64748B",
+  hair: "#DDD8CC",
+  subtext: "#64748B",
   danger: "#B42318",
 };
 
@@ -186,283 +190,453 @@ export default function ResetPasswordPage() {
 
   return (
     <main
-      className="min-h-screen w-full flex flex-col justify-center px-5 items-center"
-      style={{
-        background:
-          "radial-gradient(circle at top left, rgba(35,63,57,0.12), transparent 55%), radial-gradient(circle at bottom right, rgba(199,146,87,0.16), #F3F4F6)",
-      }}
+      className="h-[100svh] w-full overflow-hidden bg-[#F8F7F2]"
     >
-      <div className="w-full max-w-xl flex flex-col items-center gap-4">
-        <motion.div
-          className="flex flex-col items-center gap-2 text-center"
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{
-            type: "spring",
-            stiffness: 140,
-            damping: 14,
-            mass: 0.6,
-            duration: 0.28,
-          }}
-        >
-          <Image
-            src="/ekarihub-logo.png"
-            alt="ekarihub"
-            width={320}
-            height={86}
-            priority
+      <div className="grid h-full w-full lg:grid-cols-[0.92fr_1.08fr]">
+        {/* LEFT */}
+        <section className="relative hidden overflow-hidden bg-[#173C2E] px-5 py-6 text-white lg:block lg:h-full lg:px-10 lg:py-10 xl:px-14">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.045]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.75) 18px 19px)",
+            }}
           />
 
-          <p
-            className="text-xs md:text-sm tracking-wide"
-            style={{ color: EKARI.subtext }}
+          <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
+          <div className="pointer-events-none absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-[#F39A22]/[0.08]" />
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, ease: "easeOut" }}
+            className="relative mx-auto flex h-full w-full min-w-0 max-w-[560px] flex-col"
           >
-            Create a new password
-          </p>
-        </motion.div>
+            <div className="flex items-center justify-between gap-3">
+              <Link
+                href="/"
+                aria-label="Go to ekarihub"
+                className="inline-flex items-center"
+              >
+                <Image
+                  src="/ekarihub-logo-green.png"
+                  alt="ekarihub"
+                  width={156}
+                  height={44}
+                  priority
+                  className="h-auto w-[132px] object-contain"
+                />
+              </Link>
 
-        <motion.div
-          className="w-full px-4 py-5 md:px-6 md:py-6 mt-2"
-          initial={{ opacity: 0, y: 12, scale: 0.99 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
-        >
-          <div className="flex flex-col gap-1 mb-3">
-            <h1
-              className="font-black text-lg md:text-xl"
-              style={{ color: EKARI.text }}
-            >
-              Reset password
-            </h1>
-
-            <p
-              className="text-xs md:text-sm leading-5"
-              style={{ color: EKARI.subtext }}
-            >
-              {email ? (
-                <>
-                  Resetting password for{" "}
-                  <span className="font-semibold">{email}</span>
-                </>
-              ) : (
-                "Verify your reset link, then set a new password."
-              )}
-            </p>
-          </div>
-
-          {checking && (
-            <p className="text-sm" style={{ color: EKARI.dim }}>
-              Verifying reset link…
-            </p>
-          )}
-
-          {!!errorMsg && !done && (
-            <div
-              className="mt-3 rounded-xl border px-3 py-3 text-center"
-              style={{
-                color: EKARI.danger,
-                borderColor: "#FECACA",
-                backgroundColor: "#FEF2F2",
-              }}
-            >
-              <p className="text-sm font-semibold">{errorMsg}</p>
-              <p className="mt-2 text-xs">
-                Tip: open the link in Google Chrome. If it still fails, request
-                a new password reset link.
-              </p>
+              <Link
+                href="/login"
+                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/70 transition hover:bg-white/[0.11]"
+              >
+                Back to login
+              </Link>
             </div>
-          )}
 
-          {done && (
-            <motion.div
-              className="mt-3 rounded-xl border px-3 py-2.5 flex items-start gap-2"
-              style={{ backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <IoCheckmarkCircle size={18} color="#10B981" />
-              <div className="text-xs md:text-sm">
-                <p className="font-semibold" style={{ color: "#065F46" }}>
-                  Password updated.
-                </p>
-                <p className="mt-0.5" style={{ color: "#047857" }}>
-                  Redirecting you to login…
-                </p>
+            <div className="flex flex-1 flex-col justify-center py-8 lg:py-10">
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/65">
+                <IoSparklesOutline
+                  size={12}
+                  className="text-[#F39A22]"
+                />
+                Create new password
               </div>
-            </motion.div>
-          )}
 
-          {!checking && !done && !errorMsg && (
-            <>
-              <label className="block text-xs font-semibold mb-1.5 mt-3">
-                <span style={{ color: EKARI.dim }}>New password</span>
-              </label>
+              <h1 className="mt-5 max-w-[470px] text-[30px] font-black leading-[1.06] tracking-[-0.045em] sm:text-[36px] xl:text-[42px]">
+                Secure your account with a fresh password.
+              </h1>
 
-              <div
-                className="flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
-                style={{ borderColor: EKARI.hair }}
+              <p className="mt-4 max-w-[470px] text-[11px] font-medium leading-5 text-white/55 sm:text-[12px]">
+                Choose a strong new password for your ekarihub account. Once updated, you&apos;ll return to login and continue normally.
+              </p>
+
+              <div className="mt-7 space-y-5">
+                <FeatureRow
+                  icon={<IoLockClosedOutline size={18} />}
+                  title="Use a strong password"
+                  description="Choose at least eight characters with an uppercase letter and a number."
+                />
+
+                <FeatureRow
+                  icon={<IoShieldCheckmarkOutline size={18} />}
+                  title="Protected reset flow"
+                  description="The reset link is verified before ekarihub allows your password to change."
+                />
+
+                <FeatureRow
+                  icon={<IoLeafOutline size={18} />}
+                  title="Your profile stays intact"
+                  description="Changing your password does not affect your profile, deeds, listings, messages or connections."
+                />
+              </div>
+
+
+            </div>
+
+            <div className="pb-1 text-[9px] font-semibold text-white/30">
+              Collaborate · Innovate · Cultivate
+            </div>
+          </motion.div>
+        </section>
+
+        {/* RIGHT */}
+        <section className="relative flex h-full  overflow-y-auto overflow-x-hidden flex-col bg-[#F8F7F2] px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10 xl:px-14">
+          <div className="pointer-events-none absolute -right-32 -top-28 h-80 w-80 rounded-full bg-[#173C2E]/[0.025]" />
+          <div className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-[#F39A22]/[0.035]" />
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.24, ease: "easeOut" }}
+            className="relative mx-auto flex h-full w-full min-w-0 max-w-[560px] flex-1 flex-col"
+          >
+            {/* Mobile header */}
+            <div className="mb-6 flex items-center justify-between lg:hidden">
+              <Link
+                href="/"
+                aria-label="Go to ekarihub"
+                className="inline-flex items-center"
               >
-                <IoLockClosedOutline
-                  className="mr-2"
-                  size={18}
-                  color={EKARI.dim}
+                <Image
+                  src="/ekarihub-logo.png"
+                  alt="ekarihub"
+                  width={152}
+                  height={44}
+                  priority
+                  className="h-auto w-[128px]"
                 />
+              </Link>
 
-                <input
-                  type={showPw ? "text" : "password"}
-                  placeholder="At least 8 chars"
-                  className="w-full bg-transparent outline-none text-base"
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleReset();
-                  }}
-                  disabled={disableAll}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShowPw((s) => !s)}
-                  className="ml-2"
-                  aria-label={showPw ? "Hide password" : "Show password"}
-                  disabled={disableAll}
-                >
-                  {showPw ? (
-                    <IoEyeOffOutline size={18} color={EKARI.dim} />
-                  ) : (
-                    <IoEyeOutline size={18} color={EKARI.dim} />
-                  )}
-                </button>
-              </div>
-
-              <label className="block text-xs font-semibold mb-1.5 mt-3">
-                <span style={{ color: EKARI.dim }}>Confirm password</span>
-              </label>
-
-              <div
-                className="flex items-center rounded-xl border px-3 h-12 bg-[#F6F7FB]"
-                style={{ borderColor: EKARI.hair }}
+              <Link
+                href="/login"
+                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[9px] font-black text-[#173C2E]"
               >
-                <IoLockClosedOutline
-                  className="mr-2"
-                  size={18}
-                  color={EKARI.dim}
-                />
+                Log in
+              </Link>
+            </div>
 
-                <input
-                  type={showPw2 ? "text" : "password"}
-                  placeholder="Re-type password"
-                  className="w-full bg-transparent outline-none text-base"
-                  value={pw2}
-                  onChange={(e) => setPw2(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleReset();
-                  }}
-                  disabled={disableAll}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShowPw2((s) => !s)}
-                  className="ml-2"
-                  aria-label={showPw2 ? "Hide password" : "Show password"}
-                  disabled={disableAll}
-                >
-                  {showPw2 ? (
-                    <IoEyeOffOutline size={18} color={EKARI.dim} />
-                  ) : (
-                    <IoEyeOutline size={18} color={EKARI.dim} />
-                  )}
-                </button>
+            <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
+              <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                Password reset
               </div>
 
-              <div
-                className="mt-3 rounded-xl border px-3 py-2.5"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <p
-                  className="text-xs font-semibold"
-                  style={{ color: EKARI.text }}
-                >
-                  Password requirements
-                </p>
+              <h2 className="mt-1 text-[25px] font-black tracking-[-0.035em] text-slate-900 sm:text-[29px]">
+                Create a new password.
+              </h2>
 
-                <ul
-                  className="mt-1 text-xs leading-5"
-                  style={{ color: EKARI.subtext }}
+              <p className="mt-2 max-w-[480px] text-[10px] font-medium leading-5 text-slate-500">
+                {email ? (
+                  <>
+                    Resetting password for{" "}
+                    <span className="font-black text-slate-700">{email}</span>
+                  </>
+                ) : (
+                  "We&apos;ll verify your reset link before allowing a new password."
+                )}
+              </p>
+
+              {checking ? (
+                <div className="mt-5 rounded-[15px] border border-[#E5E0D6] bg-[#FBFAF6] px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-[#173C2E]" />
+
+                    <span className="text-[9px] font-black text-slate-500">
+                      Verifying reset link...
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
+              {!!errorMsg && !done ? (
+                <div className="mt-5 rounded-[15px] border border-rose-200 bg-rose-50 px-3.5 py-3">
+                  <div className="text-[10px] font-black text-rose-700">
+                    We couldn&apos;t verify this reset link.
+                  </div>
+
+                  <p className="mt-1 text-[9px] font-medium leading-4 text-rose-600">
+                    {errorMsg}
+                  </p>
+
+                  <p className="mt-2 text-[8px] font-medium leading-4 text-rose-500">
+                    If the link still fails, request a new password-reset email.
+                  </p>
+
+                  <Link
+                    href="/forgot-password"
+                    className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 text-[8px] font-black text-rose-700 transition hover:bg-rose-50"
+                  >
+                    Request new reset link
+                    <IoArrowForwardOutline size={12} />
+                  </Link>
+                </div>
+              ) : null}
+
+              {done ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  className="mt-5 rounded-[15px] border border-emerald-200 bg-emerald-50 px-3.5 py-3"
                 >
-                  <li className={pwRules.len ? "font-semibold" : ""}>
-                    • At least 8 characters
-                  </li>
-                  <li className={pwRules.cap ? "font-semibold" : ""}>
-                    • Contains an uppercase letter
-                  </li>
-                  <li className={pwRules.num ? "font-semibold" : ""}>
-                    • Contains a number
-                  </li>
-                  <li className={pw === pw2 && pw.length > 0 ? "font-semibold" : ""}>
-                    • Passwords match
-                  </li>
-                </ul>
-              </div>
+                  <div className="flex items-start gap-2.5">
+                    <IoCheckmarkCircle
+                      size={18}
+                      className="mt-0.5 shrink-0 text-emerald-600"
+                    />
+
+                    <div>
+                      <div className="text-[10px] font-black text-emerald-800">
+                        Password updated
+                      </div>
+
+                      <p className="mt-1 text-[9px] font-medium leading-4 text-emerald-700">
+                        Your new password has been saved. Redirecting you to login...
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+
+              {!checking && !done && !errorMsg ? (
+                <>
+                  {/* New password */}
+                  <div className="mt-6">
+                    <label className="mb-1.5 block text-[10px] font-black text-slate-700">
+                      New password
+                    </label>
+
+                    <div className="flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                      <IoLockClosedOutline
+                        className="mr-2 shrink-0 text-slate-400"
+                        size={17}
+                      />
+
+                      <input
+                        type={showPw ? "text" : "password"}
+                        autoComplete="new-password"
+                        placeholder="At least 8 characters"
+                        className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                        value={pw}
+                        onChange={(e) => setPw(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            void handleReset();
+                          }
+                        }}
+                        disabled={disableAll}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowPw((s) => !s)}
+                        className="ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-[#F3F1EB] hover:text-[#173C2E]"
+                        aria-label={showPw ? "Hide password" : "Show password"}
+                        disabled={disableAll}
+                      >
+                        {showPw ? (
+                          <IoEyeOffOutline size={17} />
+                        ) : (
+                          <IoEyeOutline size={17} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm password */}
+                  <div className="mt-3">
+                    <label className="mb-1.5 block text-[10px] font-black text-slate-700">
+                      Confirm password
+                    </label>
+
+                    <div className="flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                      <IoLockClosedOutline
+                        className="mr-2 shrink-0 text-slate-400"
+                        size={17}
+                      />
+
+                      <input
+                        type={showPw2 ? "text" : "password"}
+                        autoComplete="new-password"
+                        placeholder="Re-type password"
+                        className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                        value={pw2}
+                        onChange={(e) => setPw2(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            void handleReset();
+                          }
+                        }}
+                        disabled={disableAll}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowPw2((s) => !s)}
+                        className="ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-[#F3F1EB] hover:text-[#173C2E]"
+                        aria-label={showPw2 ? "Hide password" : "Show password"}
+                        disabled={disableAll}
+                      >
+                        {showPw2 ? (
+                          <IoEyeOffOutline size={17} />
+                        ) : (
+                          <IoEyeOutline size={17} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Rules */}
+                  <div className="mt-4 rounded-[16px] border border-[#E5E0D6] bg-[#FBFAF6] px-4 py-3">
+                    <div className="text-[9px] font-black text-slate-600">
+                      Password requirements
+                    </div>
+
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <RuleItem
+                        ok={pwRules.len}
+                        label="At least 8 characters"
+                      />
+
+                      <RuleItem
+                        ok={pwRules.cap}
+                        label="Contains uppercase"
+                      />
+
+                      <RuleItem
+                        ok={pwRules.num}
+                        label="Contains a number"
+                      />
+
+                      <RuleItem
+                        ok={pw === pw2 && pw.length > 0}
+                        label="Passwords match"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleReset()}
+                    disabled={!canSubmit || disableAll}
+                    className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white shadow-[0_10px_24px_rgba(23,60,46,0.14)] transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                        Resetting password...
+                      </>
+                    ) : (
+                      <>
+                        Reset password
+                        <IoArrowForwardOutline size={14} />
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : null}
 
               <button
-                onClick={handleReset}
-                disabled={!canSubmit || disableAll}
-                className="mt-4 w-full rounded-xl py-3 font-extrabold text-white active:scale-[0.98] transition"
-                style={{
-                  background: "linear-gradient(135deg, #C79257, #fbbf77)",
-                  opacity: !canSubmit || disableAll ? 0.6 : 1,
-                }}
+                type="button"
+                onClick={() => router.replace("/")}
+                className="mx-auto mt-4 inline-flex h-9 items-center gap-1.5 px-3 text-[9px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                disabled={loading}
               >
-                {loading ? "Resetting..." : "Reset password"}
+                <IoArrowBackOutline size={13} />
+                Home
               </button>
-            </>
-          )}
+            </div>
 
-          <div
-            className="w-full justify-end items-center">
-            <button
-              onClick={() => router.replace("/")}
-              className="mx-auto mt-4 flex items-center gap-1 text-sm font-bold"
-              style={{ color: EKARI.dim }}
-              disabled={loading}
-            >
-              <IoChevronBack size={18} />
-              Home
-            </button>
-          </div>
-          <div
-            className="mt-5 border-t pt-3 border-dashed"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <p
-              className="text-[11px] md:text-xs leading-5 text-center"
-              style={{ color: EKARI.text }}
-            >
-              By continuing, you agree to our{" "}
-              <Link
-                href="/terms"
-                className="underline font-semibold"
-                style={{ color: EKARI.forest }}
-              >
-                Terms and Conditions
-              </Link>{" "}
-              and{" "}
-              <Link
-                href="/privacy"
-                className="underline font-semibold"
-                style={{ color: EKARI.forest }}
-              >
-                Privacy Policy
-              </Link>
-              .
-            </p>
-          </div>
-        </motion.div>
+            <div className="pt-5">
+              <p className="text-center text-[9px] font-medium leading-4 text-slate-400">
+                By continuing, you agree to our{" "}
+                <Link
+                  href="/terms"
+                  className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                >
+                  Terms and Conditions
+                </Link>{" "}
+                and{" "}
+                <Link
+                  href="/privacy"
+                  className="font-black text-[#173C2E] transition hover:text-[#F39A22]"
+                >
+                  Privacy Policy
+                </Link>
+                .
+              </p>
 
-        <div className="h-2" />
+              <div
+                style={{
+                  height: "env(safe-area-inset-bottom)",
+                }}
+              />
+            </div>
+          </motion.div>
+        </section>
       </div>
     </main>
+  );
+}
+
+function FeatureRow({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#F39A22]">
+        {icon}
+      </div>
+
+      <div className="min-w-0">
+        <div className="text-[12px] font-black text-white">
+          {title}
+        </div>
+
+        <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RuleItem({
+  ok,
+  label,
+}: {
+  ok: boolean;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={[
+          "grid h-5 w-5 shrink-0 place-items-center rounded-full",
+          ok
+            ? "bg-emerald-100 text-emerald-700"
+            : "bg-slate-100 text-slate-300",
+        ].join(" ")}
+      >
+        <IoCheckmarkCircle size={13} />
+      </span>
+
+      <span
+        className={[
+          "text-[8px] font-bold",
+          ok ? "text-emerald-700" : "text-slate-400",
+        ].join(" ")}
+      >
+        {label}
+      </span>
+    </div>
   );
 }

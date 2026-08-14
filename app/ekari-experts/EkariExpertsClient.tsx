@@ -38,9 +38,12 @@ import {
     IoSearchOutline,
     IoShieldCheckmarkOutline,
     IoStarOutline,
+    IoGridOutline,
 } from "react-icons/io5";
 
 import AppShell from "@/app/components/AppShell";
+import { motion } from "framer-motion";
+import ExpertDiscoveryRail from "@/app/components/experts/ExpertDiscoveryRail";
 import ExpertCard from "@/app/components/experts/ExpertCard";
 
 import { db } from "@/lib/firebase";
@@ -50,6 +53,8 @@ import { useAuth } from "../hooks/useAuth";
 import { EkariSideMenuSheet } from "../components/EkariSideMenuSheet";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { FALLBACK_EXPERT_SPECIALTIES } from "../constants/expertConstants";
+import AppShellRightRail from "../components/AppShellRightRail";
+import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
 const EKARI = {
     forest: "#233F39",
@@ -1009,369 +1014,513 @@ function MarketplaceContent() {
     const handle = (profile as any)?.handle ?? null;
     const profileHref =
         handle && String(handle).trim().length > 0 ? `/${handle}` : "/getstarted";
+
+    const expertStats = useMemo(() => {
+        const verifiedCount = experts.filter(
+            (expert) =>
+                expert.verified ||
+                expert.verificationStatus === "approved"
+        ).length;
+
+        const locations = new Set(
+            experts
+                .flatMap(getExpertLocationValues)
+                .map((value) =>
+                    String(value || "").trim().toLowerCase()
+                )
+                .filter(Boolean)
+        );
+
+        const ratedExperts = experts.filter(
+            (expert) =>
+                Number(expert.rating?.count || 0) > 0
+        );
+
+        const averageRating =
+            ratedExperts.length > 0
+                ? ratedExperts.reduce(
+                    (total, expert) =>
+                        total +
+                        Number(
+                            expert.rating?.average || 0
+                        ),
+                    0
+                ) / ratedExperts.length
+                : 0;
+
+        return {
+            verifiedCount,
+            locations: locations.size,
+            averageRating,
+        };
+    }, [experts]);
+
+    const featuredExpert =
+        filteredExperts[0] ??
+        experts[0] ??
+        null;
+
+    const quickSpecialties = useMemo(
+        () => specialtyOptions.slice(0, 5),
+        [specialtyOptions]
+    );
     return (
-        <AppShell>
-            <main
-                className="min-h-screen w-full"
-                style={{
-                    backgroundColor: "#F6F8F7",
-                }}
-            >
-                <section
-                    className="relative overflow-hidden"
-                    style={{
-                        background:
-                            "linear-gradient(135deg, #1B312C 0%, #233F39 58%, #31534B 100%)",
+        <AppShellRightRail
+            rightRail={
+                <ExpertDiscoveryRail
+                    experts={experts}
+                    specialtyOptions={specialtyOptions}
+                    featuredExpert={featuredExpert}
+                    onSpecialtySelect={(value: any) => {
+                        setSpecialty(value);
+                        setSearch("");
                     }}
+                />
+            }
+            rightRailClassName="border-l border-[#E4DED2] bg-[#F8F7F2]"
+            handle={handle ?? undefined}
+        >
+            <main className="h-[100svh] w-full overflow-y-auto bg-[#F8F7F2] no-scrollbar">
+                {/* HERO */}
+                <motion.section
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{
+                        duration: 0.3,
+                        ease: "easeOut",
+                    }}
+                    className="relative overflow-hidden bg-[#173C2E]"
                 >
-                    <div
-                        className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full"
-                        style={{
-                            backgroundColor:
-                                "rgba(199,146,87,0.15)",
-                        }}
-                    />
+                    <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
+                    <div className="pointer-events-none absolute -bottom-24 right-20 h-52 w-52 rounded-full bg-[#F39A22]/10" />
 
-                    <div
-                        className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full"
-                        style={{
-                            backgroundColor:
-                                "rgba(255,255,255,0.04)",
-                        }}
-                    />
-                    <div className="lg:hidden h-full p-2 flex items-center justify-between gap-2">
-                        {/* Left: menu */}
-                        <button
-                            onClick={() => setMenuOpen(true)}
-                            className="p-2 rounded-xl border transition hover:bg-black/5 focus:outline-none focus:ring-2"
-                            style={{ borderColor: EKARI.hair, ...ringStyle }}
-                            aria-label="Open menu"
-                        >
-                            <IoMenu size={20} style={{ color: EKARI.hair }} />
-                        </button>
-                    </div>
-                    {/* Center: title */}
+                    <div className="mx-auto max-w-[940px] px-5 pb-5 pt-5">
+                        <div className="lg:hidden">
+                            <button
+                                onClick={() =>
+                                    setMenuOpen(true)
+                                }
+                                className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 text-white"
+                                aria-label="Open menu"
+                            >
+                                <IoMenu size={20} />
+                            </button>
+                        </div>
 
-                    <div className="relative mx-auto max-w-7xl px-4 py-4 md:px-8 md:py-4">
-                        <div className="max-w-3xl">
-
-                            <h1 className="mt-5 text-2xl font-black leading-tight text-white md:text-2xl">
-                                Find the right agricultural
-                                expert
-                            </h1>
-
-                            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/75 md:text-base">
-                                Connect with agricultural professionals for crops, livestock, agribusiness, farm management and technical consultation.
-                            </p>
-
-                            <div className="mt-8 flex max-w-3xl overflow-hidden rounded-2xl border border-white/20 bg-white p-1.5 shadow-xl">
-                                <div className="grid w-12 shrink-0 place-items-center text-slate-500">
-                                    <IoSearchOutline size={21} />
+                        <div className="mt-2 flex items-start gap-6 lg:mt-0">
+                            <div className="min-w-0 flex-1">
+                                <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                    ekariExperts
                                 </div>
 
-                                <input
-                                    value={search}
-                                    onChange={(event) =>
-                                        setSearch(
-                                            event.target.value
-                                        )
-                                    }
-                                    placeholder="Search by name, specialty, location or service..."
-                                    className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 md:text-base"
-                                />
+                                <h1 className="mt-2 text-[28px] font-black tracking-[-0.035em] text-white">
+                                    Find the right agricultural expert
+                                </h1>
 
-                                {search ? (
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setSearch("")
-                                        }
-                                        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-slate-500 hover:bg-slate-100"
-                                        aria-label="Clear search"
-                                    >
-                                        <IoClose size={20} />
-                                    </button>
-                                ) : null}
+                                <p className="mt-1.5 max-w-2xl text-[13px] font-medium leading-5 text-white/55">
+                                    Connect with verified agronomists,
+                                    veterinarians, farm consultants and
+                                    agricultural professionals.
+                                </p>
                             </div>
 
-                            <div className="mt-5 flex flex-wrap gap-3 text-xs font-bold text-white/80">
-                                <span className="inline-flex items-center gap-1.5">
-                                    <IoShieldCheckmarkOutline
-                                        size={15}
-                                        color={EKARI.gold}
-                                    />
-                                    Verified and independent experts
-                                </span>
+                            <div className="hidden shrink-0 items-start gap-6 xl:flex">
+                                <div className="text-center">
+                                    <div className="text-[24px] font-black leading-none text-[#F39A22]">
+                                        {expertStats.verifiedCount}
+                                    </div>
+                                    <div className="mt-1 text-[10px] font-semibold text-white/40">
+                                        verified experts
+                                    </div>
+                                </div>
 
-                                <span className="inline-flex items-center gap-1.5">
-                                    <IoLocationOutline
-                                        size={15}
-                                        color={EKARI.gold}
-                                    />
-                                    Local and worldwide consultations
-                                </span>
+                                <div className="text-center">
+                                    <div className="text-[24px] font-black leading-none text-[#F39A22]">
+                                        {expertStats.locations}
+                                    </div>
+                                    <div className="mt-1 text-[10px] font-semibold text-white/40">
+                                        service areas
+                                    </div>
+                                </div>
 
-                                <span className="inline-flex items-center gap-1.5">
-                                    <IoStarOutline
-                                        size={15}
-                                        color={EKARI.gold}
-                                    />
-                                    Reviews and ratings
-                                </span>
+                                <div className="text-center">
+                                    <div className="text-[24px] font-black leading-none text-[#F39A22]">
+                                        {expertStats.averageRating > 0
+                                            ? expertStats.averageRating.toFixed(
+                                                1
+                                            )
+                                            : "—"}
+                                    </div>
+                                    <div className="mt-1 text-[10px] font-semibold text-white/40">
+                                        avg rating
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        <div
+                            className={[
+                                "mt-4 flex h-12 items-center rounded-[18px]",
+                                "border border-white/15 bg-[#FBFAF6]",
+                                "shadow-[0_12px_28px_rgba(0,0,0,0.12)]",
+                                "transition-all duration-200",
+                                "focus-within:shadow-[0_0_0_3px_rgba(243,154,34,0.13)]",
+                            ].join(" ")}
+                        >
+                            <span className="grid w-12 shrink-0 place-items-center text-slate-400">
+                                <IoSearchOutline size={20} />
+                            </span>
+
+                            <input
+                                value={search}
+                                onChange={(event) =>
+                                    setSearch(
+                                        event.target.value
+                                    )
+                                }
+                                placeholder="Search by name, specialty, county or service…"
+                                className="min-w-0 flex-1 bg-transparent px-1 text-[13px] font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                            />
+
+                            {search ? (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setSearch("")
+                                    }
+                                    className="mr-2 grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-black/[0.04] hover:text-slate-600"
+                                    aria-label="Clear search"
+                                >
+                                    <IoClose size={18} />
+                                </button>
+                            ) : null}
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-bold text-white/45">
+                            <span className="inline-flex items-center gap-1.5">
+                                <IoShieldCheckmarkOutline
+                                    size={14}
+                                    className="text-[#F39A22]"
+                                />
+                                Verified profiles
+                            </span>
+
+                            <span className="inline-flex items-center gap-1.5">
+                                <IoLocationOutline
+                                    size={14}
+                                    className="text-[#F39A22]"
+                                />
+                                Experts across Kenya
+                            </span>
+
+                            <span className="inline-flex items-center gap-1.5">
+                                <IoStarOutline
+                                    size={14}
+                                    className="text-[#F39A22]"
+                                />
+                                Reviews and ratings
+                            </span>
+                        </div>
+                    </div>
+                </motion.section>
+
+                {/* FILTER BAR */}
+                <section className="sticky top-0 z-30 border-b border-[#E4DED2] bg-[#FBFAF6]/95 backdrop-blur-xl">
+                    <div className="mx-auto flex max-w-[940px] items-center gap-2 overflow-x-auto px-5 py-3 no-scrollbar">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSpecialty("");
+                            }}
+                            className={[
+                                "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4",
+                                "text-[12px] font-black transition-all duration-200",
+                                !specialty
+                                    ? "border-[#173C2E] bg-[#173C2E] text-white"
+                                    : "border-[#D9D3C7] bg-white text-slate-600 hover:border-[#C7BFB1]",
+                                "active:scale-[0.98]",
+                            ].join(" ")}
+                        >
+                            <IoGridOutline size={15} />
+                            All specialties
+                        </button>
+
+                        {quickSpecialties.map(
+                            (item) => {
+                                const active =
+                                    specialty === item;
+
+                                return (
+                                    <button
+                                        key={item}
+                                        type="button"
+                                        onClick={() =>
+                                            setSpecialty(
+                                                active
+                                                    ? ""
+                                                    : item
+                                            )
+                                        }
+                                        className={[
+                                            "h-10 shrink-0 rounded-full border px-4",
+                                            "text-[12px] font-bold transition-all duration-200",
+                                            active
+                                                ? "border-[#173C2E] bg-[#173C2E] text-white"
+                                                : "border-[#D9D3C7] bg-white text-slate-600 hover:border-[#C7BFB1] hover:bg-[#FFFDF8]",
+                                            "active:scale-[0.98]",
+                                        ].join(" ")}
+                                    >
+                                        {item}
+                                    </button>
+                                );
+                            }
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setFiltersOpen(true)
+                            }
+                            className={[
+                                "ml-auto inline-flex h-10 shrink-0 items-center gap-2 rounded-full",
+                                "border border-[#D9D3C7] bg-white px-4",
+                                "text-[12px] font-black text-slate-600",
+                                "transition-all duration-200",
+                                "hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                                "active:scale-[0.98]",
+                            ].join(" ")}
+                        >
+                            <IoFilterOutline size={15} />
+                            Filter experts
+                            {activeFilterCount > 0 ? (
+                                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#F39A22] px-1 text-[9px] text-white">
+                                    {activeFilterCount}
+                                </span>
+                            ) : null}
+                        </button>
                     </div>
                 </section>
 
-                <div className="mx-auto max-w-7xl px-4 py-7 md:px-8 md:py-10">
-                    <section className="min-w-0">
-                        <div className="mb-6 flex flex-col gap-4 rounded-3xl border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between md:p-5"
-                            style={{ borderColor: EKARI.hair }}
-                        >
-                            <div>
-                                <h2
-                                    className="text-xl font-black md:text-2xl"
-                                    style={{ color: EKARI.text }}
-                                >
-                                    Agricultural experts
-                                </h2>
+                {/* RESULTS */}
+                <section className="mx-auto max-w-[940px] px-5 pb-24 pt-4">
+                    <div className="mb-3 flex items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-[15px] font-black text-slate-800">
+                                Agricultural experts
+                            </h2>
 
-                                <p
-                                    className="mt-1 text-sm"
-                                    style={{ color: EKARI.subtext }}
-                                >
-                                    {loading
-                                        ? "Finding experts..."
-                                        : `${filteredExperts.length} ${filteredExperts.length === 1
-                                            ? "expert"
-                                            : "experts"
-                                        } found`}
-                                </p>
-                            </div>
-
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                <button
-                                    type="button"
-                                    onClick={() => setFiltersOpen(true)}
-                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-black shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                                    style={{
-                                        borderColor: activeFilterCount > 0
-                                            ? EKARI.forest
-                                            : EKARI.hair,
-                                        color: EKARI.forest,
-                                    }}
-                                >
-                                    <IoFilterOutline size={18} />
-                                    Filter experts
-
-                                    {activeFilterCount > 0 ? (
-                                        <span
-                                            className="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs text-white"
-                                            style={{ backgroundColor: EKARI.forest }}
-                                        >
-                                            {activeFilterCount}
-                                        </span>
-                                    ) : null}
-                                </button>
-
-                                <div className="flex min-h-11 items-center gap-2 rounded-xl border bg-white px-3"
-                                    style={{ borderColor: EKARI.hair }}
-                                >
-                                    <label
-                                        htmlFor="expert-sort"
-                                        className="shrink-0 text-xs font-bold"
-                                        style={{ color: EKARI.subtext }}
-                                    >
-                                        Sort by
-                                    </label>
-
-                                    <div className="relative min-w-40">
-                                        <select
-                                            id="expert-sort"
-                                            value={sort}
-                                            onChange={(event) =>
-                                                setSort(event.target.value as SortOption)
-                                            }
-                                            className="w-full appearance-none bg-transparent py-2.5 pl-1 pr-7 text-xs font-black outline-none"
-                                            style={{ color: EKARI.text }}
-                                        >
-                                            <option value="recommended">Recommended</option>
-                                            <option value="rating">Highest rated</option>
-                                            <option value="consultations">Most consultations</option>
-                                            <option value="price_low">Price: low to high</option>
-                                            <option value="price_high">Price: high to low</option>
-                                            <option value="newest">Newest profiles</option>
-                                        </select>
-
-                                        <IoChevronDown
-                                            size={15}
-                                            className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2"
-                                            color={EKARI.subtext}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+                            <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
+                                {loading
+                                    ? "Finding experts…"
+                                    : `${filteredExperts.length} ${filteredExperts.length ===
+                                        1
+                                        ? "expert"
+                                        : "experts"
+                                    } found`}
+                            </p>
                         </div>
 
-                        {activeFilterCount > 0 ? (
-                            <div className="mb-5 flex flex-wrap items-center gap-2">
-                                <span
-                                    className="text-xs font-black uppercase tracking-wide"
-                                    style={{ color: EKARI.subtext }}
-                                >
-                                    Active filters
-                                </span>
+                        <div className="relative">
+                            <select
+                                id="expert-sort"
+                                value={sort}
+                                onChange={(event) =>
+                                    setSort(
+                                        event.target
+                                            .value as SortOption
+                                    )
+                                }
+                                className={[
+                                    "h-9 appearance-none rounded-full border border-[#D9D3C7]",
+                                    "bg-white py-0 pl-3 pr-8",
+                                    "text-[11px] font-bold text-slate-600 outline-none",
+                                ].join(" ")}
+                            >
+                                <option value="recommended">
+                                    Recommended
+                                </option>
+                                <option value="rating">
+                                    Highest rated
+                                </option>
+                                <option value="consultations">
+                                    Most consultations
+                                </option>
+                                <option value="price_low">
+                                    Price: low to high
+                                </option>
+                                <option value="price_high">
+                                    Price: high to low
+                                </option>
+                                <option value="newest">
+                                    Newest profiles
+                                </option>
+                            </select>
 
-                                {county ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setCounty("")}
-                                        className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-2 text-xs font-bold"
-                                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                    >
-                                        {county}
-                                        <IoClose size={14} />
-                                    </button>
-                                ) : null}
+                            <IoChevronDown
+                                size={14}
+                                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                            />
+                        </div>
+                    </div>
 
-                                {specialty ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setSpecialty("")}
-                                        className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-2 text-xs font-bold"
-                                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                    >
-                                        {specialty}
-                                        <IoClose size={14} />
-                                    </button>
-                                ) : null}
-
-                                {acceptingOnly ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setAcceptingOnly(false)}
-                                        className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-2 text-xs font-bold"
-                                        style={{ borderColor: EKARI.hair, color: EKARI.text }}
-                                    >
-                                        Accepting clients
-                                        <IoClose size={14} />
-                                    </button>
-                                ) : null}
-
+                    {activeFilterCount > 0 ? (
+                        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                            {county ? (
                                 <button
                                     type="button"
-                                    onClick={clearFilters}
-                                    className="ml-1 text-xs font-black"
-                                    style={{ color: EKARI.gold }}
+                                    onClick={() =>
+                                        setCounty("")
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-full border border-[#DDD8CC] bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500"
                                 >
-                                    Clear all
+                                    {county}
+                                    <IoClose size={12} />
                                 </button>
-                            </div>
-                        ) : null}
+                            ) : null}
 
-                        {errorMessage ? (
-                            <div className="rounded-3xl border border-red-200 bg-red-50 p-6">
-                                <div className="font-black text-red-800">
-                                    Experts could not be loaded
+                            {specialty ? (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setSpecialty("")
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-full border border-[#DDD8CC] bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500"
+                                >
+                                    {specialty}
+                                    <IoClose size={12} />
+                                </button>
+                            ) : null}
+
+                            {acceptingOnly ? (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setAcceptingOnly(
+                                            false
+                                        )
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-full border border-[#DDD8CC] bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500"
+                                >
+                                    Accepting clients
+                                    <IoClose size={12} />
+                                </button>
+                            ) : null}
+
+                            <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="ml-1 text-[10px] font-black text-[#E88712]"
+                            >
+                                Clear all
+                            </button>
+                        </div>
+                    ) : null}
+
+                    {errorMessage ? (
+                        <div className="rounded-[18px] border border-rose-200 bg-rose-50 p-5">
+                            <div className="font-black text-rose-800">
+                                Experts could not be loaded
+                            </div>
+
+                            <p className="mt-1 text-sm text-rose-600">
+                                {errorMessage}
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={loadExperts}
+                                className="mt-3 inline-flex items-center gap-2 rounded-full bg-rose-700 px-4 py-2 text-xs font-black text-white"
+                            >
+                                <IoRefreshOutline size={15} />
+                                Try again
+                            </button>
+                        </div>
+                    ) : null}
+
+                    {loading ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                                duration: 0.2,
+                                ease: "easeOut",
+                            }}
+                            className={[
+                                "grid min-h-[280px] place-items-center",
+                                "rounded-[20px]",
+                                "border border-[#DDD8CC]",
+                                "bg-[#FBFAF6]",
+                                "px-6 py-10",
+                                "shadow-[0_12px_30px_rgba(15,23,42,0.035)]",
+                            ].join(" ")}
+                        >
+                            <div className="text-center">
+                                <div className="flex justify-center">
+                                    <BouncingBallLoader />
                                 </div>
 
-                                <p className="mt-2 text-sm text-red-700">
-                                    {errorMessage}
+                                <p className="mt-5 text-[13px] font-black text-slate-900">
+                                    Finding agricultural experts...
                                 </p>
 
-                                <button
-                                    type="button"
-                                    onClick={loadExperts}
-                                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-700 px-5 py-2.5 text-sm font-black text-white"
-                                >
-                                    <IoRefreshOutline size={17} />
-                                    Try again
-                                </button>
+                                <p className="mx-auto mt-1.5 max-w-sm text-[10px] font-medium leading-5 text-slate-400">
+                                    Loading verified experts, specialties and service areas.
+                                </p>
                             </div>
-                        ) : null}
+                        </motion.div>
+                    ) : null}
 
-                        {loading ? (
-                            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                                {Array.from({ length: 6 }).map((_, index) => (
-                                    <div
-                                        key={index}
-                                        className="animate-pulse rounded-3xl border bg-white p-5"
-                                        style={{ borderColor: EKARI.hair }}
-                                    >
-                                        <div className="flex gap-4">
-                                            <div className="h-20 w-20 rounded-2xl bg-slate-200" />
-                                            <div className="flex-1 space-y-3">
-                                                <div className="h-4 w-3/4 rounded bg-slate-200" />
-                                                <div className="h-3 w-1/2 rounded bg-slate-100" />
-                                                <div className="h-3 w-2/3 rounded bg-slate-100" />
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-6 h-5 w-full rounded bg-slate-200" />
-                                        <div className="mt-3 h-16 w-full rounded bg-slate-100" />
-                                        <div className="mt-5 flex gap-2">
-                                            <div className="h-7 w-24 rounded-full bg-slate-100" />
-                                            <div className="h-7 w-20 rounded-full bg-slate-100" />
-                                        </div>
-                                        <div className="mt-6 h-12 w-full rounded-2xl bg-slate-200" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : null}
-
-                        {!loading && !errorMessage && filteredExperts.length > 0 ? (
-                            <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
-                                {filteredExperts.map((expert) => (
+                    {!loading &&
+                        !errorMessage &&
+                        filteredExperts.length > 0 ? (
+                        <motion.div
+                            key={`${search}-${specialty}-${county}-${sort}-${acceptingOnly}`}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{
+                                duration: 0.2,
+                                ease: "easeOut",
+                            }}
+                            className="space-y-3"
+                        >
+                            {filteredExperts.map(
+                                (expert) => (
                                     <ExpertCard
                                         key={expert.uid}
                                         expert={expert}
                                     />
-                                ))}
-                            </div>
-                        ) : null}
+                                )
+                            )}
+                        </motion.div>
+                    ) : null}
 
-                        {!loading && !errorMessage && filteredExperts.length === 0 ? (
-                            <div
-                                className="rounded-3xl border bg-white px-6 py-14 text-center"
-                                style={{ borderColor: EKARI.hair }}
+                    {!loading &&
+                        !errorMessage &&
+                        filteredExperts.length === 0 ? (
+                        <div className="rounded-[20px] border border-[#DDD8CC] bg-white px-6 py-14 text-center">
+                            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+                                <IoPeopleOutline size={26} />
+                            </div>
+
+                            <h3 className="mt-4 text-lg font-black text-slate-800">
+                                No experts found
+                            </h3>
+
+                            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-400">
+                                Try another specialty,
+                                location or search phrase.
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="mt-4 rounded-full bg-[#173C2E] px-5 py-2.5 text-sm font-black text-white"
                             >
-                                <div
-                                    className="mx-auto grid h-16 w-16 place-items-center rounded-full"
-                                    style={{
-                                        backgroundColor: "rgba(35,63,57,0.08)",
-                                        color: EKARI.forest,
-                                    }}
-                                >
-                                    <IoPeopleOutline size={30} />
-                                </div>
-
-                                <h3
-                                    className="mt-5 text-lg font-black"
-                                    style={{ color: EKARI.text }}
-                                >
-                                    No experts found
-                                </h3>
-
-                                <p
-                                    className="mx-auto mt-2 max-w-md text-sm leading-6"
-                                    style={{ color: EKARI.subtext }}
-                                >
-                                    Try another specialty, location or search phrase.
-                                    More experts will appear as they join the marketplace.
-                                </p>
-
-                                <button
-                                    type="button"
-                                    onClick={clearFilters}
-                                    className="mt-5 rounded-full px-6 py-3 text-sm font-black text-white"
-                                    style={{ backgroundColor: EKARI.forest }}
-                                >
-                                    Clear filters
-                                </button>
-                            </div>
-                        ) : null}
-                    </section>
-                </div>
+                                Clear filters
+                            </button>
+                        </div>
+                    ) : null}
+                </section>
 
                 {filtersOpen ? (
                     <div
@@ -1572,7 +1721,7 @@ function MarketplaceContent() {
                     onLogout={signOutUser}
                 />
             </main>
-        </AppShell>
+        </AppShellRightRail>
     );
 }
 /* ---------- Profiles ---------- */

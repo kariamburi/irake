@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
     ArrowLeft,
     CloudSun,
@@ -12,8 +13,11 @@ import {
 import AppShell from "@/app/components/AppShell";
 import WeatherForecast from "@/app/components/weather/WeatherForecast";
 import WeatherLocationPicker from "@/app/components/weather/WeatherLocationPicker";
+import WeatherDiscoveryRail from "@/app/components/weather/WeatherDiscoveryRail";
 import { useWeather } from "@/app/hooks/useWeather";
 import { useWeatherLocation } from "@/app/hooks/useWeatherLocation";
+import AppShellRightRail from "@/app/components/AppShellRightRail";
+import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
 /* -------------------------------------------------------------------------- */
 /* Responsive helpers                                                         */
@@ -89,17 +93,36 @@ function WeatherLoadingCard({
     message: string;
 }) {
     return (
-        <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700" />
+        <motion.section
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+                duration: 0.2,
+                ease: "easeOut",
+            }}
+            className={[
+                "grid min-h-[260px] place-items-center",
+                "rounded-[18px]",
+                "border border-[#DDD8CC]",
+                "bg-[#FBFAF6]",
+                "px-6 py-8",
+                "shadow-[0_12px_30px_rgba(15,23,42,0.035)]",
+            ].join(" ")}
+        >
+            <div className="text-center">
+                <div className="flex justify-center">
+                    <BouncingBallLoader />
+                </div>
 
-            <p className="mt-4 font-semibold text-slate-900">
-                {title}
-            </p>
+                <p className="mt-5 text-[13px] font-black text-slate-900">
+                    {title}
+                </p>
 
-            <p className="mt-1 text-sm leading-6 text-slate-500">
-                {message}
-            </p>
-        </section>
+                <p className="mx-auto mt-1.5 max-w-sm text-[10px] font-medium leading-5 text-slate-400">
+                    {message}
+                </p>
+            </div>
+        </motion.section>
     );
 }
 
@@ -445,89 +468,80 @@ export default function WeatherPage() {
             {initialized && location && normalizedWeather && (
                 <>
                     {/* Location and actions */}
-                    <section className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex min-w-0 items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50">
-                                    <MapPin
-                                        size={19}
-                                        className="text-emerald-700"
-                                    />
-                                </div>
+                    <section
+                        className={[
+                            "mb-4 rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] lg:hidden",
+                            "px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.035)]",
+                        ].join(" ")}
+                    >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 items-center gap-3">
+                                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#E8ECE8] text-[#F39A22]">
+                                    <MapPin size={17} />
+                                </span>
 
                                 <div className="min-w-0">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
                                         Forecast location
                                     </p>
 
-                                    <p className="mt-0.5 truncate text-sm font-bold text-slate-900">
+                                    <p className="mt-0.5 truncate text-[12px] font-black text-slate-800">
                                         {displayedLocationName}
                                     </p>
 
-                                    {displayedAddress && (
-                                        <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-600">
+                                    {displayedAddress ? (
+                                        <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">
                                             {displayedAddress}
                                         </p>
-                                    )}
+                                    ) : null}
 
                                     {displayedLatitude !== null &&
-                                        displayedLongitude !== null && (
-                                            <p className="mt-1 text-xs text-slate-400">
-                                                Coordinates:{" "}
-                                                {displayedLatitude.toFixed(4)}
-                                                ,{" "}
-                                                {displayedLongitude.toFixed(4)}
-                                            </p>
-                                        )}
-
-                                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                                            <span
-                                                className={`h-1.5 w-1.5 rounded-full ${isOfflineData
-                                                    ? "bg-amber-500"
-                                                    : "bg-emerald-500"
-                                                    }`}
-                                            />
-
-                                            {isOfflineData
-                                                ? "Saved forecast"
-                                                : "Latest forecast"}
-                                        </span>
-
-                                        <span className="text-[11px] text-slate-500">
-                                            Updated {lastUpdatedLabel}
-                                        </span>
-                                    </div>
+                                        displayedLongitude !== null ? (
+                                        <p className="mt-0.5 text-[9px] text-slate-300">
+                                            {displayedLatitude.toFixed(4)},{" "}
+                                            {displayedLongitude.toFixed(4)}
+                                        </p>
+                                    ) : null}
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 sm:flex">
+                            <div className="flex shrink-0 items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={handleRefresh}
                                     disabled={loading}
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-700 px-3.5 py-2.5 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className={[
+                                        "inline-flex h-9 items-center justify-center gap-2 rounded-full",
+                                        "border border-[#D7D2C7] bg-white px-3.5",
+                                        "text-[10px] font-black text-slate-600",
+                                        "transition-all duration-200",
+                                        "hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                                        "disabled:cursor-not-allowed disabled:opacity-60",
+                                    ].join(" ")}
                                 >
                                     <RefreshCw
-                                        size={16}
+                                        size={14}
                                         className={
                                             loading
                                                 ? "animate-spin"
                                                 : ""
                                         }
                                     />
-
-                                    {loading
-                                        ? "Refreshing"
-                                        : "Refresh"}
+                                    Refresh
                                 </button>
 
                                 <button
                                     type="button"
                                     onClick={clearLocation}
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                                    className={[
+                                        "inline-flex h-9 items-center justify-center gap-2 rounded-full",
+                                        "border border-[#D7D2C7] bg-white px-3.5",
+                                        "text-[10px] font-black text-slate-600",
+                                        "transition-all duration-200",
+                                        "hover:border-[#F39A22]/55 hover:bg-[#FFF9F0]",
+                                    ].join(" ")}
                                 >
-                                    <MapPin size={16} />
+                                    <MapPin size={14} />
                                     Change
                                 </button>
                             </div>
@@ -595,28 +609,6 @@ export default function WeatherPage() {
                     {/* Main forecast */}
                     <WeatherForecast weather={normalizedWeather} />
 
-                    {/* Bottom refresh */}
-                    <div className="mt-6 flex justify-center pb-4">
-                        <button
-                            type="button"
-                            onClick={handleRefresh}
-                            disabled={loading}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-700 bg-white px-5 py-3 text-sm font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            <RefreshCw
-                                size={17}
-                                className={
-                                    loading
-                                        ? "animate-spin"
-                                        : ""
-                                }
-                            />
-
-                            {loading
-                                ? "Refreshing forecast..."
-                                : "Refresh forecast"}
-                        </button>
-                    </div>
                 </>
             )}
         </>
@@ -733,72 +725,71 @@ export default function WeatherPage() {
     /* ------------------------------------------------------------------------ */
 
     return (
-        <AppShell>
-            <div className="min-h-[100dvh] w-full bg-[#F6F7F9]">
-                <div className="mx-auto w-full max-w-7xl px-4 py-5 xl:px-6">
-                    {/* Desktop header */}
-                    <header className="mb-5 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-                        <div className="flex items-center justify-between gap-5">
-                            <div className="flex min-w-0 items-center gap-4">
-                                <button
-                                    type="button"
-                                    onClick={handleBack}
-                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:bg-slate-50"
-                                    aria-label="Go back"
-                                >
-                                    <ArrowLeft size={19} />
-                                </button>
+        <AppShellRightRail
+            rightRail={
+                <WeatherDiscoveryRail
+                    weather={normalizedWeather}
+                />
+            }
+            rightRailClassName="border-l border-[#E4DED2] bg-[#F8F7F2]"
+        >
+            <div className="h-[100svh] w-full overflow-y-auto bg-[#F8F7F2] no-scrollbar">
+                {/* Desktop hero */}
+                <motion.header
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{
+                        duration: 0.3,
+                        ease: "easeOut",
+                    }}
+                    className="relative overflow-hidden bg-[#173C2E]"
+                >
+                    <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/[0.035]" />
+                    <div className="pointer-events-none absolute bottom-[-80px] right-20 h-48 w-48 rounded-full bg-[#F39A22]/10" />
 
-                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50">
-                                    <CloudSun
-                                        size={23}
-                                        className="text-emerald-700"
-                                    />
-                                </div>
+                    <div className="mx-auto max-w-[940px] px-5 pb-5 pt-5">
+                        <div className="flex items-start justify-between gap-5">
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-[0.11em] text-white/40">
+                                    Ekarihub Weather
+                                </p>
 
-                                <div className="min-w-0">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                                        Ekarihub Weather
+                                <h1 className="mt-1.5 text-[27px] font-black tracking-[-0.035em] text-white">
+                                    Weather for your farm
+                                </h1>
+
+                                <p className="mt-1 max-w-2xl text-[12px] font-medium leading-5 text-white/50">
+                                    Local weather, rainfall probability and practical
+                                    farming recommendations for the next seven days.
+                                </p>
+
+                                {location && lastUpdated ? (
+                                    <p className="mt-2 text-[10px] font-semibold text-white/35">
+                                        {isOfflineData
+                                            ? "Showing saved forecast"
+                                            : "Forecast updated"}{" "}
+                                        {lastUpdatedLabel}
                                     </p>
-
-                                    <h1 className="mt-0.5 text-2xl font-extrabold text-slate-900">
-                                        Weather for your farm
-                                    </h1>
-
-                                    <p className="mt-1 max-w-3xl text-sm text-slate-500">
-                                        Local weather, rainfall probability and practical farming
-                                        recommendations for the next seven days.
-                                    </p>
-
-                                    {location && lastUpdated && (
-                                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                                            <span
-                                                className={`h-2 w-2 rounded-full ${isOfflineData
-                                                    ? "bg-amber-500"
-                                                    : "bg-emerald-500"
-                                                    }`}
-                                            />
-
-                                            <span>
-                                                {isOfflineData
-                                                    ? "Showing saved forecast"
-                                                    : "Forecast updated"}{" "}
-                                                {lastUpdatedLabel}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
+                                ) : null}
                             </div>
 
-                            {location && (
+                            {location ? (
                                 <button
                                     type="button"
                                     onClick={handleRefresh}
                                     disabled={loading}
-                                    className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#233F39] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className={[
+                                        "inline-flex h-10 shrink-0 items-center gap-2 rounded-full",
+                                        "border border-white/20 bg-white/[0.08] px-4",
+                                        "text-[11px] font-black text-white",
+                                        "backdrop-blur-sm transition-all duration-200",
+                                        "hover:-translate-y-0.5 hover:bg-white/[0.13]",
+                                        "active:translate-y-0 active:scale-[0.98]",
+                                        "disabled:cursor-not-allowed disabled:opacity-60",
+                                    ].join(" ")}
                                 >
                                     <RefreshCw
-                                        size={16}
+                                        size={15}
                                         className={
                                             loading
                                                 ? "animate-spin"
@@ -807,19 +798,75 @@ export default function WeatherPage() {
                                     />
 
                                     {loading
-                                        ? "Refreshing..."
+                                        ? "Refreshing…"
                                         : "Refresh weather"}
                                 </button>
-                            )}
+                            ) : null}
                         </div>
-                    </header>
 
-                    {/* Desktop page body */}
-                    <main className="mx-auto max-w-6xl">
-                        {weatherContent}
-                    </main>
-                </div>
+                        {location ? (
+                            <div className="mt-4 flex items-center justify-between gap-4 rounded-[16px] bg-white/[0.09] px-4 py-3 backdrop-blur-sm">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#F39A22]">
+                                        <MapPin size={21} />
+                                    </span>
+
+                                    <div className="min-w-0">
+                                        <div className="text-[13px] font-black text-white">
+                                            {displayedLocationName}
+                                        </div>
+
+                                        <div className="mt-0.5 truncate text-[10px] font-medium text-white/45">
+                                            {displayedAddress ||
+                                                (displayedLatitude !== null &&
+                                                    displayedLongitude !== null
+                                                    ? `${displayedLatitude.toFixed(
+                                                        4
+                                                    )}, ${displayedLongitude.toFixed(
+                                                        4
+                                                    )}`
+                                                    : "Current forecast location")}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleRefresh}
+                                        disabled={loading}
+                                        className="inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-3.5 text-[10px] font-black text-white transition hover:bg-white/[0.13] disabled:opacity-60"
+                                    >
+                                        <RefreshCw
+                                            size={13}
+                                            className={
+                                                loading
+                                                    ? "animate-spin"
+                                                    : ""
+                                            }
+                                        />
+                                        Refresh
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={clearLocation}
+                                        className="inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-3.5 text-[10px] font-black text-white transition hover:bg-white/[0.13]"
+                                    >
+                                        <MapPin size={13} />
+                                        Change
+                                    </button>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                </motion.header>
+
+                {/* Desktop page body */}
+                <main className="mx-auto max-w-[940px] px-5 pb-24 pt-4">
+                    {weatherContent}
+                </main>
             </div>
-        </AppShell>
+        </AppShellRightRail>
     );
 }

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import {
     IoArrowBack,
     IoSearch,
@@ -103,14 +104,17 @@ type LiveSuggestion =
 /* -------------------- Theme -------------------- */
 
 const EKARI = {
-    forest: "#233F39",
-    gold: "#C79257",
-    text: "#111827",
-    dim: "#6B7280",
-    line: "rgba(15,23,42,0.08)",
-    chip: "rgba(15,23,42,0.06)",
-    chipBorder: "rgba(15,23,42,0.12)",
-    soft: "#E6F2EF",
+    forest: "#173C2E",
+    leaf: "#214C3A",
+    gold: "#F39A22",
+    page: "#F8F7F2",
+    surface: "#FBFAF6",
+    text: "#0F172A",
+    dim: "#64748B",
+    line: "#DDD8CC",
+    chip: "#F3F1EB",
+    chipBorder: "#DDD8CC",
+    soft: "#E8ECE8",
 };
 
 const PLACEHOLDER_DEED_THUMB =
@@ -194,10 +198,7 @@ function fmtCompact(n: number) {
 
 function CardShell({ children }: { children: React.ReactNode }) {
     return (
-        <div
-            className="overflow-hidden rounded-3xl border bg-white shadow-[0_10px_40px_rgba(15,23,42,0.06)]"
-            style={{ borderColor: EKARI.line }}
-        >
+        <div className="overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
             {children}
         </div>
     );
@@ -215,12 +216,14 @@ function Chip({
     return (
         <button
             onClick={onClick}
-            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold hover:bg-black/[0.02]"
-            style={{
-                backgroundColor: EKARI.chip,
-                borderColor: EKARI.chipBorder,
-                color: EKARI.text,
-            }}
+            className={[
+                "inline-flex max-w-full items-center gap-2 rounded-full",
+                "border border-[#DDD8CC] bg-[#FBFAF6] px-3 py-2",
+                "text-[10px] font-black text-slate-600",
+                "transition-all duration-200",
+                "hover:border-[#CFC7B8] hover:bg-white hover:text-[#173C2E]",
+                "active:scale-[0.98]",
+            ].join(" ")}
             type="button"
         >
             {icon}
@@ -239,17 +242,21 @@ function Section({
     children: React.ReactNode;
 }) {
     return (
-        <section className="mt-4">
-            <div className="flex items-center justify-between px-4 pb-2">
-                <h2 className="text-[14px] font-semibold tracking-[-0.01em]" style={{ color: EKARI.text }}>
-                    {title}
-                </h2>
+        <section className="mt-5">
+            <div className="mb-2.5 flex items-end justify-between gap-3 px-1">
+                <div>
+                    <h2 className="text-[12px] font-black tracking-[-0.02em] text-slate-800">
+                        {title}
+                    </h2>
+                </div>
+
                 {typeof count === "number" ? (
-                    <span className="text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                    <span className="rounded-full bg-[#E8ECE8] px-2 py-1 text-[8px] font-black text-[#173C2E]">
                         {count}
                     </span>
                 ) : null}
             </div>
+
             <CardShell>{children}</CardShell>
         </section>
     );
@@ -281,18 +288,36 @@ const SearchBar = React.memo(function SearchBar({
     onEscape,
 }: SearchBarProps) {
     return (
-        <form onSubmit={onSubmit} className="flex items-center gap-3 px-3 py-2">
+        <form
+            onSubmit={onSubmit}
+            className="flex min-w-0 items-center gap-2"
+        >
             <button
                 type="button"
                 onClick={onBack}
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#111827] transition hover:bg-black/5"
+                className={[
+                    "grid h-11 w-11 shrink-0 place-items-center rounded-[14px]",
+                    "border border-[#DDD8CC] bg-[#FBFAF6] text-[#173C2E]",
+                    "transition hover:bg-white active:scale-[0.97]",
+                ].join(" ")}
                 aria-label="Back"
             >
-                <IoArrowBack size={22} />
+                <IoArrowBack size={19} />
             </button>
 
-            <div className="flex h-11 flex-1 items-center rounded-full bg-[#F1F1F2] px-4">
-                <IoSearch size={18} className="shrink-0 text-black/55" />
+            <div
+                className={[
+                    "flex h-12 min-w-0 flex-1 items-center rounded-[16px]",
+                    "border border-[#DDD8CC] bg-white px-3.5",
+                    "shadow-[0_8px_22px_rgba(15,23,42,0.035)]",
+                    "transition-all duration-200",
+                    "focus-within:border-[#173C2E]/45 focus-within:ring-4 focus-within:ring-[#173C2E]/5",
+                ].join(" ")}
+            >
+                <IoSearch
+                    size={18}
+                    className="shrink-0 text-[#173C2E]"
+                />
 
                 <input
                     value={q}
@@ -324,20 +349,19 @@ const SearchBar = React.memo(function SearchBar({
                             onEscape();
                         }
                     }}
-                    placeholder="Search"
+                    placeholder="Search people, deeds, events, discussions or tags"
                     autoFocus
-                    className="ml-3 flex-1 bg-transparent text-[17px] font-medium tracking-[-0.01em] text-[#111827] outline-none placeholder:font-normal placeholder:text-black/45"
-                    style={{ fontSize: 17 }}
+                    className="ml-3 min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-slate-800 outline-none placeholder:text-slate-400"
                 />
 
                 {!!q && (
                     <button
                         type="button"
                         onClick={resetAll}
-                        className="grid h-7 w-7 place-items-center rounded-full bg-black/10 text-black/65 transition hover:bg-black/15"
+                        className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#F3F1EB] text-slate-400 transition hover:bg-[#E8ECE8] hover:text-[#173C2E]"
                         aria-label="Clear"
                     >
-                        <IoClose size={15} />
+                        <IoClose size={14} />
                     </button>
                 )}
             </div>
@@ -345,7 +369,7 @@ const SearchBar = React.memo(function SearchBar({
             {!!q.trim() && (
                 <button
                     type="submit"
-                    className="shrink-0 text-[15px] font-semibold text-[#111827]"
+                    className="hidden h-11 shrink-0 items-center rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] sm:inline-flex"
                 >
                     Search
                 </button>
@@ -353,6 +377,7 @@ const SearchBar = React.memo(function SearchBar({
         </form>
     );
 });
+
 /* -------------------- Page -------------------- */
 
 export default function SearchPageClient() {
@@ -814,6 +839,24 @@ export default function SearchPageClient() {
         router.push("/ai");
     }, [router]);
 
+    const selectTab = useCallback(
+        (tab: TabKey) => {
+            setActive(tab);
+
+            if (q.trim()) {
+                setPage(0);
+                startSearch(q, tab, true);
+
+                const params = new URLSearchParams();
+                params.set("q", q.trim());
+                params.set("tab", tab);
+
+                router.replace(`/search?${params.toString()}`);
+            }
+        },
+        [q, startSearch, router]
+    );
+
     /* --------- Navigation helpers --------- */
 
     const handleDeedClick = useCallback(
@@ -1056,8 +1099,8 @@ export default function SearchPageClient() {
                 <button
                     onClick={onClick}
                     className={cn(
-                        "w-full px-4 text-left transition hover:bg-black/[0.02] focus:outline-none",
-                        compact ? "py-3" : "py-4"
+                        "w-full px-3.5 text-left transition-all duration-200 hover:bg-white focus:outline-none",
+                        compact ? "py-3" : "py-3.5"
                     )}
                     type="button"
                 >
@@ -1066,8 +1109,7 @@ export default function SearchPageClient() {
                         <div className="flex shrink-0 items-center gap-2">
                             {right}
                             <span
-                                className="grid h-8 w-8 place-items-center rounded-full border opacity-60 transition group-hover:opacity-100"
-                                style={{ borderColor: EKARI.line, color: EKARI.dim, background: "white" }}
+                                className="grid h-8 w-8 place-items-center rounded-full border border-[#DDD8CC] bg-white text-slate-400 opacity-60 transition group-hover:text-[#173C2E] group-hover:opacity-100"
                                 aria-hidden
                             >
                                 <IoChevronForwardOutline size={16} />
@@ -1155,7 +1197,7 @@ export default function SearchPageClient() {
                         <div className="flex items-center gap-3">
                             <div
                                 className="flex h-11 w-11 items-center justify-center rounded-2xl border"
-                                style={{ backgroundColor: "rgba(35,63,57,0.08)", borderColor: EKARI.line }}
+                                style={{ backgroundColor: "rgba(23,60,46,0.08)", borderColor: EKARI.line }}
                             >
                                 <IoChatbubblesOutline size={18} color={EKARI.forest} />
                             </div>
@@ -1214,7 +1256,7 @@ export default function SearchPageClient() {
                         <div className="flex items-center gap-3">
                             <div
                                 className="flex h-11 w-11 items-center justify-center rounded-2xl border"
-                                style={{ backgroundColor: "rgba(199,146,87,0.10)", borderColor: EKARI.line }}
+                                style={{ backgroundColor: "rgba(243,154,34,0.10)", borderColor: EKARI.line }}
                             >
                                 <IoPricetagOutline size={18} color={EKARI.gold} />
                             </div>
@@ -1307,7 +1349,7 @@ export default function SearchPageClient() {
             <div className="flex items-center gap-3">
                 <div
                     className="flex h-11 w-11 items-center justify-center rounded-2xl border"
-                    style={{ backgroundColor: "rgba(35,63,57,0.08)", borderColor: EKARI.line }}
+                    style={{ backgroundColor: "rgba(23,60,46,0.08)", borderColor: EKARI.line }}
                 >
                     <IoChatbubblesOutline size={18} color={EKARI.forest} />
                 </div>
@@ -1366,7 +1408,7 @@ export default function SearchPageClient() {
             <div className="flex items-center gap-3">
                 <div
                     className="flex h-11 w-11 items-center justify-center rounded-2xl border"
-                    style={{ backgroundColor: "rgba(199,146,87,0.10)", borderColor: EKARI.line }}
+                    style={{ backgroundColor: "rgba(243,154,34,0.10)", borderColor: EKARI.line }}
                 >
                     <IoPricetagOutline size={18} color={EKARI.gold} />
                 </div>
@@ -1460,7 +1502,7 @@ export default function SearchPageClient() {
                                     >
                                         <div
                                             className="flex h-10 w-10 items-center justify-center rounded-2xl border"
-                                            style={{ backgroundColor: "rgba(199,146,87,0.10)", borderColor: EKARI.line }}
+                                            style={{ backgroundColor: "rgba(243,154,34,0.10)", borderColor: EKARI.line }}
                                         >
                                             <IoPricetagOutline size={16} color={EKARI.gold} />
                                         </div>
@@ -1499,7 +1541,7 @@ export default function SearchPageClient() {
                                             >
                                                 <div
                                                     className="flex h-10 w-10 items-center justify-center rounded-2xl border"
-                                                    style={{ borderColor: EKARI.line, backgroundColor: "rgba(35,63,57,0.06)" }}
+                                                    style={{ borderColor: EKARI.line, backgroundColor: "rgba(23,60,46,0.06)" }}
                                                 >
                                                     <IoSearch size={17} color={EKARI.forest} />
                                                 </div>
@@ -1572,7 +1614,7 @@ export default function SearchPageClient() {
                                             >
                                                 <div
                                                     className="flex h-10 w-10 items-center justify-center rounded-2xl border"
-                                                    style={{ backgroundColor: "rgba(199,146,87,0.10)", borderColor: EKARI.line }}
+                                                    style={{ backgroundColor: "rgba(243,154,34,0.10)", borderColor: EKARI.line }}
                                                 >
                                                     <IoPricetagOutline size={16} color={EKARI.gold} />
                                                 </div>
@@ -1668,7 +1710,7 @@ export default function SearchPageClient() {
                                         >
                                             <div
                                                 className="flex h-10 w-10 items-center justify-center rounded-2xl border"
-                                                style={{ backgroundColor: "rgba(35,63,57,0.08)", borderColor: EKARI.line }}
+                                                style={{ backgroundColor: "rgba(23,60,46,0.08)", borderColor: EKARI.line }}
                                             >
                                                 <IoChatbubblesOutline size={16} color={EKARI.forest} />
                                             </div>
@@ -1797,170 +1839,438 @@ export default function SearchPageClient() {
 
     return (
         <AppShell>
-            <main className="min-h-screen w-full bg-white">
-                <div className="mx-auto w-full max-w-4xl">
-                    <div className="sticky top-0 z-30 bg-white/95 backdrop-blur">
-                        <div
-                            onFocus={openDropdownNow}
-                            onBlur={closeDropdownSoon}
-                        >
-                            <SearchBar
-                                q={q}
-                                setQ={(v) => {
-                                    setQ(v);
-                                    setShowLiveDropdown(true);
-                                }}
-                                onSubmit={onSubmit}
-                                resetAll={resetAll}
-                                onBack={goBack}
-                                onFocus={openDropdownNow}
-                                onArrowDown={moveHighlightDown}
-                                onArrowUp={moveHighlightUp}
-                                onEnterHighlighted={() => {
-                                    if (shouldShowDropdown && dropdownItems.length > 0) {
-                                        activateHighlightedItem();
-                                    } else {
-                                        onSubmit();
-                                    }
-                                }}
-                                onEscape={closeDropdown}
-                            />
+            <main className="h-full w-full max-w-full overflow-y-auto overflow-x-clip bg-[#F8F7F2]">
+                <div className="mx-auto flex min-h-full w-full max-w-[1500px]">
+                    {/* =================================================
+                        MAIN SEARCH WORKSPACE
+                    ================================================= */}
+                    <div className="min-w-0 flex-1">
+                        {/* Sticky search header */}
+                        <div className="sticky top-0 z-40 border-b border-[#DDD8CC] bg-[#F8F7F2]/95 backdrop-blur-xl">
+                            <div className="mx-auto w-full max-w-[980px] px-3 pb-3 pt-3 sm:px-5 lg:px-6">
+                                <div className="mb-2 hidden lg:block">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                        Discover ekarihub
+                                    </div>
+
+                                    <div className="mt-0.5 text-[20px] font-black tracking-[-0.035em] text-slate-900">
+                                        Search
+                                    </div>
+
+                                    <div className="mt-1 text-[9px] font-medium text-slate-400">
+                                        Find people, deeds, events, discussions and topics across ekarihub.
+                                    </div>
+                                </div>
+
+                                <div
+                                    onFocus={openDropdownNow}
+                                    onBlur={closeDropdownSoon}
+                                >
+                                    <SearchBar
+                                        q={q}
+                                        setQ={(v) => {
+                                            setQ(v);
+                                            setShowLiveDropdown(true);
+                                        }}
+                                        onSubmit={onSubmit}
+                                        resetAll={resetAll}
+                                        onBack={goBack}
+                                        onFocus={openDropdownNow}
+                                        onArrowDown={moveHighlightDown}
+                                        onArrowUp={moveHighlightUp}
+                                        onEnterHighlighted={() => {
+                                            if (
+                                                shouldShowDropdown &&
+                                                dropdownItems.length > 0
+                                            ) {
+                                                activateHighlightedItem();
+                                            } else {
+                                                onSubmit();
+                                            }
+                                        }}
+                                        onEscape={closeDropdown}
+                                    />
+                                </div>
+
+                                {!showDefault ? (
+                                    <div className="mt-3">
+                                        <div className="no-scrollbar flex max-w-full gap-1 overflow-x-auto pb-0.5">
+                                            {TABS.map((tab) => {
+                                                const selected = active === tab;
+
+                                                return (
+                                                    <button
+                                                        key={tab}
+                                                        type="button"
+                                                        onClick={() => selectTab(tab)}
+                                                        className={[
+                                                            "relative shrink-0 rounded-[11px] px-3 py-2",
+                                                            "text-[9px] font-black transition-all duration-200",
+                                                            selected
+                                                                ? "bg-[#173C2E] text-white"
+                                                                : "text-slate-500 hover:bg-[#F3F1EB] hover:text-[#173C2E]",
+                                                        ].join(" ")}
+                                                    >
+                                                        {tab}
+
+                                                        {selected ? (
+                                                            <motion.span
+                                                                layoutId="search-tab-indicator"
+                                                                className="absolute inset-x-3 -bottom-[3px] h-[2px] rounded-full bg-[#F39A22]"
+                                                            />
+                                                        ) : null}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <p className="mt-2 text-[8px] font-medium text-slate-400">
+                                            Results for{" "}
+                                            <span className="font-black text-slate-600">
+                                                “{lastQuery || q.trim()}”
+                                            </span>
+                                        </p>
+                                    </div>
+                                ) : null}
+                            </div>
                         </div>
 
-                        {!showDefault && (
-                            <div className="px-4 pb-3">
-                                <p className="text-[12px] font-medium text-black/45">
-                                    Search results across deeds, events, discussions, accounts and tags
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {renderLiveDropdown()}
-
-                    {showDefault ? (
-                        <div className="px-4 pb-10 pt-3">
-                            {!!recents.length && (
-                                <section className="mb-6">
-                                    <div className="mb-3 flex items-center justify-between">
-                                        <h2 className="text-[14px] font-semibold" style={{ color: EKARI.text }}>
-                                            Recent
-                                        </h2>
-                                        <button
-                                            type="button"
-                                            onClick={clearRecents}
-                                            className="text-[12px] font-medium"
-                                            style={{ color: EKARI.dim }}
-                                        >
-                                            Clear
-                                        </button>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2">
-                                        {recents.map((term) => (
-                                            <Chip
-                                                key={term}
-                                                icon={<IoTimeOutline size={14} />}
-                                                label={term}
-                                                onClick={() => onTapRecent(term)}
-                                            />
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
-
-                            <section className="mb-6">
-                                <div className="mb-3 flex items-center gap-2">
-                                    <IoTrendingUpOutline size={16} color={EKARI.forest} />
-                                    <h2 className="text-[14px] font-semibold" style={{ color: EKARI.text }}>
-                                        Trending
-                                    </h2>
-                                </div>
-
-                                <div className="flex flex-wrap gap-2">
-                                    {trending.map((term) => (
-                                        <Chip
-                                            key={term}
-                                            label={term}
-                                            onClick={() => onTapTrending(term)}
-                                        />
-                                    ))}
-                                </div>
-                            </section>
-
-                            {isDesktop && (
-                                <section>
-                                    <div
-                                        className="overflow-hidden rounded-3xl border"
-                                        style={{
-                                            borderColor: EKARI.line,
-                                            background:
-                                                "linear-gradient(180deg, rgba(35,63,57,0.05), rgba(199,146,87,0.05))",
-                                        }}
+                        <div className="mx-auto w-full max-w-[980px] px-3 pb-24 sm:px-5 lg:px-6 lg:pb-10">
+                            {/* Live suggestions */}
+                            <AnimatePresence initial={false}>
+                                {shouldShowDropdown ? (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -5 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -4 }}
+                                        transition={{ duration: 0.16 }}
+                                        className="relative z-30"
                                     >
+                                        {renderLiveDropdown()}
+                                    </motion.div>
+                                ) : null}
+                            </AnimatePresence>
+
+                            {/* =================================================
+                                DEFAULT DISCOVERY STATE
+                            ================================================= */}
+                            {showDefault ? (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.18 }}
+                                    className="pb-6 pt-5"
+                                >
+                                    {!!recents.length && (
+                                        <section className="mb-7">
+                                            <div className="mb-3 flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="grid h-8 w-8 place-items-center rounded-[11px] bg-[#E8ECE8] text-[#173C2E]">
+                                                        <IoTimeOutline size={15} />
+                                                    </span>
+
+                                                    <div>
+                                                        <h2 className="text-[11px] font-black text-slate-800">
+                                                            Recent searches
+                                                        </h2>
+                                                        <p className="mt-0.5 text-[8px] font-medium text-slate-400">
+                                                            Pick up where you left off.
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={clearRecents}
+                                                    className="text-[8px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                                                >
+                                                    Clear
+                                                </button>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2">
+                                                {recents.map((term) => (
+                                                    <Chip
+                                                        key={term}
+                                                        icon={<IoTimeOutline size={13} />}
+                                                        label={term}
+                                                        onClick={() => onTapRecent(term)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </section>
+                                    )}
+
+                                    <section>
+                                        <div className="mb-3 flex items-center gap-2">
+                                            <span className="grid h-8 w-8 place-items-center rounded-[11px] bg-[#FFF2DF] text-[#F39A22]">
+                                                <IoTrendingUpOutline size={15} />
+                                            </span>
+
+                                            <div>
+                                                <h2 className="text-[11px] font-black text-slate-800">
+                                                    Trending now
+                                                </h2>
+
+                                                <p className="mt-0.5 text-[8px] font-medium text-slate-400">
+                                                    Popular searches and topics across the community.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                            {trending.map((term, idx) => (
+                                                <button
+                                                    key={term}
+                                                    type="button"
+                                                    onClick={() => onTapTrending(term)}
+                                                    className={[
+                                                        "group flex min-w-0 items-center gap-3 rounded-[15px]",
+                                                        "border border-[#DDD8CC] bg-[#FBFAF6] p-3 text-left",
+                                                        "transition-all duration-200",
+                                                        "hover:border-[#CFC7B8] hover:bg-white",
+                                                        "hover:shadow-[0_8px_22px_rgba(15,23,42,0.035)]",
+                                                    ].join(" ")}
+                                                >
+                                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#FFF2DF] text-[#F39A22]">
+                                                        <IoTrendingUpOutline size={14} />
+                                                    </span>
+
+                                                    <span className="min-w-0 flex-1">
+                                                        <span className="block truncate text-[10px] font-black text-slate-700">
+                                                            {term}
+                                                        </span>
+
+                                                        <span className="mt-0.5 block text-[8px] font-medium text-slate-400">
+                                                            Trending #{idx + 1}
+                                                        </span>
+                                                    </span>
+
+                                                    <IoChevronForwardOutline
+                                                        size={14}
+                                                        className="shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[#173C2E]"
+                                                    />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    {/* Mobile AI CTA */}
+                                    <section className="mt-7 lg:hidden">
                                         <button
                                             type="button"
                                             onClick={goAI}
-                                            className="flex w-full items-center gap-3 px-4 py-4 text-left transition hover:bg-black/[0.02]"
+                                            className={[
+                                                "flex w-full items-center gap-3 rounded-[17px]",
+                                                "border border-[#DDD8CC] bg-[#173C2E] p-4 text-left text-white",
+                                                "shadow-[0_10px_24px_rgba(23,60,46,0.12)]",
+                                            ].join(" ")}
                                         >
-                                            <div
-                                                className="flex h-11 w-11 items-center justify-center rounded-2xl"
-                                                style={{ backgroundColor: "rgba(35,63,57,0.10)" }}
-                                            >
-                                                <IoSparklesOutline size={20} color={EKARI.forest} />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[15px] font-semibold" style={{ color: EKARI.text }}>
+                                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 text-[#F39A22]">
+                                                <IoSparklesOutline size={18} />
+                                            </span>
+
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block text-[10px] font-black">
                                                     Ask ekari AI
-                                                </p>
-                                                <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
-                                                    Try a smarter search experience
-                                                </p>
-                                            </div>
-                                            <IoChevronForwardOutline size={18} color={EKARI.dim} />
+                                                </span>
+
+                                                <span className="mt-1 block text-[8px] font-medium leading-4 text-white/50">
+                                                    Need a deeper answer? Continue your question with ekari AI.
+                                                </span>
+                                            </span>
+
+                                            <IoChevronForwardOutline
+                                                size={15}
+                                                className="shrink-0 text-white/45"
+                                            />
                                         </button>
-                                    </div>
-                                </section>
+                                    </section>
+                                </motion.div>
+                            ) : (
+                                <>
+                                    {loading ? (
+                                        <div className="flex min-h-[260px] items-center justify-center">
+                                            <div className="text-center">
+                                                <div className="flex justify-center">
+                                                    <BouncingBallLoader />
+                                                </div>
+
+                                                <div className="mt-4 text-[9px] font-black text-slate-500">
+                                                    Searching ekarihub...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <motion.div
+                                            key={`${active}-${lastQuery}`}
+                                            initial={{ opacity: 0, y: 5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.17 }}
+                                            className="pt-1"
+                                        >
+                                            {renderSingleMode()}
+
+                                            {hasMore && (
+                                                <div className="flex justify-center pb-8 pt-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={loadMore}
+                                                        className={[
+                                                            "inline-flex h-10 items-center rounded-[13px]",
+                                                            "border border-[#DDD8CC] bg-[#FBFAF6] px-4",
+                                                            "text-[9px] font-black text-[#173C2E]",
+                                                            "transition hover:bg-white",
+                                                        ].join(" ")}
+                                                    >
+                                                        Load more
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {!hasMore &&
+                                                !!lastQuery &&
+                                                currentCount > 0 ? (
+                                                <div className="pb-8 pt-2 text-center text-[8px] font-semibold text-slate-400">
+                                                    You&apos;ve reached the end of these results.
+                                                </div>
+                                            ) : null}
+                                        </motion.div>
+                                    )}
+                                </>
                             )}
                         </div>
-                    ) : (
-                        <>
-                            {loading && (
-                                <div className="flex justify-center py-8">
-                                    <BouncingBallLoader />
+                    </div>
+
+                    {/* =================================================
+                        DESKTOP DISCOVERY RAIL
+                    ================================================= */}
+                    <aside className="hidden w-[292px] shrink-0 border-l border-[#DDD8CC] bg-[#FBFAF6] lg:block xl:w-[310px]">
+                        <div className="sticky top-0 max-h-[100svh] overflow-y-auto px-4 py-5 xl:px-5">
+                            <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                                Discover
+                            </div>
+
+                            <h2 className="mt-1 text-[17px] font-black tracking-[-0.03em] text-slate-900">
+                                Search smarter
+                            </h2>
+
+                            <p className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                                Quick ways to find the right people, topics and conversations.
+                            </p>
+
+
+
+                            <div className="mt-4">
+                                <div className="mb-2.5 flex items-center gap-2">
+                                    <IoTrendingUpOutline
+                                        size={14}
+                                        className="text-[#F39A22]"
+                                    />
+
+                                    <span className="text-[9px] font-black text-slate-700">
+                                        Trending
+                                    </span>
                                 </div>
-                            )}
 
-                            {!loading && (
-                                <div className="px-3">
-                                    {renderSingleMode()}
+                                <div className="space-y-1.5">
+                                    {trending.slice(0, 6).map((term, idx) => (
+                                        <button
+                                            key={`rail_${term}`}
+                                            type="button"
+                                            onClick={() => onTapTrending(term)}
+                                            className="group flex w-full items-center gap-2 rounded-[12px] px-2.5 py-2 text-left transition hover:bg-[#F3F1EB]"
+                                        >
+                                            <span className="w-5 shrink-0 text-[8px] font-black text-slate-300">
+                                                {String(idx + 1).padStart(2, "0")}
+                                            </span>
 
-                                    {hasMore && (
-                                        <div className="flex justify-center pb-10 pt-2">
-                                            <button
-                                                type="button"
-                                                onClick={loadMore}
-                                                className="rounded-full border px-4 py-2 text-[13px] font-semibold transition hover:bg-black/[0.02]"
-                                                style={{ borderColor: EKARI.line, color: EKARI.text }}
-                                            >
-                                                Load more
-                                            </button>
-                                        </div>
-                                    )}
+                                            <span className="min-w-0 flex-1 truncate text-[9px] font-black text-slate-600 group-hover:text-[#173C2E]">
+                                                {term}
+                                            </span>
 
-                                    {!hasMore && !!lastQuery && currentCount > 0 && (
-                                        <div className="pb-10 text-center text-[12px] font-medium" style={{ color: EKARI.dim }}>
-                                            End of results
-                                        </div>
-                                    )}
+                                            <IoChevronForwardOutline
+                                                size={12}
+                                                className="shrink-0 text-slate-300"
+                                            />
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
+                            </div>
 
-                        </>
-                    )}
+                            <button
+                                type="button"
+                                onClick={goAI}
+                                className={[
+                                    "mt-5 flex w-full items-center gap-3 rounded-[17px]",
+                                    "bg-[#173C2E] p-3.5 text-left text-white",
+                                    "shadow-[0_10px_24px_rgba(23,60,46,0.12)]",
+                                    "transition hover:bg-[#214C3A]",
+                                ].join(" ")}
+                            >
+                                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-white/10 text-[#F39A22]">
+                                    <IoSparklesOutline size={18} />
+                                </span>
+
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-[9px] font-black">
+                                        Ask ekari AI
+                                    </span>
+
+                                    <span className="mt-1 block text-[8px] font-medium leading-4 text-white/45">
+                                        Get a deeper answer or recommendation.
+                                    </span>
+                                </span>
+
+                                <IoChevronForwardOutline
+                                    size={14}
+                                    className="shrink-0 text-white/40"
+                                />
+                            </button>
+                        </div>
+                    </aside>
                 </div>
+
 
             </main>
         </AppShell>
+    );
+}
+
+function SearchTip({
+    icon,
+    badge,
+    title,
+    description,
+}: {
+    icon: React.ReactNode;
+    badge: string;
+    title: string;
+    description: string;
+}) {
+    return (
+        <div className="flex items-start gap-2.5">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[#E8ECE8] text-[#173C2E]">
+                {icon}
+            </div>
+
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                    {badge ? (
+                        <span className="rounded-md bg-[#F3F1EB] px-1.5 py-0.5 text-[8px] font-black text-[#173C2E]">
+                            {badge}
+                        </span>
+                    ) : null}
+
+                    <span className="text-[8px] font-black text-slate-700">
+                        {title}
+                    </span>
+                </div>
+
+                <p className="mt-0.5 text-[7px] font-medium leading-3.5 text-slate-400">
+                    {description}
+                </p>
+            </div>
+        </div>
     );
 }

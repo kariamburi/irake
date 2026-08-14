@@ -32,6 +32,8 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { motion, AnimatePresence } from "framer-motion";
+import AppShell from "@/app/components/AppShell";
 import { db } from "@/lib/firebase";
 
 type BookingStatus =
@@ -315,6 +317,55 @@ function formatTimezone(value?: string | null) {
   return value?.trim() || "Not specified";
 }
 
+
+function SafeExpertAvatar({
+  src,
+  alt,
+  size = 58,
+}: {
+  src?: string | null;
+  alt: string;
+  size?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  const hasImage =
+    !!src?.trim() && !failed;
+
+  return (
+    <div
+      className="relative shrink-0 overflow-hidden rounded-full border border-[#DDD8CC] bg-[#E8ECE8]"
+      style={{
+        width: size,
+        height: size,
+      }}
+    >
+      {hasImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src || ""}
+          alt={alt}
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center bg-[#E8ECE8] text-[#173C2E]">
+          <UserRound
+            style={{
+              width: size * 0.46,
+              height: size * 0.46,
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BookingDetailsPage() {
   const params = useParams<{ bookingId: string }>();
   const router = useRouter();
@@ -519,9 +570,16 @@ export default function BookingDetailsPage() {
 
   if (authLoading || loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f6f7f5]">
-        <Loader2 className="h-9 w-9 animate-spin text-[#233f39]" />
-      </main>
+      <AppShell>
+        <main className="grid h-full min-h-0 place-items-center bg-[#F8F7F2]">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#173C2E]" />
+            <p className="mt-3 text-[11px] font-semibold text-slate-400">
+              Loading consultation…
+            </p>
+          </div>
+        </main>
+      </AppShell>
     );
   }
 
@@ -534,20 +592,35 @@ export default function BookingDetailsPage() {
 
   if (!booking) {
     return (
-      <main className="min-h-screen bg-[#f6f7f5] px-4 py-20">
-        <div className="mx-auto max-w-lg rounded-3xl bg-white p-8 text-center shadow-sm">
-          <XCircle className="mx-auto h-12 w-12 text-rose-500" />
-          <h1 className="mt-4 text-xl font-bold">Booking unavailable</h1>
-          <p className="mt-2 text-sm text-slate-600">{error}</p>
-          <button
-            type="button"
-            onClick={() => router.push("/account/bookings")}
-            className="mt-6 rounded-xl bg-[#233f39] px-5 py-3 text-sm font-semibold text-white"
+      <AppShell>
+        <main className="grid h-full min-h-0 place-items-center overflow-y-auto bg-[#F8F7F2] px-4 py-10">
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-7 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]"
           >
-            Return to bookings
-          </button>
-        </div>
-      </main>
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-rose-50 text-rose-600">
+              <XCircle className="h-6 w-6" />
+            </div>
+
+            <h1 className="mt-4 text-[18px] font-black text-slate-900">
+              Booking unavailable
+            </h1>
+
+            <p className="mt-2 text-[12px] font-medium leading-5 text-slate-500">
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => router.push("/account/bookings")}
+              className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+            >
+              Return to bookings
+            </button>
+          </motion.div>
+        </main>
+      </AppShell>
     );
   }
 
@@ -568,317 +641,592 @@ export default function BookingDetailsPage() {
         : STATUS_TEXT[booking.status];
 
   return (
-    <main className="min-h-screen bg-[#f6f7f5] pb-20">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-          <button
-            type="button"
-            onClick={() => router.push("/account/bookings")}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            My consultations
-          </button>
+    <AppShell>
+      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F8F7F2]">
+        {/* HERO */}
+        <motion.header
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.24,
+            ease: "easeOut",
+          }}
+          className="relative shrink-0 overflow-hidden bg-[#173C2E] text-white"
+        >
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+            }}
+          />
 
-          <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              {booking.expertPhotoURL ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={booking.expertPhotoURL}
-                  alt={booking.expertName || "Expert"}
-                  className="h-16 w-16 rounded-2xl object-cover"
-                />
-              ) : (
-                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#233f39] font-bold text-white">
-                  EX
-                </span>
-              )}
-
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#c79257]">
-                  Expert consultation
-                </p>
-                <h1 className="truncate text-2xl font-bold text-slate-950">
-                  {booking.expertName || "Ekari expert"}
-                </h1>
-                {booking.expertHeadline ? (
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                    {booking.expertHeadline}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700">
-              <CheckCircle2 className="h-4 w-4" />
-              {statusLabel}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_330px]">
-        <section className="space-y-6">
-          {error ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-              {error}
-            </div>
-          ) : null}
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Consultation topic
-            </p>
-            <h2 className="mt-2 text-xl font-bold text-slate-950">
-              {booking.topic || "Expert consultation"}
-            </h2>
-
-            {booking.message ? (
-              <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Your message
-                </p>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                  {booking.message}
-                </p>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Detail
-              icon={CalendarDays}
-              label="Date"
-              value={formatDate(booking.consultationDate)}
-            />
-            <Detail
-              icon={Clock3}
-              label="Time"
-              value={formatTime(booking.consultationTime)}
-            />
-            <Detail
-              icon={MethodIcon}
-              label="Method"
-              value={formatMethod(booking.consultationMethod)}
-            />
-            <Detail
-              icon={CircleDollarSign}
-              label="Fee"
-              value={formatFeeLabel(booking)}
-            />
-            {booking.consultationDurationMinutes ? (
-              <Detail
-                icon={Clock3}
-                label="Duration"
-                value={`${booking.consultationDurationMinutes} minutes`}
-              />
-            ) : null}
-            <Detail
-              icon={ShieldCheck}
-              label="Payment"
-              value={PAYMENT_TEXT[booking.paymentStatus]}
-            />
-          </div>
-
-          {(booking.clientTimezone || booking.expertTimezone) ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-start gap-3">
-                <Globe2 className="mt-0.5 h-5 w-5 text-[#233f39]" />
-                <div>
-                  <h3 className="font-bold text-slate-950">Timezones</h3>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Your timezone: {formatTimezone(booking.clientTimezone)}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Expert timezone: {formatTimezone(booking.expertTimezone)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {booking.consultationMethod === "physical" ? (
-            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-6 w-6 text-amber-700" />
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-amber-950">
-                    Physical visit details
-                  </h3>
-
-                  <div className="mt-4 space-y-3 text-sm text-amber-900">
-                    <div>
-                      <span className="font-semibold">Visit location:</span>{" "}
-                      {visitLocation || "Not provided"}
-                    </div>
-
-                    {booking.visitContactPhone ? (
-                      <div>
-                        <span className="font-semibold">Contact phone:</span>{" "}
-                        {booking.visitContactPhone}
-                      </div>
-                    ) : null}
-
-                    {serviceAreas.length > 0 ? (
-                      <div>
-                        <span className="font-semibold">Expert service area:</span>{" "}
-                        {serviceAreas.join(", ")}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {locationLabel ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-5 w-5 text-[#233f39]" />
-                <div>
-                  <h3 className="font-bold text-slate-950">
-                    Expert service location
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {locationLabel}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {booking.status === "confirmed" && booking.meetingUrl ? (
-            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
-              <div className="flex items-start gap-3">
-                <Video className="mt-1 h-6 w-6 text-emerald-700" />
-                <div>
-                  <h3 className="font-bold text-emerald-950">
-                    Your meeting is ready
-                  </h3>
-                  <p className="mt-1 text-sm text-emerald-800">
-                    Use this link at the scheduled time.
-                  </p>
-                  <a
-                    href={booking.meetingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white"
-                  >
-                    Join consultation
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {booking.cancellationReason ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Cancellation reason
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">
-                {booking.cancellationReason}
-              </p>
-            </div>
-          ) : null}
-        </section>
-
-        <aside>
-          <div className="sticky top-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-[#233f39]">
-              <ShieldCheck className="h-5 w-5" />
-              <span className="text-sm font-semibold">
-                Consultation payment
-              </span>
-            </div>
-
-            <div className="mt-5 border-t border-slate-200 pt-5">
-              <div className="flex justify-between gap-4">
-                <span className="text-sm text-slate-600">
-                  Consultation fee
-                </span>
-                <span className="text-right font-bold text-slate-950">
-                  {formatFeeLabel(booking)}
-                </span>
-              </div>
-
-              <div className="mt-3 flex justify-between gap-4">
-                <span className="text-sm text-slate-600">Payment</span>
-                <span className="text-right text-sm font-semibold text-slate-900">
-                  {PAYMENT_TEXT[booking.paymentStatus]}
-                </span>
-              </div>
-
-              {booking.paymentReference ? (
-                <div className="mt-3 flex justify-between gap-4">
-                  <span className="text-sm text-slate-600">Reference</span>
-                  <span className="max-w-[170px] truncate text-right text-sm font-semibold text-slate-900">
-                    {booking.paymentReference}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-
-            {canPay ? (
-              <button
-                type="button"
-                onClick={startPayment}
-                disabled={paying}
-                className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#c79257] px-5 text-sm font-bold text-white transition hover:bg-[#b58149] disabled:opacity-60"
-              >
-                {paying ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Opening payment…
-                  </>
-                ) : booking.paymentStatus === "pending" ? (
-                  "Continue payment"
-                ) : (
-                  `Pay ${money(booking.fee, booking.currency)}`
-                )}
-              </button>
-            ) : null}
-
-            {booking.paymentStatus === "paid" ? (
-              <div className="mt-6 rounded-xl bg-emerald-50 p-3 text-center text-sm font-semibold text-emerald-700">
-                Payment received
-              </div>
-            ) : null}
-
-            {booking.paymentStatus === "not_required" || !paymentRequired ? (
-              <div className="mt-6 rounded-xl bg-slate-50 p-3 text-center text-sm font-semibold text-slate-700">
-                No payment is required for this consultation.
-              </div>
-            ) : null}
-
-            {canCancel ? (
-              <button
-                type="button"
-                onClick={cancelBooking}
-                disabled={cancelling}
-                className="mt-3 h-11 w-full rounded-xl border border-rose-200 text-sm font-semibold text-rose-700 disabled:opacity-60"
-              >
-                {cancelling ? "Cancelling…" : "Cancel consultation"}
-              </button>
-            ) : null}
-
-            {booking.expertHandle ? (
+          <div className="relative mx-auto max-w-[1180px] px-4 py-5 md:px-6 md:py-6">
+            <div className="flex items-start gap-3">
               <button
                 type="button"
                 onClick={() =>
-                  router.push(`/${booking.expertHandle!.replace(/^@/, "")}`)
+                  router.push("/account/bookings")
                 }
-                className="mt-3 h-11 w-full rounded-xl border border-slate-200 text-sm font-semibold text-slate-700"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
+                aria-label="Back to consultations"
               >
-                View expert profile
+                <ArrowLeft className="h-4.5 w-4.5" />
               </button>
-            ) : null}
+
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                  ekari Expert
+                </div>
+
+                <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <SafeExpertAvatar
+                      src={booking.expertPhotoURL}
+                      alt={booking.expertName || "Expert"}
+                      size={56}
+                    />
+
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.08em] text-white/40">
+                        Expert consultation
+                      </p>
+
+                      <h1 className="mt-0.5 truncate text-[22px] font-black tracking-[-0.03em] md:text-[26px]">
+                        {booking.expertName || "Ekari expert"}
+                      </h1>
+
+                      {booking.expertHeadline ? (
+                        <p className="mt-1 line-clamp-2 max-w-2xl text-[11px] font-medium leading-5 text-white/50">
+                          {booking.expertHeadline}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <span
+                    className={[
+                      "inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5",
+                      "text-[10px] font-black",
+                      booking.status === "completed"
+                        ? "bg-emerald-400/15 text-emerald-200"
+                        : booking.status === "declined" ||
+                          booking.status === "cancelled"
+                          ? "bg-rose-400/15 text-rose-200"
+                          : booking.status === "confirmed"
+                            ? "bg-blue-400/15 text-blue-200"
+                            : "bg-amber-400/15 text-amber-200",
+                    ].join(" ")}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {statusLabel}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-        </aside>
+        </motion.header>
+
+        {/* SCROLLABLE WORKSPACE */}
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F8F7F2] [-webkit-overflow-scrolling:touch]">
+          <div className="mx-auto grid max-w-[1180px] gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-5 xl:grid-cols-[minmax(0,1fr)_310px] xl:items-start">
+            <section className="min-w-0 space-y-4">
+              <AnimatePresence mode="popLayout">
+                {error ? (
+                  <motion.div
+                    key="error"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] font-semibold text-rose-700"
+                  >
+                    {error}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+
+              {/* TOPIC */}
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+              >
+                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                  Consultation topic
+                </div>
+
+                <h2 className="mt-1.5 text-[18px] font-black tracking-[-0.02em] text-slate-900">
+                  {booking.topic || "Expert consultation"}
+                </h2>
+
+                {booking.message ? (
+                  <div className="mt-4 rounded-[14px] bg-[#F3F1EB] px-4 py-3">
+                    <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                      Your message
+                    </div>
+
+                    <p className="mt-2 whitespace-pre-wrap text-[11px] font-medium leading-5 text-slate-600">
+                      {booking.message}
+                    </p>
+                  </div>
+                ) : null}
+              </motion.div>
+
+              {/* CORE DETAILS */}
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.2,
+                  delay: 0.03,
+                }}
+                className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                <Detail
+                  icon={CalendarDays}
+                  label="Date"
+                  value={formatDate(
+                    booking.consultationDate
+                  )}
+                />
+
+                <Detail
+                  icon={Clock3}
+                  label="Time"
+                  value={formatTime(
+                    booking.consultationTime
+                  )}
+                />
+
+                <Detail
+                  icon={MethodIcon}
+                  label="Method"
+                  value={formatMethod(
+                    booking.consultationMethod
+                  )}
+                />
+
+                <Detail
+                  icon={CircleDollarSign}
+                  label="Fee"
+                  value={formatFeeLabel(booking)}
+                />
+
+                {booking.consultationDurationMinutes ? (
+                  <Detail
+                    icon={Clock3}
+                    label="Duration"
+                    value={`${booking.consultationDurationMinutes} minutes`}
+                  />
+                ) : null}
+
+                <Detail
+                  icon={ShieldCheck}
+                  label="Payment"
+                  value={
+                    PAYMENT_TEXT[
+                    booking.paymentStatus
+                    ]
+                  }
+                />
+              </motion.div>
+
+              {/* TIMEZONES */}
+              {(booking.clientTimezone ||
+                booking.expertTimezone) ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.2,
+                    delay: 0.05,
+                  }}
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                      <Globe2 className="h-4 w-4" />
+                    </span>
+
+                    <div>
+                      <h3 className="text-[12px] font-black text-slate-900">
+                        Timezones
+                      </h3>
+
+                      <p className="mt-2 text-[11px] font-medium text-slate-500">
+                        Your timezone:{" "}
+                        <strong className="text-slate-700">
+                          {formatTimezone(
+                            booking.clientTimezone
+                          )}
+                        </strong>
+                      </p>
+
+                      <p className="mt-1 text-[11px] font-medium text-slate-500">
+                        Expert timezone:{" "}
+                        <strong className="text-slate-700">
+                          {formatTimezone(
+                            booking.expertTimezone
+                          )}
+                        </strong>
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+
+              {/* PHYSICAL VISIT */}
+              {booking.consultationMethod ===
+                "physical" ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.2,
+                    delay: 0.07,
+                  }}
+                  className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 sm:p-5"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
+                      <MapPin className="h-4 w-4" />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-[12px] font-black text-amber-950">
+                        Physical visit details
+                      </h3>
+
+                      <div className="mt-3 space-y-2 text-[11px] font-medium leading-5 text-amber-900">
+                        <div>
+                          <span className="font-black">
+                            Visit location:
+                          </span>{" "}
+                          {visitLocation ||
+                            "Not provided"}
+                        </div>
+
+                        {booking.visitContactPhone ? (
+                          <div>
+                            <span className="font-black">
+                              Contact phone:
+                            </span>{" "}
+                            {
+                              booking.visitContactPhone
+                            }
+                          </div>
+                        ) : null}
+
+                        {serviceAreas.length > 0 ? (
+                          <div>
+                            <span className="font-black">
+                              Expert service area:
+                            </span>{" "}
+                            {serviceAreas.join(", ")}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+
+              {/* EXPERT LOCATION */}
+              {locationLabel ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.2,
+                    delay: 0.08,
+                  }}
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                      <MapPin className="h-4 w-4" />
+                    </span>
+
+                    <div>
+                      <h3 className="text-[12px] font-black text-slate-900">
+                        Expert service location
+                      </h3>
+
+                      <p className="mt-2 text-[11px] font-medium leading-5 text-slate-500">
+                        {locationLabel}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+
+              {/* MEETING */}
+              {booking.status === "confirmed" &&
+                booking.meetingUrl ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.2,
+                    delay: 0.09,
+                  }}
+                  className="rounded-[18px] border border-emerald-200 bg-emerald-50 p-4 sm:p-5"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
+                      <Video className="h-4 w-4" />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-[12px] font-black text-emerald-950">
+                        Your meeting is ready
+                      </h3>
+
+                      <p className="mt-1 text-[11px] font-medium text-emerald-800">
+                        Use this link at the scheduled time.
+                      </p>
+
+                      <a
+                        href={booking.meetingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-emerald-800"
+                      >
+                        Join consultation
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+
+              {/* CANCELLATION */}
+              {booking.cancellationReason ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
+                >
+                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                    Cancellation reason
+                  </div>
+
+                  <p className="mt-2 text-[11px] font-medium leading-5 text-slate-600">
+                    {booking.cancellationReason}
+                  </p>
+                </motion.div>
+              ) : null}
+            </section>
+
+            {/* PAYMENT / ACTION RAIL */}
+            <motion.aside
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{
+                duration: 0.24,
+                delay: 0.04,
+                ease: "easeOut",
+              }}
+              className="space-y-3 xl:sticky xl:top-4"
+            >
+              <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                    <ShieldCheck className="h-4 w-4" />
+                  </span>
+
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                      Consultation payment
+                    </div>
+
+                    <div className="mt-0.5 text-[13px] font-black text-slate-800">
+                      {
+                        PAYMENT_TEXT[
+                        booking.paymentStatus
+                        ]
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3 border-t border-[#E4DED2] pt-4 text-[11px]">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="font-semibold text-slate-400">
+                      Consultation fee
+                    </span>
+
+                    <span className="text-right font-black text-slate-800">
+                      {formatFeeLabel(booking)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="font-semibold text-slate-400">
+                      Payment
+                    </span>
+
+                    <span className="text-right font-black text-slate-700">
+                      {
+                        PAYMENT_TEXT[
+                        booking.paymentStatus
+                        ]
+                      }
+                    </span>
+                  </div>
+
+                  {booking.paymentReference ? (
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="font-semibold text-slate-400">
+                        Reference
+                      </span>
+
+                      <span className="max-w-[170px] truncate text-right font-black text-slate-700">
+                        {booking.paymentReference}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {canPay ? (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    type="button"
+                    onClick={startPayment}
+                    disabled={paying}
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#F39A22] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
+                  >
+                    {paying ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Opening payment…
+                      </>
+                    ) : booking.paymentStatus ===
+                      "pending" ? (
+                      "Continue payment"
+                    ) : (
+                      `Pay ${money(
+                        booking.fee,
+                        booking.currency
+                      )}`
+                    )}
+                  </motion.button>
+                ) : null}
+
+                {booking.paymentStatus ===
+                  "paid" ? (
+                  <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-center text-[10px] font-black text-emerald-700">
+                    Payment received
+                  </div>
+                ) : null}
+
+                {booking.paymentStatus ===
+                  "not_required" ||
+                  !paymentRequired ? (
+                  <div className="mt-4 rounded-xl bg-slate-100 p-3 text-center text-[10px] font-black text-slate-600">
+                    No payment is required for this consultation.
+                  </div>
+                ) : null}
+
+                {canCancel ? (
+                  <button
+                    type="button"
+                    onClick={cancelBooking}
+                    disabled={cancelling}
+                    className="mt-3 h-10 w-full rounded-xl border border-rose-200 bg-white text-[10px] font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                  >
+                    {cancelling
+                      ? "Cancelling…"
+                      : "Cancel consultation"}
+                  </button>
+                ) : null}
+              </section>
+
+              <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  Booking status
+                </div>
+
+                <div className="mt-3 flex items-start gap-3">
+                  <span
+                    className={[
+                      "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+                      booking.status === "completed"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : booking.status === "declined" ||
+                          booking.status === "cancelled"
+                          ? "bg-rose-100 text-rose-700"
+                          : "bg-amber-100 text-amber-700",
+                    ].join(" ")}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </span>
+
+                  <div className="min-w-0">
+                    <div className="text-[12px] font-black text-slate-800">
+                      {statusLabel}
+                    </div>
+
+                    <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                      Booking ID: {booking.id}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  Quick links
+                </div>
+
+                <div className="mt-2 space-y-1">
+                  {booking.expertHandle ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(
+                          `/${booking.expertHandle!.replace(
+                            /^@/,
+                            ""
+                          )}`
+                        )
+                      }
+                      className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                    >
+                      View expert profile
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push("/account/bookings")
+                    }
+                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                  >
+                    My consultations
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push("/ekari-experts")
+                    }
+                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                  >
+                    Browse experts
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </section>
+            </motion.aside>
+          </div>
+        </main>
       </div>
-    </main>
+    </AppShell>
   );
 }
 
@@ -892,12 +1240,15 @@ function Detail({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <Icon className="h-5 w-5 text-[#233f39]" />
-      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+    <div className="rounded-[14px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
+      <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+        <Icon className="h-3.5 w-3.5 text-[#F39A22]" />
         {label}
+      </div>
+
+      <p className="mt-1.5 break-words text-[11px] font-black leading-5 text-slate-700">
+        {value}
       </p>
-      <p className="mt-1 break-words font-semibold text-slate-950">{value}</p>
     </div>
   );
 }

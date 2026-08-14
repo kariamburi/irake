@@ -28,7 +28,7 @@ import {
   IoChatbubbleOutline,
 } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
-import AppShell from "@/app/components/AppShell";
+import AppShell from "@/app/components/AppShell_";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import clsx from "clsx";
 

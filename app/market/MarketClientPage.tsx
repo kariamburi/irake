@@ -45,6 +45,9 @@ import {
     IoMenu,
     IoSparklesOutline,
     IoStar,
+    IoPeopleOutline,
+    IoLocationOutline,
+    IoArrowForward,
 } from "react-icons/io5";
 
 import FilterModal, {
@@ -55,6 +58,7 @@ import FilterModal, {
 import ProductCard, {
     computeStatus,
     KES,
+    USD,
     Product,
 } from "@/app/components/ProductCard";
 import SellModal from "@/app/components/SellModal";
@@ -64,9 +68,12 @@ import { EKARI } from "@/app/constants/constants";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import { useAuth } from "@/app/hooks/useAuth";
 import clsx from "clsx";
+import { motion } from "framer-motion";
 import { EkariSideMenuSheet } from "@/app/components/EkariSideMenuSheet";
 import { MarketType } from "../shared/market_master_catalog";
 import MobileBottomTabs from "../components/navigation/MobileBottomTabs";
+import MarketDiscoveryRail from "@/app/components/MarketDiscoveryRail";
+import AppShellRightRail from "../components/AppShellRightRail";
 
 /* ---------------- utils ---------------- */
 type SortKey = "recent" | "priceAsc" | "priceDesc";
@@ -842,6 +849,57 @@ export default function MarketPage() {
         if (!featuredItems.length) return items;
         return items.filter((p) => !featuredIdSet.has(p.id));
     }, [items, featuredItems, featuredIdSet]);
+
+    const desktopStats = useMemo(() => {
+        const sellerIds = new Set<string>();
+        const counties = new Set<string>();
+
+        items.forEach((item) => {
+            const sellerId =
+                item.seller?.id ||
+                item.sellerId ||
+                (item as any)?.ownerId ||
+                "";
+
+            if (sellerId) {
+                sellerIds.add(String(sellerId));
+            }
+
+            const county =
+                item.place?.county ||
+                item.place?.countyLower ||
+                "";
+
+            if (county) {
+                counties.add(String(county).trim().toLowerCase());
+            }
+        });
+
+        return {
+            listings: items.length,
+            sellers: sellerIds.size,
+            counties: counties.size,
+        };
+    }, [items]);
+
+    const desktopFeaturedItem =
+        featuredItems[0] ??
+        normalItems[0] ??
+        null;
+
+    const formatDesktopPrice = (
+        product: Product | null
+    ) => {
+        if (!product) return "";
+
+        const raw = Number(product.price ?? 0);
+        if (!raw) return "Price on request";
+
+        return product.currency === "USD"
+            ? USD(raw)
+            : KES(raw);
+    };
+
     const router = useRouter();
     const goUpload = () => {
         if (!user?.uid) router.push("/getstarted?next=/studio/upload");
@@ -1240,172 +1298,440 @@ export default function MarketPage() {
 
     /* ---------------- desktop shell ---------------- */
     return (
-        <AppShell>
-            <div className="min-h-screen w-full" style={premiumBg}>
-                {/* Only the market identity bar stays sticky */}
-                <div
-                    className="sticky top-0 z-40"
-                    style={{
-                        background:
-                            "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.88))",
-                        backdropFilter: "blur(18px)",
-                        WebkitBackdropFilter: "blur(18px)",
-                        borderBottom: "1px solid rgba(199,146,87,0.18)",
-                        boxShadow: "0 8px 30px rgba(15,23,42,0.05)",
+        <AppShellRightRail
+            rightRail={
+                <MarketDiscoveryRail
+                    items={items}
+                    onSearch={(term) => {
+                        setSearch(term);
                     }}
+                    onSell={openSellModal}
+                    onNearby={() => setFilterOpen(true)}
+                />
+            }
+            rightRailClassName="border-l border-[#E4DED2] bg-[#F8F7F2]"
+            handle={handle ?? undefined}
+        >
+            <div
+                className="h-[100svh] w-full overflow-y-auto bg-[#F8F7F2] no-scrollbar"
+            >
+                {/* MARKET HEADER */}
+                <motion.header
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                        duration: 0.28,
+                        ease: "easeOut",
+                    }}
+                    className={[
+                        "sticky top-0 z-40",
+                        "border-b border-[#E5E0D6]",
+                        "bg-[#FBFAF6]/95 backdrop-blur-xl",
+                    ].join(" ")}
                 >
-                    <div className="mx-auto flex h-[72px] max-w-[1180px] items-center justify-between px-4 lg:mr-10">
-                        <div className="flex min-w-0 items-center gap-3">
-                            <span
-                                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border shadow-sm"
-                                style={{
-                                    borderColor: "rgba(199,146,87,0.28)",
-                                    background:
-                                        "linear-gradient(135deg, rgba(199,146,87,0.22), rgba(35,63,57,0.10))",
-                                }}
-                            >
-                                <IoCartOutline size={22} style={{ color: EKARI.forest }} />
-                            </span>
+                    <div className="mx-auto max-w-[900px] px-5 pb-4 pt-4">
+                        <div className="flex items-center gap-5">
+                            <div className="flex min-w-0 items-center gap-3">
+                                <span
+                                    className={[
+                                        "grid h-11 w-11 shrink-0 place-items-center rounded-xl",
+                                        "bg-[#E9ECE7] text-[#173C2E]",
+                                        "shadow-[inset_0_0_0_1px_rgba(23,60,46,0.06)]",
+                                    ].join(" ")}
+                                >
+                                    <IoCartOutline size={22} />
+                                </span>
 
-                            <div className="min-w-0 leading-tight">
-                                <div
-                                    className="truncate text-lg font-black tracking-[-0.02em]"
-                                    style={{ color: EKARI.text }}
-                                >
-                                    ekariMarket
+                                <div className="min-w-0">
+                                    <h1 className="truncate text-[20px] font-black tracking-[-0.03em] text-[#111827]">
+                                        ekariMarket
+                                    </h1>
+
+                                    <p className="mt-0.5 text-[12px] font-semibold leading-4 text-slate-400">
+                                        Premium marketplace
+                                        <br className="xl:hidden" />
+                                        <span className="xl:ml-1">
+                                            for ekarihub
+                                        </span>
+                                    </p>
                                 </div>
-                                <div
-                                    className="truncate text-[12px] font-semibold"
-                                    style={{ color: EKARI.dim }}
+                            </div>
+
+                            <div className="ml-auto hidden items-center gap-6 lg:flex">
+                                {[
+                                    {
+                                        value: desktopStats.listings,
+                                        label: "listings",
+                                    },
+                                    {
+                                        value: desktopStats.sellers,
+                                        label: "sellers",
+                                    },
+                                    {
+                                        value: desktopStats.counties,
+                                        label: "counties",
+                                    },
+                                ].map((stat) => (
+                                    <div
+                                        key={stat.label}
+                                        className="text-center"
+                                    >
+                                        <div className="text-[21px] font-black leading-none text-[#173C2E]">
+                                            {stat.value}
+                                        </div>
+
+                                        <div className="mt-1 text-[11px] font-semibold text-slate-400">
+                                            {stat.label}
+                                        </div>
+                                    </div>
+                                ))}
+
+                                <button
+                                    type="button"
+                                    onClick={openSellModal}
+                                    className={[
+                                        "inline-flex h-11 items-center gap-2 rounded-full",
+                                        "bg-[#F39A22] px-5",
+                                        "text-[13px] font-black text-white",
+                                        "shadow-[0_10px_24px_rgba(243,154,34,0.18)]",
+                                        "transition-all duration-250 ease-out",
+                                        "hover:-translate-y-0.5 hover:bg-[#E98C12]",
+                                        "active:translate-y-0 active:scale-[0.98]",
+                                    ].join(" ")}
                                 >
-                                    Premium marketplace for ekarihub
-                                </div>
+                                    <IoPricetagOutline size={17} />
+                                    Sell / Lease
+                                </button>
                             </div>
                         </div>
 
-                        <PremiumPillButton
-                            onClick={openSellModal}
-                            className="shrink-0 shadow-[0_10px_30px_rgba(35,63,57,0.20)] mr-10"
-                            style={{
-                                background:
-                                    "linear-gradient(135deg, rgba(199,146,87,1), rgba(35,63,57,1))",
-                                color: "white",
-                                ...ringStyle,
-                            }}
-                        >
-                            <IoPricetagOutline size={18} />
-                            <span>Sell / Lease</span>
-                        </PremiumPillButton>
-                    </div>
-                </div>
-
-                {/* Search, filters and result count scroll with the listings */}
-                <div
-                    className="border-b"
-                    style={{
-                        borderColor: "rgba(199,146,87,0.14)",
-                        background: "rgba(255,255,255,0.58)",
-                    }}
-                >
-                    <div className="mx-auto max-w-[1180px]">{Controls}</div>
-
-                    {!initialLoading && (
-                        <div
-                            className="mx-auto max-w-[1180px] px-4 pb-3 text-xs font-semibold"
-                            style={{ color: EKARI.dim }}
-                        >
-                            {normalItems.length} result{normalItems.length === 1 ? "" : "s"}
-                            {sort !== "recent"
-                                ? ` • sorted by ${sort === "priceAsc" ? "price ↑" : "price ↓"}`
-                                : ""}
-                            <button
-                                onClick={onRefresh}
-                                disabled={refreshing}
-                                className="ml-2 font-bold underline disabled:opacity-50"
-                                style={{ color: EKARI.forest }}
+                        {/* SEARCH ROW */}
+                        <div className="mt-4 flex items-center gap-2.5">
+                            <div
+                                className={[
+                                    "flex h-12 min-w-0 flex-1 items-center gap-3 rounded-[20px]",
+                                    "border border-[#DCD6CA] bg-white px-4",
+                                    "transition-all duration-200",
+                                    "focus-within:border-[#F39A22]/55",
+                                    "focus-within:shadow-[0_0_0_3px_rgba(243,154,34,0.08)]",
+                                ].join(" ")}
                             >
-                                {refreshing ? "refreshing…" : "refresh"}
+                                <IoSearch
+                                    size={20}
+                                    className="shrink-0 text-slate-400"
+                                />
+
+                                <input
+                                    value={search}
+                                    onChange={(e) =>
+                                        setSearch(e.target.value)
+                                    }
+                                    placeholder="Search products, services or lease…"
+                                    className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                                />
+
+                                {search ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSearch("")}
+                                        className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-black/[0.04] hover:text-slate-600"
+                                        aria-label="Clear search"
+                                    >
+                                        <IoCloseCircle size={18} />
+                                    </button>
+                                ) : null}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setFilterOpen(true)}
+                                className={[
+                                    "inline-flex h-12 items-center gap-2 rounded-[18px]",
+                                    "border border-[#DCD6CA] bg-white px-4",
+                                    "text-[12px] font-extrabold text-slate-600",
+                                    "transition-all duration-200",
+                                    "hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]",
+                                    "active:scale-[0.98]",
+                                ].join(" ")}
+                            >
+                                <IoOptionsOutline size={17} />
+                                Filters
+                            </button>
+
+                            {/**   <button
+                                type="button"
+                                onClick={() =>
+                                    router.push("/market/history")
+                                }
+                                className={[
+                                    "inline-flex h-12 items-center gap-2 rounded-[18px]",
+                                    "border border-[#DCD6CA] bg-white px-4",
+                                    "text-[12px] font-extrabold text-slate-600",
+                                    "transition-all duration-200",
+                                    "hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]",
+                                    "active:scale-[0.98]",
+                                ].join(" ")}
+                            >
+                                <IoTimeOutline size={17} />
+                                History
+                            </button>*/}
+                        </div>
+
+                        {/* CATEGORY CHIPS */}
+                        <div className="mt-3 overflow-x-auto no-scrollbar">
+                            <div className="flex min-w-max items-center gap-2">
+                                {[
+                                    {
+                                        key: "all",
+                                        label: "All",
+                                        type: null,
+                                    },
+                                    ...DIRECT_NAME_TYPES.map(
+                                        (type) => ({
+                                            key: type,
+                                            label:
+                                                TYPE_LABEL[
+                                                type
+                                                ],
+                                            type,
+                                        })
+                                    ),
+                                ].map((entry) => {
+                                    const active =
+                                        filters.type ===
+                                        entry.type;
+
+                                    return (
+                                        <button
+                                            key={entry.key}
+                                            type="button"
+                                            onClick={() =>
+                                                handleSelectType(
+                                                    entry.type
+                                                )
+                                            }
+                                            className={[
+                                                "h-10 rounded-full border px-4",
+                                                "text-[12px] font-extrabold",
+                                                "transition-all duration-200",
+                                                active
+                                                    ? "border-[#173C2E] bg-[#173C2E] text-white shadow-sm"
+                                                    : "border-[#DCD6CA] bg-[#FBFAF6] text-slate-600 hover:border-[#C9C1B3] hover:bg-white",
+                                                "active:scale-[0.98]",
+                                            ].join(" ")}
+                                        >
+                                            {entry.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </motion.header>
+
+                <main className="mx-auto max-w-[900px] px-5 pb-24 pt-4">
+                    {/* FEATURED SUMMARY */}
+                    {!initialLoading &&
+                        desktopFeaturedItem ? (
+                        <motion.button
+                            type="button"
+                            initial={{
+                                opacity: 0,
+                                y: 8,
+                            }}
+                            animate={{
+                                opacity: 1,
+                                y: 0,
+                            }}
+                            transition={{
+                                duration: 0.32,
+                                delay: 0.05,
+                                ease: "easeOut",
+                            }}
+                            onClick={() =>
+                                router.push(
+                                    `/market/${desktopFeaturedItem.id}`
+                                )
+                            }
+                            className={[
+                                "group flex w-full items-center gap-4 rounded-[20px]",
+                                "bg-[#173C2E] px-5 py-4 text-left text-white",
+                                "shadow-[0_14px_32px_rgba(23,60,46,0.12)]",
+                                "transition-all duration-300 ease-out",
+                                "hover:-translate-y-[1px] hover:bg-[#1C4736]",
+                                "active:translate-y-0 active:scale-[0.995]",
+                            ].join(" ")}
+                        >
+                            <div className="min-w-0 flex-1">
+                                <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold text-white/60">
+                                    Featured this week
+                                </span>
+
+                                <h2 className="mt-2 truncate text-[17px] font-black">
+                                    {desktopFeaturedItem.name}
+                                </h2>
+
+                                <p className="mt-1 truncate text-[11px] font-medium text-white/55">
+                                    {desktopFeaturedItem.category ||
+                                        "Featured listing"}
+                                    {desktopFeaturedItem.place?.county
+                                        ? ` · ${desktopFeaturedItem.place.county}`
+                                        : ""}
+                                </p>
+                            </div>
+
+                            <div className="hidden items-center gap-6 sm:flex">
+                                <div className="text-center">
+                                    <div className="text-[19px] font-black text-[#F39A22]">
+                                        {formatDesktopPrice(
+                                            desktopFeaturedItem
+                                        )}
+                                    </div>
+                                    <div className="mt-1 text-[10px] text-white/45">
+                                        current price
+                                    </div>
+                                </div>
+
+                                <span
+                                    className={[
+                                        "grid h-12 w-12 place-items-center rounded-full",
+                                        "bg-[#F39A22]/15 text-[#F39A22]",
+                                        "transition-transform duration-300",
+                                        "group-hover:translate-x-1",
+                                    ].join(" ")}
+                                >
+                                    <IoArrowForward
+                                        size={20}
+                                    />
+                                </span>
+                            </div>
+                        </motion.button>
+                    ) : null}
+
+                    {/* RESULTS HEADING */}
+                    {!initialLoading ? (
+                        <div className="mb-3 mt-5 flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                                <div className="text-[14px] font-black text-slate-700">
+                                    {normalItems.length} result
+                                    {normalItems.length === 1
+                                        ? ""
+                                        : "s"}
+                                    <span className="font-semibold text-slate-400">
+                                        {" "}
+                                        ·{" "}
+                                        {filters.type
+                                            ? TYPE_LABEL[
+                                            filters.type
+                                            ]
+                                            : "all categories"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setSort((current) =>
+                                        current === "recent"
+                                            ? "priceAsc"
+                                            : current ===
+                                                "priceAsc"
+                                                ? "priceDesc"
+                                                : "recent"
+                                    )
+                                }
+                                className={[
+                                    "inline-flex h-9 items-center gap-2 rounded-full",
+                                    "border border-[#DCD6CA] bg-white px-3.5",
+                                    "text-[11px] font-bold text-slate-500",
+                                    "transition-all duration-200",
+                                    "hover:border-[#C9C1B3] hover:text-slate-700",
+                                    "active:scale-[0.98]",
+                                ].join(" ")}
+                            >
+                                <IoSwapVerticalOutline
+                                    size={15}
+                                />
+
+                                {sort === "recent"
+                                    ? "Newest first"
+                                    : sort === "priceAsc"
+                                        ? "Price low to high"
+                                        : "Price high to low"}
                             </button>
                         </div>
-                    )}
-                </div>
+                    ) : null}
 
-                {initialLoading && (
-                    <div
-                        className="h-[280px] grid place-items-center"
-                        style={{ color: EKARI.dim }}
-                    >
-                        <BouncingBallLoader />
-                    </div>
-                )}
+                    {initialLoading ? (
+                        <div className="grid h-[300px] place-items-center">
+                            <BouncingBallLoader />
+                        </div>
+                    ) : null}
 
-                <div className="max-w-[1180px] mx-auto px-4 pt-4 pb-24">
-                    {!initialLoading && FeaturedStrip}
-
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
-                        {normalItems.map((p) => (
-                            <div
-                                key={p.id}
-                                className="rounded-3xl p-[1px]"
-                                style={{
-                                    background:
-                                        "linear-gradient(135deg, rgba(199,146,87,0.22), rgba(35,63,57,0.16))",
-                                }}
-                            >
-                                <div className="rounded-3xl bg-white overflow-hidden">
-                                    <ProductCard p={p} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    {!initialLoading &&
+                        normalItems.length > 0 ? (
+                        <motion.div
+                            key={`${debouncedSearch}-${filters.type ?? "all"}-${sort}`}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{
+                                duration: 0.22,
+                                ease: "easeOut",
+                            }}
+                            className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4"
+                        >
+                            {normalItems.map((product) => (
+                                <ProductCard
+                                    key={product.id}
+                                    p={product}
+                                />
+                            ))}
+                        </motion.div>
+                    ) : null}
 
                     {InfiniteScrollFooter}
 
-                    {!initialLoading && normalItems.length === 0 && (
+                    {!initialLoading &&
+                        normalItems.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-center">
-                            <div
-                                className="w-16 h-16 grid place-items-center rounded-3xl mb-3 border shadow-sm"
-                                style={{
-                                    borderColor: "rgba(199,146,87,0.22)",
-                                    background:
-                                        "linear-gradient(135deg, rgba(199,146,87,0.16), rgba(35,63,57,0.06))",
-                                }}
-                            >
-                                <IoCartOutline size={28} style={{ color: EKARI.forest }} />
+                            <div className="grid h-16 w-16 place-items-center rounded-3xl border border-[#DDD8CC] bg-white text-[#173C2E] shadow-sm">
+                                <IoCartOutline size={28} />
                             </div>
-                            <div className="text-lg font-black" style={{ color: EKARI.text }}>
+
+                            <div className="mt-4 text-lg font-black text-slate-800">
                                 No item found
                             </div>
-                            <div className="mt-1 text-sm" style={{ color: EKARI.dim }}>
-                                Try adjusting your search or filters.
+
+                            <div className="mt-1 text-sm text-slate-400">
+                                Try adjusting your search or
+                                filters.
                             </div>
-                            <PremiumPillButton
-                                onClick={() => setFilterOpen(true)}
-                                className="mt-5 px-6"
-                                style={{
-                                    background:
-                                        "linear-gradient(135deg, rgba(35,63,57,1), rgba(199,146,87,1))",
-                                    color: "white",
-                                    ...ringStyle,
-                                }}
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setFilterOpen(true)
+                                }
+                                className="mt-5 rounded-full bg-[#173C2E] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#214C3A] active:scale-[0.98]"
                             >
-                                <IoOptionsOutline size={18} />
-                                Open Filters
-                            </PremiumPillButton>
+                                Open filters
+                            </button>
                         </div>
-                    )}
-                </div>
+                    ) : null}
+                </main>
             </div>
 
             <FilterModal
                 open={filterOpen}
                 onClose={() => setFilterOpen(false)}
                 initial={filters}
-                onApply={(f: any) => {
-                    setFilters(f);
+                onApply={(nextFilters: any) => {
+                    setFilters(nextFilters);
                     setFilterOpen(false);
                 }}
             />
+
             <SellModal
                 open={sellOpen}
                 onClose={() => setSellOpen(false)}
@@ -1413,6 +1739,6 @@ export default function MarketPage() {
             />
 
             {NoticeModal}
-        </AppShell>
+        </AppShellRightRail>
     );
 }

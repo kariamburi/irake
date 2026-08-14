@@ -9,6 +9,7 @@ import React, {
 } from "react";
 
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { getApp } from "firebase/app";
 
@@ -71,12 +72,15 @@ import {
 } from "@/app/types/expert";
 
 const EKARI = {
-  forest: "#233F39",
-  gold: "#C79257",
+  forest: "#173C2E",
+  forestSoft: "#214C3A",
+  gold: "#F39A22",
+  canvas: "#F8F7F2",
+  paper: "#FBFAF6",
   text: "#111827",
-  subtext: "#6B7280",
-  hair: "#E5E7EB",
-  soft: "#F8FAFC",
+  subtext: "#64748B",
+  hair: "#DDD8CC",
+  soft: "#F3F1EB",
   success: "#15803D",
   danger: "#B42318",
 };
@@ -1736,1309 +1740,1674 @@ export default function ExpertSettingsPage() {
     }
   };
 
+  const readiness = useMemo(() => {
+    if (!expertProfile) {
+      return {
+        completed: 0,
+        total: 9,
+        percentage: 0,
+        items: [] as Array<{
+          label: string;
+          complete: boolean;
+        }>,
+      };
+    }
+
+    const items = [
+      {
+        label: "Professional headline",
+        complete:
+          expertProfile.headline.trim().length >= 10,
+      },
+      {
+        label: "Expert biography",
+        complete:
+          expertProfile.expertBio.trim().length >= 40,
+      },
+      {
+        label: "Specialties",
+        complete:
+          expertProfile.specialties.length > 0,
+      },
+      {
+        label: "Primary location",
+        complete:
+          expertProfile.primaryLocation.label.trim().length > 0,
+      },
+      {
+        label: "Service mode",
+        complete:
+          expertProfile.serviceCoverage.offersOnlineServices ||
+          expertProfile.serviceCoverage.offersPhysicalVisits,
+      },
+      {
+        label: "Service coverage",
+        complete:
+          !expertProfile.serviceCoverage.offersPhysicalVisits ||
+          expertProfile.serviceCoverage.serviceAreas.length > 0,
+      },
+      {
+        label: "Languages",
+        complete:
+          expertProfile.languages.length > 0,
+      },
+      {
+        label: "Consultation methods",
+        complete:
+          expertProfile.consultationMethods.length > 0,
+      },
+      {
+        label: "Consultation terms",
+        complete:
+          expertProfile.terms.summary.trim().length > 0,
+      },
+    ];
+
+    const completed =
+      items.filter((item) => item.complete).length;
+
+    return {
+      completed,
+      total: items.length,
+      percentage: Math.round(
+        (completed / items.length) * 100
+      ),
+      items,
+    };
+  }, [expertProfile]);
+
+  const profileIsPublic =
+    expertProfile?.status === "active" &&
+    expertProfile?.isDiscoverable === true;
+
   const pageContent = (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-10">
-      <div className="mb-6 flex items-start gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border bg-white"
-          style={{
-            borderColor: EKARI.hair,
-            color: EKARI.text,
-          }}
-          aria-label="Go back"
-        >
-          <IoArrowBack size={20} />
-        </button>
-
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1
-              className="text-2xl font-black md:text-3xl"
-              style={{ color: EKARI.text }}
-            >
-              Expert services
-            </h1>
-
-            {isVerified ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                <IoShieldCheckmarkOutline
-                  size={14}
-                />
-                Verified expert
-              </span>
-            ) : isVerificationPending ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
-                <IoInformationCircleOutline
-                  size={14}
-                />
-                Verification pending
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">
-                <IoInformationCircleOutline
-                  size={14}
-                />
-                Unverified expert
-              </span>
-            )}
-          </div>
-
-          <p
-            className="mt-2 max-w-2xl text-sm leading-6"
-            style={{ color: EKARI.subtext }}
-          >
-            Configure the agricultural services,
-            locations, consultation methods and fees
-            that will appear on your ekariExpert
-            profile.
-          </p>
-        </div>
-      </div>
-
-      {loading ? (
+    <div className="h-full min-h-0 overflow-y-auto bg-[#F8F7F2]">
+      <motion.header
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24, ease: "easeOut" }}
+        className="relative overflow-hidden bg-[#173C2E] text-white"
+      >
         <div
-          className="rounded-3xl border bg-white p-8"
-          style={{ borderColor: EKARI.hair }}
-        >
-          <div className="animate-pulse space-y-4">
-            <div className="h-6 w-52 rounded bg-slate-200" />
-            <div className="h-4 w-full rounded bg-slate-100" />
-            <div className="h-28 w-full rounded-2xl bg-slate-100" />
-          </div>
-        </div>
-      ) : null}
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+          }}
+        />
 
-      {!loading && errorMessage ? (
-        <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          {errorMessage}
-        </div>
-      ) : null}
-
-      {!loading && successMessage ? (
-        <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {successMessage}
-        </div>
-      ) : null}
-
-      {!loading && userSummary && !isVerified ? (
-        <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 md:p-7">
+        <div className="relative mx-auto max-w-[1180px] px-4 py-5 md:px-6 md:py-6">
           <div className="flex items-start gap-3">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-700">
-              <IoInformationCircleOutline
-                size={24}
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
+              aria-label="Go back"
+            >
+              <IoArrowBack size={19} />
+            </button>
 
             <div className="min-w-0 flex-1">
-              <h2 className="font-black text-amber-900">
-                {isVerificationPending
-                  ? "Verification pending"
-                  : "Unverified expert profile"}
-              </h2>
+              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                ekari Expert
+              </div>
 
-              <p className="mt-1 text-sm leading-6 text-amber-800">
-                {isVerificationPending
-                  ? "You can create, publish and manage your expert profile while your verification request is being reviewed."
-                  : "You can create and publish your expert profile without verification. Your public profile will display an Unverified expert badge until verification is approved."}
-              </p>
+              <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-[24px] font-black tracking-[-0.035em] md:text-[28px]">
+                      Expert services
+                    </h1>
 
-              <p className="mt-2 text-xs font-semibold text-amber-800">
-                Current status:{" "}
-                {userSummary.verificationStatus}
-              </p>
+                    {isVerified ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black text-emerald-200">
+                        <IoShieldCheckmarkOutline size={12} />
+                        Verified
+                      </span>
+                    ) : isVerificationPending ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2.5 py-1 text-[9px] font-black text-amber-200">
+                        <IoInformationCircleOutline size={12} />
+                        Verification pending
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black text-white/65">
+                        <IoInformationCircleOutline size={12} />
+                        Unverified
+                      </span>
+                    )}
+                  </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    "/account/verification"
-                  )
-                }
-                className="mt-4 rounded-full bg-amber-700 px-5 py-2.5 text-sm font-bold text-white"
-              >
-                {isVerificationPending
-                  ? "View verification status"
-                  : "Get verified"}
-              </button>
+                  <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                    Configure how clients discover, contact and book your professional agricultural services.
+                  </p>
+                </div>
+
+                {expertProfile ? (
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <span
+                      className={[
+                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5",
+                        "text-[10px] font-black",
+                        profileIsPublic
+                          ? "bg-emerald-400/15 text-emerald-200"
+                          : expertProfile.status === "suspended"
+                            ? "bg-rose-400/15 text-rose-200"
+                            : "bg-amber-400/15 text-amber-200",
+                      ].join(" ")}
+                    >
+                      <span
+                        className={[
+                          "h-2 w-2 rounded-full",
+                          profileIsPublic
+                            ? "bg-emerald-300"
+                            : expertProfile.status === "suspended"
+                              ? "bg-rose-300"
+                              : "bg-amber-300",
+                        ].join(" ")}
+                      />
+
+                      {profileIsPublic
+                        ? "Public"
+                        : expertProfile.status === "paused"
+                          ? "Paused"
+                          : expertProfile.status === "suspended"
+                            ? "Suspended"
+                            : "Draft"}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
-      ) : null}
+      </motion.header>
 
-      {!loading &&
-        userSummary &&
+      <div className="mx-auto max-w-[1180px] px-4 py-4 md:px-6 md:py-5">
 
-        expertProfile ? (
-        <form
-          onSubmit={handleSave}
-          className="space-y-6"
-        >
-          <section
-            className="rounded-3xl border bg-white p-5 shadow-sm md:p-7"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <div className="flex items-start gap-3">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,820px)_300px] xl:items-start">
+          <div className="min-w-0">
+            {loading ? (
               <div
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
-                style={{
-                  backgroundColor:
-                    "rgba(35,63,57,0.08)",
-                  color: EKARI.forest,
-                }}
+                className="rounded-3xl border bg-white p-8"
+
               >
-                <IoBriefcaseOutline size={22} />
-              </div>
-
-              <div>
-                <h2
-                  className="text-lg font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  Professional introduction
-                </h2>
-
-                <p
-                  className="mt-1 text-sm"
-                  style={{
-                    color: EKARI.subtext,
-                  }}
-                >
-                  Explain your expertise and the
-                  clients you can assist.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <label
-                className="text-sm font-black"
-                style={{ color: EKARI.text }}
-              >
-                Professional headline
-              </label>
-
-              <input
-                value={expertProfile.headline}
-                onChange={(event) =>
-                  updateProfile(
-                    "headline",
-                    event.target.value
-                  )
-                }
-                maxLength={120}
-                placeholder="Example: Crop disease and soil health specialist"
-                className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm outline-none focus:ring-2"
-                style={{
-                  borderColor: EKARI.hair,
-                }}
-              />
-
-              <div
-                className="mt-1 text-right text-xs"
-                style={{
-                  color: EKARI.subtext,
-                }}
-              >
-                {expertProfile.headline.length}/120
-              </div>
-            </div>
-
-            <div className="mt-5">
-              <label
-                className="text-sm font-black"
-                style={{ color: EKARI.text }}
-              >
-                Expert biography
-              </label>
-
-              <textarea
-                value={expertProfile.expertBio}
-                onChange={(event) =>
-                  updateProfile(
-                    "expertBio",
-                    event.target.value
-                  )
-                }
-                maxLength={1200}
-                rows={7}
-                placeholder="Describe your qualifications, experience and the agricultural problems you help clients solve."
-                className="mt-2 w-full resize-none rounded-2xl border px-4 py-3 text-sm leading-6 outline-none focus:ring-2"
-                style={{
-                  borderColor: EKARI.hair,
-                }}
-              />
-
-              <div
-                className="mt-1 text-right text-xs"
-                style={{
-                  color: EKARI.subtext,
-                }}
-              >
-                {expertProfile.expertBio.length}
-                /1200
-              </div>
-            </div>
-          </section>
-
-          <section
-            className="rounded-3xl border bg-white p-5 shadow-sm md:p-7"
-            style={{
-              borderColor: EKARI.hair,
-            }}
-          >
-            {specialtiesLoading ? (
-              <div className="space-y-4">
-                <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
-
-                <div className="h-4 w-72 max-w-full animate-pulse rounded bg-slate-100" />
-
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({
-                    length: 10,
-                  }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="h-9 w-32 animate-pulse rounded-full bg-slate-100"
-                    />
-                  ))}
+                <div className="animate-pulse space-y-4">
+                  <div className="h-6 w-52 rounded bg-slate-200" />
+                  <div className="h-4 w-full rounded bg-slate-100" />
+                  <div className="h-28 w-full rounded-2xl bg-slate-100" />
                 </div>
-              </div>
-            ) : (
-              <>
-                {specialtiesError ? (
-                  <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-                    {specialtiesError}
-                  </div>
-                ) : null}
-
-                <MultiSelectChips
-                  label="Specialties"
-                  helper="Select up to eight professional services that clients can book you for."
-                  groups={
-                    activeSpecialtyGroups
-                  }
-                  options={
-                    availableSpecialties
-                  }
-                  value={
-                    expertProfile.specialties
-                  }
-                  max={8}
-                  onChange={(specialties) =>
-                    updateProfile(
-                      "specialties",
-                      specialties
-                    )
-                  }
-                />
-
-                {databaseSpecialties.length >
-                  0 ? (
-                  <div
-                    className="mt-4 text-xs"
-                    style={{
-                      color: EKARI.subtext,
-                    }}
-                  >
-                    Showing{" "}
-                    <strong>
-                      {
-                        databaseSpecialties.length
-                      }
-                    </strong>{" "}
-                    specialties managed by ekarihub.
-                  </div>
-                ) : null}
-              </>
-            )}
-          </section>
-
-          <section
-            className="rounded-3xl border bg-white p-5 shadow-sm md:p-7"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <div className="mb-5 flex items-start gap-3">
-              <div
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
-                style={{
-                  backgroundColor: "rgba(35,63,57,0.08)",
-                  color: EKARI.forest,
-                }}
-              >
-                <IoLocationOutline size={22} />
-              </div>
-
-              <div>
-                <h2
-                  className="text-lg font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  Service location
-                </h2>
-
-                <p
-                  className="mt-1 text-sm"
-                  style={{ color: EKARI.subtext }}
-                >
-                  Select your primary location and define where you offer online consultations or physical visits.
-                </p>
-              </div>
-            </div>
-
-            <GlobalLocationPicker
-              value={expertProfile.primaryLocation}
-              profileLocation={userSummary.profileLocation}
-              onChange={(primaryLocation) => {
-                updateProfile("primaryLocation", primaryLocation);
-                updateProfile("availability", {
-                  ...expertProfile.availability,
-                  timezone:
-                    primaryLocation.timezone ||
-                    expertProfile.availability.timezone ||
-                    userSummary.timezone ||
-                    "UTC",
-                });
-              }}
-            />
-
-            <div className="mt-6 grid gap-3 md:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const enabled =
-                    !expertProfile.serviceCoverage.offersOnlineServices;
-
-                  updateProfile("serviceCoverage", {
-                    ...expertProfile.serviceCoverage,
-                    offersOnlineServices: enabled,
-                  });
-                }}
-                className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
-                style={{
-                  borderColor:
-                    expertProfile.serviceCoverage.offersOnlineServices
-                      ? EKARI.forest
-                      : EKARI.hair,
-                  backgroundColor:
-                    expertProfile.serviceCoverage.offersOnlineServices
-                      ? "rgba(35,63,57,0.06)"
-                      : "#FFFFFF",
-                }}
-              >
-                <span
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
-                  style={{
-                    backgroundColor:
-                      expertProfile.serviceCoverage.offersOnlineServices
-                        ? EKARI.forest
-                        : "#F3F4F6",
-                    color:
-                      expertProfile.serviceCoverage.offersOnlineServices
-                        ? "#FFFFFF"
-                        : EKARI.text,
-                  }}
-                >
-                  <IoVideocamOutline size={20} />
-                </span>
-
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black">
-                    Online consultations
-                  </span>
-                  <span
-                    className="mt-1 block text-xs leading-5"
-                    style={{ color: EKARI.subtext }}
-                  >
-                    Serve clients through phone, WhatsApp or video.
-                  </span>
-                </span>
-
-                {expertProfile.serviceCoverage.offersOnlineServices ? (
-                  <IoCheckmark size={20} color={EKARI.forest} />
-                ) : null}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const enabled =
-                    !expertProfile.serviceCoverage.offersPhysicalVisits;
-
-                  let serviceAreas =
-                    expertProfile.serviceCoverage.serviceAreas;
-
-                  if (
-                    enabled &&
-                    serviceAreas.length === 0 &&
-                    expertProfile.primaryLocation.coordinates
-                  ) {
-                    serviceAreas = [
-                      {
-                        id: "primary-radius",
-                        type: "radius",
-                        label: `Within 25 km of ${expertProfile.primaryLocation.label ||
-                          expertProfile.primaryLocation.city ||
-                          "primary location"
-                          }`,
-                        placeId:
-                          expertProfile.primaryLocation.placeId,
-                        countryCode:
-                          expertProfile.primaryLocation.countryCode,
-                        country:
-                          expertProfile.primaryLocation.country,
-                        region:
-                          expertProfile.primaryLocation.region,
-                        city: expertProfile.primaryLocation.city,
-                        center:
-                          expertProfile.primaryLocation.coordinates,
-                        radiusKm: 25,
-                      },
-                    ];
-                  }
-
-                  updateProfile("serviceCoverage", {
-                    ...expertProfile.serviceCoverage,
-                    offersPhysicalVisits: enabled,
-                    serviceAreas,
-                  });
-                }}
-                className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
-                style={{
-                  borderColor:
-                    expertProfile.serviceCoverage.offersPhysicalVisits
-                      ? EKARI.forest
-                      : EKARI.hair,
-                  backgroundColor:
-                    expertProfile.serviceCoverage.offersPhysicalVisits
-                      ? "rgba(35,63,57,0.06)"
-                      : "#FFFFFF",
-                }}
-              >
-                <span
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
-                  style={{
-                    backgroundColor:
-                      expertProfile.serviceCoverage.offersPhysicalVisits
-                        ? EKARI.forest
-                        : "#F3F4F6",
-                    color:
-                      expertProfile.serviceCoverage.offersPhysicalVisits
-                        ? "#FFFFFF"
-                        : EKARI.text,
-                  }}
-                >
-                  <IoMapOutline size={20} />
-                </span>
-
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black">
-                    Physical farm visits
-                  </span>
-                  <span
-                    className="mt-1 block text-xs leading-5"
-                    style={{ color: EKARI.subtext }}
-                  >
-                    Travel to farms, businesses or client locations.
-                  </span>
-                </span>
-
-                {expertProfile.serviceCoverage.offersPhysicalVisits ? (
-                  <IoCheckmark size={20} color={EKARI.forest} />
-                ) : null}
-              </button>
-            </div>
-
-            {expertProfile.serviceCoverage.offersOnlineServices ? (
-              <div className="mt-5">
-                <label className="text-sm font-black">
-                  Online consultation coverage
-                </label>
-
-                <select
-                  value={expertProfile.serviceCoverage.onlineCoverage}
-                  onChange={(event) =>
-                    updateProfile("serviceCoverage", {
-                      ...expertProfile.serviceCoverage,
-                      onlineCoverage: event.target.value as
-                        | "local"
-                        | "country"
-                        | "worldwide",
-                    })
-                  }
-                  className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
-                  style={{ borderColor: EKARI.hair }}
-                >
-                  <option value="local">
-                    Near my primary location
-                  </option>
-                  <option value="country">
-                    Anywhere in my country
-                  </option>
-                  <option value="worldwide">
-                    Worldwide
-                  </option>
-                </select>
               </div>
             ) : null}
 
-            {expertProfile.serviceCoverage.offersPhysicalVisits ? (
-              <div
-                className="mt-5 rounded-2xl border p-4"
-                style={{
-                  borderColor: EKARI.hair,
-                  backgroundColor: EKARI.soft,
-                }}
-              >
+            <AnimatePresence mode="popLayout">
+              {!loading && errorMessage ? (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="mb-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700"
+                >
+                  {errorMessage}
+                </motion.div>
+              ) : null}
+
+              {!loading && successMessage ? (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="mb-4 rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[12px] font-semibold text-emerald-700"
+                >
+                  {successMessage}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            {!loading && userSummary && !isVerified ? (
+              <div className="mb-4 rounded-[18px] border border-amber-200 bg-amber-50 p-4">
                 <div className="flex items-start gap-3">
-                  <IoNavigateOutline
-                    size={20}
-                    color={EKARI.forest}
-                  />
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700">
+                    <IoInformationCircleOutline
+                      size={24}
+                    />
+                  </div>
 
                   <div className="min-w-0 flex-1">
-                    <label className="text-sm font-black">
-                      Physical visit radius
-                    </label>
-                    <p
-                      className="mt-1 text-xs"
-                      style={{ color: EKARI.subtext }}
-                    >
-                      Choose how far you can normally travel from your primary location.
+                    <h2 className="font-black text-amber-900">
+                      {isVerificationPending
+                        ? "Verification pending"
+                        : "Unverified expert profile"}
+                    </h2>
+
+                    <p className="mt-1 text-sm leading-6 text-amber-800">
+                      {isVerificationPending
+                        ? "You can create, publish and manage your expert profile while your verification request is being reviewed."
+                        : "You can create and publish your expert profile without verification. Your public profile will display an Unverified expert badge until verification is approved."}
                     </p>
 
-                    <select
-                      value={
-                        expertProfile.serviceCoverage.serviceAreas.find(
-                          (area) => area.id === "primary-radius"
-                        )?.radiusKm || 25
+                    <p className="mt-2 text-xs font-semibold text-amber-800">
+                      Current status:{" "}
+                      {userSummary.verificationStatus}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(
+                          "/account/verification"
+                        )
                       }
-                      onChange={(event) => {
-                        const radiusKm = Number(event.target.value);
-                        const place = expertProfile.primaryLocation;
+                      className="mt-3 rounded-xl bg-amber-700 px-4 py-2.5 text-[11px] font-black text-white transition hover:bg-amber-800"
+                    >
+                      {isVerificationPending
+                        ? "View verification status"
+                        : "Get verified"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
-                        const radiusArea: ExpertServiceArea = {
-                          id: "primary-radius",
-                          type: "radius",
-                          label: `Within ${radiusKm} km of ${place.label ||
-                            place.city ||
-                            "primary location"
-                            }`,
-                          placeId: place.placeId,
-                          countryCode: place.countryCode,
-                          country: place.country,
-                          region: place.region,
-                          city: place.city,
-                          center: place.coordinates,
-                          radiusKm,
-                        };
+            {!loading &&
+              userSummary &&
 
-                        const otherAreas =
-                          expertProfile.serviceCoverage.serviceAreas.filter(
-                            (area) => area.id !== "primary-radius"
-                          );
+              expertProfile ? (
+              <form
+                onSubmit={handleSave}
+                className="space-y-4"
+              >
+                <section
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] md:p-5"
+
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
+                      style={{
+                        backgroundColor:
+                          "rgba(23,60,46,0.08)",
+                        color: EKARI.forest,
+                      }}
+                    >
+                      <IoBriefcaseOutline size={22} />
+                    </div>
+
+                    <div>
+                      <h2
+                        className="text-lg font-black"
+                        style={{ color: EKARI.text }}
+                      >
+                        Professional introduction
+                      </h2>
+
+                      <p
+                        className="mt-1 text-sm"
+                        style={{
+                          color: EKARI.subtext,
+                        }}
+                      >
+                        Explain your expertise and the
+                        clients you can assist.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <label
+                      className="text-sm font-black"
+                      style={{ color: EKARI.text }}
+                    >
+                      Professional headline
+                    </label>
+
+                    <input
+                      value={expertProfile.headline}
+                      onChange={(event) =>
+                        updateProfile(
+                          "headline",
+                          event.target.value
+                        )
+                      }
+                      maxLength={120}
+                      placeholder="Example: Crop disease and soil health specialist"
+                      className="mt-2 w-full rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                      style={{
+                        borderColor: EKARI.hair,
+                      }}
+                    />
+
+                    <div
+                      className="mt-1 text-right text-xs"
+                      style={{
+                        color: EKARI.subtext,
+                      }}
+                    >
+                      {expertProfile.headline.length}/120
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <label
+                      className="text-sm font-black"
+                      style={{ color: EKARI.text }}
+                    >
+                      Expert biography
+                    </label>
+
+                    <textarea
+                      value={expertProfile.expertBio}
+                      onChange={(event) =>
+                        updateProfile(
+                          "expertBio",
+                          event.target.value
+                        )
+                      }
+                      maxLength={1200}
+                      rows={7}
+                      placeholder="Describe your qualifications, experience and the agricultural problems you help clients solve."
+                      className="mt-2 w-full resize-none rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                      style={{
+                        borderColor: EKARI.hair,
+                      }}
+                    />
+
+                    <div
+                      className="mt-1 text-right text-xs"
+                      style={{
+                        color: EKARI.subtext,
+                      }}
+                    >
+                      {expertProfile.expertBio.length}
+                      /1200
+                    </div>
+                  </div>
+                </section>
+
+                <section
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] md:p-5"
+
+                >
+                  {specialtiesLoading ? (
+                    <div className="space-y-4">
+                      <div className="h-5 w-40 animate-pulse rounded bg-slate-200" />
+
+                      <div className="h-4 w-72 max-w-full animate-pulse rounded bg-slate-100" />
+
+                      <div className="flex flex-wrap gap-2">
+                        {Array.from({
+                          length: 10,
+                        }).map((_, index) => (
+                          <div
+                            key={index}
+                            className="h-9 w-32 animate-pulse rounded-full bg-slate-100"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {specialtiesError ? (
+                        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                          {specialtiesError}
+                        </div>
+                      ) : null}
+
+                      <MultiSelectChips
+                        label="Specialties"
+                        helper="Select up to eight professional services that clients can book you for."
+                        groups={
+                          activeSpecialtyGroups
+                        }
+                        options={
+                          availableSpecialties
+                        }
+                        value={
+                          expertProfile.specialties
+                        }
+                        max={8}
+                        onChange={(specialties) =>
+                          updateProfile(
+                            "specialties",
+                            specialties
+                          )
+                        }
+                      />
+
+                      {databaseSpecialties.length >
+                        0 ? (
+                        <div
+                          className="mt-4 text-xs"
+                          style={{
+                            color: EKARI.subtext,
+                          }}
+                        >
+                          Showing{" "}
+                          <strong>
+                            {
+                              databaseSpecialties.length
+                            }
+                          </strong>{" "}
+                          specialties managed by ekarihub.
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </section>
+
+                <section
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] md:p-5"
+
+                >
+                  <div className="mb-5 flex items-start gap-3">
+                    <div
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
+                      style={{
+                        backgroundColor: "rgba(23,60,46,0.08)",
+                        color: EKARI.forest,
+                      }}
+                    >
+                      <IoLocationOutline size={22} />
+                    </div>
+
+                    <div>
+                      <h2
+                        className="text-lg font-black"
+                        style={{ color: EKARI.text }}
+                      >
+                        Service location
+                      </h2>
+
+                      <p
+                        className="mt-1 text-sm"
+                        style={{ color: EKARI.subtext }}
+                      >
+                        Select your primary location and define where you offer online consultations or physical visits.
+                      </p>
+                    </div>
+                  </div>
+
+                  <GlobalLocationPicker
+                    value={expertProfile.primaryLocation}
+                    profileLocation={userSummary.profileLocation}
+                    onChange={(primaryLocation) => {
+                      updateProfile("primaryLocation", primaryLocation);
+                      updateProfile("availability", {
+                        ...expertProfile.availability,
+                        timezone:
+                          primaryLocation.timezone ||
+                          expertProfile.availability.timezone ||
+                          userSummary.timezone ||
+                          "UTC",
+                      });
+                    }}
+                  />
+
+                  <div className="mt-6 grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const enabled =
+                          !expertProfile.serviceCoverage.offersOnlineServices;
 
                         updateProfile("serviceCoverage", {
                           ...expertProfile.serviceCoverage,
-                          serviceAreas: [radiusArea, ...otherAreas],
+                          offersOnlineServices: enabled,
                         });
                       }}
-                      className="mt-3 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none"
-                      style={{ borderColor: EKARI.hair }}
-                    >
-                      {[10, 25, 50, 100, 200].map((radius) => (
-                        <option key={radius} value={radius}>
-                          Within {radius} km
-                        </option>
-                      ))}
-                    </select>
-
-                    {!expertProfile.primaryLocation.coordinates ? (
-                      <p className="mt-2 text-xs font-semibold text-amber-700">
-                        Select a GPS, searched or map location to enable accurate radius matching.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </section>
-
-          <section
-            className="rounded-3xl border bg-white p-5 shadow-sm md:p-7"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
-                style={{
-                  backgroundColor:
-                    "rgba(35,63,57,0.08)",
-                  color: EKARI.forest,
-                }}
-              >
-                <IoGlobeOutline size={22} />
-              </div>
-
-              <div>
-                <h2
-                  className="text-lg font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  Languages and consultation methods
-                </h2>
-
-                <p
-                  className="mt-1 text-sm"
-                  style={{
-                    color: EKARI.subtext,
-                  }}
-                >
-                  Choose how clients can communicate
-                  with you.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <MultiSelectChips
-                label="Languages"
-                options={EXPERT_LANGUAGES}
-                value={expertProfile.languages}
-                max={6}
-                onChange={(languages) =>
-                  updateProfile(
-                    "languages",
-                    languages
-                  )
-                }
-              />
-            </div>
-
-            <div className="mt-7 grid gap-3 md:grid-cols-2">
-              {CONSULTATION_METHODS.map(
-                (method) => {
-                  const active =
-                    expertProfile.consultationMethods.includes(
-                      method.value
-                    );
-
-                  return (
-                    <button
-                      key={method.value}
-                      type="button"
-                      onClick={() =>
-                        toggleMethod(method.value)
-                      }
                       className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
                       style={{
-                        borderColor: active
-                          ? EKARI.forest
-                          : EKARI.hair,
-                        backgroundColor: active
-                          ? "rgba(35,63,57,0.06)"
-                          : "#FFFFFF",
+                        borderColor:
+                          expertProfile.serviceCoverage.offersOnlineServices
+                            ? EKARI.forest
+                            : EKARI.hair,
+                        backgroundColor:
+                          expertProfile.serviceCoverage.offersOnlineServices
+                            ? "rgba(23,60,46,0.06)"
+                            : "#FFFFFF",
                       }}
                     >
                       <span
                         className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
                         style={{
-                          backgroundColor: active
-                            ? EKARI.forest
-                            : "#F3F4F6",
-                          color: active
-                            ? "#FFFFFF"
-                            : EKARI.text,
+                          backgroundColor:
+                            expertProfile.serviceCoverage.offersOnlineServices
+                              ? EKARI.forest
+                              : "#F3F4F6",
+                          color:
+                            expertProfile.serviceCoverage.offersOnlineServices
+                              ? "#FFFFFF"
+                              : EKARI.text,
                         }}
                       >
-                        <MethodIcon
-                          method={method.value}
-                        />
+                        <IoVideocamOutline size={20} />
                       </span>
 
                       <span className="min-w-0 flex-1">
-                        <span
-                          className="block text-sm font-black"
-                          style={{
-                            color: EKARI.text,
-                          }}
-                        >
-                          {method.label}
+                        <span className="block text-sm font-black">
+                          Online consultations
                         </span>
-
                         <span
                           className="mt-1 block text-xs leading-5"
+                          style={{ color: EKARI.subtext }}
+                        >
+                          Serve clients through phone, WhatsApp or video.
+                        </span>
+                      </span>
+
+                      {expertProfile.serviceCoverage.offersOnlineServices ? (
+                        <IoCheckmark size={20} color={EKARI.forest} />
+                      ) : null}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const enabled =
+                          !expertProfile.serviceCoverage.offersPhysicalVisits;
+
+                        let serviceAreas =
+                          expertProfile.serviceCoverage.serviceAreas;
+
+                        if (
+                          enabled &&
+                          serviceAreas.length === 0 &&
+                          expertProfile.primaryLocation.coordinates
+                        ) {
+                          serviceAreas = [
+                            {
+                              id: "primary-radius",
+                              type: "radius",
+                              label: `Within 25 km of ${expertProfile.primaryLocation.label ||
+                                expertProfile.primaryLocation.city ||
+                                "primary location"
+                                }`,
+                              placeId:
+                                expertProfile.primaryLocation.placeId,
+                              countryCode:
+                                expertProfile.primaryLocation.countryCode,
+                              country:
+                                expertProfile.primaryLocation.country,
+                              region:
+                                expertProfile.primaryLocation.region,
+                              city: expertProfile.primaryLocation.city,
+                              center:
+                                expertProfile.primaryLocation.coordinates,
+                              radiusKm: 25,
+                            },
+                          ];
+                        }
+
+                        updateProfile("serviceCoverage", {
+                          ...expertProfile.serviceCoverage,
+                          offersPhysicalVisits: enabled,
+                          serviceAreas,
+                        });
+                      }}
+                      className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
+                      style={{
+                        borderColor:
+                          expertProfile.serviceCoverage.offersPhysicalVisits
+                            ? EKARI.forest
+                            : EKARI.hair,
+                        backgroundColor:
+                          expertProfile.serviceCoverage.offersPhysicalVisits
+                            ? "rgba(23,60,46,0.06)"
+                            : "#FFFFFF",
+                      }}
+                    >
+                      <span
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+                        style={{
+                          backgroundColor:
+                            expertProfile.serviceCoverage.offersPhysicalVisits
+                              ? EKARI.forest
+                              : "#F3F4F6",
+                          color:
+                            expertProfile.serviceCoverage.offersPhysicalVisits
+                              ? "#FFFFFF"
+                              : EKARI.text,
+                        }}
+                      >
+                        <IoMapOutline size={20} />
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-black">
+                          Physical farm visits
+                        </span>
+                        <span
+                          className="mt-1 block text-xs leading-5"
+                          style={{ color: EKARI.subtext }}
+                        >
+                          Travel to farms, businesses or client locations.
+                        </span>
+                      </span>
+
+                      {expertProfile.serviceCoverage.offersPhysicalVisits ? (
+                        <IoCheckmark size={20} color={EKARI.forest} />
+                      ) : null}
+                    </button>
+                  </div>
+
+                  {expertProfile.serviceCoverage.offersOnlineServices ? (
+                    <div className="mt-5">
+                      <label className="text-sm font-black">
+                        Online consultation coverage
+                      </label>
+
+                      <select
+                        value={expertProfile.serviceCoverage.onlineCoverage}
+                        onChange={(event) =>
+                          updateProfile("serviceCoverage", {
+                            ...expertProfile.serviceCoverage,
+                            onlineCoverage: event.target.value as
+                              | "local"
+                              | "country"
+                              | "worldwide",
+                          })
+                        }
+                        className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+
+                      >
+                        <option value="local">
+                          Near my primary location
+                        </option>
+                        <option value="country">
+                          Anywhere in my country
+                        </option>
+                        <option value="worldwide">
+                          Worldwide
+                        </option>
+                      </select>
+                    </div>
+                  ) : null}
+
+                  {expertProfile.serviceCoverage.offersPhysicalVisits ? (
+                    <div
+                      className="mt-5 rounded-2xl border p-4"
+                      style={{
+                        borderColor: EKARI.hair,
+                        backgroundColor: EKARI.soft,
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <IoNavigateOutline
+                          size={20}
+                          color={EKARI.forest}
+                        />
+
+                        <div className="min-w-0 flex-1">
+                          <label className="text-sm font-black">
+                            Physical visit radius
+                          </label>
+                          <p
+                            className="mt-1 text-xs"
+                            style={{ color: EKARI.subtext }}
+                          >
+                            Choose how far you can normally travel from your primary location.
+                          </p>
+
+                          <select
+                            value={
+                              expertProfile.serviceCoverage.serviceAreas.find(
+                                (area) => area.id === "primary-radius"
+                              )?.radiusKm || 25
+                            }
+                            onChange={(event) => {
+                              const radiusKm = Number(event.target.value);
+                              const place = expertProfile.primaryLocation;
+
+                              const radiusArea: ExpertServiceArea = {
+                                id: "primary-radius",
+                                type: "radius",
+                                label: `Within ${radiusKm} km of ${place.label ||
+                                  place.city ||
+                                  "primary location"
+                                  }`,
+                                placeId: place.placeId,
+                                countryCode: place.countryCode,
+                                country: place.country,
+                                region: place.region,
+                                city: place.city,
+                                center: place.coordinates,
+                                radiusKm,
+                              };
+
+                              const otherAreas =
+                                expertProfile.serviceCoverage.serviceAreas.filter(
+                                  (area) => area.id !== "primary-radius"
+                                );
+
+                              updateProfile("serviceCoverage", {
+                                ...expertProfile.serviceCoverage,
+                                serviceAreas: [radiusArea, ...otherAreas],
+                              });
+                            }}
+                            className="mt-3 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none"
+
+                          >
+                            {[10, 25, 50, 100, 200].map((radius) => (
+                              <option key={radius} value={radius}>
+                                Within {radius} km
+                              </option>
+                            ))}
+                          </select>
+
+                          {!expertProfile.primaryLocation.coordinates ? (
+                            <p className="mt-2 text-xs font-semibold text-amber-700">
+                              Select a GPS, searched or map location to enable accurate radius matching.
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </section>
+
+                <section
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] md:p-5"
+
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl"
+                      style={{
+                        backgroundColor:
+                          "rgba(23,60,46,0.08)",
+                        color: EKARI.forest,
+                      }}
+                    >
+                      <IoGlobeOutline size={22} />
+                    </div>
+
+                    <div>
+                      <h2
+                        className="text-lg font-black"
+                        style={{ color: EKARI.text }}
+                      >
+                        Languages and consultation methods
+                      </h2>
+
+                      <p
+                        className="mt-1 text-sm"
+                        style={{
+                          color: EKARI.subtext,
+                        }}
+                      >
+                        Choose how clients can communicate
+                        with you.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <MultiSelectChips
+                      label="Languages"
+                      options={EXPERT_LANGUAGES}
+                      value={expertProfile.languages}
+                      max={6}
+                      onChange={(languages) =>
+                        updateProfile(
+                          "languages",
+                          languages
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="mt-7 grid gap-3 md:grid-cols-2">
+                    {CONSULTATION_METHODS.map(
+                      (method) => {
+                        const active =
+                          expertProfile.consultationMethods.includes(
+                            method.value
+                          );
+
+                        return (
+                          <button
+                            key={method.value}
+                            type="button"
+                            onClick={() =>
+                              toggleMethod(method.value)
+                            }
+                            className="flex items-start gap-3 rounded-2xl border p-4 text-left transition"
+                            style={{
+                              borderColor: active
+                                ? EKARI.forest
+                                : EKARI.hair,
+                              backgroundColor: active
+                                ? "rgba(23,60,46,0.06)"
+                                : "#FFFFFF",
+                            }}
+                          >
+                            <span
+                              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+                              style={{
+                                backgroundColor: active
+                                  ? EKARI.forest
+                                  : "#F3F4F6",
+                                color: active
+                                  ? "#FFFFFF"
+                                  : EKARI.text,
+                              }}
+                            >
+                              <MethodIcon
+                                method={method.value}
+                              />
+                            </span>
+
+                            <span className="min-w-0 flex-1">
+                              <span
+                                className="block text-sm font-black"
+                                style={{
+                                  color: EKARI.text,
+                                }}
+                              >
+                                {method.label}
+                              </span>
+
+                              <span
+                                className="mt-1 block text-xs leading-5"
+                                style={{
+                                  color: EKARI.subtext,
+                                }}
+                              >
+                                {method.description}
+                              </span>
+                            </span>
+
+                            {active ? (
+                              <IoCheckmark
+                                size={20}
+                                color={EKARI.forest}
+                              />
+                            ) : null}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+                </section>
+
+                <section
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] md:p-5"
+
+                >
+                  <h2
+                    className="text-lg font-black"
+                    style={{ color: EKARI.text }}
+                  >
+                    Pricing
+                  </h2>
+
+                  <p
+                    className="mt-1 text-sm"
+                    style={{ color: EKARI.subtext }}
+                  >
+                    Set your standard consultation fee.
+                    Physical visits may have a separate
+                    starting fee.
+                  </p>
+
+                  <div className="mt-5">
+                    <label className="text-sm font-black">
+                      Consultation currency
+                    </label>
+
+                    <div className="mt-2 inline-flex rounded-2xl border bg-white p-1" >
+                      {(["KES", "USD"] as ExpertCurrency[]).map((currency) => {
+                        const active = expertProfile.pricing.currency === currency;
+
+                        return (
+                          <button
+                            key={currency}
+                            type="button"
+                            onClick={() =>
+                              updateProfile("pricing", {
+                                ...expertProfile.pricing,
+                                currency,
+                              })
+                            }
+                            className="rounded-xl px-5 py-2.5 text-xs font-black transition"
+                            style={{
+                              backgroundColor: active ? EKARI.forest : "transparent",
+                              color: active ? "#FFFFFF" : EKARI.text,
+                            }}
+                          >
+                            {currency}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-black">
+                        Fee type
+                      </label>
+
+                      <select
+                        value={
+                          expertProfile.pricing.feeType
+                        }
+                        onChange={(event) =>
+                          updateProfile("pricing", {
+                            ...expertProfile.pricing,
+                            feeType: event.target
+                              .value as ExpertFeeType,
+                          })
+                        }
+                        className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm"
+                        style={{
+                          borderColor: EKARI.hair,
+                        }}
+                      >
+                        <option value="fixed">
+                          Fixed fee
+                        </option>
+                        <option value="starting_from">
+                          Starting from
+                        </option>
+                        <option value="free">
+                          Free consultation
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-black">
+                        Consultation duration
+                      </label>
+
+                      <select
+                        value={
+                          expertProfile.pricing
+                            .consultationDurationMinutes
+                        }
+                        onChange={(event) =>
+                          updateProfile("pricing", {
+                            ...expertProfile.pricing,
+                            consultationDurationMinutes:
+                              Number(
+                                event.target.value
+                              ),
+                          })
+                        }
+                        className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm"
+                        style={{
+                          borderColor: EKARI.hair,
+                        }}
+                      >
+                        {[15, 30, 45, 60, 90].map(
+                          (minutes) => (
+                            <option
+                              key={minutes}
+                              value={minutes}
+                            >
+                              {minutes} minutes
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    {expertProfile.pricing.feeType !==
+                      "free" ? (
+                      <div>
+                        <label className="text-sm font-black">
+                          Consultation fee
+                        </label>
+
+                        <div className="mt-2 flex overflow-hidden rounded-2xl border">
+                          <span
+                            className="grid place-items-center border-r px-4 text-sm font-black"
+                            style={{
+                              borderColor: EKARI.hair,
+                              backgroundColor:
+                                EKARI.soft,
+                            }}
+                          >
+                            {expertProfile.pricing.currency}
+                          </span>
+
+                          <input
+                            type="number"
+                            min={0}
+                            max={expertProfile.pricing.currency === "KES" ? 100000 : 1000}
+                            step={expertProfile.pricing.currency === "KES" ? 50 : 1}
+                            value={
+                              expertProfile.pricing
+                                .consultationFee
+                            }
+                            onChange={(event) =>
+                              updateProfile(
+                                "pricing",
+                                {
+                                  ...expertProfile.pricing,
+                                  consultationFee:
+                                    Number(
+                                      event.target
+                                        .value || 0
+                                    ),
+                                }
+                              )
+                            }
+                            className="w-full px-4 py-3 text-sm outline-none"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {expertProfile.consultationMethods.includes(
+                      "physical"
+                    ) ? (
+                      <div>
+                        <label className="text-sm font-black">
+                          Physical visit fee from
+                        </label>
+
+                        <div className="mt-2 flex overflow-hidden rounded-2xl border">
+                          <span
+                            className="grid place-items-center border-r px-4 text-sm font-black"
+                            style={{
+                              borderColor: EKARI.hair,
+                              backgroundColor:
+                                EKARI.soft,
+                            }}
+                          >
+                            {expertProfile.pricing.currency}
+                          </span>
+
+                          <input
+                            type="number"
+                            min={0}
+                            step={expertProfile.pricing.currency === "KES" ? 100 : 1}
+                            value={
+                              expertProfile.pricing
+                                .physicalVisitFeeFrom ??
+                              ""
+                            }
+                            onChange={(event) =>
+                              updateProfile(
+                                "pricing",
+                                {
+                                  ...expertProfile.pricing,
+                                  physicalVisitFeeFrom:
+                                    event.target.value
+                                      ? Number(
+                                        event.target
+                                          .value
+                                      )
+                                      : null,
+                                }
+                              )
+                            }
+                            placeholder="Example: 3000"
+                            className="w-full px-4 py-3 text-sm outline-none"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] md:p-5"
+
+                >
+                  <h2
+                    className="text-lg font-black"
+                    style={{ color: EKARI.text }}
+                  >
+                    Consultation terms
+                  </h2>
+
+                  <p
+                    className="mt-1 text-sm"
+                    style={{ color: EKARI.subtext }}
+                  >
+                    These terms will be visible to clients
+                    before they contact or book you.
+                  </p>
+
+                  <div className="mt-5">
+                    <label className="text-sm font-black">
+                      Service terms
+                    </label>
+
+                    <textarea
+                      value={expertProfile.terms.summary}
+                      onChange={(event) =>
+                        updateProfile("terms", {
+                          ...expertProfile.terms,
+                          summary: event.target.value,
+                        })
+                      }
+                      rows={6}
+                      maxLength={1000}
+                      placeholder="Example: The consultation covers one farming issue and lasts up to 45 minutes. Laboratory tests, transport and farm inputs are charged separately."
+                      className="mt-2 w-full resize-none rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                      style={{
+                        borderColor: EKARI.hair,
+                      }}
+                    />
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-black">
+                        Cancellation notice
+                      </label>
+
+                      <select
+                        value={
+                          expertProfile.terms
+                            .cancellationNoticeHours
+                        }
+                        onChange={(event) =>
+                          updateProfile("terms", {
+                            ...expertProfile.terms,
+                            cancellationNoticeHours:
+                              Number(
+                                event.target.value
+                              ),
+                          })
+                        }
+                        className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm"
+                        style={{
+                          borderColor: EKARI.hair,
+                        }}
+                      >
+                        {[1, 2, 4, 6, 12, 24, 48].map(
+                          (hours) => (
+                            <option
+                              key={hours}
+                              value={hours}
+                            >
+                              {hours}{" "}
+                              {hours === 1
+                                ? "hour"
+                                : "hours"}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-black">
+                        Cancellation policy
+                      </label>
+
+                      <input
+                        value={
+                          expertProfile.terms
+                            .cancellationPolicy
+                        }
+                        onChange={(event) =>
+                          updateProfile("terms", {
+                            ...expertProfile.terms,
+                            cancellationPolicy:
+                              event.target.value,
+                          })
+                        }
+                        className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm"
+                        style={{
+                          borderColor: EKARI.hair,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    <label className="flex cursor-pointer items-start gap-3 rounded-2xl border p-4">
+                      <input
+                        type="checkbox"
+                        checked={
+                          expertProfile.terms
+                            .allowsRescheduling
+                        }
+                        onChange={(event) =>
+                          updateProfile("terms", {
+                            ...expertProfile.terms,
+                            allowsRescheduling:
+                              event.target.checked,
+                          })
+                        }
+                        className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#173C2E]"
+                      />
+
+                      <span>
+                        <span className="block text-sm font-black">
+                          Allow rescheduling
+                        </span>
+                        <span
+                          className="mt-1 block text-xs"
                           style={{
                             color: EKARI.subtext,
                           }}
                         >
-                          {method.description}
+                          Clients may request a different
+                          consultation date or time.
                         </span>
                       </span>
+                    </label>
 
-                      {active ? (
-                        <IoCheckmark
-                          size={20}
-                          color={EKARI.forest}
-                        />
-                      ) : null}
-                    </button>
-                  );
-                }
-              )}
-            </div>
-          </section>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-2xl border p-4">
+                      <input
+                        type="checkbox"
+                        checked={
+                          expertProfile.terms
+                            .paymentRequiredBeforeBooking
+                        }
+                        onChange={(event) =>
+                          updateProfile("terms", {
+                            ...expertProfile.terms,
+                            paymentRequiredBeforeBooking:
+                              event.target.checked,
+                          })
+                        }
+                        className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#173C2E]"
+                      />
 
-          <section
-            className="rounded-3xl border bg-white p-5 shadow-sm md:p-7"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <h2
-              className="text-lg font-black"
-              style={{ color: EKARI.text }}
-            >
-              Pricing
-            </h2>
+                      <span>
+                        <span className="block text-sm font-black">
+                          Require payment before confirmation
+                        </span>
+                        <span
+                          className="mt-1 block text-xs"
+                          style={{
+                            color: EKARI.subtext,
+                          }}
+                        >
+                          This setting will be used when the
+                          booking and payment feature is
+                          introduced.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                </section>
 
-            <p
-              className="mt-1 text-sm"
-              style={{ color: EKARI.subtext }}
-            >
-              Set your standard consultation fee.
-              Physical visits may have a separate
-              starting fee.
-            </p>
+                <section
+                  className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] md:p-5"
 
-            <div className="mt-5">
-              <label className="text-sm font-black">
-                Consultation currency
-              </label>
+                >
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={
+                        expertProfile.acceptingBookings
+                      }
+                      onChange={(event) =>
+                        updateProfile(
+                          "acceptingBookings",
+                          event.target.checked
+                        )
+                      }
+                      className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#173C2E]"
+                    />
 
-              <div className="mt-2 inline-flex rounded-2xl border bg-white p-1" style={{ borderColor: EKARI.hair }}>
-                {(["KES", "USD"] as ExpertCurrency[]).map((currency) => {
-                  const active = expertProfile.pricing.currency === currency;
 
-                  return (
+                    <span
+                      className="block font-black"
+                      style={{ color: EKARI.text }}
+                    >
+                      I am currently accepting clients
+                    </span>
+
+                    <span
+                      className="mt-1 block text-sm"
+                      style={{
+                        color: EKARI.subtext,
+                      }}
+                    >
+                      You can pause new requests later
+                      without deleting your expert profile.
+                    </span>
+
+                  </label>
+                </section>
+
+                <div
+                  className="sticky bottom-3 z-30 rounded-[18px] border border-[#D9D3C7] bg-[#FBFAF6]/95 p-3 shadow-[0_16px_38px_rgba(15,23,42,0.12)] backdrop-blur-xl"
+
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <button
-                      key={currency}
-                      type="button"
-                      onClick={() =>
-                        updateProfile("pricing", {
-                          ...expertProfile.pricing,
-                          currency,
-                        })
-                      }
-                      className="rounded-xl px-5 py-2.5 text-xs font-black transition"
+                      type="submit"
+                      disabled={saving || publishing || unpublishing}
+                      className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#173C2E] bg-white px-5 text-[11px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:cursor-not-allowed disabled:opacity-60"
                       style={{
-                        backgroundColor: active ? EKARI.forest : "transparent",
-                        color: active ? "#FFFFFF" : EKARI.text,
+                        borderColor: EKARI.forest,
+                        color: EKARI.forest,
+                        backgroundColor: "#FFFFFF",
                       }}
                     >
-                      {currency}
+                      <IoSaveOutline size={19} />
+                      {saving ? "Saving…" : "Save changes"}
                     </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-black">
-                  Fee type
-                </label>
-
-                <select
-                  value={
-                    expertProfile.pricing.feeType
-                  }
-                  onChange={(event) =>
-                    updateProfile("pricing", {
-                      ...expertProfile.pricing,
-                      feeType: event.target
-                        .value as ExpertFeeType,
-                    })
-                  }
-                  className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm"
-                  style={{
-                    borderColor: EKARI.hair,
-                  }}
-                >
-                  <option value="fixed">
-                    Fixed fee
-                  </option>
-                  <option value="starting_from">
-                    Starting from
-                  </option>
-                  <option value="free">
-                    Free consultation
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-black">
-                  Consultation duration
-                </label>
-
-                <select
-                  value={
-                    expertProfile.pricing
-                      .consultationDurationMinutes
-                  }
-                  onChange={(event) =>
-                    updateProfile("pricing", {
-                      ...expertProfile.pricing,
-                      consultationDurationMinutes:
-                        Number(
-                          event.target.value
-                        ),
-                    })
-                  }
-                  className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm"
-                  style={{
-                    borderColor: EKARI.hair,
-                  }}
-                >
-                  {[15, 30, 45, 60, 90].map(
-                    (minutes) => (
-                      <option
-                        key={minutes}
-                        value={minutes}
+                    {expertProfile.status === "active" &&
+                      expertProfile.isDiscoverable ? (
+                      <button
+                        type="button"
+                        onClick={handleUnpublish}
+                        disabled={saving || publishing || unpublishing}
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 px-5 text-[11px] font-black text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        style={{ backgroundColor: "#B45309" }}
                       >
-                        {minutes} minutes
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
+                        <IoCloseOutline size={20} />
+                        {unpublishing
+                          ? "Pausing…"
+                          : "Pause public profile"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handlePublish}
+                        disabled={
+                          saving ||
+                          publishing ||
+                          unpublishing ||
+                          expertProfile.status === "suspended"
+                        }
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
 
-              {expertProfile.pricing.feeType !==
-                "free" ? (
-                <div>
-                  <label className="text-sm font-black">
-                    Consultation fee
-                  </label>
+                      >
+                        <IoGlobeOutline size={19} />
+                        {publishing
+                          ? "Publishing…"
+                          : expertProfile.status === "paused"
+                            ? "Republish profile"
+                            : "Publish expert profile"}
+                      </button>
+                    )}
+                  </div>
 
-                  <div className="mt-2 flex overflow-hidden rounded-2xl border">
+                  <div className="mt-3 flex items-center justify-center gap-2 text-center">
                     <span
-                      className="grid place-items-center border-r px-4 text-sm font-black"
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{
+                        backgroundColor:
+                          expertProfile.status === "active" &&
+                            expertProfile.isDiscoverable
+                            ? "#16A34A"
+                            : expertProfile.status === "suspended"
+                              ? "#DC2626"
+                              : "#D97706",
+                      }}
+                    />
+
+                    <p
+                      className="text-[11px] font-semibold"
+                      style={{ color: EKARI.subtext }}
+                    >
+                      {expertProfile.status === "active" &&
+                        expertProfile.isDiscoverable
+                        ? "Your expert profile is currently public."
+                        : expertProfile.status === "paused"
+                          ? "Your expert profile is paused and hidden from search."
+                          : expertProfile.status === "suspended"
+                            ? "Your expert profile has been suspended."
+                            : "Your expert profile is saved privately as a draft."}
+                    </p>
+                  </div>
+
+                  {expertProfile.status === "active" &&
+                    expertProfile.isDiscoverable ? (
+                    <button
+                      type="button"
+                      onClick={() => router.push("/ekari-experts")}
+                      className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                       style={{
                         borderColor: EKARI.hair,
-                        backgroundColor:
-                          EKARI.soft,
+                        color: EKARI.forest,
                       }}
                     >
-                      {expertProfile.pricing.currency}
-                    </span>
-
-                    <input
-                      type="number"
-                      min={0}
-                      max={expertProfile.pricing.currency === "KES" ? 100000 : 1000}
-                      step={expertProfile.pricing.currency === "KES" ? 50 : 1}
-                      value={
-                        expertProfile.pricing
-                          .consultationFee
-                      }
-                      onChange={(event) =>
-                        updateProfile(
-                          "pricing",
-                          {
-                            ...expertProfile.pricing,
-                            consultationFee:
-                              Number(
-                                event.target
-                                  .value || 0
-                              ),
-                          }
-                        )
-                      }
-                      className="w-full px-4 py-3 text-sm outline-none"
-                    />
-                  </div>
+                      <IoOpenOutline size={18} />
+                      View in ekariExperts
+                    </button>
+                  ) : null}
                 </div>
-              ) : null}
-
-              {expertProfile.consultationMethods.includes(
-                "physical"
-              ) ? (
-                <div>
-                  <label className="text-sm font-black">
-                    Physical visit fee from
-                  </label>
-
-                  <div className="mt-2 flex overflow-hidden rounded-2xl border">
-                    <span
-                      className="grid place-items-center border-r px-4 text-sm font-black"
-                      style={{
-                        borderColor: EKARI.hair,
-                        backgroundColor:
-                          EKARI.soft,
-                      }}
-                    >
-                      {expertProfile.pricing.currency}
-                    </span>
-
-                    <input
-                      type="number"
-                      min={0}
-                      step={expertProfile.pricing.currency === "KES" ? 100 : 1}
-                      value={
-                        expertProfile.pricing
-                          .physicalVisitFeeFrom ??
-                        ""
-                      }
-                      onChange={(event) =>
-                        updateProfile(
-                          "pricing",
-                          {
-                            ...expertProfile.pricing,
-                            physicalVisitFeeFrom:
-                              event.target.value
-                                ? Number(
-                                  event.target
-                                    .value
-                                )
-                                : null,
-                          }
-                        )
-                      }
-                      placeholder="Example: 3000"
-                      className="w-full px-4 py-3 text-sm outline-none"
-                    />
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </section>
-
-          <section
-            className="rounded-3xl border bg-white p-5 shadow-sm md:p-7"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <h2
-              className="text-lg font-black"
-              style={{ color: EKARI.text }}
-            >
-              Consultation terms
-            </h2>
-
-            <p
-              className="mt-1 text-sm"
-              style={{ color: EKARI.subtext }}
-            >
-              These terms will be visible to clients
-              before they contact or book you.
-            </p>
-
-            <div className="mt-5">
-              <label className="text-sm font-black">
-                Service terms
-              </label>
-
-              <textarea
-                value={expertProfile.terms.summary}
-                onChange={(event) =>
-                  updateProfile("terms", {
-                    ...expertProfile.terms,
-                    summary: event.target.value,
-                  })
-                }
-                rows={6}
-                maxLength={1000}
-                placeholder="Example: The consultation covers one farming issue and lasts up to 45 minutes. Laboratory tests, transport and farm inputs are charged separately."
-                className="mt-2 w-full resize-none rounded-2xl border px-4 py-3 text-sm leading-6 outline-none"
-                style={{
-                  borderColor: EKARI.hair,
-                }}
-              />
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-black">
-                  Cancellation notice
-                </label>
-
-                <select
-                  value={
-                    expertProfile.terms
-                      .cancellationNoticeHours
-                  }
-                  onChange={(event) =>
-                    updateProfile("terms", {
-                      ...expertProfile.terms,
-                      cancellationNoticeHours:
-                        Number(
-                          event.target.value
-                        ),
-                    })
-                  }
-                  className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm"
-                  style={{
-                    borderColor: EKARI.hair,
-                  }}
-                >
-                  {[1, 2, 4, 6, 12, 24, 48].map(
-                    (hours) => (
-                      <option
-                        key={hours}
-                        value={hours}
-                      >
-                        {hours}{" "}
-                        {hours === 1
-                          ? "hour"
-                          : "hours"}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-black">
-                  Cancellation policy
-                </label>
-
-                <input
-                  value={
-                    expertProfile.terms
-                      .cancellationPolicy
-                  }
-                  onChange={(event) =>
-                    updateProfile("terms", {
-                      ...expertProfile.terms,
-                      cancellationPolicy:
-                        event.target.value,
-                    })
-                  }
-                  className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm"
-                  style={{
-                    borderColor: EKARI.hair,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border p-4">
-                <input
-                  type="checkbox"
-                  checked={
-                    expertProfile.terms
-                      .allowsRescheduling
-                  }
-                  onChange={(event) =>
-                    updateProfile("terms", {
-                      ...expertProfile.terms,
-                      allowsRescheduling:
-                        event.target.checked,
-                    })
-                  }
-                  className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#233F39]"
-                />
-
-                <span>
-                  <span className="block text-sm font-black">
-                    Allow rescheduling
-                  </span>
-                  <span
-                    className="mt-1 block text-xs"
-                    style={{
-                      color: EKARI.subtext,
-                    }}
-                  >
-                    Clients may request a different
-                    consultation date or time.
-                  </span>
-                </span>
-              </label>
-
-              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border p-4">
-                <input
-                  type="checkbox"
-                  checked={
-                    expertProfile.terms
-                      .paymentRequiredBeforeBooking
-                  }
-                  onChange={(event) =>
-                    updateProfile("terms", {
-                      ...expertProfile.terms,
-                      paymentRequiredBeforeBooking:
-                        event.target.checked,
-                    })
-                  }
-                  className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#233F39]"
-                />
-
-                <span>
-                  <span className="block text-sm font-black">
-                    Require payment before confirmation
-                  </span>
-                  <span
-                    className="mt-1 block text-xs"
-                    style={{
-                      color: EKARI.subtext,
-                    }}
-                  >
-                    This setting will be used when the
-                    booking and payment feature is
-                    introduced.
-                  </span>
-                </span>
-              </label>
-            </div>
-          </section>
-
-          <section
-            className="rounded-3xl border bg-white p-5 shadow-sm md:p-7"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={
-                  expertProfile.acceptingBookings
-                }
-                onChange={(event) =>
-                  updateProfile(
-                    "acceptingBookings",
-                    event.target.checked
-                  )
-                }
-                className="mt-1 h-5 w-5 cursor-pointer rounded border-slate-300 accent-[#233F39]"
-              />
-
-              <span>
-                <span
-                  className="block font-black"
-                  style={{ color: EKARI.text }}
-                >
-                  I am currently accepting clients
-                </span>
-
-                <span
-                  className="mt-1 block text-sm"
-                  style={{
-                    color: EKARI.subtext,
-                  }}
-                >
-                  You can pause new requests later
-                  without deleting your expert profile.
-                </span>
-              </span>
-            </label>
-          </section>
-
-          <div
-            className="sticky bottom-3 z-20 rounded-3xl border bg-white/95 p-3 shadow-xl backdrop-blur-xl"
-            style={{ borderColor: EKARI.hair }}
-          >
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                type="submit"
-                disabled={saving || publishing || unpublishing}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border px-6 py-3.5 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60"
-                style={{
-                  borderColor: EKARI.forest,
-                  color: EKARI.forest,
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <IoSaveOutline size={19} />
-                {saving ? "Saving…" : "Save changes"}
-              </button>
-
-              {expertProfile.status === "active" &&
-                expertProfile.isDiscoverable ? (
-                <button
-                  type="button"
-                  onClick={handleUnpublish}
-                  disabled={saving || publishing || unpublishing}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{ backgroundColor: "#B45309" }}
-                >
-                  <IoCloseOutline size={20} />
-                  {unpublishing
-                    ? "Pausing…"
-                    : "Pause public profile"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handlePublish}
-                  disabled={
-                    saving ||
-                    publishing ||
-                    unpublishing ||
-                    expertProfile.status === "suspended"
-                  }
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #233F39, #C79257)",
-                  }}
-                >
-                  <IoGlobeOutline size={19} />
-                  {publishing
-                    ? "Publishing…"
-                    : expertProfile.status === "paused"
-                      ? "Republish profile"
-                      : "Publish expert profile"}
-                </button>
-              )}
-            </div>
-
-            <div className="mt-3 flex items-center justify-center gap-2 text-center">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{
-                  backgroundColor:
-                    expertProfile.status === "active" &&
-                      expertProfile.isDiscoverable
-                      ? "#16A34A"
-                      : expertProfile.status === "suspended"
-                        ? "#DC2626"
-                        : "#D97706",
-                }}
-              />
-
-              <p
-                className="text-[11px] font-semibold"
-                style={{ color: EKARI.subtext }}
-              >
-                {expertProfile.status === "active" &&
-                  expertProfile.isDiscoverable
-                  ? "Your expert profile is currently public."
-                  : expertProfile.status === "paused"
-                    ? "Your expert profile is paused and hidden from search."
-                    : expertProfile.status === "suspended"
-                      ? "Your expert profile has been suspended."
-                      : "Your expert profile is saved privately as a draft."}
-              </p>
-            </div>
-
-            {expertProfile.status === "active" &&
-              expertProfile.isDiscoverable ? (
-              <button
-                type="button"
-                onClick={() => router.push("/ekari-experts")}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black"
-                style={{
-                  borderColor: EKARI.hair,
-                  color: EKARI.forest,
-                }}
-              >
-                <IoOpenOutline size={18} />
-                View in ekariExperts
-              </button>
+              </form>
             ) : null}
           </div>
-        </form>
-      ) : null}
+
+          <motion.aside
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.24, delay: 0.04, ease: "easeOut" }}
+            className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
+          >
+            <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                    Expert profile
+                  </div>
+
+                  <div className="mt-1 text-[14px] font-black text-slate-900">
+                    {profileIsPublic
+                      ? "Public and discoverable"
+                      : expertProfile?.status === "suspended"
+                        ? "Profile suspended"
+                        : expertProfile?.status === "paused"
+                          ? "Profile paused"
+                          : "Private draft"}
+                  </div>
+                </div>
+
+                <span
+                  className={[
+                    "mt-1 h-2.5 w-2.5 rounded-full",
+                    profileIsPublic
+                      ? "bg-emerald-500"
+                      : expertProfile?.status === "suspended"
+                        ? "bg-rose-500"
+                        : "bg-amber-500",
+                  ].join(" ")}
+                />
+              </div>
+
+              {expertProfile ? (
+                <div className="mt-4 space-y-2.5 text-[11px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-400">
+                      Accepting bookings
+                    </span>
+                    <span className="font-black text-slate-700">
+                      {expertProfile.acceptingBookings ? "Yes" : "No"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-400">
+                      Discoverable
+                    </span>
+                    <span className="font-black text-slate-700">
+                      {expertProfile.isDiscoverable ? "Yes" : "No"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-400">
+                      Status
+                    </span>
+                    <span className="font-black capitalize text-slate-700">
+                      {expertProfile.status}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                    Profile readiness
+                  </div>
+
+                  <div className="mt-1 text-[24px] font-black tracking-[-0.04em] text-[#173C2E]">
+                    {readiness.percentage}%
+                  </div>
+                </div>
+
+                <div className="grid h-11 w-11 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+                  <IoCheckmark size={18} />
+                </div>
+              </div>
+
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EAE6DD]">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${readiness.percentage}%` }}
+                  transition={{ duration: 0.45, ease: "easeOut" }}
+                  className="h-full rounded-full bg-[#173C2E]"
+                />
+              </div>
+
+              <p className="mt-2 text-[10px] font-semibold text-slate-400">
+                {readiness.completed} of {readiness.total} required areas complete
+              </p>
+
+              <div className="mt-3 space-y-1.5">
+                {readiness.items.map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex items-center gap-2 text-[10px]"
+                  >
+                    <span
+                      className={[
+                        "grid h-4 w-4 shrink-0 place-items-center rounded-full",
+                        item.complete
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-400",
+                      ].join(" ")}
+                    >
+                      {item.complete ? (
+                        <IoCheckmark size={10} />
+                      ) : (
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      )}
+                    </span>
+
+                    <span
+                      className={[
+                        "font-semibold",
+                        item.complete
+                          ? "text-slate-600"
+                          : "text-slate-400",
+                      ].join(" ")}
+                    >
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                Verification
+              </div>
+
+              <div className="mt-3 flex items-start gap-3">
+                <span
+                  className={[
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+                    isVerified
+                      ? "bg-emerald-100 text-emerald-700"
+                      : isVerificationPending
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-100 text-slate-500",
+                  ].join(" ")}
+                >
+                  {isVerified ? (
+                    <IoShieldCheckmarkOutline size={17} />
+                  ) : (
+                    <IoInformationCircleOutline size={17} />
+                  )}
+                </span>
+
+                <div className="min-w-0">
+                  <div className="text-[12px] font-black text-slate-800">
+                    {isVerified
+                      ? "Verified expert"
+                      : isVerificationPending
+                        ? "Verification pending"
+                        : "Unverified expert"}
+                  </div>
+
+                  <div className="mt-0.5 text-[10px] font-medium leading-4 text-slate-400">
+                    {userSummary?.organizationName ||
+                      userSummary?.verificationRole ||
+                      userSummary?.verificationType ||
+                      "Professional account"}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => router.push("/account/verification")}
+                className="mt-3 inline-flex h-9 w-full items-center justify-center rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+              >
+                {isVerificationPending
+                  ? "View verification status"
+                  : isVerified
+                    ? "Manage verification"
+                    : "Get verified"}
+              </button>
+            </section>
+
+            <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                Quick links
+              </div>
+
+              <div className="mt-2 space-y-1">
+                <button
+                  type="button"
+                  onClick={() => router.push("/ekari-experts")}
+                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                >
+                  View ekariExperts
+                  <IoOpenOutline size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/account/expert/bookings")}
+                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                >
+                  Expert bookings
+                  <IoOpenOutline size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/account/bookings")}
+                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                >
+                  My bookings
+                  <IoOpenOutline size={13} />
+                </button>
+              </div>
+            </section>
+          </motion.aside>
+        </div>
+      </div>
     </div>
   );
 
-  return <AppShell>{pageContent}</AppShell>;
+  return (
+    <AppShell>
+      {pageContent}
+    </AppShell>
+  );
 }

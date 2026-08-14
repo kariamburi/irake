@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   collection,
@@ -25,18 +26,31 @@ import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import { resolveUidByHandle } from "@/lib/fire-queries";
-import { IoArrowBack, IoSearchOutline } from "react-icons/io5";
+import {
+  IoArrowBack,
+  IoSearchOutline,
+  IoPeopleOutline,
+  IoPersonAddOutline,
+  IoPeopleCircleOutline,
+  IoGitNetworkOutline,
+  IoCheckmarkCircleOutline,
+  IoChevronForward,
+  IoSparklesOutline,
+  IoInformationCircleOutline,
+} from "react-icons/io5";
 import SmartAvatar from "@/app/components/SmartAvatar";
 
 const PAGE_SIZE = 20;
 
 const EKARI = {
-  forest: "#233F39",
-  bg: "#ffffff",
+  forest: "#173C2E",
+  forestSoft: "#214C3A",
+  bg: "#F8F7F2",
+  paper: "#FBFAF6",
   text: "#111827",
-  subtext: "#6B7280",
-  hair: "#E5E7EB",
-  primary: "#C79257",
+  subtext: "#64748B",
+  hair: "#DDD8CC",
+  primary: "#F39A22",
 };
 
 type TabKey = "following" | "followers" | "partners" | "mutual";
@@ -547,175 +561,448 @@ export default function HandleConnectionsPage() {
       `/${encodeURIComponent(handleSlug)}/connections?tab=${nextTab}`
     );
   };
+  const tabItems: Array<{
+    key: TabKey;
+    label: string;
+    count: number;
+    icon: React.ReactNode;
+  }> = [
+      {
+        key: "following",
+        label: "Following",
+        count: tabCounts.following,
+        icon: <IoPersonAddOutline size={14} />,
+      },
+      {
+        key: "followers",
+        label: "Followers",
+        count: tabCounts.followers,
+        icon: <IoPeopleOutline size={14} />,
+      },
+      {
+        key: "partners",
+        label: "Partners",
+        count: tabCounts.partners,
+        icon: <IoPeopleCircleOutline size={14} />,
+      },
+      {
+        key: "mutual",
+        label: "Mutual",
+        count: tabCounts.mutual,
+        icon: <IoGitNetworkOutline size={14} />,
+      },
+    ];
+
   const TabsBar = (
-    <div className="flex border-b text-sm font-semibold" style={{ borderColor: EKARI.hair }}>
-      <Tab
-        label={`Following ${formatCount(tabCounts.following)}`}
-        active={tab === "following"}
-        onClick={() => goToTab("following")}
-      />
+    <div className="border-b border-[#DDD8CC] bg-[#FBFAF6]">
+      <div className="mx-auto flex max-w-[1120px] items-center gap-1 overflow-x-auto px-3 no-scrollbar sm:px-4 md:px-6">
+        {tabItems.map((item) => {
+          const active = tab === item.key;
 
-      <Tab
-        label={`Followers ${formatCount(tabCounts.followers)}`}
-        active={tab === "followers"}
-        onClick={() => goToTab("followers")}
-      />
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => goToTab(item.key)}
+              className={[
+                "relative inline-flex h-12 shrink-0 items-center gap-2 px-3",
+                "text-[11px] font-black transition-colors duration-200",
+                active
+                  ? "text-[#173C2E]"
+                  : "text-slate-400 hover:text-slate-700",
+              ].join(" ")}
+            >
+              {item.icon}
 
-      <Tab
-        label={`Partners ${formatCount(tabCounts.partners)}`}
-        active={tab === "partners"}
-        onClick={() => goToTab("partners")}
-      />
+              <span>{item.label}</span>
 
-      <Tab
-        label={`Mutual ${formatCount(tabCounts.mutual)}`}
-        active={tab === "mutual"}
-        onClick={() => goToTab("mutual")}
-      />
+              <span
+                className={[
+                  "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
+                  active
+                    ? "bg-[#F39A22] text-white"
+                    : "bg-[#EFECE5] text-slate-500",
+                ].join(" ")}
+              >
+                {formatCount(item.count)}
+              </span>
+
+              {active ? (
+                <motion.span
+                  layoutId="connections-tab-indicator"
+                  className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[#173C2E]"
+                  transition={{
+                    type: "spring",
+                    stiffness: 420,
+                    damping: 34,
+                  }}
+                />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
-  const Body = (
-    <div className="mx-auto min-h-screen w-full px-3 md:px-4 pt-3 pb-6" style={{ backgroundColor: EKARI.bg }}>
-      {!isMobile && (
-        <div className="flex items-center gap-3 mb-3">
+
+  const activeTabMeta =
+    tabItems.find((item) => item.key === tab) ||
+    tabItems[1];
+
+  const Header = (
+    <motion.header
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.24,
+        ease: "easeOut",
+      }}
+      className="relative shrink-0 overflow-hidden bg-[#173C2E] text-white"
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
+        }}
+      />
+
+      <div className="relative mx-auto max-w-[1120px] px-4 py-5 md:px-6 md:py-6">
+        <div className="flex items-start gap-3">
           <button
-            onClick={goBackToProfile}
-            className="h-9 w-9 grid place-items-center rounded-full border bg-white hover:bg-black/5"
-            style={{ borderColor: EKARI.hair, color: EKARI.text }}
+            type="button"
+            onClick={goBackSmart}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/[0.06] text-white transition hover:bg-white/[0.11] active:scale-95"
             aria-label="Back"
           >
-            <IoArrowBack size={20} />
+            <IoArrowBack size={19} />
           </button>
 
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold truncate" style={{ color: EKARI.subtext }}>
-              {handleSlug}
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              ekarihub community
             </div>
-            <div className="text-base font-extrabold" style={{ color: EKARI.text }}>
-              Connections
+
+            <div className="mt-1 flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className="text-[24px] font-black tracking-[-0.035em] md:text-[28px]">
+                  Connections
+                </h1>
+
+                <p className="mt-1 truncate text-[11px] font-medium text-white/50 md:text-[12px]">
+                  {ownerUsername || handleWithAt}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={goBackToProfile}
+                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/[0.11]"
+              >
+                View profile
+                <IoChevronForward size={13} />
+              </button>
             </div>
           </div>
-
-          <div className="w-9" />
         </div>
-      )}
+      </div>
+    </motion.header>
+  );
 
-      {!isMobile && TabsBar}
+  const ConnectionList = (
+    <motion.section
+      key={tab}
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      className="overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_10px_28px_rgba(15,23,42,0.025)]"
+    >
+      <div className="border-b border-[#E4DED2] px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+                {activeTabMeta.icon}
+              </span>
 
-      <div
-        className="mt-3 mb-2 flex items-center gap-2 rounded-xl px-3 py-2 border"
-        style={{ backgroundColor: "#F9FAFB", borderColor: EKARI.hair }}
-      >
-        <IoSearchOutline size={18} style={{ color: EKARI.subtext }} />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search loaded connections"
-          className="flex-1 bg-transparent text-sm outline-none"
-          style={{ color: EKARI.text }}
-        />
+              <div>
+                <h2 className="text-[14px] font-black text-slate-900">
+                  {activeTabMeta.label}
+                </h2>
+
+                <p className="mt-0.5 text-[9px] font-semibold text-slate-400">
+                  {formatCount(activeTabMeta.count)} connection
+                  {activeTabMeta.count === 1 ? "" : "s"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 flex h-11 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-[#F8F7F2] px-3 transition focus-within:border-[#173C2E]/45 focus-within:bg-white">
+          <IoSearchOutline
+            size={16}
+            className="shrink-0 text-slate-400"
+          />
+
+          <input
+            value={search}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
+            placeholder={`Search ${activeTabMeta.label.toLowerCase()}`}
+            className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+          />
+
+          {search ? (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="rounded-lg px-2 py-1 text-[9px] font-black text-slate-400 transition hover:bg-white hover:text-slate-700"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <BouncingBallLoader />
+        <div className="grid min-h-[320px] place-items-center">
+          <div className="text-center">
+            <BouncingBallLoader />
+            <p className="mt-3 text-[10px] font-semibold text-slate-400">
+              Loading {activeTabMeta.label.toLowerCase()}…
+            </p>
+          </div>
         </div>
       ) : currentList.length === 0 ? (
-        <div className="py-16 text-center text-sm" style={{ color: EKARI.subtext }}>
-          No users to show.
-        </div>
+        <EmptyConnections
+          tab={tab}
+          searching={Boolean(search.trim())}
+        />
       ) : (
-        <div className="divide-y" style={{ borderColor: EKARI.hair }}>
-          {currentList.map((u) => (
-            <Row
-              key={u.id}
-              user={u}
-              tab={tab}
-              ownerUid={ownerUid}
-              viewerUid={viewerUid}
-              viewerFollowingSet={viewerFollowingSet}
-              viewerFollowersSet={viewerFollowersSet}
-              onToggleFollow={onToggleFollow}
-            />
-          ))}
+        <div>
+          <AnimatePresence initial={false}>
+            {currentList.map((connection) => (
+              <Row
+                key={connection.id}
+                user={connection}
+                tab={tab}
+                ownerUid={ownerUid}
+                viewerUid={viewerUid}
+                viewerFollowingSet={viewerFollowingSet}
+                viewerFollowersSet={viewerFollowersSet}
+                onToggleFollow={onToggleFollow}
+              />
+            ))}
+          </AnimatePresence>
 
-          <div ref={observerRef} className="py-6 flex justify-center">
-            {loadingMore && <BouncingBallLoader />}
-            {!hasMore && !loadingMore && (
-              <span className="text-xs" style={{ color: EKARI.subtext }}>
-                No more users
+          <div
+            ref={observerRef}
+            className="flex min-h-[68px] items-center justify-center border-t border-[#EAE6DD] px-4"
+          >
+            {loadingMore ? (
+              <BouncingBallLoader />
+            ) : !hasMore ? (
+              <span className="text-[9px] font-semibold text-slate-400">
+                You’ve reached the end
+              </span>
+            ) : (
+              <span className="text-[9px] font-semibold text-slate-300">
+                Scroll for more
               </span>
             )}
           </div>
         </div>
       )}
+    </motion.section>
+  );
+
+  const RightRail = (
+    <motion.aside
+      initial={{ opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{
+        duration: 0.24,
+        delay: 0.04,
+        ease: "easeOut",
+      }}
+      className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
+    >
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+          Connection overview
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <MiniStat
+            label="Followers"
+            value={tabCounts.followers}
+            icon={<IoPeopleOutline size={14} />}
+          />
+
+          <MiniStat
+            label="Following"
+            value={tabCounts.following}
+            icon={<IoPersonAddOutline size={14} />}
+          />
+
+          <MiniStat
+            label="Partners"
+            value={tabCounts.partners}
+            icon={<IoPeopleCircleOutline size={14} />}
+          />
+
+          <MiniStat
+            label="Mutual"
+            value={tabCounts.mutual}
+            icon={<IoGitNetworkOutline size={14} />}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#FFF4E3] text-[#F39A22]">
+            <IoSparklesOutline size={17} />
+          </span>
+
+          <div>
+            <div className="text-[12px] font-black text-slate-800">
+              Partners
+            </div>
+
+            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+              Partners are people who follow each other. It’s a quick way to identify stronger two-way connections.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E8ECE8] text-[#173C2E]">
+            <IoInformationCircleOutline size={17} />
+          </span>
+
+          <div>
+            <div className="text-[12px] font-black text-slate-800">
+              Mutual connections
+            </div>
+
+            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+              Mutual shows this profile’s followers who also follow you. It’s available when you’re signed in and viewing another profile.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <button
+        type="button"
+        onClick={goBackToProfile}
+        className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[10px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
+      >
+        Back to profile
+        <IoChevronForward size={14} />
+      </button>
+    </motion.aside>
+  );
+
+  const Page = (
+    <div className="h-full min-h-0 overflow-y-auto bg-[#F8F7F2]">
+      {Header}
+      {TabsBar}
+
+      <main className="min-h-0 flex-1">
+        <div className="mx-auto grid max-w-[1120px] gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-5 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start">
+          <div className="min-w-0">
+            {ConnectionList}
+          </div>
+
+          {RightRail}
+        </div>
+
+        {isMobile ? (
+          <div
+            style={{
+              height: "env(safe-area-inset-bottom)",
+            }}
+          />
+        ) : null}
+      </main>
+    </div>
+  );
+  const PageMobile = (
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F8F7F2]">
+      {Header}
+      {TabsBar}
+
+      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-[#F8F7F2] [-webkit-overflow-scrolling:touch]">
+        <div className="mx-auto grid max-w-[1120px] gap-5 px-3 py-4 sm:px-4 md:px-6 md:py-5 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start">
+          <div className="min-w-0">
+            {ConnectionList}
+          </div>
+
+          {RightRail}
+        </div>
+
+        {isMobile ? (
+          <div
+            style={{
+              height: "env(safe-area-inset-bottom)",
+            }}
+          />
+        ) : null}
+      </main>
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <div className="fixed inset-0 flex flex-col bg-white">
-        <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
-          <div className="h-14 px-3 flex items-center gap-2" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-            <button
-              onClick={goBackSmart}
-              className="h-10 w-10 rounded-full border border-gray-200 grid place-items-center"
-              aria-label="Back"
-            >
-              <IoArrowBack size={18} />
-            </button>
-
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
-                Connections
-              </div>
-              <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
-                {ownerUsername || handleWithAt}
-              </div>
-            </div>
-
-            <button
-              onClick={goBackToProfile}
-              className="h-10 px-3 rounded-full border border-gray-200 text-xs font-bold"
-            >
-              Profile
-            </button>
+  if (ownerUid === null) {
+    const Missing = (
+      <div className="grid min-h-[100svh] place-items-center bg-[#F8F7F2] px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-7 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)]"
+        >
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+            <IoPeopleOutline size={24} />
           </div>
 
-          <div className="px-2">{TabsBar}</div>
-        </div>
+          <h2 className="mt-4 text-[17px] font-black text-slate-900">
+            Profile not found
+          </h2>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain">{Body}</div>
+          <p className="mt-2 text-[11px] font-medium leading-5 text-slate-500">
+            We couldn’t find the connections for {handleWithAt}.
+          </p>
 
-        <div style={{ height: "env(safe-area-inset-bottom)" }} />
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[10px] font-black text-white transition hover:bg-[#214C3A]"
+          >
+            Go home
+          </button>
+        </motion.div>
       </div>
+    );
+
+    return isMobile ? (
+      Missing
+    ) : (
+      <AppShell>{Missing}</AppShell>
     );
   }
 
-  return <AppShell>{Body}</AppShell>;
-}
-
-function Tab({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex-1 px-2 pb-2 pt-1 text-center"
-      style={{
-        color: active ? EKARI.text : EKARI.subtext,
-        borderBottomWidth: active ? 2 : 0,
-        borderColor: active ? EKARI.forest : "transparent",
-      }}
-    >
-      <span className="truncate">{label}</span>
-    </button>
+  return isMobile ? (
+    <div className="fixed inset-0">
+      {PageMobile}
+    </div>
+  ) : (
+    <AppShell>
+      {Page}
+    </AppShell>
   );
 }
 
@@ -739,108 +1026,299 @@ function Row({
   const router = useRouter();
 
   const fullName =
-    [user.firstName, user.surname].filter(Boolean).join(" ") || "ekarihub user";
+    [user.firstName, user.surname]
+      .filter(Boolean)
+      .join(" ") ||
+    "ekarihub user";
 
-  const handle = user.handle || "";
+  const handle =
+    user.handle || "";
+
   const id = user.id;
 
-  const isFriend = viewerFollowingSet.has(id) && viewerFollowersSet.has(id);
-  const viewerFollows = viewerFollowingSet.has(id);
-  const followsViewer = viewerFollowersSet.has(id);
+  const isFriend =
+    viewerFollowingSet.has(id) &&
+    viewerFollowersSet.has(id);
 
-  /*
-   * When viewing your own Partners tab, every listed user is already your
-   * partner, so show a non-clickable "Partners" badge.
-   *
-   * When viewing another profile's Partners tab, calculate the button from
-   * the signed-in viewer's relationship with each listed user:
-   * Partners, Follow back, Following, or Follow.
-   */
-  const viewingOwnConnections = !!viewerUid && viewerUid === ownerUid;
-  const isOwnPartnersTab = tab === "partners" && viewingOwnConnections;
+  const viewerFollows =
+    viewerFollowingSet.has(id);
+
+  const followsViewer =
+    viewerFollowersSet.has(id);
+
+  const viewingOwnConnections =
+    !!viewerUid &&
+    viewerUid === ownerUid;
+
+  const isOwnPartnersTab =
+    tab === "partners" &&
+    viewingOwnConnections;
 
   let pillLabel = "";
 
-  if (!viewerUid || viewerUid === id) {
+  if (
+    !viewerUid ||
+    viewerUid === id
+  ) {
     pillLabel = "";
-  } else if (isOwnPartnersTab || isFriend) {
+  } else if (
+    isOwnPartnersTab ||
+    isFriend
+  ) {
     pillLabel = "Partners";
-  } else if (followsViewer && !viewerFollows) {
+  } else if (
+    followsViewer &&
+    !viewerFollows
+  ) {
     pillLabel = "Follow back";
-  } else if (viewerFollows) {
+  } else if (
+    viewerFollows
+  ) {
     pillLabel = "Following";
   } else {
     pillLabel = "Follow";
   }
 
-  const handleSlug = handle.replace(/^@/, "");
+  const handleSlug =
+    handle.replace(/^@/, "");
+
+  const interactive =
+    pillLabel &&
+    pillLabel !== "Partners";
 
   return (
-    <div className="flex items-center px-1 py-2">
+    <motion.div
+      layout
+      initial={{
+        opacity: 0,
+        y: 3,
+      }}
+      animate={{
+        opacity: 1,
+        y: 0,
+      }}
+      exit={{
+        opacity: 0,
+        y: -3,
+      }}
+      transition={{
+        duration: 0.16,
+      }}
+      className="flex items-center gap-3 border-b border-[#EAE6DD] px-4 py-3.5 last:border-b-0 sm:px-5"
+    >
       <button
-        className="flex flex-1 items-center gap-3 text-left"
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
         onClick={() => {
-          if (handleSlug) router.push(`/${encodeURIComponent(handleSlug)}`);
+          if (handleSlug) {
+            router.push(
+              `/${encodeURIComponent(
+                handleSlug
+              )}`
+            );
+          }
         }}
       >
-        <div
-          className="relative h-11 w-11 rounded-full overflow-hidden"
-          style={{ backgroundColor: EKARI.hair }}
-        >
-          <SmartAvatar src={user.photoURL} alt={fullName || "User"} size={46} />
+        <div className="relative shrink-0">
+          <SmartAvatar
+            src={user.photoURL}
+            alt={
+              fullName ||
+              "User"
+            }
+            size={48}
+          />
+
+          {isFriend ? (
+            <span
+              className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-[#FBFAF6] bg-[#173C2E] text-white"
+              title="Partner"
+            >
+              <IoCheckmarkCircleOutline
+                size={11}
+              />
+            </span>
+          ) : null}
         </div>
 
         <div className="min-w-0">
-          <div className="text-sm font-semibold truncate" style={{ color: EKARI.text }}>
+          <div className="truncate text-[12px] font-black text-slate-800 sm:text-[13px]">
             {fullName}
           </div>
 
-          {!!handle && (
-            <div className="text-xs truncate" style={{ color: EKARI.subtext }}>
-              {handle}
+          {handle ? (
+            <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
+              {handle.startsWith("@")
+                ? handle
+                : `@${handle}`}
+            </div>
+          ) : (
+            <div className="mt-0.5 text-[10px] font-semibold text-slate-300">
+              ekarihub member
             </div>
           )}
         </div>
       </button>
 
-      <div className="flex items-center gap-2">
-        {!!pillLabel && viewerUid !== id && (
-          pillLabel === "Partners" ? (
-            <span
-              className="min-w-[96px] rounded-full px-4 py-1.5 text-center text-xs font-semibold"
-              style={{
-                backgroundColor: "#F9FAFB",
-                color: EKARI.text,
-                borderWidth: 1,
-                borderColor: EKARI.hair,
-              }}
-              title="You and this user follow each other"
-            >
-              Partners
-            </span>
-          ) : (
-            <button
-              onClick={() => onToggleFollow(id)}
-              className="min-w-[96px] rounded-full px-4 py-1.5 text-xs font-semibold"
-              style={
-                pillLabel === "Following"
-                  ? {
-                    backgroundColor: "#F9FAFB",
-                    color: EKARI.text,
-                    borderWidth: 1,
-                    borderColor: EKARI.hair,
-                  }
-                  : {
-                    backgroundColor: EKARI.primary,
-                    color: "#FFFFFF",
-                  }
-              }
-            >
-              {pillLabel}
-            </button>
-          )
-        )}
+      {pillLabel &&
+        viewerUid !== id ? (
+        pillLabel ===
+          "Partners" ? (
+          <span className="inline-flex min-w-[88px] items-center justify-center gap-1.5 rounded-xl border border-[#D9D3C7] bg-[#F3F1EB] px-3 py-2 text-[9px] font-black text-[#173C2E]">
+            <IoPeopleCircleOutline
+              size={12}
+            />
+            Partners
+          </span>
+        ) : (
+          <motion.button
+            whileTap={{
+              scale: 0.97,
+            }}
+            type="button"
+            onClick={() =>
+              onToggleFollow(id)
+            }
+            className={[
+              "min-w-[88px] rounded-xl px-3 py-2 text-[9px] font-black transition",
+              pillLabel ===
+                "Following"
+                ? "border border-[#D9D3C7] bg-white text-slate-600 hover:bg-[#F3F1EB]"
+                : "bg-[#F39A22] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]",
+            ].join(" ")}
+          >
+            {pillLabel}
+          </motion.button>
+        )
+      ) : null}
+    </motion.div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[#F39A22]">
+          {icon}
+        </span>
+
+        <span className="text-[18px] font-black tracking-[-0.03em] text-[#173C2E]">
+          {formatCount(value)}
+        </span>
+      </div>
+
+      <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+        {label}
       </div>
     </div>
+  );
+}
+
+function EmptyConnections({
+  tab,
+  searching,
+}: {
+  tab: TabKey;
+  searching: boolean;
+}) {
+  const meta: Record<
+    TabKey,
+    {
+      icon: React.ReactNode;
+      title: string;
+      text: string;
+    }
+  > = {
+    following: {
+      icon: (
+        <IoPersonAddOutline
+          size={24}
+        />
+      ),
+      title: searching
+        ? "No matching people"
+        : "Not following anyone yet",
+      text: searching
+        ? "Try another name or handle."
+        : "People this profile follows will appear here.",
+    },
+    followers: {
+      icon: (
+        <IoPeopleOutline
+          size={24}
+        />
+      ),
+      title: searching
+        ? "No matching followers"
+        : "No followers yet",
+      text: searching
+        ? "Try another name or handle."
+        : "Followers of this profile will appear here.",
+    },
+    partners: {
+      icon: (
+        <IoPeopleCircleOutline
+          size={24}
+        />
+      ),
+      title: searching
+        ? "No matching partners"
+        : "No partners yet",
+      text: searching
+        ? "Try another name or handle."
+        : "Partners are people who follow each other.",
+    },
+    mutual: {
+      icon: (
+        <IoGitNetworkOutline
+          size={24}
+        />
+      ),
+      title: searching
+        ? "No matching mutual connections"
+        : "No mutual connections",
+      text: searching
+        ? "Try another name or handle."
+        : "Mutual connections shared with you will appear here.",
+    },
+  };
+
+  const item = meta[tab];
+
+  return (
+    <motion.div
+      initial={{
+        opacity: 0,
+        y: 4,
+      }}
+      animate={{
+        opacity: 1,
+        y: 0,
+      }}
+      className="grid min-h-[320px] place-items-center px-5 text-center"
+    >
+      <div>
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#E8ECE8] text-[#173C2E]">
+          {item.icon}
+        </div>
+
+        <h3 className="mt-4 text-[14px] font-black text-slate-800">
+          {item.title}
+        </h3>
+
+        <p className="mx-auto mt-1 max-w-sm text-[10px] font-medium leading-4 text-slate-400">
+          {item.text}
+        </p>
+      </div>
+    </motion.div>
   );
 }

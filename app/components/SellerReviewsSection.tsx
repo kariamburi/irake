@@ -47,12 +47,12 @@ type Review = {
 };
 
 const EKARI = {
-    forest: "#233F39",
-    gold: "#C79257",
-    sand: "#FFFFFF",
+    forest: "#173C2E",
+    gold: "#F39A22",
+    sand: "#FBFAF6",
     text: "#0F172A",
     dim: "#6B7280",
-    hair: "#E5E7EB",
+    hair: "#DDD8CC",
 };
 
 const sellerReviewDocRef = (dbi: any, sellerId: string, reviewUserId: string) =>
@@ -117,7 +117,7 @@ const ReviewRow = React.memo(function ReviewRow({
     const d = parseDate(r.updatedAt || r.createdAt);
 
     return (
-        <div className="pb-3 border-b border-[color:var(--hair,#E5E7EB)]">
+        <div className="border-b border-[#E4DED2] pb-3">
             <div className="flex gap-3">
                 {/* avatar */}
                 <button
@@ -375,7 +375,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
     return (
         <>
             {/* Reviews card */}
-            <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm mt-4 p-5 border border-[color:var(--hair,#E5E7EB)]">
+            <div className="mx-auto mt-3 max-w-[1040px] rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.035)]">
                 <div className="flex items-center justify-between gap-3">
                     <button
                         type="button"
@@ -384,7 +384,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                         aria-expanded={expanded}
                         aria-controls="seller-reviews-list"
                     >
-                        <h3 className="font-black text-[color:var(--text,#0F172A)] text-lg">Reviews</h3>
+                        <h3 className="text-[15px] font-black text-slate-900">Reviews</h3>
                         <span className="text-xs font-bold text-[color:var(--dim,#6B7280)]">
                             {expanded ? "Hide" : "Show"}
                         </span>
@@ -402,7 +402,7 @@ export default function SellerReviewsSection({ sellerId }: Props) {
                                 e.stopPropagation(); // ✅ don’t toggle collapse
                                 openReview();
                             }}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-extrabold text-white hover:opacity-95"
+                            className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#173C2E] px-3 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                             style={{ backgroundColor: EKARI.forest }}
                         >
                             {myReview ? <IoCreateOutline size={16} /> : <IoStarOutline size={16} />}

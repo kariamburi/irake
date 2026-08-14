@@ -21,15 +21,16 @@ import {
 
 import { useAuth } from "@/app/hooks/useAuth";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
+import UserAvatarMenu from "./UserAvatarMenu";
 
 /* Theme */
 const EKARI = {
-    forest: "#233F39",
-    bg: "#ffffff",
-    text: "#111827",
-    subtext: "#6B7280",
-    hair: "#E5E7EB",
-    gold: "#C79257",
+    forest: "#D8E7DD",
+    bg: "#173C2E",
+    text: "#F7F3E8",
+    subtext: "#9DB2A6",
+    hair: "rgba(255,255,255,0.10)",
+    gold: "#F3A526",
 } as const;
 
 function cn(...xs: (string | false | null | undefined)[]) {
@@ -69,14 +70,16 @@ export function NavItem({
     const router = useRouter();
     const isActive = active ?? useIsActive(href);
 
-    const onClick = (e: React.MouseEvent) => {
+    const onClick = (event: React.MouseEvent) => {
         if (requiresAuth && !uid) {
-            e.preventDefault();
+            event.preventDefault();
             router.push(`/getstarted?next=${encodeURIComponent(href)}`);
         }
     };
 
-    const showBadge = typeof badgeCount === "number" && badgeCount > 0;
+    const showBadge =
+        typeof badgeCount === "number" && badgeCount > 0;
+
     const badgeText = !showBadge
         ? ""
         : badgeCount > 999
@@ -85,7 +88,7 @@ export function NavItem({
                 ? "99+"
                 : String(badgeCount);
 
-    const baseColor = EKARI.forest;
+    const baseColor = EKARI.subtext;
     const activeColor = EKARI.gold;
 
     return (
@@ -93,33 +96,38 @@ export function NavItem({
             href={href}
             onClick={onClick}
             className={cn(
-                "group relative w-full flex items-center gap-2 rounded-xl px-3.5 py-1",
+                "group relative flex min-h-[42px] w-full items-center gap-2.5",
+                "border-l-[3px] px-4 py-1.5",
                 "transition-colors duration-200",
-                "hover:bg-gray-50",
-                isActive &&
-                "bg-white shadow-sm border border-[rgba(199,146,87,0.35)] ring-1 ring-[rgba(199,146,87,0.22)]"
+                isActive
+                    ? "border-l-[#F3A526] bg-white/[0.10]"
+                    : "border-l-transparent hover:bg-white/[0.055]",
             )}
             style={{
                 color: isActive ? activeColor : baseColor,
             }}
         >
-            <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(35,63,57,0.05)] group-hover:bg-[rgba(35,63,57,0.08)] transition-colors">
+            <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
                 <span
-                    className="text-[20px]"
-                    style={{ color: isActive ? activeColor : baseColor }}
+                    className="text-[18px]"
+                    style={{
+                        color: isActive ? activeColor : baseColor,
+                    }}
                 >
                     {icon}
                 </span>
-                {showBadge && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[6px] rounded-full bg-red-600 text-white text-[11px] font-extrabold flex items-center justify-center shadow-sm">
+
+                {showBadge ? (
+                    <span className="absolute -right-2 -top-1.5 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-[#F3A526] px-1 text-[9px] font-black text-[#173C2E]">
                         {badgeText}
                     </span>
-                )}
+                ) : null}
             </span>
+
             <span
                 className={cn(
-                    "text-[14px] truncate",
-                    isActive ? "font-semibold" : "font-medium"
+                    "min-w-0 truncate text-[13px]",
+                    isActive ? "font-bold" : "font-semibold",
                 )}
             >
                 {label}
@@ -207,7 +215,7 @@ function RailLink({
                 ? "99+"
                 : String(badgeCount);
 
-    const baseColor = EKARI.forest;
+    const baseColor = EKARI.subtext;
     const activeColor = EKARI.gold;
 
     return (
@@ -244,15 +252,19 @@ function RailLink({
 export function LeftNavDesktop({
     uid,
     handle,
+    photoURL,
 }: {
     uid?: string;
     handle?: string;
+    photoURL?: string | null;
 }) {
-    const router = useRouter();
     const { user } = useAuth();
     const authUid = uid ?? user?.uid;
 
-    const { unreadDM, notifTotal } = useInboxTotalsWeb(!!authUid, authUid);
+    const { unreadDM, notifTotal } = useInboxTotalsWeb(
+        !!authUid,
+        authUid,
+    );
 
     const items: Array<{
         label: string;
@@ -277,16 +289,16 @@ export function LeftNavDesktop({
                 href: "/ekari-experts",
                 icon: <IoShieldCheckmarkOutline />,
             },
-            // {
-            //    label: "Nexus",
-            //    href: "/nexus",
-            //    icon: <IoCompassOutline />,
-            //},
             {
                 label: "Weather",
                 href: "/weather",
                 icon: <IoPartlySunnyOutline />,
                 requiresAuth: true,
+            },
+            {
+                label: "ekari AI",
+                href: "/ai",
+                icon: <IoSparklesOutline />,
             },
             {
                 label: "Deed studio",
@@ -308,78 +320,71 @@ export function LeftNavDesktop({
                 requiresAuth: true,
                 badgeCount: authUid ? unreadDM : 0,
             },
-            {
-                label: "ekari AI",
-                href: "/ai",
-                icon: <IoSparklesOutline />,
-            },
         ];
+
     const profileHref =
-        handle && handle.trim().length > 0 ? `/${handle}` : "/getstarted";
+        handle && handle.trim().length > 0
+            ? `/${handle}`
+            : "/getstarted";
 
     return (
         <aside
-            className="hidden lg:flex xl:w-[260px] lg:w-[260px] shrink-0 sticky top-0 h-screen flex-col border-r bg-white/90 backdrop-blur-sm"
+            className={[
+                "sticky top-0 hidden h-[100svh] w-[250px] shrink-0",
+                "flex-col overflow-hidden border-r bg-[#173C2E]",
+                "lg:flex xl:w-[270px]",
+            ].join(" ")}
             style={{ borderColor: EKARI.hair }}
         >
-            {/* Logo + Search button */}
+            {/* Logo */}
             <div
-                className="px-4 pt-3 pb-3 border-b"
+                className="shrink-0 border-b px-5 pb-4 pt-5"
                 style={{ borderColor: EKARI.hair }}
             >
-                <div className="flex items-center justify-between gap-2">
-                    <Link
-                        href="/"
-                        className="inline-flex items-center gap-2 rounded-2xl px-2.5 py-2 hover:bg-gray-50 transition-colors"
-                    >
-                        <Image
-                            src="/ekarihub-logo.png"
-                            alt="ekarihub"
-                            width={140}
-                            height={36}
-                        />
-                    </Link>
+                <Link
+                    href="/"
+                    className="inline-flex items-center"
+                    aria-label="ekarihub home"
+                >
+                    <Image
+                        src="/ekarihub-logo-green.png"
+                        alt="ekarihub"
+                        width={144}
+                        height={40}
+                        priority
+                        className="h-auto w-[138px] object-contain"
+                    />
+                </Link>
 
-                    <button
-                        type="button"
-                        onClick={() => router.push("/search")}
-                        className={cn(
-                            "inline-flex items-center gap-2 rounded-2xl px-3 py-2",
-                            "border bg-white hover:bg-gray-50 transition-colors",
-                            "text-[13px] font-semibold"
-                        )}
-                        style={{
-                            borderColor: "rgba(35,63,57,0.16)",
-                            color: EKARI.forest,
-                        }}
-                        aria-label="Search"
-                        title="Search"
-                    >
-                        <span className="text-[18px]">
-                            <IoSearch />
-                        </span>
-                        <span className="hidden xl:inline">Search</span>
-                    </button>
-                </div>
+                <p className="mt-1 whitespace-nowrap text-[11px] font-medium text-white/45">
+                    Collaborate · Innovate · Cultivate
+                </p>
             </div>
 
-            {/* Main nav */}
-            <nav className="px-3 pt-2 space-y-1 text-[15px]">
-                {items.map((it) => {
-                    const active = useIsActive(it.href, it.alsoMatch);
+            {/* Scrollable navigation */}
+            <nav className="min-h-0 flex-1 overflow-y-auto py-3 no-scrollbar">
+                {items.map((item) => {
+                    const active = useIsActive(
+                        item.href,
+                        item.alsoMatch,
+                    );
+
                     return (
                         <NavItem
-                            key={it.href}
-                            icon={it.icon}
-                            label={it.label}
-                            href={it.href}
+                            key={item.href}
+                            icon={item.icon}
+                            label={item.label}
+                            href={item.href}
                             uid={authUid}
-                            requiresAuth={it.requiresAuth}
-                            badgeCount={it.badgeCount}
+                            requiresAuth={item.requiresAuth}
+                            badgeCount={item.badgeCount}
                             active={active}
                         />
                     );
                 })}
+
+                <div className="my-2 border-t border-white/10" />
+
                 <NavItem
                     icon={<IoPersonCircleOutline />}
                     label="Profile"
@@ -387,6 +392,7 @@ export function LeftNavDesktop({
                     uid={authUid}
                     requiresAuth
                 />
+
                 <NavItem
                     icon={<IoInformationCircleOutline />}
                     label="About ekarihub"
@@ -394,11 +400,32 @@ export function LeftNavDesktop({
                 />
             </nav>
 
-            {/* Footer */}
-            <div className="mt-auto px-4 pb-4 pt-3 text-[11px] text-gray-400 border-t" style={{ borderColor: EKARI.hair }}>
-                <div>© {new Date().getFullYear()} ekarihub</div>
-                <div className="mt-0.5">Collaborate • Innovate • Cultivate</div>
-            </div>
+            {/* Signed-in account */}
+            {authUid ? (
+                <div className="shrink-0 border-t border-white/10 p-3">
+                    <UserAvatarMenu
+                        uid={authUid}
+                        handle={handle}
+                        photoURL={photoURL}
+                        profileHref={profileHref}
+                    />
+                </div>
+            ) : (
+                <div className="shrink-0 border-t border-white/10 p-3">
+                    <Link
+                        href="/getstarted"
+                        className={[
+                            "flex h-11 w-full items-center justify-center",
+                            "rounded-xl bg-[#F3A526]",
+                            "text-[11px] font-black text-[#173C2E]",
+                            "transition hover:bg-[#F8B33E]",
+                            "active:scale-[0.98]",
+                        ].join(" ")}
+                    >
+                        Sign in / Get started
+                    </Link>
+                </div>
+            )}
         </aside>
     );
 }

@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
+import { IoPerson } from "react-icons/io5";
 
 type Props = {
     src?: string | null;
     alt?: string;
-    size?: number;           // square: px
+    size?: number;
     rounded?: "full" | "xl" | "lg" | "md" | "none";
-    fallbackSrc?: string;    // optional custom fallback
-    className?: string;      // extra class on wrapper
+    className?: string;
 };
 
 const ROUNDED = {
@@ -21,44 +21,136 @@ const ROUNDED = {
     none: "",
 } as const;
 
+function isUsableSrc(src?: string | null) {
+    if (!src) return false;
+
+    const value = src.trim();
+
+    if (!value) return false;
+
+    return (
+        value.startsWith("http://") ||
+        value.startsWith("https://") ||
+        value.startsWith("/") ||
+        value.startsWith("blob:") ||
+        value.startsWith("data:")
+    );
+}
+
 export default function SmartAvatar({
     src,
-    alt = "avatar",
+    alt = "User",
     size = 46,
     rounded = "full",
-    fallbackSrc = "/avatar-placeholder.png",
     className,
 }: Props) {
-    const [loading, setLoading] = useState(true);
-    const [err, setErr] = useState(false);
-    const displayed = !err && (src || fallbackSrc) ? (src || fallbackSrc) : fallbackSrc;
+    const validSrc = isUsableSrc(src);
+
+    const [loading, setLoading] = useState(validSrc);
+    const [imageError, setImageError] = useState(false);
+
+    /*
+     * Important:
+     * A user may previously have had a broken photoURL and then receive
+     * a new valid one. Reset the state whenever src changes.
+     */
+    useEffect(() => {
+        setImageError(false);
+        setLoading(isUsableSrc(src));
+    }, [src]);
+
+    const showImage =
+        validSrc &&
+        !imageError;
+
+    const iconSize = Math.max(
+        16,
+        Math.round(size * 0.46)
+    );
 
     return (
         <div
-            className={clsx("relative bg-gray-100", className)}
-            style={{ width: 36, height: 36 }}
+            className={clsx(
+                "relative shrink-0 overflow-hidden bg-[#E8ECE8]",
+                "border border-black/[0.06]",
+                ROUNDED[rounded],
+                className
+            )}
+            style={{
+                width: size,
+                height: size,
+            }}
             aria-label={alt}
         >
-            {loading && (
-                <div className="absolute inset-0 grid place-items-center bg-gray-100">
-                    <div
-                        className="h-5 w-5 rounded-full border-2 animate-spin"
-                        style={{ borderColor: "#D1D5DB", borderTopColor: "#233F39" /* EKARI.forest */ }}
+            {/* DEFAULT AVATAR */}
+            {!showImage && (
+                <div
+                    className={clsx(
+                        "absolute inset-0 grid place-items-center",
+                        "bg-[#E8ECE8] text-[#173C2E]",
+                        ROUNDED[rounded]
+                    )}
+                >
+                    <IoPerson
+                        size={iconSize}
+                        aria-hidden="true"
                     />
                 </div>
             )}
-            <Image
-                src={displayed}
-                alt={alt}
-                fill
-                sizes={`${size}px`}
-                className={clsx("object-cover transition-opacity", loading ? "opacity-0" : "opacity-100")}
-                onLoadingComplete={() => setLoading(false)}
-                onError={() => {
-                    setErr(true);
-                    setLoading(false);
-                }}
-            />
+
+            {/* LOADING STATE */}
+            {showImage && loading && (
+                <div
+                    className={clsx(
+                        "absolute inset-0 z-10 grid place-items-center",
+                        "bg-[#E8ECE8]",
+                        ROUNDED[rounded]
+                    )}
+                >
+                    <div
+                        className="
+                            h-4 w-4
+                            animate-spin
+                            rounded-full
+                            border-2
+                            border-[#CBD5D1]
+                            border-t-[#173C2E]
+                        "
+                    />
+                </div>
+            )}
+
+            {/* ACTUAL PHOTO */}
+            {showImage && (
+                <Image
+                    src={src!.trim()}
+                    alt={alt}
+                    fill
+                    sizes={`${size}px`}
+                    className={clsx(
+                        "object-cover",
+                        "transition-opacity duration-200",
+                        ROUNDED[rounded],
+                        loading
+                            ? "opacity-0"
+                            : "opacity-100"
+                    )}
+                    onLoad={() => {
+                        setLoading(false);
+                    }}
+                    onError={() => {
+                        /*
+                         * photoURL exists in Firestore but the actual
+                         * Firebase Storage / remote file no longer exists.
+                         *
+                         * Remove Image and reveal our permanent icon
+                         * fallback instead.
+                         */
+                        setImageError(true);
+                        setLoading(false);
+                    }}
+                />
+            )}
         </div>
     );
 }
