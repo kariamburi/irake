@@ -21,7 +21,6 @@ import {
     IoRibbonOutline,
 } from "react-icons/io5";
 import { useAuth } from "../hooks/useAuth";
-import AppShell from "../components/AppShell";
 
 const EKARI = {
     forest: "#173C2E",
@@ -218,13 +217,16 @@ export default function AboutPage() {
         !user?.uid;
 
     const MainContent = (
-        <div className="w-full bg-[#F8F7F2]">
-            {/* Public/top navigation */}
-            <div className="sticky top-0 z-40 border-b border-[#DDD8CC] bg-[#FBFAF6]/95 backdrop-blur-xl">
-                <div className="mx-auto flex h-[64px] max-w-[1180px] items-center gap-3 px-3 sm:px-5 md:px-6">
+        <div className="w-full max-w-full overflow-x-clip bg-[#F8F7F2]">
+            {/* =========================================================
+                PUBLIC / TOP NAVIGATION
+            ========================================================= */}
+            <div className="sticky top-0 z-50 border-b border-[#DDD8CC] bg-[#FBFAF6]/95 backdrop-blur-xl">
+                <div className="mx-auto flex h-[64px] max-w-[1280px] items-center gap-3 px-3 sm:px-5 md:px-6 lg:px-8">
                     <Link
                         href="/"
                         className="inline-flex items-center"
+                        aria-label="Go to ekarihub"
                     >
                         <Image
                             src="/ekarihub-logo.png"
@@ -232,7 +234,7 @@ export default function AboutPage() {
                             width={160}
                             height={48}
                             priority
-                            className="h-auto w-auto"
+                            className="h-auto w-[132px] sm:w-[145px]"
                         />
                     </Link>
 
@@ -240,7 +242,7 @@ export default function AboutPage() {
 
                     <Link
                         href="/leadership"
-                        className="hidden h-9 items-center gap-1.5 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB] md:inline-flex"
+                        className="hidden h-9 items-center gap-1.5 rounded-[12px] border border-[#DDD8CC] bg-white px-3 text-[9px] font-black text-slate-600 transition hover:bg-[#F3F1EB] md:inline-flex"
                     >
                         <IoRibbonOutline size={14} />
                         Leadership
@@ -248,7 +250,7 @@ export default function AboutPage() {
 
                     <Link
                         href="/market"
-                        className="hidden h-9 items-center rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] sm:inline-flex"
+                        className="hidden h-9 items-center rounded-[12px] border border-[#DDD8CC] bg-white px-3 text-[9px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] sm:inline-flex"
                     >
                         Marketplace
                     </Link>
@@ -259,7 +261,7 @@ export default function AboutPage() {
                                 ? "/getstarted?next=/about"
                                 : "/"
                         }
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#173C2E] px-3.5 text-[10px] font-black text-white transition hover:bg-[#214C3A]"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-[12px] bg-[#173C2E] px-3.5 text-[9px] font-black text-white transition hover:bg-[#214C3A]"
                     >
                         {isGuest
                             ? "Get started"
@@ -269,41 +271,34 @@ export default function AboutPage() {
                 </div>
             </div>
 
-            <main className="mx-auto max-w-[1180px] px-3 py-4 sm:px-5 md:px-6 md:py-5">
-                {/* HERO */}
-                <motion.section
-                    initial={
-                        reduceMotion
-                            ? {
-                                opacity: 1,
-                                y: 0,
-                            }
-                            : {
-                                opacity: 0,
-                                y: 8,
-                            }
-                    }
-                    animate={{
-                        opacity: 1,
-                        y: 0,
+            {/* =========================================================
+                FULL-WIDTH HERO
+            ========================================================= */}
+            <motion.section
+                initial={
+                    reduceMotion
+                        ? { opacity: 1, y: 0 }
+                        : { opacity: 0, y: 8 }
+                }
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                    duration: 0.24,
+                    ease: "easeOut",
+                }}
+                className="relative w-full overflow-hidden border-b border-[#DDD8CC] bg-[#173C2E] text-white"
+            >
+                <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.045]"
+                    style={{
+                        backgroundImage:
+                            "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.75) 18px 19px)",
                     }}
-                    transition={{
-                        duration: 0.24,
-                        ease: "easeOut",
-                    }}
-                    className="relative overflow-hidden rounded-[22px] bg-[#173C2E] px-5 py-7 text-white shadow-[0_16px_40px_rgba(15,23,42,0.10)] sm:px-7 md:py-9"
-                >
-                    <div
-                        className="pointer-events-none absolute inset-0 opacity-[0.07]"
-                        style={{
-                            backgroundImage:
-                                "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.6) 18px 19px)",
-                        }}
-                    />
+                />
 
-                    <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/[0.035]" />
-                    <div className="pointer-events-none absolute -bottom-24 right-24 h-52 w-52 rounded-full bg-[#F39A22]/10" />
+                <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
+                <div className="pointer-events-none absolute -bottom-24 left-[32%] h-64 w-64 rounded-full bg-[#F39A22]/[0.08]" />
 
+                <div className="relative mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
                     <motion.div
                         variants={container}
                         initial={
@@ -312,75 +307,61 @@ export default function AboutPage() {
                                 : "hidden"
                         }
                         animate="show"
-                        className="relative grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end"
+                        className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_330px] lg:items-end"
                     >
                         <div className="min-w-0">
                             <motion.div
                                 variants={item}
                                 className="flex flex-wrap gap-2"
                             >
-                                <Pill
-                                    icon={
-                                        <IoSparklesOutline />
-                                    }
-                                >
+                                <Pill icon={<IoSparklesOutline />}>
                                     AI + Data + Community
                                 </Pill>
 
-                                <Pill
-                                    icon={
-                                        <IoLeafOutline />
-                                    }
-                                >
+                                <Pill icon={<IoLeafOutline />}>
                                     Agribusiness ecosystem
                                 </Pill>
 
-                                <Pill
-                                    icon={
-                                        <IoShieldCheckmarkOutline />
-                                    }
-                                >
+                                <Pill icon={<IoShieldCheckmarkOutline />}>
                                     Trusted network
                                 </Pill>
                             </motion.div>
 
                             <motion.div
                                 variants={item}
-                                className="mt-5 text-[10px] font-black uppercase tracking-[0.12em] text-[#F39A22]"
+                                className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]"
                             >
                                 About ekarihub
                             </motion.div>
 
                             <motion.h1
                                 variants={item}
-                                className="mt-1 max-w-3xl text-[28px] font-black leading-tight tracking-[-0.04em] sm:text-[34px] lg:text-[42px]"
+                                className="mt-1 max-w-4xl text-[32px] font-black leading-[1.04] tracking-[-0.045em] sm:text-[40px] lg:text-[50px]"
                             >
-                                Collaborate.
-                                Innovate.
-                                Cultivate.
+                                Collaborate. Innovate. Cultivate.
                             </motion.h1>
 
                             <motion.p
                                 variants={item}
-                                className="mt-4 max-w-3xl text-[12px] font-medium leading-6 text-white/70 sm:text-[13px]"
+                                className="mt-4 max-w-3xl text-[11px] font-medium leading-5 text-white/60 sm:text-[12px] md:leading-6"
                             >
                                 ekarihub is a digital agribusiness ecosystem built to create value across agribusiness, green living, and wildlife conservation. Powered by data, artificial intelligence and social connectivity, we bring together farmers, agronomists, agro-vets, suppliers, buyers, exporters, conservationists and sustainability advocates into one intelligent network.
                             </motion.p>
 
                             <motion.p
                                 variants={item}
-                                className="mt-3 max-w-3xl text-[12px] font-medium leading-6 text-white/60 sm:text-[13px]"
+                                className="mt-3 max-w-3xl text-[11px] font-medium leading-5 text-white/50 sm:text-[12px] md:leading-6"
                             >
                                 From farm to forest, and from soil to wildlife, ekarihub helps people share knowledge, build meaningful partnerships, access markets and adopt sustainable practices that support both economic growth and environmental stewardship.
                             </motion.p>
 
                             <motion.div
                                 variants={item}
-                                className="mt-5 flex flex-wrap gap-2"
+                                className="mt-6 flex flex-wrap gap-2"
                             >
                                 <Link
                                     href="/"
-                                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                                    className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
                                 >
                                     Explore deeds
                                     <IoArrowForwardOutline size={13} />
@@ -388,7 +369,7 @@ export default function AboutPage() {
 
                                 <Link
                                     href="/market"
-                                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/[0.11]"
+                                    className="inline-flex h-10 items-center gap-2 rounded-[13px] border border-white/12 bg-white/[0.06] px-4 text-[9px] font-black text-white/80 transition hover:bg-white/[0.11]"
                                 >
                                     Visit ekariMarket
                                     <IoArrowForwardOutline size={13} />
@@ -396,7 +377,7 @@ export default function AboutPage() {
 
                                 <Link
                                     href="/leadership"
-                                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/[0.11] md:hidden"
+                                    className="inline-flex h-10 items-center gap-2 rounded-[13px] border border-white/12 bg-white/[0.06] px-4 text-[9px] font-black text-white/80 transition hover:bg-white/[0.11] md:hidden"
                                 >
                                     Leadership
                                     <IoArrowForwardOutline size={13} />
@@ -426,8 +407,13 @@ export default function AboutPage() {
                             />
                         </motion.div>
                     </motion.div>
-                </motion.section>
+                </div>
+            </motion.section>
 
+            {/* =========================================================
+                PAGE CONTENT
+            ========================================================= */}
+            <main className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 md:py-8 lg:px-8">
                 {/* MISSION + VISION */}
                 <motion.div
                     variants={container}
@@ -840,33 +826,25 @@ export default function AboutPage() {
         !authLoading
     ) {
         return (
-            <AppShell
-                handle={
-                    user?.displayName ??
-                    undefined
-                }
+
+            <div
+                className="h-[100svh] w-full max-w-full overflow-y-auto overflow-x-hidden overscroll-y-contain bg-[#F8F7F2] touch-pan-y"
+                style={{
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-y",
+                }}
             >
-                <div
-                    className="h-full overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#F8F7F2]"
-                    style={{
-                        WebkitOverflowScrolling:
-                            "touch",
-                        touchAction:
-                            "pan-y",
-                    }}
-                >
-                    {MainContent}
-                </div>
-            </AppShell>
+                {MainContent}
+            </div>
+
         );
     }
 
     return (
         <div
-            className="min-h-[100svh] overflow-x-hidden overflow-y-auto bg-[#F8F7F2]"
+            className="min-h-[100svh] w-full max-w-full overflow-x-hidden bg-[#F8F7F2] touch-pan-y"
             style={{
-                WebkitOverflowScrolling:
-                    "touch",
+                WebkitOverflowScrolling: "touch",
                 touchAction: "pan-y",
             }}
         >

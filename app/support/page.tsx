@@ -53,12 +53,15 @@ type Ticket = {
 };
 
 const EKARI = {
-  forest: "#233F39",
-  gold: "#C79257",
-  hair: "#E5E7EB",
+  forest: "#173C2E",
+  leaf: "#214C3A",
+  gold: "#F39A22",
+  page: "#F8F7F2",
+  surface: "#FBFAF6",
+  hair: "#DDD8CC",
   text: "#0F172A",
-  dim: "#6B7280",
-  bg: "#FFFFFF",
+  dim: "#64748B",
+  bg: "#F8F7F2",
 };
 
 const TOPICS = [
@@ -104,7 +107,7 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
     closed: "bg-slate-50 text-slate-600 border-slate-200",
   };
 
-  const text: Record<Ticket["status"], string> = {
+  const textMap: Record<Ticket["status"], string> = {
     open: "Open",
     in_progress: "In progress",
     resolved: "Resolved",
@@ -113,48 +116,16 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${map[status]}`}
+      className={`inline-flex items-center rounded-full border px-2 py-1 text-[8px] font-black ${map[status]}`}
     >
-      {text[status]}
+      {textMap[status]}
     </span>
-  );
-}
-
-function Card({
-  title,
-  children,
-  footer,
-  className = "",
-}: {
-  title?: React.ReactNode;
-  children: React.ReactNode;
-  footer?: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border bg-white/90 backdrop-blur-sm shadow-[0_8px_30px_rgba(0,0,0,0.04)] ${className}`}
-      style={{ borderColor: EKARI.hair }}
-    >
-      {title ? (
-        <div
-          className="px-5 pt-5 text-[15px] font-black"
-          style={{ color: EKARI.text }}
-        >
-          {title}
-        </div>
-      ) : null}
-
-      <div className="px-5 py-4">{children}</div>
-
-      {footer ? <div className="px-5 pb-5">{footer}</div> : null}
-    </div>
   );
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="text-sm font-semibold" style={{ color: EKARI.text }}>
+    <label className="text-[9px] font-black text-slate-700">
       {children}
     </label>
   );
@@ -164,83 +135,83 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="mt-1 h-11 w-full rounded-xl border px-3 bg-gray-50/70 outline-none focus:bg-white focus:border-gray-300 transition"
-      style={{ borderColor: EKARI.hair }}
+      className="mt-1.5 h-11 w-full rounded-[13px] border border-[#DDD8CC] bg-white px-3 text-[10px] font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#173C2E]/45 focus:ring-4 focus:ring-[#173C2E]/5"
     />
   );
 }
 
-function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+function TextArea(
+  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
+) {
   return (
     <textarea
       {...props}
-      className="mt-1 w-full rounded-xl border px-3 py-2 bg-gray-50/70 outline-none focus:bg-white focus:border-gray-300 transition"
-      style={{ borderColor: EKARI.hair, minHeight: 144 }}
+      className="mt-1.5 min-h-[144px] w-full resize-y rounded-[13px] border border-[#DDD8CC] bg-white px-3 py-2.5 text-[10px] font-semibold text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#173C2E]/45 focus:ring-4 focus:ring-[#173C2E]/5"
     />
   );
 }
 
 function ContactCard() {
   return (
-    <Card title="Contact us">
-      <div className="space-y-3">
-        <a
-          href="mailto:support@ekarihub.com"
-          className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border"
-          style={{ borderColor: EKARI.hair }}
-        >
-          <div className="w-9 h-9 rounded-full bg-[#C79257] text-white grid place-items-center">
-            <IoMailOutline />
-          </div>
-
-          <div className="flex-1">
-            <div className="font-bold" style={{ color: EKARI.text }}>
-              Email
-            </div>
-            <div className="text-sm" style={{ color: EKARI.dim }}>
-              support@ekarihub.com
-            </div>
-          </div>
-
-          <IoChevronForward className="text-slate-400" />
-        </a>
-
-        <div className="mt-4 text-sm">
-          <div className="font-bold mb-2" style={{ color: EKARI.text }}>
-            We help with:
-          </div>
-
-          <ul className="list-disc pl-5 space-y-1" style={{ color: EKARI.dim }}>
-            <li>Account issues</li>
-            <li>Account deletion</li>
-            <li>Reporting objectionable content</li>
-            <li>Blocking abusive users</li>
-            <li>Payments and billing</li>
-            <li>Technical support</li>
-          </ul>
-        </div>
+    <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
+      <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+        Contact us
       </div>
-    </Card>
+
+      <a
+        href="mailto:support@ekarihub.com"
+        className="mt-3 flex items-center gap-3 rounded-[13px] border border-[#E5E0D6] bg-white p-3 transition hover:bg-[#F3F1EB]"
+      >
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#E8ECE8] text-[#173C2E]">
+          <IoMailOutline size={15} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="text-[9px] font-black text-slate-700">
+            Email support
+          </div>
+
+          <div className="mt-0.5 truncate text-[8px] font-semibold text-slate-400">
+            support@ekarihub.com
+          </div>
+        </div>
+
+        <IoChevronForward className="text-slate-300" size={13} />
+      </a>
+
+      <div className="mt-4 text-[9px] font-black text-slate-700">
+        We help with
+      </div>
+
+      <ul className="mt-2 space-y-1.5 text-[8px] font-medium leading-4 text-slate-400">
+        <li>• Account issues and login</li>
+        <li>• Account deletion</li>
+        <li>• Reporting objectionable content</li>
+        <li>• Blocking abusive users</li>
+        <li>• Payments and billing</li>
+        <li>• Technical support</li>
+      </ul>
+    </div>
   );
 }
 
 function ResponseTimeCard() {
   return (
-    <Card title="Typical response times">
-      <div className="grid grid-cols-1 gap-3">
-        <div
-          className="rounded-xl border p-3 bg-white/70"
-          style={{ borderColor: EKARI.hair }}
-        >
-          <div className="text-xs" style={{ color: EKARI.dim }}>
-            Email and support tickets
-          </div>
-          <div className="mt-1 text-lg font-black" style={{ color: EKARI.text }}>
-            Within 24 hours
-          </div>
+    <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
+      <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+        Response time
+      </div>
+
+      <div className="mt-3 rounded-[13px] border border-[#E5E0D6] bg-white p-3">
+        <div className="text-[8px] font-medium text-slate-400">
+          Email and support tickets
+        </div>
+
+        <div className="mt-1 text-[14px] font-black tracking-[-0.02em] text-slate-800">
+          Within 24 hours
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -395,146 +366,132 @@ export default function SupportPage() {
     }
   };
 
-  const heroBg = useMemo(
-    () =>
-      `radial-gradient(1200px 400px at 20% -10%, #C7925715, transparent 60%),
-       radial-gradient(1200px 400px at 80% -20%, #233F3915, transparent 60%),
-       ${EKARI.bg}`,
-    []
-  );
-
   return (
-    <main className="min-h-screen bg-white scroll-smooth">
+    <main
+      className="min-h-[100svh] w-full max-w-full overflow-x-clip bg-[#F8F7F2] touch-pan-y"
+      style={{
+        WebkitOverflowScrolling: "touch",
+        touchAction: "pan-y",
+      }}
+    >
       <Topbar />
 
-      <div className="md:hidden mx-auto max-w-6xl px-5 pt-4">
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-sm font-semibold"
-          style={{ color: EKARI.dim }}
-        >
-          <IoArrowBack />
-          Back
-        </button>
-      </div>
+      {/* =========================================================
+          FULL-WIDTH SUPPORT HERO
+      ========================================================= */}
+      <section className="relative overflow-hidden border-b border-[#DDD8CC] bg-[#173C2E] text-white">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.045]"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.75) 18px 19px)",
+          }}
+        />
 
-      <section className="relative" style={{ background: heroBg }}>
-        <div className="mx-auto max-w-6xl px-5 py-6 md:py-12">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold" style={{ color: EKARI.dim }}>
-              Support
-            </span>
-          </div>
+        <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
+        <div className="pointer-events-none absolute -bottom-24 left-[32%] h-64 w-64 rounded-full bg-[#F39A22]/[0.08]" />
 
-          <h1
-            className="mt-3 text-3xl md:text-4xl font-black tracking-tight"
-            style={{ color: EKARI.text }}
-          >
-            How can we help?
-          </h1>
+        <div className="relative mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
+          <div className="max-w-[820px]">
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
+                <IoMailOutline size={12} className="text-[#F39A22]" />
+                Support
+              </span>
 
-          <p className="mt-3 max-w-2xl text-sm md:text-base" style={{ color: EKARI.dim }}>
-            Get help with your ekarihub account, payments, content reports,
-            blocking users, account deletion, and technical issues.
-          </p>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
+                <IoDocumentTextOutline size={12} className="text-[#F39A22]" />
+                Help center
+              </span>
+            </div>
 
-          <div className="mt-4 flex items-center gap-2 rounded-2xl border h-12 max-w-2xl bg-white/80 backdrop-blur-sm px-3 shadow-sm">
-            <IoSearch className="text-slate-500" />
-            <input
-              placeholder="Search help articles (coming soon)"
-              className="flex-1 bg-transparent outline-none"
-            />
-          </div>
+            <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+              We&apos;re here to help
+            </div>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {TOPICS.map(({ key, label, icon: Icon, color }) => (
-              <Link
-                key={key}
-                href={`/support/${key}`}
-                className="group rounded-2xl border p-4 hover:shadow-md transition bg-white/90 backdrop-blur-sm"
-                style={{ borderColor: EKARI.hair }}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center"
-                    style={{ background: color }}
-                  >
-                    <Icon className="text-slate-700" />
-                  </div>
+            <h1 className="mt-1 max-w-4xl text-[32px] font-black leading-[1.04] tracking-[-0.045em] sm:text-[40px] lg:text-[50px]">
+              How can we help?
+            </h1>
 
-                  <div
-                    className="font-extrabold text-[15px]"
-                    style={{ color: EKARI.text }}
-                  >
-                    {label}
-                  </div>
-                </div>
+            <p className="mt-4 max-w-3xl text-[11px] font-medium leading-5 text-white/60 sm:text-[12px] md:leading-6">
+              Get help with your ekarihub account, payments, content reports,
+              blocking users, account deletion and technical issues.
+            </p>
 
-                <div className="mt-2 text-sm" style={{ color: EKARI.dim }}>
-                  Guides & troubleshooting
-                </div>
+            <div className="mt-6 max-w-[640px]">
+              <div className="flex h-12 items-center gap-2 rounded-[14px] border border-white/10 bg-white/[0.08] px-3 backdrop-blur-sm">
+                <IoSearch className="shrink-0 text-white/55" size={16} />
 
-                <div className="mt-2 text-xs inline-flex items-center gap-1 text-slate-400 group-hover:text-slate-600">
-                  Browse <IoChevronForward />
-                </div>
-              </Link>
-            ))}
+                <input
+                  placeholder="Search help articles (coming soon)"
+                  className="min-w-0 flex-1 bg-transparent text-[10px] font-semibold text-white outline-none placeholder:text-white/35"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {TOPICS.map(({ key, label, icon: Icon }) => (
+                <Link
+                  key={key}
+                  href={`/support/${key}`}
+                  className="group flex items-center gap-3 rounded-[14px] border border-white/10 bg-white/[0.06] p-3 transition hover:bg-white/[0.11]"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-white/10 text-[#F39A22]">
+                    <Icon size={15} />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[9px] font-black text-white">
+                      {label}
+                    </span>
+
+                    <span className="mt-0.5 block text-[7px] font-medium text-white/40">
+                      Guides & troubleshooting
+                    </span>
+                  </span>
+
+                  <IoChevronForward
+                    size={12}
+                    className="shrink-0 text-white/30 transition-transform group-hover:translate-x-0.5"
+                  />
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
-
-        <div
-          className="absolute inset-x-0 bottom-0 h-px"
-          style={{ background: EKARI.hair }}
-        />
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 py-8 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8">
-          <aside className="space-y-6 lg:hidden">
-            <ContactCard />
-            <ResponseTimeCard />
-          </aside>
+      {/* =========================================================
+          SUPPORT WORKSPACE
+      ========================================================= */}
+      <section className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 md:py-8 lg:px-8">
+        <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_300px] xl:gap-8">
+          {/* MAIN COLUMN */}
+          <div className="min-w-0 space-y-5">
+            {/* SUBMIT TICKET */}
+            <section className="rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 shadow-[0_8px_24px_rgba(15,23,42,0.035)] sm:p-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    Support request
+                  </div>
 
-          <div className="space-y-6">
-            <Card
-              title={
-                <div className="flex items-center justify-between gap-3">
-                  <span>Submit a ticket</span>
+                  <h2 className="mt-1 text-[18px] font-black tracking-[-0.03em] text-slate-900">
+                    Submit a ticket
+                  </h2>
 
-                  <span
-                    className="hidden sm:flex text-xs font-normal items-center gap-2"
-                    style={{ color: EKARI.dim }}
-                  >
-                    <IoDocumentTextOutline />
-                    Include screenshots/logs if possible
-                  </span>
+                  <p className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
+                    Give us enough detail to reproduce or understand the issue.
+                  </p>
                 </div>
-              }
-              footer={
-                <div className="mt-1 flex flex-col sm:flex-row sm:justify-end gap-2">
-                  {!user?.uid && (
-                    <div className="text-sm sm:mr-auto" style={{ color: EKARI.dim }}>
-                      You must be logged in to submit a ticket.
-                    </div>
-                  )}
 
-                  <button
-                    onClick={submitTicket}
-                    disabled={submitting || (!!user?.uid && !canSubmit)}
-                    className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl font-extrabold text-white disabled:opacity-60"
-                    style={{ background: EKARI.gold }}
-                  >
-                    <IoSend />
-                    {submitting
-                      ? "Submitting…"
-                      : user?.uid
-                        ? "Submit ticket"
-                        : "Login to submit ticket"}
-                  </button>
+                <div className="inline-flex w-fit items-center gap-1.5 rounded-[11px] bg-[#E8ECE8] px-3 py-2 text-[8px] font-black text-[#173C2E]">
+                  <IoDocumentTextOutline size={12} />
+                  Screenshots/logs help
                 </div>
-              }
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <div>
                   <FieldLabel>Subject</FieldLabel>
                   <Input
@@ -547,14 +504,11 @@ export default function SupportPage() {
                 <div>
                   <FieldLabel>Topic</FieldLabel>
 
-                  <div
-                    className="mt-1 h-11 w-full rounded-xl border bg-gray-50/70 px-2 flex items-center focus-within:bg-white transition"
-                    style={{ borderColor: EKARI.hair }}
-                  >
+                  <div className="mt-1.5 flex h-11 items-center rounded-[13px] border border-[#DDD8CC] bg-white px-2">
                     <select
                       value={topic}
                       onChange={(e) => setTopic(e.target.value as any)}
-                      className="w-full bg-transparent outline-none px-2"
+                      className="w-full bg-transparent px-2 text-[10px] font-semibold text-slate-700 outline-none"
                     >
                       {TOPICS.map((t) => (
                         <option key={t.key} value={t.key}>
@@ -577,12 +531,12 @@ export default function SupportPage() {
                           key={p}
                           type="button"
                           onClick={() => setPriority(p)}
-                          className={`h-9 px-3 rounded-full border text-sm font-bold transition ${active ? "text-white" : "bg-white"
-                            }`}
-                          style={{
-                            borderColor: active ? EKARI.forest : EKARI.hair,
-                            background: active ? EKARI.forest : "#fff",
-                          }}
+                          className={[
+                            "h-9 rounded-[11px] border px-3 text-[8px] font-black transition",
+                            active
+                              ? "border-[#173C2E] bg-[#173C2E] text-white"
+                              : "border-[#DDD8CC] bg-white text-slate-500 hover:bg-[#F3F1EB]",
+                          ].join(" ")}
                         >
                           {p.charAt(0).toUpperCase() + p.slice(1)}
                         </button>
@@ -600,9 +554,9 @@ export default function SupportPage() {
                     placeholder="Describe the issue in detail…"
                   />
 
-                  <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
-                    Tip: What happened, what you expected, steps to reproduce,
-                    device/browser, screenshots/logs.
+                  <div className="mt-1.5 text-[8px] font-medium leading-4 text-slate-400">
+                    Tip: include what happened, what you expected, steps to
+                    reproduce, device/browser and any screenshots or logs.
                   </div>
                 </div>
 
@@ -614,124 +568,188 @@ export default function SupportPage() {
                     multiple
                     accept="image/*,.pdf,.txt,.log"
                     onChange={onPickFiles}
-                    className="mt-1 h-11 w-full rounded-xl border px-3 bg-gray-50/70 outline-none focus:bg-white focus:border-gray-300 transition"
-                    style={{ borderColor: EKARI.hair }}
+                    className="mt-1.5 h-11 w-full rounded-[13px] border border-[#DDD8CC] bg-white px-3 text-[9px] font-semibold text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-[#E8ECE8] file:px-3 file:py-1.5 file:text-[8px] file:font-black file:text-[#173C2E]"
                   />
 
-                  {files.length > 0 && (
-                    <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                  {files.length > 0 ? (
+                    <div className="mt-1.5 text-[8px] font-semibold text-slate-400">
                       {files.length} file(s) selected (max 3)
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
-              {!!successMsg && (
-                <div className="mt-4 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+              {!!successMsg ? (
+                <div className="mt-4 rounded-[12px] border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[9px] font-black text-emerald-700">
                   {successMsg}
                 </div>
-              )}
-            </Card>
+              ) : null}
 
-            <Card
-              title={
-                <div className="flex items-center justify-between">
-                  <span>My recent tickets</span>
+              <div className="mt-5 flex flex-col gap-3 border-t border-[#E8E3D8] pt-4 sm:flex-row sm:items-center">
+                {!user?.uid ? (
+                  <div className="text-[8px] font-semibold text-slate-400 sm:mr-auto">
+                    You must be logged in to submit a ticket.
+                  </div>
+                ) : (
+                  <div className="sm:mr-auto" />
+                )}
 
-                  <span
-                    className="text-xs font-normal flex items-center gap-1"
-                    style={{ color: EKARI.dim }}
-                  >
-                    <IoCalendarOutline />
-                    last 10
-                  </span>
+                <button
+                  onClick={submitTicket}
+                  disabled={submitting || (!!user?.uid && !canSubmit)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[12px] bg-[#173C2E] px-5 text-[9px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <IoSend size={13} />
+
+                  {submitting
+                    ? "Submitting…"
+                    : user?.uid
+                      ? "Submit ticket"
+                      : "Login to submit ticket"}
+                </button>
+              </div>
+            </section>
+
+            {/* RECENT TICKETS */}
+            <section className="overflow-hidden rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+              <div className="flex items-center justify-between gap-3 border-b border-[#E8E3D8] px-5 py-4 sm:px-6">
+                <div>
+                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                    Support history
+                  </div>
+
+                  <h2 className="mt-1 text-[15px] font-black text-slate-900">
+                    My recent tickets
+                  </h2>
                 </div>
-              }
-            >
+
+                <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#F3F1EB] px-2.5 py-1.5 text-[8px] font-black text-slate-400">
+                  <IoCalendarOutline size={11} />
+                  Last 10
+                </span>
+              </div>
+
               {user?.uid ? (
                 tickets.length === 0 ? (
-                  <div className="p-4 text-sm" style={{ color: EKARI.dim }}>
+                  <div className="px-5 py-8 text-center text-[9px] font-semibold text-slate-400">
                     No tickets yet.
                   </div>
                 ) : (
-                  <ul className="divide-y" style={{ borderColor: EKARI.hair }}>
+                  <ul>
                     {tickets.map((t) => (
-                      <li key={t.id} className="py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div
-                              className="font-semibold truncate"
-                              style={{ color: EKARI.text }}
-                            >
+                      <li
+                        key={t.id}
+                        className="border-b border-[#E8E3D8] px-5 py-4 last:border-b-0 sm:px-6"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[10px] font-black text-slate-800">
                               {t.subject}
                             </div>
 
-                            <div className="text-xs mt-0.5" style={{ color: EKARI.dim }}>
+                            <div className="mt-1 text-[8px] font-medium text-slate-400">
                               {TOPICS.find((x) => x.key === (t as any).topic)
                                 ?.label || "General"}{" "}
                               · {prettyDate(t.createdAt)}
                             </div>
+
+                            {t.message ? (
+                              <div className="mt-2 line-clamp-2 text-[9px] font-medium leading-4 text-slate-500">
+                                {t.message}
+                              </div>
+                            ) : null}
+
+                            {!!t.attachments?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {t.attachments.map((a) => (
+                                  <a
+                                    key={a.url}
+                                    href={a.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[8px] font-black text-[#173C2E] underline underline-offset-2"
+                                  >
+                                    {a.name}
+                                  </a>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
 
-                          <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="flex shrink-0 flex-col items-end gap-2">
                             <StatusBadge status={t.status || "open"} />
 
-                            {t.ticketNo && (
-                              <span
-                                className="hidden sm:inline text-xs font-bold"
-                                style={{ color: EKARI.dim }}
-                              >
+                            {t.ticketNo ? (
+                              <span className="text-[8px] font-black text-slate-400">
                                 {t.ticketNo}
                               </span>
-                            )}
+                            ) : null}
                           </div>
                         </div>
-
-                        {t.message && (
-                          <div className="mt-1 text-sm text-slate-700 line-clamp-2">
-                            {t.message}
-                          </div>
-                        )}
-
-                        {!!t.attachments?.length && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {t.attachments.map((a) => (
-                              <a
-                                key={a.url}
-                                href={a.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs underline text-slate-600 hover:text-slate-900"
-                              >
-                                {a.name}
-                              </a>
-                            ))}
-                          </div>
-                        )}
-
-                        {t.ticketNo && (
-                          <div
-                            className="sm:hidden mt-2 text-xs font-bold"
-                            style={{ color: EKARI.dim }}
-                          >
-                            {t.ticketNo}
-                          </div>
-                        )}
                       </li>
                     ))}
                   </ul>
                 )
               ) : (
-                <div className="p-4 text-sm" style={{ color: EKARI.dim }}>
+                <div className="px-5 py-8 text-center text-[9px] font-semibold text-slate-400">
                   Sign in to view and submit your support tickets.
                 </div>
               )}
-            </Card>
+            </section>
           </div>
 
-          <aside className="space-y-6 hidden lg:block">
+          {/* RIGHT RAIL */}
+          <aside className="min-w-0 space-y-4 lg:sticky lg:top-5 lg:self-start">
             <ContactCard />
             <ResponseTimeCard />
+
+            <div className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
+              <div className="text-[8px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                Quick links
+              </div>
+
+              <div className="mt-3 space-y-1.5">
+                <Link
+                  href="/delete-account"
+                  className="flex items-center gap-3 rounded-[12px] px-2.5 py-2.5 transition hover:bg-[#F3F1EB]"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#E8ECE8] text-[#173C2E]">
+                    <IoSettingsOutline size={14} />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[8px] font-black text-slate-700">
+                      Delete account
+                    </span>
+                    <span className="mt-0.5 block text-[7px] font-medium text-slate-400">
+                      Account removal information
+                    </span>
+                  </span>
+
+                  <IoChevronForward size={12} className="text-slate-300" />
+                </Link>
+
+                <Link
+                  href="/privacy"
+                  className="flex items-center gap-3 rounded-[12px] px-2.5 py-2.5 transition hover:bg-[#F3F1EB]"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#E8ECE8] text-[#173C2E]">
+                    <IoDocumentTextOutline size={14} />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[8px] font-black text-slate-700">
+                      Privacy policy
+                    </span>
+                    <span className="mt-0.5 block text-[7px] font-medium text-slate-400">
+                      Learn how data is handled
+                    </span>
+                  </span>
+
+                  <IoChevronForward size={12} className="text-slate-300" />
+                </Link>
+              </div>
+            </div>
           </aside>
         </div>
       </section>

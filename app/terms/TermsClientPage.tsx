@@ -6,15 +6,19 @@ import Link from "next/link";
 import { motion, type Variants } from "framer-motion";
 import { Topbar } from "../components/Topbar";
 import { Footer } from "../components/Footer";
+import { IoArrowForwardOutline, IoChevronUpOutline, IoDocumentTextOutline, IoLockClosedOutline, IoShieldCheckmarkOutline } from "react-icons/io5";
 
 /** --- Brand --- */
 const EKARI = {
-    forest: "#233F39",
-    gold: "#C79257",
-    hair: "#E5E7EB",
+    forest: "#173C2E",
+    leaf: "#214C3A",
+    gold: "#F39A22",
+    page: "#F8F7F2",
+    surface: "#FBFAF6",
+    hair: "#DDD8CC",
     text: "#0F172A",
-    dim: "#6B7280",
-    bg: "#FFFFFF",
+    dim: "#64748B",
+    bg: "#F8F7F2",
 };
 
 type Section = { id: string; title: string; body: React.ReactNode };
@@ -623,136 +627,200 @@ export default function TermsPage() {
     };
 
     return (
-        <main className="min-h-screen bg-white scroll-smooth">
+        <main
+            className="min-h-[100svh] w-full max-w-full overflow-x-clip bg-[#F8F7F2] touch-pan-y"
+            style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+        >
             <Topbar />
 
-            {/* Hero */}
-            <section className="relative">
-                <div className="mx-auto max-w-6xl px-5 py-5 md:py-4">
+            <section className="relative overflow-hidden border-b border-[#DDD8CC] bg-[#173C2E] text-white">
+                <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.045]"
+                    style={{
+                        backgroundImage:
+                            "repeating-linear-gradient(45deg, transparent 0 17px, rgba(255,255,255,.75) 18px 19px)",
+                    }}
+                />
+                <div className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/[0.035]" />
+                <div className="pointer-events-none absolute -bottom-24 left-[34%] h-64 w-64 rounded-full bg-[#F39A22]/[0.08]" />
+
+                <div className="relative mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 md:py-14 lg:px-8">
                     <motion.div
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="mt-0"
+                        transition={{ duration: 0.24, ease: "easeOut" }}
+                        className="max-w-[820px]"
                     >
-                        <h1
-                            className="text-3xl md:text-4xl font-black tracking-tight"
-                            style={{ color: EKARI.forest }}
-                        >
-                            Terms and Conditions for Ekarihub
+                        <div className="flex flex-wrap gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
+                                <IoDocumentTextOutline size={12} className="text-[#F39A22]" />
+                                Legal
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
+                                <IoShieldCheckmarkOutline size={12} className="text-[#F39A22]" />
+                                Terms & conditions
+                            </span>
+                        </div>
+
+                        <div className="mt-5 text-[9px] font-black uppercase tracking-[0.12em] text-[#F39A22]">
+                            ekarihub legal
+                        </div>
+
+                        <h1 className="mt-1 max-w-4xl text-[32px] font-black leading-[1.04] tracking-[-0.045em] sm:text-[40px] lg:text-[50px]">
+                            Terms and Conditions
                         </h1>
+
+                        <p className="mt-4 max-w-3xl text-[11px] font-medium leading-5 text-white/60 sm:text-[12px] md:leading-6">
+                            These terms explain the rules, responsibilities and conditions that apply when you access or use ekarihub.
+                        </p>
+
+                        <div className="mt-6 flex flex-wrap gap-2">
+                            <a
+                                href="#introduction"
+                                className="inline-flex h-10 items-center gap-2 rounded-[13px] bg-[#F39A22] px-4 text-[9px] font-black text-[#173C2E] transition hover:brightness-105"
+                            >
+                                Read the terms
+                                <IoArrowForwardOutline size={13} />
+                            </a>
+                            <Link
+                                href="/privacy"
+                                className="inline-flex h-10 items-center gap-2 rounded-[13px] border border-white/12 bg-white/[0.06] px-4 text-[9px] font-black text-white/80 transition hover:bg-white/[0.11]"
+                            >
+                                Privacy policy
+                                <IoArrowForwardOutline size={13} />
+                            </Link>
+                        </div>
                     </motion.div>
                 </div>
             </section>
 
-            {/* Body */}
-            <section className="mx-auto max-w-6xl px-5 py-8 md:py-12">
-                <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-8">
-                    {/* Left nav */}
-                    <aside className="lg:sticky lg:self-start lg:top-20 h-max">
-                        <div className="rounded-2xl border" style={{ borderColor: EKARI.hair }}>
-                            <div
-                                className="px-4 py-3 border-b rounded-t-2xl"
-                                style={{ borderColor: EKARI.hair }}
-                            >
-                                <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>
-                                    Contents
+            <section className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 md:py-8 lg:px-8">
+                <div className="grid min-w-0 gap-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:gap-8">
+                    <aside className="min-w-0 lg:sticky lg:top-5 lg:self-start">
+                        <div className="overflow-hidden rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+                            <div className="border-b border-[#E5E0D6] px-4 py-3.5">
+                                <div className="text-[8px] font-black uppercase tracking-[0.11em] text-[#F39A22]">
+                                    In this document
+                                </div>
+                                <h2 className="mt-1 text-[12px] font-black text-slate-800">Contents</h2>
+                            </div>
+
+                            <nav className="max-h-[72vh] overflow-y-auto overscroll-contain p-2">
+                                {SECTIONS.map((section, index) => {
+                                    const isActive = active === section.id;
+                                    return (
+                                        <a
+                                            key={section.id}
+                                            href={`#${section.id}`}
+                                            onClick={(e) => onClickNav(e, section.id)}
+                                            className={[
+                                                "group flex items-center gap-3 rounded-[13px] px-3 py-2.5",
+                                                "transition-all duration-200",
+                                                isActive
+                                                    ? "bg-[#E8ECE8] text-[#173C2E]"
+                                                    : "text-slate-500 hover:bg-[#F3F1EB] hover:text-[#173C2E]",
+                                            ].join(" ")}
+                                        >
+                                            <span
+                                                className={[
+                                                    "grid h-7 w-7 shrink-0 place-items-center rounded-[9px] text-[8px] font-black",
+                                                    isActive
+                                                        ? "bg-[#173C2E] text-white"
+                                                        : "bg-white text-slate-400",
+                                                ].join(" ")}
+                                            >
+                                                {String(index + 1).padStart(2, "0")}
+                                            </span>
+                                            <span className="min-w-0 flex-1 text-[9px] font-black leading-4">
+                                                {section.title}
+                                            </span>
+                                        </a>
+                                    );
+                                })}
+                            </nav>
+                        </div>
+
+                        <div className="mt-4 rounded-[16px] border border-[#E5E0D6] bg-[#FBFAF6] p-3.5">
+                            <div className="flex items-start gap-2.5">
+                                <IoLockClosedOutline size={15} className="mt-0.5 shrink-0 text-[#173C2E]" />
+                                <div>
+                                    <div className="text-[9px] font-black text-slate-700">
+                                        Legal agreement
+                                    </div>
+                                    <p className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                                        By using ekarihub, you agree to the terms described in this document.
+                                    </p>
                                 </div>
                             </div>
-                            <nav className="max-h-[70vh] overflow-auto">
-                                <ul className="p-2">
-                                    {SECTIONS.map((s) => {
-                                        const is = active === s.id;
-                                        return (
-                                            <li key={s.id}>
-                                                <a
-                                                    href={`#${s.id}`}
-                                                    onClick={(e) => onClickNav(e, s.id)}
-                                                    className={[
-                                                        "block rounded-lg px-3 py-2 text-sm font-semibold transition",
-                                                        is ? "bg-[#F8F9FB]" : "hover:bg-gray-50",
-                                                    ].join(" ")}
-                                                    style={{
-                                                        color: is ? EKARI.forest : EKARI.text,
-                                                        borderLeft: is
-                                                            ? `3px solid ${EKARI.gold}`
-                                                            : "3px solid transparent",
-                                                    }}
-                                                >
-                                                    {s.title}
-                                                </a>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </nav>
                         </div>
                     </aside>
 
-                    {/* Main content */}
-                    <article>
-                        {SECTIONS.map((sec) => (
-                            <motion.section
-                                key={sec.id}
-                                id={sec.id}
-                                variants={fadeUp}
-                                initial="hidden"
-                                whileInView="show"
-                                viewport={{ once: false, amount: 0.2 }}
-                                className="scroll-mt-28"
-                            >
-                                <h2
-                                    className="text-xl md:text-2xl font-black mb-2"
-                                    style={{ color: EKARI.text }}
+                    <article className="min-w-0">
+                        <div className="overflow-hidden rounded-[20px] border border-[#DDD8CC] bg-[#FBFAF6] shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
+                            {SECTIONS.map((section, index) => (
+                                <motion.section
+                                    key={section.id}
+                                    id={section.id}
+                                    variants={fadeUp}
+                                    initial="hidden"
+                                    whileInView="show"
+                                    viewport={{ once: true, amount: 0.08 }}
+                                    className={[
+                                        "scroll-mt-6 px-5 py-5 sm:px-6 sm:py-6",
+                                        index < SECTIONS.length - 1 ? "border-b border-[#E8E3D8]" : "",
+                                    ].join(" ")}
                                 >
-                                    {sec.title}
-                                </h2>
-                                <div className="text-[15px] leading-7 text-gray-700">{sec.body}</div>
-                                <div className="mt-6 h-px" style={{ background: EKARI.hair }} />
-                            </motion.section>
-                        ))}
+                                    <div className="flex items-start gap-3">
+                                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#E8ECE8] text-[9px] font-black text-[#173C2E]">
+                                            {String(index + 1).padStart(2, "0")}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <h2 className="text-[16px] font-black tracking-[-0.02em] text-slate-900 sm:text-[18px]">
+                                                {section.title}
+                                            </h2>
+                                            <div className="mt-3 text-[10px] font-medium leading-5 text-slate-600 sm:text-[11px] sm:leading-6 [&_a]:font-black [&_a]:text-[#173C2E] [&_a]:underline [&_a]:underline-offset-4 [&_strong]:font-black [&_ul]:space-y-1.5">
+                                                {section.body}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.section>
+                            ))}
+                        </div>
 
-                        {/* App CTA (same style as before, not part of the legal text) */}
                         <motion.div
                             variants={fadeUp}
                             initial="hidden"
                             whileInView="show"
-                            viewport={{ once: true, amount: 0.2 }}
-                            className="mt-8 rounded-2xl border p-5 md:p-6"
-                            style={{ borderColor: EKARI.hair, background: "#FBFBFD" }}
+                            viewport={{ once: true, amount: 0.15 }}
+                            className="mt-5 rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-5 sm:p-6"
                         >
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                <div>
-                                    <h3
-                                        className="text-base md:text-lg font-extrabold"
-                                        style={{ color: EKARI.text }}
-                                    >
-                                        Download the EkariHub App
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                <div className="max-w-2xl">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#F39A22]">
+                                        ekarihub apps
+                                    </div>
+                                    <h3 className="mt-1 text-[17px] font-black tracking-[-0.03em] text-slate-900">
+                                        Take ekarihub with you
                                     </h3>
-                                    <p className="text-sm" style={{ color: EKARI.dim }}>
-                                        Join the community and grow together.
+                                    <p className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
+                                        Access the community, market and agribusiness tools on mobile.
                                     </p>
                                 </div>
-                                <div className="flex items-center gap-3">
+
+                                <div className="flex flex-wrap gap-2">
                                     <Link
-                                        href="#"
-                                        className="rounded-xl border px-3 py-2 text-sm font-bold hover:shadow-sm"
-                                        style={{
-                                            borderColor: EKARI.hair,
-                                            color: EKARI.text,
-                                            background: "#fff",
-                                        }}
+                                        href="https://play.google.com/store/apps/details?id=com.ekarihub.app"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-10 items-center rounded-[12px] border border-[#DDD8CC] bg-white px-4 text-[9px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                                     >
                                         Google Play
                                     </Link>
                                     <Link
-                                        href="#"
-                                        className="rounded-xl border px-3 py-2 text-sm font-bold hover:shadow-sm"
-                                        style={{
-                                            borderColor: EKARI.hair,
-                                            color: EKARI.text,
-                                            background: "#fff",
-                                        }}
+                                        href="https://apps.apple.com/us/app/ekarihub/id6761846497"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex h-10 items-center rounded-[12px] border border-[#DDD8CC] bg-white px-4 text-[9px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                                     >
                                         App Store
                                     </Link>
@@ -763,18 +831,21 @@ export default function TermsPage() {
                 </div>
             </section>
 
-            {/* Back to top */}
             <button
+                type="button"
                 onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                 className={[
-                    "fixed right-4 bottom-5 z-40 rounded-full border px-3 py-2 shadow-sm text-sm font-bold",
-                    showTop ? "opacity-100" : "opacity-0 pointer-events-none",
-                    "transition-opacity",
+                    "fixed bottom-5 right-4 z-40 inline-flex h-10 items-center gap-1.5 rounded-full",
+                    "border border-[#DDD8CC] bg-[#FBFAF6] px-3.5 text-[9px] font-black text-[#173C2E]",
+                    "shadow-[0_10px_28px_rgba(15,23,42,0.10)] transition-all duration-200",
+                    showTop
+                        ? "translate-y-0 opacity-100"
+                        : "pointer-events-none translate-y-2 opacity-0",
                 ].join(" ")}
-                style={{ background: EKARI.bg, borderColor: EKARI.hair, color: EKARI.text }}
                 aria-label="Back to top"
             >
-                ↑ Top
+                <IoChevronUpOutline size={13} />
+                Top
             </button>
 
             <Footer />
