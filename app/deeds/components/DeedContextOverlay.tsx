@@ -89,7 +89,7 @@ export default function DeedContextOverlay({
                 "pointer-events-none",
                 "absolute",
                 "left-3",
-                "top-[70px]",
+                "top-[100px] lg:top-[70px]",
                 "z-[35]",
 
                 /*
