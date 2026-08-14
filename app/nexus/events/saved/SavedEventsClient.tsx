@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged, type Auth } from "firebase/auth";
 import { db } from "@/lib/firebase";
-import AppShell from "@/app/components/AppShell_";
+import AppShell from "@/app/components/AppShell";
 import clsx from "clsx";
 import { ArrowLeft } from "lucide-react";
 import {

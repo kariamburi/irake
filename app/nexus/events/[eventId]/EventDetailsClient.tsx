@@ -36,7 +36,7 @@ import {
     IoContractOutline,
 } from "react-icons/io5";
 import { ArrowLeft } from "lucide-react";
-import AppShell from "@/app/components/AppShell_";
+import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import clsx from "clsx";
 
