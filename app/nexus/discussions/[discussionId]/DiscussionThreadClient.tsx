@@ -20,7 +20,7 @@ import {
 import { getAuth, onAuthStateChanged, type User } from "firebase/auth";
 
 import { db } from "@/lib/firebase";
-import AppShell from "@/app/components/AppShell_";
+import AppShell from "@/app/components/AppShell";
 import OpenInAppBanner from "@/app/components/OpenInAppBanner";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 
