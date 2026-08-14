@@ -373,7 +373,7 @@ export function PhotoSliderPlayer({
 
     return (
         <div
-            className={`relative h-full w-full overflow-hidden bg-black select-none ${className ?? ""}`}
+            className={`relative h-full w-full overflow-hidden select-none ${className ?? ""}`}
             onContextMenu={(e) => e.preventDefault()}
         >
             {!!current.previewUrl && !loadedMap[index] && (
@@ -399,7 +399,7 @@ export function PhotoSliderPlayer({
                 />
             )}
             {!loadedMap[index] && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black">
+                <div className="absolute inset-0 z-10 flex items-center justify-center">
                     <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" />
                 </div>
             )}

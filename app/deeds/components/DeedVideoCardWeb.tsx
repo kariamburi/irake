@@ -669,7 +669,7 @@ export function DeedVideoCardWeb({
     if (isPhoto) {
         return (
             <article className="h-full w-full">
-                <div className="relative h-full w-full overflow-hidden bg-[#102718]">
+                <div className="relative h-full w-full overflow-hidden">
                     <div className={mediaStageClass}>
                         {sliderPhotos.length > 0 ? (
                             <PhotoSliderPlayer
