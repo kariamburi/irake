@@ -55,7 +55,7 @@ import {
     IoSparklesOutline,
 } from "react-icons/io5";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
-import AppShell from "@/app/components/AppShell_";
+import AppShell from "@/app/components/AppShell";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/app/hooks/useAuth";
 
