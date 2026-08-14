@@ -43,7 +43,7 @@ import {
 
 import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/app/hooks/useAuth";
-import AppShell from "@/app/components/AppShell_";
+import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SmartAvatar from "@/app/components/SmartAvatar";
 
