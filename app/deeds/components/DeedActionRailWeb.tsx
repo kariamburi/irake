@@ -435,7 +435,7 @@ export function DeedActionRailWeb({
             <ActionButton
                 active={false}
                 authordeeds={authordeeds}
-                label="More"
+                label=""
                 onClick={onMoreClick}
                 title="More options"
                 variant={variant}

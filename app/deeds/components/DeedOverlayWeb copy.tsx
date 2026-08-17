@@ -11,7 +11,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { Deed } from "../data/deedsFeedWeb";
-//import { DeedActionRailWeb } from "./DeedActionRailWeb";
+import { DeedActionRailWeb } from "./DeedActionRailWeb";
 import SmartAvatar from "@/app/components/SmartAvatar";
 import { AuthorBadgePill } from "@/app/components/AuthorBadgePill";
 import EkariAvatar from "@/app/components/EkariAvatar";
@@ -309,7 +309,7 @@ export function DeedOverlayWeb({
         <>
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/82 via-black/18 to-black/8 md:from-black/72 md:via-black/10 md:to-transparent" />
 
-            {/* <div className="deed-mobile-overlay-rail pointer-events-none absolute inset-0 z-20 md:hidden">
+            <div className="deed-mobile-overlay-rail pointer-events-none absolute inset-0 z-20 md:hidden">
                 <div className="pointer-events-auto absolute bottom-[104px] right-2 flex flex-col items-center gap-3">
                     <div className="relative">
                         <button
@@ -371,7 +371,6 @@ export function DeedOverlayWeb({
                     />
                 </div>
             </div>
-             */}
 
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10">
                 <div

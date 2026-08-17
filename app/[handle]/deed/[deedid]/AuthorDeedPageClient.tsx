@@ -1008,7 +1008,9 @@ export default function AuthorDeedPageClient({
                                     ) : null}
                                 </section>
 
-                                {/* Desktop action rail */}
+                                {/* ================================================= */}
+                                {/* SHARED DEED ACTION RAIL - DESKTOP */}
+                                {/* ================================================= */}
                                 {isDesktop ? (
                                     <div className="hidden w-[60px] shrink-0 items-center justify-center lg:flex xl:w-[60px]">
                                         <DesktopDeedRailWeb
@@ -1025,8 +1027,7 @@ export default function AuthorDeedPageClient({
                                             commented={
                                                 activeDeed
                                                     ? !!commentedMap[
-                                                    activeDeed
-                                                        .id
+                                                    activeDeed.id
                                                     ]
                                                     : false
                                             }
@@ -1046,6 +1047,67 @@ export default function AuthorDeedPageClient({
                                                 canGoNext
                                             }
                                             authordeeds={
+                                                true
+                                            }
+                                        />
+                                    </div>
+                                ) : null}
+
+                                {/* ================================================= */}
+                                {/* SHARED DEED ACTION RAIL - MOBILE */}
+                                {/* ================================================= */}
+                                {!isDesktop ? (
+                                    <div
+                                        className="
+                                            pointer-events-auto
+                                            absolute
+                                            inset-y-0
+                                            right-2
+                                            z-[65]
+                                            flex
+                                            w-[58px]
+                                            items-center
+                                            justify-center
+                                            lg:hidden
+                                        "
+                                    >
+                                        <DesktopDeedRailWeb
+                                            item={
+                                                activeDeed
+                                            }
+                                            uid={
+                                                user?.uid ??
+                                                null
+                                            }
+                                            following={
+                                                following
+                                            }
+                                            commented={
+                                                activeDeed
+                                                    ? !!commentedMap[
+                                                    activeDeed.id
+                                                    ]
+                                                    : false
+                                            }
+                                            onOpenComments={
+                                                openComments
+                                            }
+                                            onPrev={
+                                                goPrev
+                                            }
+                                            onNext={
+                                                goNext
+                                            }
+                                            canGoPrev={
+                                                canGoPrev
+                                            }
+                                            canGoNext={
+                                                canGoNext
+                                            }
+                                            authordeeds={
+                                                true
+                                            }
+                                            compactMobile={
                                                 true
                                             }
                                         />

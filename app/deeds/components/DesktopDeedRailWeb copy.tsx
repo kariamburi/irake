@@ -422,7 +422,7 @@ export function DesktopDeedRailWeb({
         "group grid h-12 w-12 place-items-center",
         "rounded-full border",
         "border-white/25",
-        "bg-[#123C30]/95",
+        "bg-black/45",
         "text-white",
         "backdrop-blur-xl",
         "shadow-[0_7px_20px_rgba(0,0,0,0.25)]",
@@ -433,35 +433,14 @@ export function DesktopDeedRailWeb({
         <>
             <div
                 className={[
-                    "relative h-full w-full",
+                    "h-full w-full flex-col items-center py-2",
                     compactMobile
-                        ? "flex items-center justify-center"
-                        : "hidden lg:flex lg:items-center lg:justify-center",
+                        ? "flex justify-center"
+                        : "hidden justify-between lg:flex",
                 ].join(" ")}
             >
-                {/*
-                 * DESKTOP UP / DOWN NAVIGATION
-                 *
-                 * Keep this independent from the right action rail.
-                 * The parent that renders this component can stay narrow:
-                 * the navigation is moved to the LEFT using a negative
-                 * horizontal offset, so it does not consume the action
-                 * rail's vertical space and does not overlap its buttons.
-                 */}
                 {!compactMobile ? (
-                    <div
-                        className="
-                            absolute
-                            left-[-48px]
-                            top-1/2
-                            z-30
-                            flex
-                            -translate-y-1/2
-                            flex-col
-                            items-center
-                            justify-center
-                        "
-                    >
+                    <>
                         {/* PREVIOUS */}
                         <button
                             type="button"
@@ -470,8 +449,9 @@ export function DesktopDeedRailWeb({
                             aria-label="Previous deed"
                             className={[
                                 glassNavigationClass,
+
                                 canGoPrev
-                                    ? "hover:scale-[1.08] hover:bg-[#174B3C] hover:shadow-[0_12px_28px_rgba(0,0,0,0.34)] active:scale-95"
+                                    ? "hover:scale-[1.08] hover:bg-white/12 hover:shadow-[0_12px_28px_rgba(0,0,0,0.34)] active:scale-95"
                                     : "cursor-not-allowed opacity-35",
                             ].join(" ")}
                         >
@@ -481,48 +461,20 @@ export function DesktopDeedRailWeb({
                             />
                         </button>
 
-                        {/* SMALL DIVIDER */}
-                        <div className="my-2 h-px w-8 bg-white/20" />
-
-                        {/* NEXT */}
-                        <button
-                            type="button"
-                            onClick={onNext}
-                            disabled={!canGoNext}
-                            aria-label="Next deed"
-                            className={[
-                                glassNavigationClass,
-                                canGoNext
-                                    ? "hover:scale-[1.08] hover:bg-[#174B3C] hover:shadow-[0_12px_28px_rgba(0,0,0,0.34)] active:scale-95"
-                                    : "cursor-not-allowed opacity-35",
-                            ].join(" ")}
-                        >
-                            <IoChevronDown
-                                size={23}
-                                className="transition-transform duration-200 ease-out group-hover:translate-y-[2px]"
-                            />
-                        </button>
-                    </div>
+                    </>
                 ) : null}
 
-                {/*
-                 * RIGHT ACTION RAIL
-                 *
-                 * Only the avatar + normal deed actions live here.
-                 * Previous/Next no longer take any space in this stack,
-                 * so the right rail fits vertically without being stretched.
-                 */}
+                {/* CENTER ACTIONS */}
                 <div
                     className="
-                        flex
-                        h-full
-                        w-full
-                        flex-col
-                        items-center
-                        justify-center
-                        gap-3
-                        py-2
-                    "
+            flex
+            flex-1
+            flex-col
+            items-center
+            justify-center
+            gap-3
+            py-2
+          "
                 >
                     {/* CREATOR AVATAR */}
                     <div className="relative">
@@ -548,22 +500,22 @@ export function DesktopDeedRailWeb({
                                 );
                             }}
                             className="
-                                relative
-                                rounded-full
-                                transition
-                                hover:scale-[1.06]
-                                hover:-translate-y-[1px]
-                                active:scale-[0.97]
-                            "
+                relative
+                rounded-full
+                transition
+                hover:scale-[1.06]
+                hover:-translate-y-[1px]
+                active:scale-[0.97]
+              "
                             aria-label="Open author profile"
                         >
                             <div
                                 className="
-                                    rounded-full
-                                    border-2
-                                    border-white/90
-                                    shadow-[0_10px_26px_rgba(0,0,0,.34)]
-                                "
+                  rounded-full
+                  border-2
+                  border-white/90
+                  shadow-[0_10px_26px_rgba(0,0,0,.34)]
+                "
                             >
                                 <EkariAvatar
                                     src={
@@ -595,18 +547,28 @@ export function DesktopDeedRailWeb({
                                     "left-1/2",
                                     "-bottom-[7px]",
                                     "z-20",
+
                                     "grid",
                                     "h-5",
                                     "w-5",
+
                                     "-translate-x-1/2",
+
                                     "place-items-center",
+
                                     "rounded-full",
+
                                     "border-[1.5px]",
                                     "border-white",
+
                                     "bg-[#F3A526]",
+
                                     "text-white",
+
                                     "shadow-md",
+
                                     "transition-all duration-200 ease-out",
+
                                     followPending
                                         ? "opacity-60"
                                         : "hover:scale-110 active:scale-95",
@@ -622,22 +584,22 @@ export function DesktopDeedRailWeb({
                                 justFollowed) ? (
                             <div
                                 className="
-                                    absolute
-                                    -bottom-[7px]
-                                    left-1/2
-                                    z-20
-                                    grid
-                                    h-5
-                                    w-5
-                                    -translate-x-1/2
-                                    place-items-center
-                                    rounded-full
-                                    border-[1.5px]
-                                    border-white
-                                    bg-[#16A34A]
-                                    text-white
-                                    shadow-md
-                                "
+                  absolute
+                  -bottom-[7px]
+                  left-1/2
+                  z-20
+                  grid
+                  h-5
+                  w-5
+                  -translate-x-1/2
+                  place-items-center
+                  rounded-full
+                  border-[1.5px]
+                  border-white
+                  bg-[#16A34A]
+                  text-white
+                  shadow-md
+                "
                             >
                                 <IoCheckmark
                                     size={11}
@@ -719,6 +681,29 @@ export function DesktopDeedRailWeb({
                         }
                     />
                 </div>
+
+                {!compactMobile ? (
+                    <>
+                        {/* NEXT */}
+                        <button
+                            type="button"
+                            onClick={onNext}
+                            disabled={!canGoNext}
+                            aria-label="Next deed"
+                            className={[
+                                glassNavigationClass,
+
+                                canGoNext
+                                    ? "hover:scale-[1.08] hover:bg-white/12 hover:shadow-[0_12px_28px_rgba(0,0,0,0.34)] active:scale-95"
+                                    : "cursor-not-allowed opacity-35",
+                            ].join(" ")}
+                        >
+                            <IoChevronDown
+                                size={23}
+                                className="transition-transform duration-200 ease-out group-hover:translate-y-[2px]"
+                            />
+                        </button>                    </>
+                ) : null}
             </div>
 
             {/* ============================== */}

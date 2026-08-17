@@ -385,13 +385,13 @@ export function LeftNavDesktop({
 
                 <div className="my-2 border-t border-white/10" />
 
-                <NavItem
+                {/**  <NavItem
                     icon={<IoPersonCircleOutline />}
                     label="Profile"
                     href={profileHref}
                     uid={authUid}
                     requiresAuth
-                />
+                />*/}
 
                 <NavItem
                     icon={<IoInformationCircleOutline />}
