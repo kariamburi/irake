@@ -1294,6 +1294,14 @@ export default function NotificationsPage() {
       new Set()
     );
 
+  /*
+   * Used only for the automatic "mark as read when this route opens"
+   * behaviour. It prevents every Firestore snapshot update from causing
+   * another write.
+   */
+  const autoMarkedReadUidRef =
+    useRef<string | null>(null);
+
   useEffect(() => {
     if (!uid) {
       setNotifications([]);
@@ -1870,6 +1878,69 @@ export default function NotificationsPage() {
       notifications,
       followers,
     ]);
+
+  /*
+   * Automatically clear the Notifications badge when /notifications
+   * has been opened and both initial Firestore listeners have loaded.
+   *
+   * useInboxTotalsWeb is already listening to these same documents with
+   * seen == false. As soon as this batch changes seen to true, the sidebar
+   * badge updates to zero automatically.
+   */
+  useEffect(() => {
+    if (!uid) {
+      autoMarkedReadUidRef.current =
+        null;
+      return;
+    }
+
+    /*
+     * Do not run while either collection is still loading. Waiting for both
+     * avoids treating empty pre-load arrays as if there were nothing to read.
+     */
+    if (
+      notificationsLoading ||
+      followersLoading
+    ) {
+      return;
+    }
+
+    /*
+     * Run once for this mounted page/user. New notifications that arrive
+     * after the page is already open remain new until the user opens the
+     * route again or presses "Mark all read".
+     */
+    if (
+      autoMarkedReadUidRef.current ===
+      uid
+    ) {
+      return;
+    }
+
+    autoMarkedReadUidRef.current =
+      uid;
+
+    void markAllRead().catch(
+      (error) => {
+        console.error(
+          "AUTO_MARK_NOTIFICATIONS_READ_FAILED",
+          error
+        );
+
+        /*
+         * If the write fails, allow another attempt on the next relevant
+         * render/snapshot update.
+         */
+        autoMarkedReadUidRef.current =
+          null;
+      }
+    );
+  }, [
+    uid,
+    notificationsLoading,
+    followersLoading,
+    markAllRead,
+  ]);
 
   const onRefresh =
     useCallback(() => {
