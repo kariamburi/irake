@@ -24,7 +24,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
     IoCartOutline,
     IoOptionsOutline,
@@ -315,9 +315,22 @@ function CategoryRail({
 /* ---------------- page ---------------- */
 export default function MarketPage() {
     const isMobile = useIsMobile();
+    const searchParams = useSearchParams();
 
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState(() =>
+        searchParams.get("search")?.trim() || ""
+    );
     const debouncedSearch = useDebounced(search.trim().toLowerCase(), 350);
+
+    useEffect(() => {
+        const urlSearch = searchParams.get("search")?.trim() || "";
+
+        setSearch((current) =>
+            current === urlSearch
+                ? current
+                : urlSearch
+        );
+    }, [searchParams]);
 
     const [filters, setFilters] = useState<Filters>({
         type: null,
