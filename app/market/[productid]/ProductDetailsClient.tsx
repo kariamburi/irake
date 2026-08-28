@@ -704,20 +704,20 @@ export default function ProductDetailsClient({
                                 ""
                             )
                         }
-                        className="block max-w-full truncate text-left text-[13px] font-black text-slate-900 hover:underline"
+                        className="block max-w-full truncate text-left text-[15px] font-black text-slate-900 hover:underline"
                     >
                         {sellerDisplayName}
                     </button>
 
                     {sellerHandle ? (
-                        <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
+                        <div className="mt-0.5 truncate text-[13px] font-semibold text-slate-400">
                             {sellerHandle}
                         </div>
                     ) : null}
 
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         {showVerified ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2 py-0.5 text-[9px] font-black text-[#3E6F28]">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2 py-0.5 text-[12px] font-black text-[#3E6F28]">
                                 <IoShieldCheckmark
                                     size={11}
                                 />
@@ -743,7 +743,7 @@ export default function ProductDetailsClient({
                         disabled={msgLoading}
                         className={[
                             "inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl",
-                            "bg-[#c69258] px-4 text-[11px] font-black text-white",
+                            "bg-[#c69258] px-4 text-[14px] font-black text-white",
                             "shadow-[0_8px_18px_rgba(243,154,34,0.16)]",
                             "transition-all duration-200",
                             msgLoading
@@ -766,7 +766,7 @@ export default function ProductDetailsClient({
                         )}
                     </button>
                 ) : (
-                    <div className="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-[#E8ECE8] px-4 text-[11px] font-black text-[#173C2E]">
+                    <div className="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-[#E8ECE8] px-4 text-[14px] font-black text-[#173C2E]">
                         Your listing
                     </div>
                 )}
@@ -846,23 +846,23 @@ export default function ProductDetailsClient({
 
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#8A5109]">
+                        <h3 className="text-[14px] font-black uppercase tracking-[0.08em] text-[#8A5109]">
                             Buyer safety
                         </h3>
 
-                        <span className="rounded-full bg-[#c69258]/15 px-2 py-0.5 text-[8px] font-black text-[#9A5A08]">
+                        <span className="rounded-full bg-[#c69258]/15 px-2 py-0.5 text-[11px] font-black text-[#9A5A08]">
                             Stay safe
                         </span>
                     </div>
 
-                    <p className="mt-2 text-[10px] font-medium leading-5 text-slate-600">
+                    <p className="mt-2 text-[13px] font-medium leading-5 text-slate-600">
                         Inspect the item before paying,
                         avoid advance payments and meet
                         the seller in a safe place where
                         possible.
                     </p>
 
-                    <p className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+                    <p className="mt-2 text-[12px] font-medium leading-4 text-slate-400">
                         ekarihub provides the marketplace
                         platform and does not handle
                         payments or deliveries between
@@ -888,18 +888,18 @@ export default function ProductDetailsClient({
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                             <div>
-                                <h3 className="text-[12px] font-black text-slate-900">
+                                <h3 className="text-[14px] font-black text-slate-900">
                                     Listing perks
                                 </h3>
 
-                                <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                                <p className="mt-0.5 text-[13px] font-medium text-slate-400">
                                     Improve reach and featured
                                     placement.
                                 </p>
                             </div>
 
                             {!hasActivePlan ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[8px] font-black text-slate-500">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-500">
                                     <IoLockClosedOutline
                                         size={10}
                                     />
@@ -916,7 +916,7 @@ export default function ProductDetailsClient({
                                         "/seller/dashboard"
                                     )
                                 }
-                                className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                                className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                             >
                                 <IoSparklesOutline
                                     size={15}
@@ -936,7 +936,7 @@ export default function ProductDetailsClient({
                                             perkLoading !==
                                             null
                                         }
-                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0] disabled:opacity-50"
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white text-[13px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0] disabled:opacity-50"
                                     >
                                         {perkLoading ===
                                             "boost" ? (
@@ -957,7 +957,7 @@ export default function ProductDetailsClient({
                                             perkLoading !==
                                             null
                                         }
-                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#173C2E] text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
+                                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#173C2E] text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
                                     >
                                         {perkLoading ===
                                             "feature" ? (
@@ -978,7 +978,7 @@ export default function ProductDetailsClient({
                                             "/market/packages"
                                         )
                                     }
-                                    className="mt-2 text-[9px] font-black text-[#173C2E] underline underline-offset-2"
+                                    className="mt-2 text-[12px] font-black text-[#173C2E] underline underline-offset-2"
                                 >
                                     Manage plan
                                 </button>
@@ -986,7 +986,7 @@ export default function ProductDetailsClient({
                         )}
 
                         {perkMsg ? (
-                            <div className="mt-3 rounded-xl border border-[#DDD8CC] bg-white px-3 py-2 text-[9px] font-semibold text-slate-500">
+                            <div className="mt-3 rounded-xl border border-[#DDD8CC] bg-white px-3 py-2 text-[12px] font-semibold text-slate-500">
                                 {perkMsg}
                             </div>
                         ) : null}
@@ -1013,12 +1013,12 @@ export default function ProductDetailsClient({
                             size={15}
                         />
 
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                        <h3 className="text-[13px] font-black uppercase tracking-[0.08em] text-slate-400">
                             ekariMarket
                         </h3>
                     </div>
 
-                    <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-600">
+                    <p className="mt-2 text-[14px] font-semibold leading-5 text-slate-600">
                         Browse more products, services,
                         animals, land and lease listings.
                     </p>
@@ -1028,7 +1028,7 @@ export default function ProductDetailsClient({
                         onClick={() =>
                             router.push("/market")
                         }
-                        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-3 text-[10px] font-black text-white transition hover:bg-[#214C3A]"
+                        className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-3 text-[13px] font-black text-white transition hover:bg-[#214C3A]"
                     >
                         Back to market
                         <IoArrowForwardOutline
@@ -1098,7 +1098,7 @@ export default function ProductDetailsClient({
                     </span>
 
                     <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                        <div className="text-[13px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                             ekariMarket
                         </div>
 
@@ -1240,7 +1240,7 @@ export default function ProductDetailsClient({
                                         <span
                                             className={[
                                                 "inline-flex items-center gap-1 rounded-full px-2.5 py-1",
-                                                "text-[9px] font-black text-white shadow-sm backdrop-blur-md",
+                                                "text-[12px] font-black text-white shadow-sm backdrop-blur-md",
                                                 isSold
                                                     ? "bg-rose-600"
                                                     : isReserved
@@ -1276,7 +1276,7 @@ export default function ProductDetailsClient({
                                         </span>
 
                                         {showFeatured ? (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#c69258] px-2.5 py-1 text-[9px] font-black text-white shadow-sm">
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#c69258] px-2.5 py-1 text-[12px] font-black text-white shadow-sm">
                                                 <IoStar
                                                     size={
                                                         11
@@ -1394,7 +1394,7 @@ export default function ProductDetailsClient({
                                             className="mx-auto"
                                         />
 
-                                        <p className="mt-2 text-[11px] font-bold">
+                                        <p className="mt-2 text-[14px] font-bold">
                                             No photo
                                         </p>
                                     </div>
@@ -1415,7 +1415,7 @@ export default function ProductDetailsClient({
                         {/* Listing labels */}
                         <div className="flex flex-wrap items-center gap-2">
                             {product.category ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-[#EFECE5] px-2.5 py-1 text-[9px] font-black text-slate-500">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#EFECE5] px-2.5 py-1 text-[12px] font-black text-slate-500">
                                     <IoPricetagOutline size={11} />
                                     {product.category}
                                 </span>
@@ -1424,7 +1424,7 @@ export default function ProductDetailsClient({
                             <span
                                 className={[
                                     "inline-flex items-center gap-1 rounded-full px-2.5 py-1",
-                                    "text-[9px] font-black text-white",
+                                    "text-[12px] font-black text-white",
                                     isSold
                                         ? "bg-rose-600"
                                         : isReserved
@@ -1444,7 +1444,7 @@ export default function ProductDetailsClient({
                             </span>
 
                             {showFeatured ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-[#c69258] px-2.5 py-1 text-[9px] font-black text-white">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#c69258] px-2.5 py-1 text-[12px] font-black text-white">
                                     <IoStar size={11} />
                                     Featured
                                 </span>
@@ -1454,11 +1454,11 @@ export default function ProductDetailsClient({
                         {/* Title + price */}
                         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0">
-                                <h1 className="text-[24px] font-black leading-[1.1] tracking-[-0.035em] text-slate-900 sm:text-[28px]">
+                                <h1 className="text-[20px] font-black leading-[1.15] tracking-[-0.03em] text-slate-900 sm:text-[22px]">
                                     {product.name}
                                 </h1>
 
-                                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-400">
+                                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold text-slate-400">
                                     {product.type ? (
                                         <span className="capitalize">
                                             {product.type}
@@ -1484,16 +1484,16 @@ export default function ProductDetailsClient({
                             </div>
 
                             <div className="shrink-0 sm:text-right">
-                                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                                <div className="text-[12px] font-black uppercase tracking-[0.1em] text-slate-400">
                                     Price
                                 </div>
 
-                                <div className="mt-1 text-[28px] font-black tracking-[-0.035em] text-[#173C2E] sm:text-[30px]">
+                                <div className="mt-1 text-[22px] font-black tracking-[-0.03em] text-[#173C2E] sm:text-[24px]">
                                     {listingPriceText}
                                 </div>
 
                                 {product.billingUnit ? (
-                                    <div className="mt-1 text-[9px] font-semibold text-slate-400">
+                                    <div className="mt-1 text-[12px] font-semibold text-slate-400">
                                         per {product.billingUnit}
                                     </div>
                                 ) : null}
@@ -1503,11 +1503,11 @@ export default function ProductDetailsClient({
                         {/* Description */}
                         {descriptionText ? (
                             <div className="mt-5 border-t border-[#E4DED2] pt-4">
-                                <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                <div className="text-[13px] font-black uppercase tracking-[0.08em] text-slate-400">
                                     About this listing
                                 </div>
 
-                                <p className="mt-2 whitespace-pre-wrap text-[12px] font-medium leading-6 text-slate-600">
+                                <p className="mt-2 whitespace-pre-wrap text-[15px] font-medium leading-[22px] text-slate-600">
                                     {descriptionText}
                                 </p>
                             </div>
@@ -1521,7 +1521,7 @@ export default function ProductDetailsClient({
                                     className="text-[#c69258]"
                                 />
 
-                                <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                <div className="text-[13px] font-black uppercase tracking-[0.08em] text-slate-400">
                                     Listing details
                                 </div>
                             </div>
@@ -1529,11 +1529,11 @@ export default function ProductDetailsClient({
                             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                 {product.category ? (
                                     <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
-                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                        <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                                             Category
                                         </div>
 
-                                        <div className="mt-1 text-[11px] font-black text-slate-700">
+                                        <div className="mt-1 text-[14px] font-black text-slate-700">
                                             {product.category}
                                         </div>
                                     </div>
@@ -1541,11 +1541,11 @@ export default function ProductDetailsClient({
 
                                 {product.type ? (
                                     <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
-                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                        <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                                             Listing type
                                         </div>
 
-                                        <div className="mt-1 capitalize text-[11px] font-black text-slate-700">
+                                        <div className="mt-1 capitalize text-[14px] font-black text-slate-700">
                                             {product.type}
                                         </div>
                                     </div>
@@ -1553,11 +1553,11 @@ export default function ProductDetailsClient({
 
                                 {product.unit ? (
                                     <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
-                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                        <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                                             Quantity / unit
                                         </div>
 
-                                        <div className="mt-1 text-[11px] font-black text-slate-700">
+                                        <div className="mt-1 text-[14px] font-black text-slate-700">
                                             {product.typicalPackSize
                                                 ? `${product.typicalPackSize} `
                                                 : ""}
@@ -1568,33 +1568,33 @@ export default function ProductDetailsClient({
 
                                 {product.billingUnit ? (
                                     <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
-                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                        <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                                             Billing unit
                                         </div>
 
-                                        <div className="mt-1 text-[11px] font-black text-slate-700">
+                                        <div className="mt-1 text-[14px] font-black text-slate-700">
                                             {product.billingUnit}
                                         </div>
                                     </div>
                                 ) : null}
 
                                 <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
-                                    <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                    <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                                         Status
                                     </div>
 
-                                    <div className="mt-1 text-[11px] font-black text-slate-700">
+                                    <div className="mt-1 text-[14px] font-black text-slate-700">
                                         {listingStatusText}
                                     </div>
                                 </div>
 
                                 {created ? (
                                     <div className="rounded-xl bg-[#F4F2ED] px-3 py-3">
-                                        <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                        <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                                             Posted
                                         </div>
 
-                                        <div className="mt-1 text-[11px] font-black text-slate-700">
+                                        <div className="mt-1 text-[14px] font-black text-slate-700">
                                             {created.toLocaleDateString()}
                                         </div>
                                     </div>
@@ -1603,7 +1603,7 @@ export default function ProductDetailsClient({
                         </div>
 
                         {isTree && product.useCase ? (
-                            <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#EEF6EC] px-3 py-2.5 text-[10px] font-semibold leading-5 text-[#3E6F28]">
+                            <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#EEF6EC] px-3 py-2.5 text-[13px] font-semibold leading-5 text-[#3E6F28]">
                                 <IoLeafOutline
                                     size={14}
                                     className="mt-0.5 shrink-0"
@@ -1698,7 +1698,7 @@ export default function ProductDetailsClient({
                                             1
                                         )
                                     }
-                                    className="h-9 rounded-full bg-white/10 px-3 text-[10px] font-black"
+                                    className="h-9 rounded-full bg-white/10 px-3 text-[13px] font-black"
                                 >
                                     {Math.round(
                                         fsScale *
@@ -1800,7 +1800,7 @@ export default function ProductDetailsClient({
                                 </>
                             ) : null}
 
-                            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black">
+                            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-[13px] font-black">
                                 {fsIndex + 1} /{" "}
                                 {images.length}
                             </div>
