@@ -313,14 +313,16 @@ export function DeedActionRailWeb({
                     special="uplift"
                     tone="default"
                     icon={
-                        <IoCashOutline
-                            size={20}
+                        <span
                             style={{
-                                color: EKARI_THEME.gold,
+                                fontSize: 20,
+                                lineHeight: 1,
                                 filter:
                                     "drop-shadow(0 2px 4px rgba(0,0,0,0.55))",
                             }}
-                        />
+                        >
+                            💰
+                        </span>
                     }
                 />
             ) : null}
