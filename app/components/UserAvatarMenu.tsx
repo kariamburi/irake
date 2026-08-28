@@ -269,7 +269,7 @@ export default function UserAvatarMenu({
                 />
 
                 <div className="min-w-0 flex-1">
-                    <div className="truncate text-[11px] font-black text-white">
+                    <div className="truncate text-[14px] font-black text-white">
                         {
                             prettyHandle
                         }
@@ -282,7 +282,7 @@ export default function UserAvatarMenu({
                             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
                         </span>
 
-                        <span className="text-[9px] font-semibold text-white/45">
+                        <span className="text-[11px] font-semibold text-white/45">
                             Signed in
                         </span>
                     </div>
@@ -330,7 +330,7 @@ export default function UserAvatarMenu({
                         />
 
                         <div className="min-w-0 flex-1">
-                            <div className="truncate text-[12px] font-black text-white">
+                            <div className="truncate text-[14px] font-black text-white">
                                 {
                                     prettyHandle
                                 }
@@ -339,7 +339,7 @@ export default function UserAvatarMenu({
                             <div className="mt-1 flex items-center gap-1.5">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
 
-                                <span className="text-[9px] font-semibold text-white/50">
+                                <span className="text-[11px] font-semibold text-white/50">
                                     Signed in to
                                     ekarihub
                                 </span>
@@ -374,12 +374,12 @@ export default function UserAvatarMenu({
                         </span>
 
                         <span className="min-w-0 flex-1">
-                            <span className="block text-[10px] font-black text-slate-800">
+                            <span className="block text-[13px] font-black text-slate-800">
                                 View
                                 profile
                             </span>
 
-                            <span className="mt-0.5 block truncate text-[9px] font-medium text-slate-400">
+                            <span className="mt-0.5 block truncate text-[12px] font-medium leading-4 text-slate-400">
                                 Open your
                                 public
                                 profile
@@ -421,11 +421,11 @@ export default function UserAvatarMenu({
                         </span>
 
                         <span className="min-w-0 flex-1">
-                            <span className="block text-[10px] font-black text-slate-800">
+                            <span className="block text-[13px] font-black text-slate-800">
                                 Log out
                             </span>
 
-                            <span className="mt-0.5 block text-[9px] font-medium text-slate-400">
+                            <span className="mt-0.5 block text-[12px] font-medium leading-4 text-slate-400">
                                 Sign out
                                 of your
                                 account

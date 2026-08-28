@@ -195,7 +195,7 @@ function CountryPicker({
         disabled={disabled}
         onClick={() => setOpen((s) => !s)}
         className="h-9 px-2 rounded-lg hover:bg-black/5 disabled:opacity-60
-          inline-flex items-center gap-2 text-sm font-semibold"
+          inline-flex items-center gap-2 text-[14px] font-semibold"
       >
         <img
           src={flagUrl(value.code)}
@@ -218,7 +218,7 @@ function CountryPicker({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search country…"
-              className="h-9 w-full rounded-lg border border-black/10 bg-[#F6F7FB] px-3 text-sm outline-none"
+              className="h-9 w-full rounded-lg border border-black/10 bg-[#F6F7FB] px-3 text-[14px] outline-none"
               autoFocus
             />
           </div>
@@ -235,7 +235,7 @@ function CountryPicker({
                     setOpen(false);
                     setQ("");
                   }}
-                  className={`w-full px-3 py-2 flex items-center gap-2 text-left text-sm
+                  className={`w-full px-3 py-2 flex items-center gap-2 text-left text-[14px]
                     hover:bg-black/5 ${active ? "bg-black/5" : ""}`}
                 >
                   <img
@@ -247,7 +247,7 @@ function CountryPicker({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold text-slate-900 truncate">{c.name}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-[13px] text-slate-500">
                       {c.dial} • {c.code}
                     </div>
                   </div>
@@ -1032,7 +1032,7 @@ export default function EditProfilePage() {
               </button>
 
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                   Profile settings
                 </div>
 
@@ -1042,7 +1042,7 @@ export default function EditProfilePage() {
                       Edit profile
                     </h1>
 
-                    <p className="mt-1 text-[11px] font-medium text-white/50 md:text-[12px]">
+                    <p className="mt-1 text-[14px] font-medium leading-5 text-white/55 md:text-[15px]">
                       {handle ? (handle.startsWith("@") ? handle : `@${handle}`) : "Your ekarihub profile"}
                     </p>
                   </div>
@@ -1056,7 +1056,7 @@ export default function EditProfilePage() {
                         )}`
                       )
                     }
-                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/[0.11]"
+                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[13px] font-black text-white transition hover:bg-white/[0.11]"
                   >
                     View profile
                     <IoChevronForward size={13} />
@@ -1108,12 +1108,12 @@ export default function EditProfilePage() {
                       {displayName}
                     </h2>
 
-                    <p className="mt-1 truncate text-[10px] font-semibold text-slate-400">
+                    <p className="mt-1 truncate text-[13px] font-semibold text-slate-500">
                       {handle ? (handle.startsWith("@") ? handle : `@${handle}`) : "Username unavailable"}
                     </p>
 
                     <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
-                      <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-[#173C2E] px-3 text-[10px] font-black text-white transition hover:bg-[#214C3A]">
+                      <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-[#173C2E] px-3 text-[13px] font-black text-white transition hover:bg-[#214C3A]">
                         <input
                           type="file"
                           accept="image/*"
@@ -1128,14 +1128,14 @@ export default function EditProfilePage() {
                         type="button"
                         onClick={onResetAvatar}
                         disabled={saving || (!photoURL && !initialPhotoURL)}
-                        className="h-9 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB] hover:text-rose-600 disabled:opacity-40"
+                        className="h-9 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-slate-600 transition hover:bg-[#F3F1EB] hover:text-rose-600 disabled:opacity-40"
                       >
                         Reset photo
                       </button>
                     </div>
 
                     {profileUpdatedAtText ? (
-                      <p className="mt-2 text-[9px] font-medium text-slate-400">
+                      <p className="mt-2 text-[12px] font-medium text-slate-400">
                         Last updated: {profileUpdatedAtText}
                       </p>
                     ) : null}
@@ -1151,7 +1151,7 @@ export default function EditProfilePage() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[11px] font-semibold text-rose-700"
+                    className="rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700"
                   >
                     {errorMsg}
                   </motion.div>
@@ -1163,7 +1163,7 @@ export default function EditProfilePage() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[11px] font-semibold text-emerald-700"
+                    className="rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-semibold text-emerald-700"
                   >
                     {successMsg}
                   </motion.div>
@@ -1312,7 +1312,7 @@ export default function EditProfilePage() {
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="max-w-xl">
-                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-rose-600">
+                    <div className="text-[12px] font-black uppercase tracking-[0.09em] text-rose-600">
                       Danger zone
                     </div>
 
@@ -1320,7 +1320,7 @@ export default function EditProfilePage() {
                       Delete account
                     </h3>
 
-                    <p className="mt-1 text-[10px] font-medium leading-5 text-rose-700">
+                    <p className="mt-1 text-[14px] font-medium leading-5 text-rose-700">
                       This permanently removes your ekarihub profile, deeds, listings, discussions, events and uploaded files. This action cannot be undone.
                     </p>
                   </div>
@@ -1329,7 +1329,7 @@ export default function EditProfilePage() {
                     type="button"
                     onClick={() => setConfirmDeleteOpen(true)}
                     disabled={deleting}
-                    className="h-10 shrink-0 rounded-xl bg-rose-600 px-4 text-[10px] font-black text-white transition hover:bg-rose-700 disabled:opacity-60"
+                    className="h-10 shrink-0 rounded-xl bg-rose-600 px-4 text-[13px] font-black text-white transition hover:bg-rose-700 disabled:opacity-60"
                   >
                     {deleting ? "Deleting…" : "Delete account"}
                   </button>
@@ -1365,14 +1365,14 @@ export default function EditProfilePage() {
                       {displayName}
                     </div>
 
-                    <div className="mt-0.5 truncate text-[9px] font-semibold text-slate-400">
+                    <div className="mt-0.5 truncate text-[12px] font-semibold text-slate-400">
                       {handle ? (handle.startsWith("@") ? handle : `@${handle}`) : "Profile"}
                     </div>
                   </div>
                 </div>
 
                 {bio ? (
-                  <p className="mt-3 line-clamp-3 text-[10px] font-medium leading-4 text-slate-500">
+                  <p className="mt-3 line-clamp-3 text-[14px] font-medium leading-5 text-slate-500">
                     {bio}
                   </p>
                 ) : null}
@@ -1386,7 +1386,7 @@ export default function EditProfilePage() {
                       )}`
                     )
                   }
-                  className="mt-3 flex h-9 w-full items-center justify-between rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                  className="mt-3 flex h-9 w-full items-center justify-between rounded-xl border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                 >
                   View public profile
                   <IoChevronForward size={13} />
@@ -1394,7 +1394,7 @@ export default function EditProfilePage() {
               </section>
 
               <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                   Profile completeness
                 </div>
 
@@ -1413,7 +1413,7 @@ export default function EditProfilePage() {
                   />
                 </div>
 
-                <p className="mt-2 text-[9px] font-semibold text-slate-400">
+                <p className="mt-2 text-[12px] font-semibold text-slate-400">
                   {profileCompletion.completed} of {profileCompletion.total} profile areas complete
                 </p>
 
@@ -1421,7 +1421,7 @@ export default function EditProfilePage() {
                   {profileCompletion.checks.map((item) => (
                     <div
                       key={item.label}
-                      className="flex items-center gap-2 text-[10px]"
+                      className="flex items-center gap-2 text-[12px]"
                     >
                       <span
                         className={[
@@ -1466,11 +1466,11 @@ export default function EditProfilePage() {
                   </span>
 
                   <div>
-                    <div className="text-[12px] font-black text-slate-800">
+                    <div className="text-[15px] font-black text-slate-900">
                       Account security
                     </div>
 
-                    <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                    <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                       {phoneVerified
                         ? "Your phone number is verified."
                         : "Verify your phone number to strengthen account recovery and trust."}
@@ -1480,7 +1480,7 @@ export default function EditProfilePage() {
               </section>
 
               <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                   Quick links
                 </div>
 
@@ -1494,7 +1494,7 @@ export default function EditProfilePage() {
                         )}/connections`
                       )
                     }
-                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                   >
                     Connections
                     <IoChevronForward size={13} />
@@ -1503,7 +1503,7 @@ export default function EditProfilePage() {
                   <button
                     type="button"
                     onClick={() => router.push("/account/verification")}
-                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                   >
                     Verification
                     <IoChevronForward size={13} />
@@ -1558,7 +1558,7 @@ export default function EditProfilePage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-600">
+              <label className="text-[12px] font-black text-slate-600">
                 Zoom
               </label>
 
@@ -1584,7 +1584,7 @@ export default function EditProfilePage() {
             />
           </div>
         ) : (
-          <p className="text-[11px] font-medium text-slate-500">
+          <p className="text-[13px] font-medium text-slate-500">
             No image selected. Choose a photo to crop.
           </p>
         )}
@@ -1602,7 +1602,7 @@ export default function EditProfilePage() {
               value={firstName}
               onChange={(event) => setFirstName(event.target.value)}
               placeholder="First name"
-              className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-sm outline-none transition focus:border-[#173C2E]/45"
+              className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[14px] outline-none transition focus:border-[#173C2E]/45"
             />
           </FieldLabel>
 
@@ -1611,7 +1611,7 @@ export default function EditProfilePage() {
               value={surname}
               onChange={(event) => setSurname(event.target.value)}
               placeholder="Surname"
-              className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-sm outline-none transition focus:border-[#173C2E]/45"
+              className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[14px] outline-none transition focus:border-[#173C2E]/45"
             />
           </FieldLabel>
 
@@ -1640,7 +1640,7 @@ export default function EditProfilePage() {
             className="h-32 w-full resize-none rounded-xl border border-[#D9D3C7] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#173C2E]/45"
           />
 
-          <div className="text-right text-[9px] font-semibold text-slate-400">
+          <div className="text-right text-[11px] font-semibold text-slate-400">
             {bio.length}/220
           </div>
 
@@ -1675,7 +1675,7 @@ export default function EditProfilePage() {
           </FieldLabel>
 
           {!validWebsite ? (
-            <p className="text-[10px] font-semibold text-rose-600">
+            <p className="text-[12px] font-semibold text-rose-600">
               Enter a valid website URL.
             </p>
           ) : null}
@@ -1700,7 +1700,7 @@ export default function EditProfilePage() {
         onClose={() => setSheet(null)}
       >
         <div className="space-y-3">
-          <p className="text-[10px] font-medium leading-4 text-slate-500">
+          <p className="text-[12px] font-medium leading-4 text-slate-500">
             This is the default currency for uplifts you make. M-Pesa is available when using KES.
           </p>
 
@@ -1734,13 +1734,13 @@ export default function EditProfilePage() {
                   </span>
 
                   <div>
-                    <div className="text-[11px] font-black text-slate-800">
+                    <div className="text-[13px] font-black text-slate-800">
                       {code === "KES"
                         ? "KES · Kenyan Shilling"
                         : "USD · US Dollar"}
                     </div>
 
-                    <div className="mt-0.5 text-[9px] font-medium leading-4 text-slate-400">
+                    <div className="mt-0.5 text-[11px] font-medium leading-4 text-slate-400">
                       {code === "KES"
                         ? "Recommended for Kenya-based activity and M-Pesa."
                         : "Useful for global and international activity."}
@@ -1770,13 +1770,13 @@ export default function EditProfilePage() {
         onClose={() => setSheet(null)}
       >
         {taxonomyLoading ? (
-          <p className="mb-2 text-[10px] font-semibold text-slate-400">
+          <p className="mb-2 text-[12px] font-semibold text-slate-400">
             Loading interest options…
           </p>
         ) : null}
 
         {taxonomyError ? (
-          <p className="mb-2 text-[10px] font-semibold text-rose-600">
+          <p className="mb-2 text-[12px] font-semibold text-rose-600">
             {taxonomyError}
           </p>
         ) : null}
@@ -1807,13 +1807,13 @@ export default function EditProfilePage() {
         onClose={() => setSheet(null)}
       >
         {taxonomyLoading ? (
-          <p className="mb-2 text-[10px] font-semibold text-slate-400">
+          <p className="mb-2 text-[12px] font-semibold text-slate-400">
             Loading role options…
           </p>
         ) : null}
 
         {taxonomyError ? (
-          <p className="mb-2 text-[10px] font-semibold text-rose-600">
+          <p className="mb-2 text-[12px] font-semibold text-rose-600">
             {taxonomyError}
           </p>
         ) : null}
@@ -1873,7 +1873,7 @@ export default function EditProfilePage() {
               </div>
             </FieldLabel>
 
-            <div className="text-[9px] font-medium text-slate-400">
+            <div className="text-[11px] font-medium text-slate-400">
               Sending to:{" "}
               <span className="font-black text-slate-600">
                 {phoneE164 || `${phoneCountry.dial}…`}
@@ -1888,7 +1888,7 @@ export default function EditProfilePage() {
             />
 
             {errorMsg ? (
-              <p className="text-[10px] font-semibold text-rose-600">
+              <p className="text-[12px] font-semibold text-rose-600">
                 {errorMsg}
               </p>
             ) : null}
@@ -1916,7 +1916,7 @@ export default function EditProfilePage() {
                   setSmsSent(false);
                   setSmsCode("");
                 }}
-                className="text-[10px] font-black text-slate-500 hover:text-[#173C2E]"
+                className="text-[12px] font-black text-slate-500 hover:text-[#173C2E]"
               >
                 Change number
               </button>
@@ -1926,7 +1926,7 @@ export default function EditProfilePage() {
                   type="button"
                   disabled={phoneBusy || !validPhoneE164}
                   onClick={() => sendSms(phoneE164)}
-                  className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
+                  className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
                 >
                   Resend
                 </button>
@@ -1935,7 +1935,7 @@ export default function EditProfilePage() {
                   type="button"
                   disabled={phoneBusy || smsCode.length !== 6}
                   onClick={confirmSms}
-                  className="h-10 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
+                  className="h-10 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
                 >
                   {phoneBusy ? "Verifying…" : "Verify & link"}
                 </button>
@@ -1943,7 +1943,7 @@ export default function EditProfilePage() {
             </div>
 
             {errorMsg ? (
-              <p className="text-[10px] font-semibold text-rose-600">
+              <p className="text-[12px] font-semibold text-rose-600">
                 {errorMsg}
               </p>
             ) : null}
@@ -1973,7 +1973,7 @@ export default function EditProfilePage() {
       <div className="grid min-h-[100svh] place-items-center bg-[#F8F7F2]">
         <div className="text-center">
           <BouncingBallLoader />
-          <p className="mt-3 text-[10px] font-semibold text-slate-400">
+          <p className="mt-3 text-[12px] font-semibold text-slate-400">
             Loading profile settings…
           </p>
         </div>
@@ -2044,7 +2044,7 @@ function SettingsSection({
             {title}
           </h2>
 
-          <p className="mt-0.5 text-[9px] font-medium leading-4 text-slate-400">
+          <p className="mt-0.5 text-[11px] font-medium leading-4 text-slate-400">
             {subtitle}
           </p>
         </div>
@@ -2078,11 +2078,11 @@ function ToggleItemRow({
         ) : null}
 
         <div className="min-w-0">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+          <div className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
             {label}
           </div>
 
-          <div className="mt-1 text-[10px] font-semibold leading-4 text-slate-600">
+          <div className="mt-1 text-[12px] font-semibold leading-4 text-slate-600">
             {value}
           </div>
         </div>
@@ -2133,7 +2133,7 @@ function ItemRow({
     <div className="flex min-h-[76px] items-center justify-between gap-3 rounded-[14px] border border-[#E4DED2] bg-white px-3.5 py-3 transition hover:border-[#CFC8BB]">
       <div className="min-w-0 pr-2">
         <div className="flex items-center gap-2">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+          <div className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
             {label}
           </div>
 
@@ -2149,14 +2149,14 @@ function ItemRow({
           ) : null}
         </div>
 
-        <div className="mt-1 break-words text-[11px] font-black leading-5 text-slate-700">
+        <div className="mt-1 break-words text-[13px] font-black leading-5 text-slate-700">
           {value}
         </div>
       </div>
 
       <div className="shrink-0">
         {locked ? (
-          <span className="inline-flex items-center gap-1 rounded-lg bg-[#F3F1EB] px-2.5 py-1.5 text-[9px] font-black text-slate-400">
+          <span className="inline-flex items-center gap-1 rounded-lg bg-[#F3F1EB] px-2.5 py-1.5 text-[11px] font-black text-slate-400">
             <IoLockClosed size={11} />
             Locked
           </span>
@@ -2164,7 +2164,7 @@ function ItemRow({
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[9px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[11px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
           >
             <IoPencil size={11} />
             Edit
@@ -2184,7 +2184,7 @@ function FieldLabel({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[10px] font-black text-slate-600">
+      <span className="mb-1.5 block text-[12px] font-black text-slate-600">
         {label}
       </span>
       {children}
@@ -2210,7 +2210,7 @@ function SheetActions({
       <button
         type="button"
         onClick={onCancel}
-        className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-slate-600 transition hover:bg-[#F3F1EB]"
+        className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-slate-600 transition hover:bg-[#F3F1EB]"
       >
         Cancel
       </button>
@@ -2219,7 +2219,7 @@ function SheetActions({
         type="button"
         onClick={() => void onSave()}
         disabled={disabled}
-        className="h-10 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
+        className="h-10 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
       >
         {saveText}
       </button>
@@ -2275,7 +2275,7 @@ function BottomSheet({
           >
             <div className="flex items-center justify-between border-b border-[#E4DED2] px-4 py-3.5">
               <div>
-                <div className="text-[9px] font-black uppercase tracking-[0.08em] text-[#c69258]">
+                <div className="text-[11px] font-black uppercase tracking-[0.08em] text-[#c69258]">
                   Profile settings
                 </div>
 
@@ -2352,11 +2352,11 @@ function TagPicker({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-black text-slate-800">
+        <span className="text-[13px] font-black text-slate-800">
           {label}
         </span>
 
-        <span className="text-[9px] font-semibold text-slate-400">
+        <span className="text-[11px] font-semibold text-slate-400">
           {value.length}/{max}
         </span>
       </div>
@@ -2368,7 +2368,7 @@ function TagPicker({
               key={tag}
               type="button"
               onClick={() => remove(tag)}
-              className="rounded-full bg-[#173C2E] px-2.5 py-1 text-[9px] font-black text-white"
+              className="rounded-full bg-[#173C2E] px-2.5 py-1 text-[11px] font-black text-white"
             >
               {tag} ×
             </button>
@@ -2388,7 +2388,7 @@ function TagPicker({
                 onClick={() => toggle(tag)}
                 disabled={!active && !canAddMore}
                 className={[
-                  "rounded-full border px-2.5 py-1.5 text-[9px] font-black transition",
+                  "rounded-full border px-2.5 py-1.5 text-[11px] font-black transition",
                   active
                     ? "border-[#173C2E] bg-[#173C2E] text-white"
                     : "border-[#D9D3C7] bg-white text-slate-600 hover:bg-[#F3F1EB]",
@@ -2406,7 +2406,7 @@ function TagPicker({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={`Search ${label.toLowerCase()}…`}
-          className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+          className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
         />
       </div>
 
@@ -2418,7 +2418,7 @@ function TagPicker({
               type="button"
               onClick={() => add(option)}
               disabled={!canAddMore}
-              className="w-full border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[10px] font-semibold text-slate-600 transition last:border-b-0 hover:bg-[#F8F7F2]"
+              className="w-full border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[12px] font-semibold text-slate-600 transition last:border-b-0 hover:bg-[#F8F7F2]"
             >
               {option}
             </button>

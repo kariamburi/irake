@@ -231,7 +231,7 @@ function Pill({
   const t = map[tone] || map.neutral;
   return (
     <span
-      className="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-extrabold"
+      className="inline-flex items-center rounded-full border px-2.5 py-1 text-[12px] font-extrabold"
       style={{ background: t.bg, borderColor: t.bd, color: t.fg }}
     >
       {children}
@@ -965,7 +965,7 @@ export default function EarningsPage() {
                 className="hover:underline"
               >
                 Uplift for deed{" "}
-                <span className="font-mono text-xs break-all">{item.deedId}</span>
+                <span className="font-mono text-[13px] break-all">{item.deedId}</span>
               </Link>
             </p>
 
@@ -983,7 +983,7 @@ export default function EarningsPage() {
             {breakdown}
 
             {dateLabel && (
-              <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+              <p className="mt-1 text-[12px]" style={{ color: EKARI.dim }}>
                 {dateLabel}
               </p>
             )}
@@ -1047,13 +1047,13 @@ export default function EarningsPage() {
             </div>
 
             {item.paystackReference ? (
-              <p className="mt-1 text-[11px] font-mono text-slate-400 truncate">
+              <p className="mt-1 text-[12px] font-mono text-slate-400 truncate">
                 ref: {item.paystackReference}
               </p>
             ) : null}
 
             {dateLabel && (
-              <p className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+              <p className="mt-1 text-[12px]" style={{ color: EKARI.dim }}>
                 {dateLabel}
               </p>
             )}
@@ -1100,7 +1100,7 @@ export default function EarningsPage() {
             {title}
           </h1>
 
-          <p className="mt-2 text-[12px] font-medium leading-5 text-slate-500">
+          <p className="mt-2 text-[14px] font-medium leading-5 text-slate-500">
             {message}
           </p>
         </motion.div>
@@ -1125,7 +1125,7 @@ export default function EarningsPage() {
       <main className="grid min-h-[100svh] place-items-center bg-[#F8F7F2]">
         <div className="text-center">
           <BouncingBallLoader />
-          <p className="mt-3 text-[11px] font-semibold text-slate-400">
+          <p className="mt-3 text-[13px] font-semibold text-slate-400">
             Checking access to earnings…
           </p>
         </div>
@@ -1204,7 +1204,7 @@ export default function EarningsPage() {
           </button>
 
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+            <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               Creator wallet
             </div>
 
@@ -1214,7 +1214,7 @@ export default function EarningsPage() {
                   My earnings
                 </h1>
 
-                <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                <p className="mt-1 max-w-2xl text-[14px] font-medium leading-5 text-white/55 md:text-[15px]">
                   Track uplifts, wallet activity, settlement details and withdrawal eligibility.
                 </p>
               </div>
@@ -1229,7 +1229,7 @@ export default function EarningsPage() {
                       type="button"
                       onClick={() => handleToggleCurrency(currency)}
                       className={[
-                        "rounded-lg px-3 py-2 text-[10px] font-black transition",
+                        "rounded-lg px-3 py-2 text-[13px] font-black transition",
                         active
                           ? "bg-white text-[#173C2E]"
                           : "text-white/55 hover:text-white",
@@ -1242,7 +1242,7 @@ export default function EarningsPage() {
               </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[9px] font-semibold text-white/35">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] font-semibold text-white/45">
               <span>Wallet base: USD</span>
               <span>•</span>
               <span>Secure creator payouts</span>
@@ -1293,7 +1293,7 @@ export default function EarningsPage() {
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+          <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
             Wallet activity
           </div>
 
@@ -1301,7 +1301,7 @@ export default function EarningsPage() {
             Earnings history
           </h2>
 
-          <p className="mt-1 text-[10px] font-medium text-slate-400">
+          <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
             Review uplifts received and wallet top-ups.
           </p>
         </div>
@@ -1316,7 +1316,7 @@ export default function EarningsPage() {
                 type="button"
                 onClick={() => setActiveTab(tab)}
                 className={[
-                  "rounded-lg px-3 py-2 text-[10px] font-black transition",
+                  "rounded-lg px-3 py-2 text-[13px] font-black transition",
                   active
                     ? "bg-[#173C2E] text-white"
                     : "text-slate-500 hover:bg-white",
@@ -1368,7 +1368,7 @@ export default function EarningsPage() {
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+          <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
             Payout destination
           </div>
 
@@ -1376,7 +1376,7 @@ export default function EarningsPage() {
             Settlement details
           </h2>
 
-          <p className="mt-1 max-w-xl text-[10px] font-medium leading-4 text-slate-400">
+          <p className="mt-1 max-w-xl text-[14px] font-medium leading-5 text-slate-500">
             Choose where approved withdrawal requests should be paid. M-Pesa is automated; bank settlements are processed manually.
           </p>
         </div>
@@ -1391,7 +1391,7 @@ export default function EarningsPage() {
               }))
             }
             className={[
-              "h-9 rounded-xl border px-3 text-[10px] font-black transition",
+              "h-9 rounded-xl border px-3 text-[13px] font-black transition",
               settlement.enabled
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                 : "border-[#D9D3C7] bg-white text-slate-500",
@@ -1404,7 +1404,7 @@ export default function EarningsPage() {
             type="button"
             onClick={handleSaveSettlementDetails}
             disabled={savingSettlement}
-            className="h-9 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
+            className="h-9 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
           >
             {savingSettlement ? "Saving…" : "Save"}
           </button>
@@ -1417,7 +1417,7 @@ export default function EarningsPage() {
             initial={{ opacity: 0, y: -3 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700"
+            className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[12px] font-black text-emerald-700"
           >
             {settlementSavedToast}
           </motion.div>
@@ -1426,7 +1426,7 @@ export default function EarningsPage() {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="text-[10px] font-black text-slate-600">
+          <span className="text-[13px] font-black text-slate-700">
             Preferred payout method
           </span>
 
@@ -1442,7 +1442,7 @@ export default function EarningsPage() {
                     : "mpesa",
               }))
             }
-            className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
+            className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[15px] font-medium text-slate-800 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
           >
             <option value="mpesa">M-Pesa (Automated)</option>
             <option value="bank">Bank (Manual deposit)</option>
@@ -1451,7 +1451,7 @@ export default function EarningsPage() {
 
         {settlement.method === "mpesa" ? (
           <label className="block">
-            <span className="text-[10px] font-black text-slate-600">
+            <span className="text-[13px] font-black text-slate-700">
               M-Pesa phone
             </span>
 
@@ -1468,7 +1468,7 @@ export default function EarningsPage() {
                 }))
               }
               placeholder="07xxxxxxxx"
-              className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
+              className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[15px] font-medium text-slate-800 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
             />
           </label>
         ) : (
@@ -1480,11 +1480,11 @@ export default function EarningsPage() {
               />
 
               <div>
-                <div className="text-[10px] font-black text-slate-700">
+                <div className="text-[13px] font-black text-slate-800">
                   Manual bank deposit
                 </div>
 
-                <p className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
+                <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                   Approved withdrawals will use the bank details below.
                 </p>
               </div>
@@ -1522,7 +1522,7 @@ export default function EarningsPage() {
             },
           ].map((field) => (
             <label key={field.key} className="block">
-              <span className="text-[10px] font-black text-slate-600">
+              <span className="text-[13px] font-black text-slate-700">
                 {field.label}
               </span>
 
@@ -1539,7 +1539,7 @@ export default function EarningsPage() {
                   }))
                 }
                 placeholder={field.placeholder}
-                className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
+                className="mt-1.5 h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[15px] font-medium text-slate-800 outline-none transition focus:border-[#173C2E]/45 disabled:opacity-50"
               />
             </label>
           ))}
@@ -1556,7 +1556,7 @@ export default function EarningsPage() {
       className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
     >
       <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+        <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
           Wallet balance
         </div>
 
@@ -1564,7 +1564,7 @@ export default function EarningsPage() {
           {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
         </div>
 
-        <p className="mt-1 text-[9px] font-medium text-slate-400">
+        <p className="mt-1 text-[12px] font-medium text-slate-500">
           Internal base balance: {fmtMoneyMajor(pendingBalanceUsdMajor, "USD")}
         </p>
 
@@ -1572,7 +1572,7 @@ export default function EarningsPage() {
           <button
             type="button"
             onClick={openTopupModal}
-            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
           >
             <IoAddOutline size={14} />
             Top up
@@ -1582,7 +1582,7 @@ export default function EarningsPage() {
             type="button"
             onClick={openWithdrawModal}
             disabled={!eligibleToWithdraw}
-            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#173C2E] px-3 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#173C2E] px-3 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <IoRemoveOutline size={14} />
             Withdraw
@@ -1590,7 +1590,7 @@ export default function EarningsPage() {
         </div>
 
         {!eligibleToWithdraw ? (
-          <p className="mt-3 text-[9px] font-medium leading-4 text-amber-700">
+          <p className="mt-3 text-[12px] font-medium leading-5 text-amber-700">
             Minimum withdrawal: {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
           </p>
         ) : null}
@@ -1614,11 +1614,11 @@ export default function EarningsPage() {
           </span>
 
           <div className="min-w-0">
-            <div className="text-[12px] font-black text-slate-800">
+            <div className="text-[14px] font-black text-slate-800">
               Payout destination
             </div>
 
-            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+            <p className="mt-1 text-[12px] font-medium leading-4 text-slate-400">
               {settlementReady
                 ? settlement.method === "mpesa"
                   ? `M-Pesa · ${settlement.mpesa.phone}`
@@ -1630,7 +1630,7 @@ export default function EarningsPage() {
       </section>
 
       <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+        <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
           Revenue split
         </div>
 
@@ -1652,7 +1652,7 @@ export default function EarningsPage() {
           />
         </div>
 
-        <p className="mt-3 text-[9px] font-medium leading-4 text-slate-400">
+        <p className="mt-3 text-[11px] font-medium leading-4 text-slate-400">
           Finance settings are used when available; otherwise the latest uplift values are used.
         </p>
       </section>
@@ -1664,11 +1664,11 @@ export default function EarningsPage() {
           </span>
 
           <div>
-            <div className="text-[12px] font-black text-slate-800">
+            <div className="text-[14px] font-black text-slate-800">
               Secure payouts
             </div>
 
-            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+            <p className="mt-1 text-[12px] font-medium leading-4 text-slate-400">
               Withdrawal requests are reviewed before funds are settled to your saved payout method.
             </p>
           </div>
@@ -1695,7 +1695,7 @@ export default function EarningsPage() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                     Available funds
                   </div>
 
@@ -1703,7 +1703,7 @@ export default function EarningsPage() {
                     {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
                   </div>
 
-                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     Minimum withdrawal: {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
                   </p>
                 </div>
@@ -1712,7 +1712,7 @@ export default function EarningsPage() {
                   <button
                     type="button"
                     onClick={openTopupModal}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                   >
                     <IoWalletOutline size={14} />
                     Top up wallet
@@ -1722,7 +1722,7 @@ export default function EarningsPage() {
                     type="button"
                     onClick={openWithdrawModal}
                     disabled={!eligibleToWithdraw}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <IoCashOutline size={14} />
                     Withdraw funds
@@ -1732,11 +1732,11 @@ export default function EarningsPage() {
 
               {!eligibleToWithdraw ? (
                 <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3">
-                  <p className="text-[10px] font-black text-amber-900">
+                  <p className="text-[12px] font-black text-amber-900">
                     Withdrawal threshold not reached
                   </p>
 
-                  <p className="mt-1 text-[9px] font-medium leading-4 text-amber-800">
+                  <p className="mt-1 text-[11px] font-medium leading-4 text-amber-800">
                     Keep earning uplifts or top up your wallet until your available balance reaches {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}.
                   </p>
                 </div>
@@ -1774,7 +1774,7 @@ export default function EarningsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                  <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Creator wallet
                   </div>
 
@@ -1782,7 +1782,7 @@ export default function EarningsPage() {
                     Top up wallet
                   </h2>
 
-                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     Add funds in {displayCurrency === "USD" ? "USD" : "Kenyan shillings"}.
                   </p>
                 </div>
@@ -1798,12 +1798,12 @@ export default function EarningsPage() {
               </div>
 
               <label className="mt-4 block">
-                <span className="text-[10px] font-black text-slate-600">
+                <span className="text-[13px] font-black text-slate-700">
                   Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
                 </span>
 
                 <div className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
-                  <span className="text-[10px] font-black text-slate-400">
+                  <span className="text-[12px] font-black text-slate-400">
                     {displayCurrency === "USD" ? "USD" : "KSh"}
                   </span>
 
@@ -1823,12 +1823,12 @@ export default function EarningsPage() {
               </label>
 
               {topupError ? (
-                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">
+                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
                   {topupError}
                 </div>
               ) : null}
 
-              <p className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+              <p className="mt-2 text-[11px] font-medium leading-4 text-slate-400">
                 You’ll continue to secure Paystack checkout. The wallet updates automatically after successful payment.
               </p>
 
@@ -1836,7 +1836,7 @@ export default function EarningsPage() {
                 type="button"
                 onClick={handleConfirmTopup}
                 disabled={topupLoading}
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] px-4 text-[11px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] px-4 text-[13px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
               >
                 {topupLoading ? (
                   <>
@@ -1875,7 +1875,7 @@ export default function EarningsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                  <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Withdrawal request
                   </div>
 
@@ -1883,7 +1883,7 @@ export default function EarningsPage() {
                     Choose withdrawal amount
                   </h2>
 
-                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     Available {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
                   </p>
                 </div>
@@ -1899,12 +1899,12 @@ export default function EarningsPage() {
               </div>
 
               <label className="mt-4 block">
-                <span className="text-[10px] font-black text-slate-600">
+                <span className="text-[13px] font-black text-slate-700">
                   Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
                 </span>
 
                 <div className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
-                  <span className="text-[10px] font-black text-slate-400">
+                  <span className="text-[12px] font-black text-slate-400">
                     {displayCurrency === "USD" ? "USD" : "KSh"}
                   </span>
 
@@ -1939,7 +1939,7 @@ export default function EarningsPage() {
 
                       setWithdrawError(null);
                     }}
-                    className="h-8 rounded-lg border border-[#D9D3C7] bg-white px-3 text-[9px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
+                    className="h-8 rounded-lg border border-[#D9D3C7] bg-white px-3 text-[11px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
                   >
                     {pct}%
                   </button>
@@ -1956,20 +1956,20 @@ export default function EarningsPage() {
                     );
                     setWithdrawError(null);
                   }}
-                  className="h-8 rounded-lg bg-[#173C2E] px-3 text-[9px] font-black text-white disabled:opacity-50"
+                  className="h-8 rounded-lg bg-[#173C2E] px-3 text-[11px] font-black text-white disabled:opacity-50"
                 >
                   Max
                 </button>
               </div>
 
               {withdrawError ? (
-                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">
+                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
                   {withdrawError}
                 </div>
               ) : null}
 
               <div className="mt-3 rounded-xl border border-[#DDD8CC] bg-[#F3F1EB] px-3 py-2.5">
-                <p className="text-[9px] font-medium leading-4 text-slate-500">
+                <p className="text-[11px] font-medium leading-4 text-slate-500">
                   Wallet balances are stored in USD. KSh requests use the current rate of {usdToKesRate} KES per USD.
                 </p>
               </div>
@@ -1978,7 +1978,7 @@ export default function EarningsPage() {
                 type="button"
                 onClick={handleRequestWithdraw}
                 disabled={withdrawSubmitting}
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[11px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
               >
                 {withdrawSubmitting ? (
                   <>
@@ -1990,7 +1990,7 @@ export default function EarningsPage() {
                 )}
               </button>
 
-              <p className="mt-2 text-center text-[9px] font-medium leading-4 text-slate-400">
+              <p className="mt-2 text-center text-[11px] font-medium leading-4 text-slate-400">
                 Requests are reviewed before payout and use your saved settlement method.
               </p>
             </div>
@@ -2036,7 +2036,7 @@ export default function EarningsPage() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                     Available funds
                   </div>
 
@@ -2044,7 +2044,7 @@ export default function EarningsPage() {
                     {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
                   </div>
 
-                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     Minimum withdrawal: {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}
                   </p>
                 </div>
@@ -2053,7 +2053,7 @@ export default function EarningsPage() {
                   <button
                     type="button"
                     onClick={openTopupModal}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                   >
                     <IoWalletOutline size={14} />
                     Top up wallet
@@ -2063,7 +2063,7 @@ export default function EarningsPage() {
                     type="button"
                     onClick={openWithdrawModal}
                     disabled={!eligibleToWithdraw}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <IoCashOutline size={14} />
                     Withdraw funds
@@ -2073,11 +2073,11 @@ export default function EarningsPage() {
 
               {!eligibleToWithdraw ? (
                 <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3">
-                  <p className="text-[10px] font-black text-amber-900">
+                  <p className="text-[12px] font-black text-amber-900">
                     Withdrawal threshold not reached
                   </p>
 
-                  <p className="mt-1 text-[9px] font-medium leading-4 text-amber-800">
+                  <p className="mt-1 text-[11px] font-medium leading-4 text-amber-800">
                     Keep earning uplifts or top up your wallet until your available balance reaches {fmtMoneyMajor(minThresholdDisplayMajor, displayCurrency)}.
                   </p>
                 </div>
@@ -2115,7 +2115,7 @@ export default function EarningsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                  <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Creator wallet
                   </div>
 
@@ -2123,7 +2123,7 @@ export default function EarningsPage() {
                     Top up wallet
                   </h2>
 
-                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     Add funds in {displayCurrency === "USD" ? "USD" : "Kenyan shillings"}.
                   </p>
                 </div>
@@ -2139,12 +2139,12 @@ export default function EarningsPage() {
               </div>
 
               <label className="mt-4 block">
-                <span className="text-[10px] font-black text-slate-600">
+                <span className="text-[13px] font-black text-slate-700">
                   Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
                 </span>
 
                 <div className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
-                  <span className="text-[10px] font-black text-slate-400">
+                  <span className="text-[12px] font-black text-slate-400">
                     {displayCurrency === "USD" ? "USD" : "KSh"}
                   </span>
 
@@ -2164,12 +2164,12 @@ export default function EarningsPage() {
               </label>
 
               {topupError ? (
-                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">
+                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
                   {topupError}
                 </div>
               ) : null}
 
-              <p className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+              <p className="mt-2 text-[11px] font-medium leading-4 text-slate-400">
                 You’ll continue to secure Paystack checkout. The wallet updates automatically after successful payment.
               </p>
 
@@ -2177,7 +2177,7 @@ export default function EarningsPage() {
                 type="button"
                 onClick={handleConfirmTopup}
                 disabled={topupLoading}
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] px-4 text-[11px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] px-4 text-[13px] font-black text-white transition hover:bg-[#E98C12] disabled:opacity-60"
               >
                 {topupLoading ? (
                   <>
@@ -2216,7 +2216,7 @@ export default function EarningsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                  <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                     Withdrawal request
                   </div>
 
@@ -2224,7 +2224,7 @@ export default function EarningsPage() {
                     Choose withdrawal amount
                   </h2>
 
-                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                  <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     Available {fmtMoneyMajor(pendingBalanceDisplayMajor, displayCurrency)}
                   </p>
                 </div>
@@ -2240,12 +2240,12 @@ export default function EarningsPage() {
               </div>
 
               <label className="mt-4 block">
-                <span className="text-[10px] font-black text-slate-600">
+                <span className="text-[13px] font-black text-slate-700">
                   Amount ({displayCurrency === "USD" ? "USD" : "KSh"})
                 </span>
 
                 <div className="mt-1.5 flex h-12 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3">
-                  <span className="text-[10px] font-black text-slate-400">
+                  <span className="text-[12px] font-black text-slate-400">
                     {displayCurrency === "USD" ? "USD" : "KSh"}
                   </span>
 
@@ -2280,7 +2280,7 @@ export default function EarningsPage() {
 
                       setWithdrawError(null);
                     }}
-                    className="h-8 rounded-lg border border-[#D9D3C7] bg-white px-3 text-[9px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
+                    className="h-8 rounded-lg border border-[#D9D3C7] bg-white px-3 text-[11px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
                   >
                     {pct}%
                   </button>
@@ -2297,20 +2297,20 @@ export default function EarningsPage() {
                     );
                     setWithdrawError(null);
                   }}
-                  className="h-8 rounded-lg bg-[#173C2E] px-3 text-[9px] font-black text-white disabled:opacity-50"
+                  className="h-8 rounded-lg bg-[#173C2E] px-3 text-[11px] font-black text-white disabled:opacity-50"
                 >
                   Max
                 </button>
               </div>
 
               {withdrawError ? (
-                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-700">
+                <div className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700">
                   {withdrawError}
                 </div>
               ) : null}
 
               <div className="mt-3 rounded-xl border border-[#DDD8CC] bg-[#F3F1EB] px-3 py-2.5">
-                <p className="text-[9px] font-medium leading-4 text-slate-500">
+                <p className="text-[11px] font-medium leading-4 text-slate-500">
                   Wallet balances are stored in USD. KSh requests use the current rate of {usdToKesRate} KES per USD.
                 </p>
               </div>
@@ -2319,7 +2319,7 @@ export default function EarningsPage() {
                 type="button"
                 onClick={handleRequestWithdraw}
                 disabled={withdrawSubmitting}
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[11px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
+                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-60"
               >
                 {withdrawSubmitting ? (
                   <>
@@ -2331,7 +2331,7 @@ export default function EarningsPage() {
                 )}
               </button>
 
-              <p className="mt-2 text-center text-[9px] font-medium leading-4 text-slate-400">
+              <p className="mt-2 text-center text-[11px] font-medium leading-4 text-slate-400">
                 Requests are reviewed before payout and use your saved settlement method.
               </p>
             </div>
@@ -2382,7 +2382,7 @@ function SummaryCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+          <div className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
             {label}
           </div>
 
@@ -2396,7 +2396,7 @@ function SummaryCard({
         </span>
       </div>
 
-      <p className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+      <p className="mt-2 text-[11px] font-medium leading-4 text-slate-400">
         {hint}
       </p>
     </motion.div>
@@ -2414,13 +2414,13 @@ function SplitRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl bg-[#F3F1EB] px-3 py-2.5">
-      <span className="text-[9px] font-semibold text-slate-400">
+      <span className="text-[11px] font-semibold text-slate-400">
         {label}
       </span>
 
       <span
         className={[
-          "text-[10px] font-black",
+          "text-[12px] font-black",
           strong ? "text-[#173C2E]" : "text-slate-700",
         ].join(" ")}
       >
@@ -2446,11 +2446,11 @@ function EmptyHistory({
           {icon}
         </div>
 
-        <div className="mt-3 text-[12px] font-black text-slate-700">
+        <div className="mt-3 text-[14px] font-black text-slate-700">
           {title}
         </div>
 
-        <p className="mx-auto mt-1 max-w-sm text-[10px] font-medium leading-4 text-slate-400">
+        <p className="mx-auto mt-1 max-w-sm text-[12px] font-medium leading-4 text-slate-400">
           {text}
         </p>
       </div>

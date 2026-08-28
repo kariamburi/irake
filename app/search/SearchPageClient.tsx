@@ -219,7 +219,7 @@ function Chip({
             className={[
                 "inline-flex max-w-full items-center gap-2 rounded-full",
                 "border border-[#DDD8CC] bg-[#FBFAF6] px-3 py-2",
-                "text-[10px] font-black text-slate-600",
+                "text-[13px] font-black text-slate-600",
                 "transition-all duration-200",
                 "hover:border-[#CFC7B8] hover:bg-white hover:text-[#173C2E]",
                 "active:scale-[0.98]",
@@ -245,13 +245,13 @@ function Section({
         <section className="mt-5">
             <div className="mb-2.5 flex items-end justify-between gap-3 px-1">
                 <div>
-                    <h2 className="text-[12px] font-black tracking-[-0.02em] text-slate-800">
+                    <h2 className="text-[13px] font-black tracking-[-0.02em] text-slate-800">
                         {title}
                     </h2>
                 </div>
 
                 {typeof count === "number" ? (
-                    <span className="rounded-full bg-[#E8ECE8] px-2 py-1 text-[8px] font-black text-[#173C2E]">
+                    <span className="rounded-full bg-[#E8ECE8] px-2 py-1 text-[11px] font-black text-[#173C2E]">
                         {count}
                     </span>
                 ) : null}
@@ -315,7 +315,7 @@ const SearchBar = React.memo(function SearchBar({
                 ].join(" ")}
             >
                 <IoSearch
-                    size={18}
+                    size={20}
                     className="shrink-0 text-[#173C2E]"
                 />
 
@@ -351,7 +351,7 @@ const SearchBar = React.memo(function SearchBar({
                     }}
                     placeholder="Search people, deeds, events, discussions or tags"
                     autoFocus
-                    className="ml-3 min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                    className="ml-3 min-w-0 flex-1 bg-transparent text-[15px] font-medium leading-5 text-slate-900 outline-none placeholder:text-slate-400"
                 />
 
                 {!!q && (
@@ -369,7 +369,7 @@ const SearchBar = React.memo(function SearchBar({
             {!!q.trim() && (
                 <button
                     type="submit"
-                    className="hidden h-11 shrink-0 items-center rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] sm:inline-flex"
+                    className="hidden h-11 shrink-0 items-center rounded-[14px] bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] sm:inline-flex"
                 >
                     Search
                 </button>
@@ -1074,7 +1074,7 @@ export default function SearchPageClient() {
     function StatMini({ label, value }: { label: string; value: string }) {
         return (
             <span
-                className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold"
+                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-semibold"
                 style={{ borderColor: EKARI.line, color: EKARI.text, background: "white" }}
             >
                 <span style={{ color: EKARI.dim }}>{label}</span>
@@ -1140,11 +1140,11 @@ export default function SearchPageClient() {
                             </div>
 
                             <div className="min-w-0 flex-1">
-                                <p className="line-clamp-2 text-[15px] font-semibold leading-5" style={{ color: EKARI.text }}>
+                                <p className="line-clamp-2 text-[16px] font-semibold leading-[21px]" style={{ color: EKARI.text }}>
                                     {d.caption || "Untitled deed"}
                                 </p>
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                                    <span className="text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                    <span className="text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                         by {d.authorUsername || "ekarihub user"}
                                     </span>
                                     <StatMini label="Likes" value={fmtCompact(d.stats?.likes ?? 0)} />
@@ -1172,10 +1172,10 @@ export default function SearchPageClient() {
                                 />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="line-clamp-2 text-[15px] font-semibold leading-5" style={{ color: EKARI.text }}>
+                                <p className="line-clamp-2 text-[16px] font-semibold leading-[21px]" style={{ color: EKARI.text }}>
                                     {e.title || "Untitled event"}
                                 </p>
-                                <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                     {e.dateISO
                                         ? new Date(e.dateISO).toLocaleDateString(undefined, {
                                             month: "short",
@@ -1202,10 +1202,10 @@ export default function SearchPageClient() {
                                 <IoChatbubblesOutline size={18} color={EKARI.forest} />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="line-clamp-2 text-[15px] font-semibold leading-5" style={{ color: EKARI.text }}>
+                                <p className="line-clamp-2 text-[16px] font-semibold leading-[21px]" style={{ color: EKARI.text }}>
                                     {d.title || "Untitled discussion"}
                                 </p>
-                                <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                     {d.category ? `${d.category} · ` : ""}
                                     {fmtCompact(d.repliesCount || 0)} replies
                                 </p>
@@ -1237,10 +1237,10 @@ export default function SearchPageClient() {
                             </div>
 
                             <div className="min-w-0 flex-1">
-                                <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
+                                <p className="truncate text-[16px] font-semibold" style={{ color: EKARI.text }}>
                                     {name || normalizedHandle}
                                 </p>
-                                <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                     {handleLabel} · {fmtCompact(a.followersCount || 0)} followers
                                 </p>
                             </div>
@@ -1261,10 +1261,10 @@ export default function SearchPageClient() {
                                 <IoPricetagOutline size={18} color={EKARI.gold} />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
+                                <p className="truncate text-[16px] font-semibold" style={{ color: EKARI.text }}>
                                     #{t.tag}
                                 </p>
-                                <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                     {fmtCompact(t.uses || 0)} uses
                                 </p>
                             </div>
@@ -1292,11 +1292,11 @@ export default function SearchPageClient() {
                     />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-[15px] font-semibold leading-5" style={{ color: EKARI.text }}>
+                    <p className="line-clamp-2 text-[16px] font-semibold leading-[21px]" style={{ color: EKARI.text }}>
                         {d.caption || "Untitled deed"}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                        <span className="text-[13px] font-medium" style={{ color: EKARI.dim }}>
                             by {d.authorUsername || "ekarihub user"}
                         </span>
                         <StatMini label="Likes" value={fmtCompact(d.stats?.likes ?? 0)} />
@@ -1321,10 +1321,10 @@ export default function SearchPageClient() {
                     />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-[15px] font-semibold leading-5" style={{ color: EKARI.text }}>
+                    <p className="line-clamp-2 text-[16px] font-semibold leading-[21px]" style={{ color: EKARI.text }}>
                         {e.title || "Untitled event"}
                     </p>
-                    <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                    <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                         {e.dateISO
                             ? new Date(e.dateISO).toLocaleDateString(undefined, {
                                 month: "short",
@@ -1335,7 +1335,7 @@ export default function SearchPageClient() {
                         {e.location ? ` · ${e.location}` : ""}
                     </p>
                     {!!e.organizerName && (
-                        <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                        <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                             by {e.organizerName}
                         </p>
                     )}
@@ -1354,15 +1354,15 @@ export default function SearchPageClient() {
                     <IoChatbubblesOutline size={18} color={EKARI.forest} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-[15px] font-semibold leading-5" style={{ color: EKARI.text }}>
+                    <p className="line-clamp-2 text-[16px] font-semibold leading-[21px]" style={{ color: EKARI.text }}>
                         {d.title || "Untitled discussion"}
                     </p>
                     {!!d.excerpt && (
-                        <p className="mt-1 line-clamp-2 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                        <p className="mt-1 line-clamp-2 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                             {d.excerpt}
                         </p>
                     )}
-                    <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                    <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                         {d.category ? `${d.category} · ` : ""}
                         {fmtCompact(d.repliesCount || 0)} replies
                     </p>
@@ -1391,10 +1391,10 @@ export default function SearchPageClient() {
                         />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
+                        <p className="truncate text-[16px] font-semibold" style={{ color: EKARI.text }}>
                             {name || normalizedHandle}
                         </p>
-                        <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                        <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                             {handleLabel} · {fmtCompact(a.followersCount || 0)} followers
                         </p>
                     </div>
@@ -1413,10 +1413,10 @@ export default function SearchPageClient() {
                     <IoPricetagOutline size={18} color={EKARI.gold} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
+                    <p className="truncate text-[16px] font-semibold" style={{ color: EKARI.text }}>
                         #{t.tag}
                     </p>
-                    <p className="mt-1 text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                    <p className="mt-1 text-[13px] font-medium" style={{ color: EKARI.dim }}>
                         {fmtCompact(t.uses || 0)} uses
                     </p>
                 </div>
@@ -1436,7 +1436,7 @@ export default function SearchPageClient() {
                     {showHandleSuggestions && (
                         <div>
                             {handleSuggestLoading && handleSuggestions.length === 0 ? (
-                                <div className="px-4 py-4 text-[13px] font-medium" style={{ color: EKARI.dim }}>
+                                <div className="px-4 py-4 text-[14px] font-medium" style={{ color: EKARI.dim }}>
                                     Searching accounts…
                                 </div>
                             ) : (
@@ -1469,10 +1469,10 @@ export default function SearchPageClient() {
                                                 />
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="truncate text-[14px] font-semibold" style={{ color: EKARI.text }}>
+                                                <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
                                                     {name || normalizedHandle}
                                                 </p>
-                                                <p className="truncate text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                                <p className="truncate text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                                     {handleLabel}
                                                 </p>
                                             </div>
@@ -1486,7 +1486,7 @@ export default function SearchPageClient() {
                     {showTagSuggestions && (
                         <div>
                             {tagSuggestLoading && tagSuggestions.length === 0 ? (
-                                <div className="px-4 py-4 text-[13px] font-medium" style={{ color: EKARI.dim }}>
+                                <div className="px-4 py-4 text-[14px] font-medium" style={{ color: EKARI.dim }}>
                                     Searching tags…
                                 </div>
                             ) : (
@@ -1507,10 +1507,10 @@ export default function SearchPageClient() {
                                             <IoPricetagOutline size={16} color={EKARI.gold} />
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="truncate text-[14px] font-semibold" style={{ color: EKARI.text }}>
+                                            <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
                                                 #{tag.tag}
                                             </p>
-                                            <p className="truncate text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                            <p className="truncate text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                                 {fmtCompact(tag.uses || 0)} uses
                                             </p>
                                         </div>
@@ -1523,7 +1523,7 @@ export default function SearchPageClient() {
                     {showMixedLiveSuggestions && (
                         <div>
                             {liveSuggestLoading && liveSuggestions.length === 0 ? (
-                                <div className="px-4 py-4 text-[13px] font-medium" style={{ color: EKARI.dim }}>
+                                <div className="px-4 py-4 text-[14px] font-medium" style={{ color: EKARI.dim }}>
                                     Searching…
                                 </div>
                             ) : (
@@ -1546,10 +1546,10 @@ export default function SearchPageClient() {
                                                     <IoSearch size={17} color={EKARI.forest} />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-[14px] font-semibold" style={{ color: EKARI.text }}>
+                                                    <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
                                                         {item.label}
                                                     </p>
-                                                    <p className="truncate text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                                    <p className="truncate text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                                         Search across deeds, events, discussions, accounts and tags
                                                     </p>
                                                 </div>
@@ -1589,10 +1589,10 @@ export default function SearchPageClient() {
                                                     />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-[14px] font-semibold" style={{ color: EKARI.text }}>
+                                                    <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
                                                         {name || normalizedHandle}
                                                     </p>
-                                                    <p className="truncate text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                                    <p className="truncate text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                                         {handleLabel}
                                                     </p>
                                                 </div>
@@ -1619,10 +1619,10 @@ export default function SearchPageClient() {
                                                     <IoPricetagOutline size={16} color={EKARI.gold} />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-[14px] font-semibold" style={{ color: EKARI.text }}>
+                                                    <p className="truncate text-[15px] font-semibold" style={{ color: EKARI.text }}>
                                                         #{item.tag.tag}
                                                     </p>
-                                                    <p className="truncate text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                                    <p className="truncate text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                                         {fmtCompact(item.tag.uses || 0)} uses
                                                     </p>
                                                 </div>
@@ -1652,10 +1652,10 @@ export default function SearchPageClient() {
                                                     />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="line-clamp-1 text-[14px] font-semibold" style={{ color: EKARI.text }}>
+                                                    <p className="line-clamp-1 text-[15px] font-semibold" style={{ color: EKARI.text }}>
                                                         {item.deed.caption || "Untitled deed"}
                                                     </p>
-                                                    <p className="truncate text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                                    <p className="truncate text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                                         by {item.deed.authorUsername || "ekarihub user"}
                                                     </p>
                                                 </div>
@@ -1686,10 +1686,10 @@ export default function SearchPageClient() {
                                                     />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="line-clamp-1 text-[14px] font-semibold" style={{ color: EKARI.text }}>
+                                                    <p className="line-clamp-1 text-[15px] font-semibold" style={{ color: EKARI.text }}>
                                                         {item.event.title || "Untitled event"}
                                                     </p>
-                                                    <p className="truncate text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                                    <p className="truncate text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                                         {item.event.location || "Event"}
                                                     </p>
                                                 </div>
@@ -1715,10 +1715,10 @@ export default function SearchPageClient() {
                                                 <IoChatbubblesOutline size={16} color={EKARI.forest} />
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="line-clamp-1 text-[14px] font-semibold" style={{ color: EKARI.text }}>
+                                                <p className="line-clamp-1 text-[15px] font-semibold" style={{ color: EKARI.text }}>
                                                     {item.discussion.title || "Untitled discussion"}
                                                 </p>
-                                                <p className="truncate text-[12px] font-medium" style={{ color: EKARI.dim }}>
+                                                <p className="truncate text-[13px] font-medium" style={{ color: EKARI.dim }}>
                                                     {fmtCompact(item.discussion.repliesCount || 0)} replies
                                                 </p>
                                             </div>
@@ -1849,15 +1849,15 @@ export default function SearchPageClient() {
                         <div className="sticky top-0 z-40 border-b border-[#DDD8CC] bg-[#F8F7F2]/95 backdrop-blur-xl">
                             <div className="mx-auto w-full max-w-[980px] px-3 pb-3 pt-3 sm:px-5 lg:px-6">
                                 <div className="mb-2 hidden lg:block">
-                                    <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                                    <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                         Discover ekarihub
                                     </div>
 
-                                    <div className="mt-0.5 text-[20px] font-black tracking-[-0.035em] text-slate-900">
+                                    <div className="mt-0.5 text-[22px] font-black tracking-[-0.035em] text-slate-900">
                                         Search
                                     </div>
 
-                                    <div className="mt-1 text-[9px] font-medium text-slate-400">
+                                    <div className="mt-1 text-[12px] font-medium text-slate-400">
                                         Find people, deeds, events, discussions and topics across ekarihub.
                                     </div>
                                 </div>
@@ -1905,7 +1905,7 @@ export default function SearchPageClient() {
                                                         onClick={() => selectTab(tab)}
                                                         className={[
                                                             "relative shrink-0 rounded-[11px] px-3 py-2",
-                                                            "text-[9px] font-black transition-all duration-200",
+                                                            "text-[12px] font-black transition-all duration-200",
                                                             selected
                                                                 ? "bg-[#173C2E] text-white"
                                                                 : "text-slate-500 hover:bg-[#F3F1EB] hover:text-[#173C2E]",
@@ -1924,7 +1924,7 @@ export default function SearchPageClient() {
                                             })}
                                         </div>
 
-                                        <p className="mt-2 text-[8px] font-medium text-slate-400">
+                                        <p className="mt-2 text-[11px] font-medium text-slate-400">
                                             Results for{" "}
                                             <span className="font-black text-slate-600">
                                                 “{lastQuery || q.trim()}”
@@ -1970,10 +1970,10 @@ export default function SearchPageClient() {
                                                     </span>
 
                                                     <div>
-                                                        <h2 className="text-[11px] font-black text-slate-800">
+                                                        <h2 className="text-[12px] font-black text-slate-800">
                                                             Recent searches
                                                         </h2>
-                                                        <p className="mt-0.5 text-[8px] font-medium text-slate-400">
+                                                        <p className="mt-0.5 text-[11px] font-medium text-slate-400">
                                                             Pick up where you left off.
                                                         </p>
                                                     </div>
@@ -1982,7 +1982,7 @@ export default function SearchPageClient() {
                                                 <button
                                                     type="button"
                                                     onClick={clearRecents}
-                                                    className="text-[8px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                                                    className="text-[11px] font-black text-slate-400 transition hover:text-[#173C2E]"
                                                 >
                                                     Clear
                                                 </button>
@@ -2008,11 +2008,11 @@ export default function SearchPageClient() {
                                             </span>
 
                                             <div>
-                                                <h2 className="text-[11px] font-black text-slate-800">
+                                                <h2 className="text-[12px] font-black text-slate-800">
                                                     Trending now
                                                 </h2>
 
-                                                <p className="mt-0.5 text-[8px] font-medium text-slate-400">
+                                                <p className="mt-0.5 text-[11px] font-medium text-slate-400">
                                                     Popular searches and topics across the community.
                                                 </p>
                                             </div>
@@ -2037,11 +2037,11 @@ export default function SearchPageClient() {
                                                     </span>
 
                                                     <span className="min-w-0 flex-1">
-                                                        <span className="block truncate text-[10px] font-black text-slate-700">
+                                                        <span className="block truncate text-[13px] font-black text-slate-700">
                                                             {term}
                                                         </span>
 
-                                                        <span className="mt-0.5 block text-[8px] font-medium text-slate-400">
+                                                        <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
                                                             Trending #{idx + 1}
                                                         </span>
                                                     </span>
@@ -2071,11 +2071,11 @@ export default function SearchPageClient() {
                                             </span>
 
                                             <span className="min-w-0 flex-1">
-                                                <span className="block text-[10px] font-black">
+                                                <span className="block text-[13px] font-black">
                                                     Ask ekari AI
                                                 </span>
 
-                                                <span className="mt-1 block text-[8px] font-medium leading-4 text-white/50">
+                                                <span className="mt-1 block text-[11px] font-medium leading-4 text-white/50">
                                                     Need a deeper answer? Continue your question with ekari AI.
                                                 </span>
                                             </span>
@@ -2096,7 +2096,7 @@ export default function SearchPageClient() {
                                                     <BouncingBallLoader />
                                                 </div>
 
-                                                <div className="mt-4 text-[9px] font-black text-slate-500">
+                                                <div className="mt-4 text-[12px] font-black text-slate-500">
                                                     Searching ekarihub...
                                                 </div>
                                             </div>
@@ -2119,7 +2119,7 @@ export default function SearchPageClient() {
                                                         className={[
                                                             "inline-flex h-10 items-center rounded-[13px]",
                                                             "border border-[#DDD8CC] bg-[#FBFAF6] px-4",
-                                                            "text-[9px] font-black text-[#173C2E]",
+                                                            "text-[12px] font-black text-[#173C2E]",
                                                             "transition hover:bg-white",
                                                         ].join(" ")}
                                                     >
@@ -2131,7 +2131,7 @@ export default function SearchPageClient() {
                                             {!hasMore &&
                                                 !!lastQuery &&
                                                 currentCount > 0 ? (
-                                                <div className="pb-8 pt-2 text-center text-[8px] font-semibold text-slate-400">
+                                                <div className="pb-8 pt-2 text-center text-[11px] font-semibold text-slate-400">
                                                     You&apos;ve reached the end of these results.
                                                 </div>
                                             ) : null}
@@ -2147,7 +2147,7 @@ export default function SearchPageClient() {
                     ================================================= */}
                     <aside className="hidden w-[292px] shrink-0 border-l border-[#DDD8CC] bg-[#FBFAF6] lg:block xl:w-[310px]">
                         <div className="sticky top-0 max-h-[100svh] overflow-y-auto px-4 py-5 xl:px-5">
-                            <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                            <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                 Discover
                             </div>
 
@@ -2155,7 +2155,7 @@ export default function SearchPageClient() {
                                 Search smarter
                             </h2>
 
-                            <p className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                            <p className="mt-1 text-[11px] font-medium leading-4 text-slate-400">
                                 Quick ways to find the right people, topics and conversations.
                             </p>
 
@@ -2168,7 +2168,7 @@ export default function SearchPageClient() {
                                         className="text-[#c69258]"
                                     />
 
-                                    <span className="text-[9px] font-black text-slate-700">
+                                    <span className="text-[12px] font-black text-slate-700">
                                         Trending
                                     </span>
                                 </div>
@@ -2181,11 +2181,11 @@ export default function SearchPageClient() {
                                             onClick={() => onTapTrending(term)}
                                             className="group flex w-full items-center gap-2 rounded-[12px] px-2.5 py-2 text-left transition hover:bg-[#F3F1EB]"
                                         >
-                                            <span className="w-5 shrink-0 text-[8px] font-black text-slate-300">
+                                            <span className="w-5 shrink-0 text-[11px] font-black text-slate-300">
                                                 {String(idx + 1).padStart(2, "0")}
                                             </span>
 
-                                            <span className="min-w-0 flex-1 truncate text-[9px] font-black text-slate-600 group-hover:text-[#173C2E]">
+                                            <span className="min-w-0 flex-1 truncate text-[12px] font-black text-slate-600 group-hover:text-[#173C2E]">
                                                 {term}
                                             </span>
 
@@ -2213,11 +2213,11 @@ export default function SearchPageClient() {
                                 </span>
 
                                 <span className="min-w-0 flex-1">
-                                    <span className="block text-[9px] font-black">
+                                    <span className="block text-[12px] font-black">
                                         Ask ekari AI
                                     </span>
 
-                                    <span className="mt-1 block text-[8px] font-medium leading-4 text-white/45">
+                                    <span className="mt-1 block text-[11px] font-medium leading-4 text-white/45">
                                         Get a deeper answer or recommendation.
                                     </span>
                                 </span>
@@ -2257,12 +2257,12 @@ function SearchTip({
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                     {badge ? (
-                        <span className="rounded-md bg-[#F3F1EB] px-1.5 py-0.5 text-[8px] font-black text-[#173C2E]">
+                        <span className="rounded-md bg-[#F3F1EB] px-1.5 py-0.5 text-[11px] font-black text-[#173C2E]">
                             {badge}
                         </span>
                     ) : null}
 
-                    <span className="text-[8px] font-black text-slate-700">
+                    <span className="text-[11px] font-black text-slate-700">
                         {title}
                     </span>
                 </div>

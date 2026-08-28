@@ -489,7 +489,7 @@ function MultiSelectChips({
         onClick={() =>
           toggle(item)
         }
-        className="rounded-full border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-full border px-3 py-2 text-[13px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40"
         style={{
           borderColor: active
             ? EKARI.forest
@@ -523,7 +523,7 @@ function MultiSelectChips({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3
-            className="text-sm font-black"
+            className="text-[14px] font-black"
             style={{
               color: EKARI.text,
             }}
@@ -533,7 +533,7 @@ function MultiSelectChips({
 
           {helper ? (
             <p
-              className="mt-1 text-xs"
+              className="mt-1 text-[14px] leading-5"
               style={{
                 color:
                   EKARI.subtext,
@@ -545,7 +545,7 @@ function MultiSelectChips({
         </div>
 
         <span
-          className="shrink-0 rounded-full border px-3 py-1 text-xs font-bold"
+          className="shrink-0 rounded-full border px-3 py-1 text-[13px] font-bold"
           style={{
             borderColor:
               EKARI.hair,
@@ -573,7 +573,7 @@ function MultiSelectChips({
           }}
         >
           <div
-            className="mb-2 text-[11px] font-black uppercase tracking-[0.12em]"
+            className="mb-2 text-[12px] font-black uppercase tracking-[0.12em]"
             style={{
               color:
                 EKARI.forest,
@@ -591,7 +591,7 @@ function MultiSelectChips({
                   onClick={() =>
                     toggle(item)
                   }
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-white"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-bold text-white"
                   style={{
                     backgroundColor:
                       EKARI.forest,
@@ -628,7 +628,7 @@ function MultiSelectChips({
             )
           }
           placeholder="Search specialties or categories"
-          className="h-12 w-full rounded-2xl border bg-white pl-11 pr-11 text-sm outline-none focus:ring-2"
+          className="h-12 w-full rounded-2xl border bg-white pl-11 pr-11 text-[15px] outline-none focus:ring-2"
           style={{
             borderColor:
               EKARI.hair,
@@ -657,7 +657,7 @@ function MultiSelectChips({
         0 ? (
         <div className="mt-5">
           <div
-            className="mb-2 text-xs font-black"
+            className="mb-2 text-[14px] font-black"
             style={{
               color: EKARI.text,
             }}
@@ -676,7 +676,7 @@ function MultiSelectChips({
       {normalizedSearch ? (
         <div className="mt-5">
           <div
-            className="mb-3 text-xs font-black"
+            className="mb-3 text-[14px] font-black"
             style={{
               color: EKARI.text,
             }}
@@ -693,7 +693,7 @@ function MultiSelectChips({
                     key={group.id}
                   >
                     <div
-                      className="mb-2 text-[11px] font-black uppercase tracking-[0.12em]"
+                      className="mb-2 text-[12px] font-black uppercase tracking-[0.12em]"
                       style={{
                         color:
                           EKARI.forest,
@@ -738,7 +738,7 @@ function MultiSelectChips({
         groups.length > 0 ? (
         <div className="mt-6">
           <div
-            className="mb-3 text-xs font-black"
+            className="mb-3 text-[14px] font-black"
             style={{
               color: EKARI.text,
             }}
@@ -794,7 +794,7 @@ function MultiSelectChips({
                         </span>
 
                         <span
-                          className="mt-0.5 block text-[11px]"
+                          className="mt-0.5 block text-[12px]"
                           style={{
                             color:
                               EKARI.subtext,
@@ -811,7 +811,7 @@ function MultiSelectChips({
                       {selectedCount >
                         0 ? (
                         <span
-                          className="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-[10px] font-black text-white"
+                          className="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-[11px] font-black text-white"
                           style={{
                             backgroundColor:
                               EKARI.forest,
@@ -1848,7 +1848,7 @@ export default function ExpertSettingsPage() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+              <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                 ekari Expert
               </div>
 
@@ -1860,24 +1860,24 @@ export default function ExpertSettingsPage() {
                     </h1>
 
                     {isVerified ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black text-emerald-200">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-black text-emerald-200">
                         <IoShieldCheckmarkOutline size={12} />
                         Verified
                       </span>
                     ) : isVerificationPending ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2.5 py-1 text-[9px] font-black text-amber-200">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2.5 py-1 text-[11px] font-black text-amber-200">
                         <IoInformationCircleOutline size={12} />
                         Verification pending
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black text-white/65">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-black text-white/65">
                         <IoInformationCircleOutline size={12} />
                         Unverified
                       </span>
                     )}
                   </div>
 
-                  <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                  <p className="mt-1 max-w-2xl text-[14px] font-medium leading-5 text-white/55 md:text-[15px]">
                     Configure how clients discover, contact and book your professional agricultural services.
                   </p>
                 </div>
@@ -1887,7 +1887,7 @@ export default function ExpertSettingsPage() {
                     <span
                       className={[
                         "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5",
-                        "text-[10px] font-black",
+                        "text-[12px] font-black",
                         profileIsPublic
                           ? "bg-emerald-400/15 text-emerald-200"
                           : expertProfile.status === "suspended"
@@ -1946,7 +1946,7 @@ export default function ExpertSettingsPage() {
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="mb-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700"
+                  className="mb-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700"
                 >
                   {errorMessage}
                 </motion.div>
@@ -1958,7 +1958,7 @@ export default function ExpertSettingsPage() {
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="mb-4 rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[12px] font-semibold text-emerald-700"
+                  className="mb-4 rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-semibold text-emerald-700"
                 >
                   {successMessage}
                 </motion.div>
@@ -1981,13 +1981,13 @@ export default function ExpertSettingsPage() {
                         : "Unverified expert profile"}
                     </h2>
 
-                    <p className="mt-1 text-sm leading-6 text-amber-800">
+                    <p className="mt-1 text-[14px] leading-6 text-amber-800">
                       {isVerificationPending
                         ? "You can create, publish and manage your expert profile while your verification request is being reviewed."
                         : "You can create and publish your expert profile without verification. Your public profile will display an Unverified expert badge until verification is approved."}
                     </p>
 
-                    <p className="mt-2 text-xs font-semibold text-amber-800">
+                    <p className="mt-2 text-[12px] font-semibold text-amber-800">
                       Current status:{" "}
                       {userSummary.verificationStatus}
                     </p>
@@ -1999,7 +1999,7 @@ export default function ExpertSettingsPage() {
                           "/account/verification"
                         )
                       }
-                      className="mt-3 rounded-xl bg-amber-700 px-4 py-2.5 text-[11px] font-black text-white transition hover:bg-amber-800"
+                      className="mt-3 rounded-xl bg-amber-700 px-4 py-2.5 text-[13px] font-black text-white transition hover:bg-amber-800"
                     >
                       {isVerificationPending
                         ? "View verification status"
@@ -2043,7 +2043,7 @@ export default function ExpertSettingsPage() {
                       </h2>
 
                       <p
-                        className="mt-1 text-sm"
+                        className="mt-1 text-[14px]"
                         style={{
                           color: EKARI.subtext,
                         }}
@@ -2056,7 +2056,7 @@ export default function ExpertSettingsPage() {
 
                   <div className="mt-6">
                     <label
-                      className="text-sm font-black"
+                      className="text-[14px] font-black"
                       style={{ color: EKARI.text }}
                     >
                       Professional headline
@@ -2072,14 +2072,14 @@ export default function ExpertSettingsPage() {
                       }
                       maxLength={120}
                       placeholder="Example: Crop disease and soil health specialist"
-                      className="mt-2 w-full rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                      className="mt-2 w-full rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-[15px] outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
                       style={{
                         borderColor: EKARI.hair,
                       }}
                     />
 
                     <div
-                      className="mt-1 text-right text-xs"
+                      className="mt-1 text-right text-[13px]"
                       style={{
                         color: EKARI.subtext,
                       }}
@@ -2090,7 +2090,7 @@ export default function ExpertSettingsPage() {
 
                   <div className="mt-5">
                     <label
-                      className="text-sm font-black"
+                      className="text-[14px] font-black"
                       style={{ color: EKARI.text }}
                     >
                       Expert biography
@@ -2107,14 +2107,14 @@ export default function ExpertSettingsPage() {
                       maxLength={1200}
                       rows={7}
                       placeholder="Describe your qualifications, experience and the agricultural problems you help clients solve."
-                      className="mt-2 w-full resize-none rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                      className="mt-2 w-full resize-none rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-[15px] leading-6 outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
                       style={{
                         borderColor: EKARI.hair,
                       }}
                     />
 
                     <div
-                      className="mt-1 text-right text-xs"
+                      className="mt-1 text-right text-[13px]"
                       style={{
                         color: EKARI.subtext,
                       }}
@@ -2149,7 +2149,7 @@ export default function ExpertSettingsPage() {
                   ) : (
                     <>
                       {specialtiesError ? (
-                        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+                        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-semibold text-amber-800">
                           {specialtiesError}
                         </div>
                       ) : null}
@@ -2178,7 +2178,7 @@ export default function ExpertSettingsPage() {
                       {databaseSpecialties.length >
                         0 ? (
                         <div
-                          className="mt-4 text-xs"
+                          className="mt-4 text-[13px]"
                           style={{
                             color: EKARI.subtext,
                           }}
@@ -2220,7 +2220,7 @@ export default function ExpertSettingsPage() {
                       </h2>
 
                       <p
-                        className="mt-1 text-sm"
+                        className="mt-1 text-[14px]"
                         style={{ color: EKARI.subtext }}
                       >
                         Select your primary location and define where you offer online consultations or physical visits.
@@ -2289,7 +2289,7 @@ export default function ExpertSettingsPage() {
                           Online consultations
                         </span>
                         <span
-                          className="mt-1 block text-xs leading-5"
+                          className="mt-1 block text-[13px] leading-5"
                           style={{ color: EKARI.subtext }}
                         >
                           Serve clients through phone, WhatsApp or video.
@@ -2378,7 +2378,7 @@ export default function ExpertSettingsPage() {
                           Physical farm visits
                         </span>
                         <span
-                          className="mt-1 block text-xs leading-5"
+                          className="mt-1 block text-[13px] leading-5"
                           style={{ color: EKARI.subtext }}
                         >
                           Travel to farms, businesses or client locations.
@@ -2393,7 +2393,7 @@ export default function ExpertSettingsPage() {
 
                   {expertProfile.serviceCoverage.offersOnlineServices ? (
                     <div className="mt-5">
-                      <label className="text-sm font-black">
+                      <label className="text-[14px] font-black">
                         Online consultation coverage
                       </label>
 
@@ -2408,7 +2408,7 @@ export default function ExpertSettingsPage() {
                               | "worldwide",
                           })
                         }
-                        className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none"
+                        className="mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-[15px] outline-none"
 
                       >
                         <option value="local">
@@ -2439,11 +2439,11 @@ export default function ExpertSettingsPage() {
                         />
 
                         <div className="min-w-0 flex-1">
-                          <label className="text-sm font-black">
+                          <label className="text-[14px] font-black">
                             Physical visit radius
                           </label>
                           <p
-                            className="mt-1 text-xs"
+                            className="mt-1 text-[14px] leading-5"
                             style={{ color: EKARI.subtext }}
                           >
                             Choose how far you can normally travel from your primary location.
@@ -2485,7 +2485,7 @@ export default function ExpertSettingsPage() {
                                 serviceAreas: [radiusArea, ...otherAreas],
                               });
                             }}
-                            className="mt-3 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none"
+                            className="mt-3 w-full rounded-xl border bg-white px-4 py-3 text-[15px] outline-none"
 
                           >
                             {[10, 25, 50, 100, 200].map((radius) => (
@@ -2496,7 +2496,7 @@ export default function ExpertSettingsPage() {
                           </select>
 
                           {!expertProfile.primaryLocation.coordinates ? (
-                            <p className="mt-2 text-xs font-semibold text-amber-700">
+                            <p className="mt-2 text-[13px] font-semibold text-amber-700">
                               Select a GPS, searched or map location to enable accurate radius matching.
                             </p>
                           ) : null}
@@ -2531,7 +2531,7 @@ export default function ExpertSettingsPage() {
                       </h2>
 
                       <p
-                        className="mt-1 text-sm"
+                        className="mt-1 text-[14px]"
                         style={{
                           color: EKARI.subtext,
                         }}
@@ -2609,7 +2609,7 @@ export default function ExpertSettingsPage() {
                               </span>
 
                               <span
-                                className="mt-1 block text-xs leading-5"
+                                className="mt-1 block text-[13px] leading-5"
                                 style={{
                                   color: EKARI.subtext,
                                 }}
@@ -2643,7 +2643,7 @@ export default function ExpertSettingsPage() {
                   </h2>
 
                   <p
-                    className="mt-1 text-sm"
+                    className="mt-1 text-[14px]"
                     style={{ color: EKARI.subtext }}
                   >
                     Set your standard consultation fee.
@@ -2652,7 +2652,7 @@ export default function ExpertSettingsPage() {
                   </p>
 
                   <div className="mt-5">
-                    <label className="text-sm font-black">
+                    <label className="text-[14px] font-black">
                       Consultation currency
                     </label>
 
@@ -2670,7 +2670,7 @@ export default function ExpertSettingsPage() {
                                 currency,
                               })
                             }
-                            className="rounded-xl px-5 py-2.5 text-xs font-black transition"
+                            className="rounded-xl px-5 py-2.5 text-[13px] font-black transition"
                             style={{
                               backgroundColor: active ? EKARI.forest : "transparent",
                               color: active ? "#FFFFFF" : EKARI.text,
@@ -2685,7 +2685,7 @@ export default function ExpertSettingsPage() {
 
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <div>
-                      <label className="text-sm font-black">
+                      <label className="text-[14px] font-black">
                         Fee type
                       </label>
 
@@ -2718,7 +2718,7 @@ export default function ExpertSettingsPage() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-black">
+                      <label className="text-[14px] font-black">
                         Consultation duration
                       </label>
 
@@ -2757,7 +2757,7 @@ export default function ExpertSettingsPage() {
                     {expertProfile.pricing.feeType !==
                       "free" ? (
                       <div>
-                        <label className="text-sm font-black">
+                        <label className="text-[14px] font-black">
                           Consultation fee
                         </label>
 
@@ -2795,7 +2795,7 @@ export default function ExpertSettingsPage() {
                                 }
                               )
                             }
-                            className="w-full px-4 py-3 text-sm outline-none"
+                            className="w-full px-4 py-3 text-[15px] outline-none"
                           />
                         </div>
                       </div>
@@ -2805,7 +2805,7 @@ export default function ExpertSettingsPage() {
                       "physical"
                     ) ? (
                       <div>
-                        <label className="text-sm font-black">
+                        <label className="text-[14px] font-black">
                           Physical visit fee from
                         </label>
 
@@ -2846,7 +2846,7 @@ export default function ExpertSettingsPage() {
                               )
                             }
                             placeholder="Example: 3000"
-                            className="w-full px-4 py-3 text-sm outline-none"
+                            className="w-full px-4 py-3 text-[15px] outline-none"
                           />
                         </div>
                       </div>
@@ -2866,7 +2866,7 @@ export default function ExpertSettingsPage() {
                   </h2>
 
                   <p
-                    className="mt-1 text-sm"
+                    className="mt-1 text-[14px]"
                     style={{ color: EKARI.subtext }}
                   >
                     These terms will be visible to clients
@@ -2874,7 +2874,7 @@ export default function ExpertSettingsPage() {
                   </p>
 
                   <div className="mt-5">
-                    <label className="text-sm font-black">
+                    <label className="text-[14px] font-black">
                       Service terms
                     </label>
 
@@ -2889,7 +2889,7 @@ export default function ExpertSettingsPage() {
                       rows={6}
                       maxLength={1000}
                       placeholder="Example: The consultation covers one farming issue and lasts up to 45 minutes. Laboratory tests, transport and farm inputs are charged separately."
-                      className="mt-2 w-full resize-none rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                      className="mt-2 w-full resize-none rounded-xl border border-[#D9D3C7] bg-white px-4 py-3 text-[15px] leading-6 outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
                       style={{
                         borderColor: EKARI.hair,
                       }}
@@ -2898,7 +2898,7 @@ export default function ExpertSettingsPage() {
 
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <div>
-                      <label className="text-sm font-black">
+                      <label className="text-[14px] font-black">
                         Cancellation notice
                       </label>
 
@@ -2938,7 +2938,7 @@ export default function ExpertSettingsPage() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-black">
+                      <label className="text-[14px] font-black">
                         Cancellation policy
                       </label>
 
@@ -2985,7 +2985,7 @@ export default function ExpertSettingsPage() {
                           Allow rescheduling
                         </span>
                         <span
-                          className="mt-1 block text-xs"
+                          className="mt-1 block text-[13px]"
                           style={{
                             color: EKARI.subtext,
                           }}
@@ -3018,7 +3018,7 @@ export default function ExpertSettingsPage() {
                           Require payment before confirmation
                         </span>
                         <span
-                          className="mt-1 block text-xs"
+                          className="mt-1 block text-[13px]"
                           style={{
                             color: EKARI.subtext,
                           }}
@@ -3080,7 +3080,7 @@ export default function ExpertSettingsPage() {
                     <button
                       type="submit"
                       disabled={saving || publishing || unpublishing}
-                      className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#173C2E] bg-white px-5 text-[11px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#173C2E] bg-white px-5 text-[13px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:cursor-not-allowed disabled:opacity-60"
                       style={{
                         borderColor: EKARI.forest,
                         color: EKARI.forest,
@@ -3097,7 +3097,7 @@ export default function ExpertSettingsPage() {
                         type="button"
                         onClick={handleUnpublish}
                         disabled={saving || publishing || unpublishing}
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 px-5 text-[11px] font-black text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 px-5 text-[13px] font-black text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
                         style={{ backgroundColor: "#B45309" }}
                       >
                         <IoCloseOutline size={20} />
@@ -3115,7 +3115,7 @@ export default function ExpertSettingsPage() {
                           unpublishing ||
                           expertProfile.status === "suspended"
                         }
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
 
                       >
                         <IoGlobeOutline size={19} />
@@ -3143,7 +3143,7 @@ export default function ExpertSettingsPage() {
                     />
 
                     <p
-                      className="text-[11px] font-semibold"
+                      className="text-[13px] font-semibold"
                       style={{ color: EKARI.subtext }}
                     >
                       {expertProfile.status === "active" &&
@@ -3162,7 +3162,7 @@ export default function ExpertSettingsPage() {
                     <button
                       type="button"
                       onClick={() => router.push("/ekari-experts")}
-                      className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                      className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                       style={{
                         borderColor: EKARI.hair,
                         color: EKARI.forest,
@@ -3186,7 +3186,7 @@ export default function ExpertSettingsPage() {
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                     Expert profile
                   </div>
 
@@ -3214,7 +3214,7 @@ export default function ExpertSettingsPage() {
               </div>
 
               {expertProfile ? (
-                <div className="mt-4 space-y-2.5 text-[11px]">
+                <div className="mt-4 space-y-2.5 text-[13px]">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-semibold text-slate-400">
                       Accepting bookings
@@ -3248,7 +3248,7 @@ export default function ExpertSettingsPage() {
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                  <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                     Profile readiness
                   </div>
 
@@ -3271,7 +3271,7 @@ export default function ExpertSettingsPage() {
                 />
               </div>
 
-              <p className="mt-2 text-[10px] font-semibold text-slate-400">
+              <p className="mt-2 text-[12px] font-semibold text-slate-400">
                 {readiness.completed} of {readiness.total} required areas complete
               </p>
 
@@ -3279,7 +3279,7 @@ export default function ExpertSettingsPage() {
                 {readiness.items.map((item) => (
                   <div
                     key={item.label}
-                    className="flex items-center gap-2 text-[10px]"
+                    className="flex items-center gap-2 text-[12px]"
                   >
                     <span
                       className={[
@@ -3312,7 +3312,7 @@ export default function ExpertSettingsPage() {
             </section>
 
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+              <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                 Verification
               </div>
 
@@ -3335,7 +3335,7 @@ export default function ExpertSettingsPage() {
                 </span>
 
                 <div className="min-w-0">
-                  <div className="text-[12px] font-black text-slate-800">
+                  <div className="text-[15px] font-black text-slate-900">
                     {isVerified
                       ? "Verified expert"
                       : isVerificationPending
@@ -3343,7 +3343,7 @@ export default function ExpertSettingsPage() {
                         : "Unverified expert"}
                   </div>
 
-                  <div className="mt-0.5 text-[10px] font-medium leading-4 text-slate-400">
+                  <div className="mt-0.5 text-[12px] font-medium leading-4 text-slate-400">
                     {userSummary?.organizationName ||
                       userSummary?.verificationRole ||
                       userSummary?.verificationType ||
@@ -3355,7 +3355,7 @@ export default function ExpertSettingsPage() {
               <button
                 type="button"
                 onClick={() => router.push("/account/verification")}
-                className="mt-3 inline-flex h-9 w-full items-center justify-center rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                className="mt-3 inline-flex h-9 w-full items-center justify-center rounded-xl border border-[#D9D3C7] bg-white px-3 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
               >
                 {isVerificationPending
                   ? "View verification status"
@@ -3366,7 +3366,7 @@ export default function ExpertSettingsPage() {
             </section>
 
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+              <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                 Quick links
               </div>
 
@@ -3374,7 +3374,7 @@ export default function ExpertSettingsPage() {
                 <button
                   type="button"
                   onClick={() => router.push("/ekari-experts")}
-                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                 >
                   View ekariExperts
                   <IoOpenOutline size={13} />
@@ -3383,7 +3383,7 @@ export default function ExpertSettingsPage() {
                 <button
                   type="button"
                   onClick={() => router.push("/account/expert/bookings")}
-                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                 >
                   Expert bookings
                   <IoOpenOutline size={13} />
@@ -3392,7 +3392,7 @@ export default function ExpertSettingsPage() {
                 <button
                   type="button"
                   onClick={() => router.push("/account/bookings")}
-                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                  className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                 >
                   My bookings
                   <IoOpenOutline size={13} />

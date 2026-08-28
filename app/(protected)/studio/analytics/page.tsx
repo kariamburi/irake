@@ -184,7 +184,7 @@ function Chip({
     return (
         <span
             className={[
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[9px] font-black",
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-black",
                 active
                     ? "border-[#F3D7B2] bg-[#FFF4E3] text-[#9A5A08]"
                     : "border-[#D9D3C7] bg-[#F3F1EB] text-slate-500",
@@ -209,7 +209,7 @@ function PremiumButton({
     className?: string;
 }) {
     const classes = [
-        "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[10px] font-black transition",
+        "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[13px] font-black transition",
         variant === "primary"
             ? "bg-[#c69258] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]"
             : "border border-[#D9D3C7] bg-white text-[#173C2E] hover:bg-[#EEF3EE]",
@@ -416,7 +416,7 @@ function Metric({
                 <div
                     className={[
                         "min-h-[26px]",
-                        "text-[9px] font-black uppercase",
+                        "text-[11px] font-black uppercase",
                         "leading-[13px]",
                         "tracking-[0.075em]",
                         "text-slate-400",
@@ -441,7 +441,7 @@ function Metric({
                 <div
                     className={[
                         "absolute bottom-4 left-4 right-4",
-                        "text-[9px] font-semibold",
+                        "text-[12px] font-semibold",
                         "leading-[14px]",
                         "text-slate-400",
                     ].join(" ")}
@@ -467,11 +467,11 @@ function Tip({
             </div>
 
             <div className="min-w-0">
-                <div className="text-[11px] font-black text-slate-800">
+                <div className="text-[15px] font-black text-slate-900">
                     {title}
                 </div>
 
-                <div className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
+                <div className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     {body}
                 </div>
             </div>
@@ -560,7 +560,7 @@ function StatPill({
 }) {
     return (
         <span
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-slate-600"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[11px] font-black text-slate-600"
             title={title}
         >
             <span className="text-[#c69258]">
@@ -592,7 +592,7 @@ function RailStat({
                 </span>
             </div>
 
-            <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+            <div className="mt-2 text-[11px] font-black uppercase tracking-[0.07em] text-slate-400">
                 {label}
             </div>
         </div>
@@ -803,7 +803,7 @@ export default function StudioHomePage() {
                     </button>
 
                     <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                        <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                             Deed studio
                         </div>
 
@@ -813,7 +813,7 @@ export default function StudioHomePage() {
                                     Analytics
                                 </h1>
 
-                                <p className="mt-1 text-[10px] font-medium text-white/50 sm:text-[11px]">
+                                <p className="mt-1 text-[14px] font-medium leading-5 text-white/55 sm:text-[15px]">
                                     Understand how your deeds and profile are performing.
                                 </p>
                             </div>
@@ -849,7 +849,7 @@ export default function StudioHomePage() {
                                     />
 
                                     <div className="min-w-0">
-                                        <div className="truncate text-[14px] font-black text-slate-900">
+                                        <div className="truncate text-[16px] font-black text-slate-900">
                                             {handleText}
                                         </div>
 
@@ -894,7 +894,7 @@ export default function StudioHomePage() {
                         <div className="p-4 sm:p-5">
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#c69258]">
+                                    <div className="text-[12px] font-black uppercase tracking-[0.09em] text-[#c69258]">
                                         Performance
                                     </div>
 
@@ -902,7 +902,7 @@ export default function StudioHomePage() {
                                         Key metrics
                                     </h2>
 
-                                    <p className="mt-1 text-[9px] font-medium text-slate-400">
+                                    <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                                         Current totals from your latest deeds and profile activity.
                                     </p>
                                 </div>
@@ -971,11 +971,11 @@ export default function StudioHomePage() {
                                     <div className="rounded-[16px] border border-[#E4DED2] bg-white p-4">
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
-                                                <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                                <div className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
                                                     Deed views
                                                 </div>
 
-                                                <div className="mt-1 text-[11px] font-black text-slate-700">
+                                                <div className="mt-1 text-[14px] font-black text-slate-800">
                                                     Last 7 days
                                                 </div>
                                             </div>
@@ -996,11 +996,11 @@ export default function StudioHomePage() {
                                     <div className="rounded-[16px] border border-[#E4DED2] bg-white p-4">
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
-                                                <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                                <div className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
                                                     Profile views
                                                 </div>
 
-                                                <div className="mt-1 text-[11px] font-black text-slate-700">
+                                                <div className="mt-1 text-[14px] font-black text-slate-800">
                                                     Last 7 days
                                                 </div>
                                             </div>
@@ -1027,7 +1027,7 @@ export default function StudioHomePage() {
                         <div className="border-b border-[#E4DED2] px-4 py-4 sm:px-5">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                                    <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                                         Content performance
                                     </div>
 
@@ -1038,7 +1038,7 @@ export default function StudioHomePage() {
 
                                 <Link
                                     href="/studio/deeds"
-                                    className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                                    className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
                                 >
                                     View all
                                     <IoChevronForward size={12} />
@@ -1079,7 +1079,7 @@ export default function StudioHomePage() {
                                                 />
 
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="truncate text-[11px] font-black text-slate-800">
+                                                    <div className="truncate text-[15px] font-black text-slate-900">
                                                         {post.caption || "Untitled deed"}
                                                     </div>
 
@@ -1110,7 +1110,7 @@ export default function StudioHomePage() {
                                                     </div>
 
                                                     {post.createdAtMs ? (
-                                                        <div className="mt-2 inline-flex items-center gap-1 text-[8px] font-semibold text-slate-400">
+                                                        <div className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-slate-400">
                                                             <IoTimeOutline size={10} />
                                                             {new Date(post.createdAtMs).toLocaleString()}
                                                         </div>
@@ -1136,7 +1136,7 @@ export default function StudioHomePage() {
                                             No deeds yet
                                         </div>
 
-                                        <p className="mx-auto mt-1 max-w-sm text-[10px] font-medium leading-4 text-slate-400">
+                                        <p className="mx-auto mt-1 max-w-sm text-[14px] font-medium leading-5 text-slate-500">
                                             Publish your first deed to begin building performance history.
                                         </p>
 
@@ -1167,7 +1167,7 @@ export default function StudioHomePage() {
                     className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
                 >
                     <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                        <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                             Audience
                         </div>
 
@@ -1205,11 +1205,11 @@ export default function StudioHomePage() {
                             </span>
 
                             <div>
-                                <div className="text-[12px] font-black text-slate-800">
+                                <div className="text-[15px] font-black text-slate-900">
                                     Improve reach
                                 </div>
 
-                                <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                                <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                                     Use clear cover images, focused captions and consistent posting to help members understand your content quickly.
                                 </p>
                             </div>
@@ -1217,7 +1217,7 @@ export default function StudioHomePage() {
                     </section>
 
                     <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                        <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                             Creator tips
                         </div>
 
@@ -1236,7 +1236,7 @@ export default function StudioHomePage() {
 
                     <Link
                         href="/studio/deeds"
-                        className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[10px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
+                        className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[13px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
                     >
                         Manage deeds
                         <IoChevronForward size={14} />
@@ -1265,7 +1265,7 @@ export default function StudioHomePage() {
                 <div className="text-center">
                     <BouncingBallLoader />
 
-                    <p className="mt-3 text-[10px] font-semibold text-slate-400">
+                    <p className="mt-3 text-[13px] font-semibold text-slate-400">
                         Loading Studio analytics…
                     </p>
                 </div>

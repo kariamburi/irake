@@ -115,7 +115,7 @@ async function deleteMuxAsset(assetId: string) {
 
 function Toast({ text }: { text: string }) {
     return (
-        <div className="fixed bottom-4 left-1/2 z-[110] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
+        <div className="fixed bottom-4 left-1/2 z-[110] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-[14px] font-semibold text-white shadow-lg">
             {text}
         </div>
     );
@@ -133,7 +133,7 @@ function StatusBadge({ s }: { s: Deed["status"] }) {
     return (
         <span
             className={clsx(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-extrabold border",
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-extrabold border",
                 map[k] || map.ready
             )}
         >
@@ -192,7 +192,7 @@ function Pill({
     return (
         <span
             className={clsx(
-                "inline-flex items-center gap-1 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-slate-600",
+                "inline-flex items-center gap-1 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[11px] font-black text-slate-600",
                 className
             )}
         >
@@ -421,7 +421,7 @@ export default function PostsPage() {
                     </button>
 
                     <div className="min-w-0 flex-1">
-                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                        <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                             Deed studio
                         </div>
 
@@ -431,14 +431,14 @@ export default function PostsPage() {
                                     Your deeds
                                 </h1>
 
-                                <p className="mt-1 text-[10px] font-medium text-white/50 sm:text-[11px]">
+                                <p className="mt-1 text-[14px] font-medium leading-5 text-white/55 sm:text-[15px]">
                                     Manage, edit and review the performance of your published content.
                                 </p>
                             </div>
 
                             <Link
                                 href="/studio/upload"
-                                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#c69258] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
                             >
                                 <IoSparklesOutline size={14} />
                                 New deed
@@ -457,7 +457,7 @@ export default function PostsPage() {
             <PremiumSurface className="p-4 sm:p-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                     <div className="min-w-0">
-                        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#c69258]">
+                        <div className="text-[12px] font-black uppercase tracking-[0.09em] text-[#c69258]">
                             Content library
                         </div>
 
@@ -465,7 +465,7 @@ export default function PostsPage() {
                             Manage deeds
                         </h2>
 
-                        <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                        <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                             Change visibility, open analytics, edit content or remove deeds you no longer need.
                         </p>
                     </div>
@@ -481,7 +481,7 @@ export default function PostsPage() {
                                         type="button"
                                         onClick={() => setPrivacyFilter(p)}
                                         className={[
-                                            "shrink-0 rounded-lg px-3 py-2 text-[9px] font-black transition",
+                                            "shrink-0 rounded-lg px-3 py-2 text-[13px] font-black transition",
                                             active
                                                 ? "bg-[#173C2E] text-white shadow-sm"
                                                 : "text-slate-500 hover:bg-white hover:text-[#173C2E]",
@@ -500,7 +500,7 @@ export default function PostsPage() {
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
                                 placeholder="Search deed caption…"
-                                className="min-w-0 flex-1 bg-transparent text-[10px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
                             />
                         </div>
                     </div>
@@ -551,7 +551,7 @@ export default function PostsPage() {
                             exit={{ opacity: 0, y: -3 }}
                             className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#F3D7B2] bg-[#FFF7EB] px-3 py-2.5"
                         >
-                            <div className="text-[10px] font-black text-[#9A5A08]">
+                            <div className="text-[13px] font-black text-[#9A5A08]">
                                 {selectedIds.length} selected
                             </div>
 
@@ -559,7 +559,7 @@ export default function PostsPage() {
                                 <button
                                     type="button"
                                     onClick={() => setSelected({})}
-                                    className="h-8 rounded-lg border border-[#E8D7BF] bg-white px-3 text-[9px] font-black text-slate-500"
+                                    className="h-8 rounded-lg border border-[#E8D7BF] bg-white px-3 text-[13px] font-black text-slate-600"
                                 >
                                     Clear
                                 </button>
@@ -567,7 +567,7 @@ export default function PostsPage() {
                                 <button
                                     type="button"
                                     onClick={() => setConfirmBulk(true)}
-                                    className="h-8 rounded-lg bg-rose-600 px-3 text-[9px] font-black text-white transition hover:bg-rose-700"
+                                    className="h-8 rounded-lg bg-rose-600 px-3 text-[13px] font-black text-white transition hover:bg-rose-700"
                                 >
                                     Delete selected
                                 </button>
@@ -581,7 +581,7 @@ export default function PostsPage() {
             <div className="mt-4">
                 <PremiumSurface className="overflow-hidden">
                     <div className="hidden border-b border-[#E4DED2] bg-[#F8F7F2] px-3 py-2.5 md:block">
-                        <div className="grid w-full grid-cols-[24px_minmax(180px,1fr)_110px_70px_120px] items-center gap-2 text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 xl:grid-cols-[24px_minmax(220px,1fr)_110px_70px_70px_80px_90px_120px]">
+                        <div className="grid w-full grid-cols-[24px_minmax(180px,1fr)_110px_70px_120px] items-center gap-2 text-[11px] font-black uppercase tracking-[0.06em] text-slate-400 xl:grid-cols-[24px_minmax(220px,1fr)_110px_70px_70px_80px_90px_120px]">
                             <div className="flex items-center justify-center">
                                 <input
                                     type="checkbox"
@@ -617,7 +617,7 @@ export default function PostsPage() {
                                     No deeds found
                                 </div>
 
-                                <p className="mx-auto mt-1 max-w-sm text-[10px] font-medium leading-4 text-slate-400">
+                                <p className="mx-auto mt-1 max-w-sm text-[14px] font-medium leading-5 text-slate-500">
                                     {q || privacyFilter !== "all"
                                         ? "Try changing your search or visibility filter."
                                         : "Create your first deed and start building your profile."}
@@ -626,7 +626,7 @@ export default function PostsPage() {
                                 {!q && privacyFilter === "all" ? (
                                     <Link
                                         href="/studio/upload"
-                                        className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white"
+                                        className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#c69258] px-4 text-[13px] font-black text-white"
                                     >
                                         <IoSparklesOutline size={13} />
                                         Create a deed
@@ -660,7 +660,7 @@ export default function PostsPage() {
                                 type="button"
                                 onClick={loadMore}
                                 disabled={moreLoading}
-                                className="h-9 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[9px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:opacity-50"
+                                className="h-9 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[13px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:opacity-50"
                             >
                                 {moreLoading ? "Loading…" : "Load more"}
                             </button>
@@ -841,13 +841,13 @@ function PostRowPremium({
                         />
 
                         <div className="min-w-0 overflow-hidden">
-                            <div className="truncate text-[11px] font-black text-slate-800">
+                            <div className="truncate text-[15px] font-black text-slate-900">
                                 {row.caption?.trim()
                                     ? row.caption
                                     : "Untitled deed"}
                             </div>
 
-                            <div className="mt-0.5 truncate text-[9px] font-semibold text-slate-400">
+                            <div className="mt-0.5 truncate text-[12px] font-medium text-slate-400">
                                 {dateStr}
                             </div>
                         </div>
@@ -857,7 +857,7 @@ function PostRowPremium({
                         <button
                             type="button"
                             onClick={() => setOpenMenu((value) => !value)}
-                            className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[9px] font-black text-slate-600 transition hover:bg-[#F3F1EB]"
+                            className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[13px] font-black text-slate-600 transition hover:bg-[#F3F1EB]"
                         >
                             {cap(row.visibility || "public")}
                             <IoChevronDown size={12} />
@@ -879,7 +879,7 @@ function PostRowPremium({
                                                 onChangePrivacy(row.id, v);
                                                 setOpenMenu(false);
                                             }}
-                                            className="flex w-full items-center justify-between border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[9px] font-black text-slate-600 transition last:border-b-0 hover:bg-[#F3F1EB]"
+                                            className="flex w-full items-center justify-between border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[13px] font-black text-slate-600 transition last:border-b-0 hover:bg-[#F3F1EB]"
                                         >
                                             <span className="capitalize">
                                                 {v}
@@ -894,15 +894,15 @@ function PostRowPremium({
                         </AnimatePresence>
                     </div>
 
-                    <div className="text-center text-[10px] font-black text-slate-700">
+                    <div className="text-center text-[13px] font-black text-slate-700">
                         {views}
                     </div>
 
-                    <div className="hidden text-center text-[10px] font-black text-slate-700 xl:block">
+                    <div className="hidden text-center text-[13px] font-black text-slate-700 xl:block">
                         {likes}
                     </div>
 
-                    <div className="hidden text-center text-[10px] font-black text-slate-700 xl:block">
+                    <div className="hidden text-center text-[13px] font-black text-slate-700 xl:block">
                         {comments}
                     </div>
 
@@ -966,13 +966,13 @@ function PostRowPremium({
                         />
 
                         <div className="min-w-0">
-                            <div className="truncate text-[12px] font-black text-slate-800">
+                            <div className="truncate text-[15px] font-black text-slate-900">
                                 {row.caption?.trim()
                                     ? row.caption
                                     : "Untitled deed"}
                             </div>
 
-                            <div className="mt-0.5 truncate text-[9px] font-semibold text-slate-400">
+                            <div className="mt-0.5 truncate text-[12px] font-medium text-slate-400">
                                 {dateStr}
                             </div>
 
@@ -1006,7 +1006,7 @@ function PostRowPremium({
                         <button
                             type="button"
                             onClick={() => setOpenMenu((value) => !value)}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[9px] font-black text-slate-600"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#D9D3C7] bg-white px-2.5 text-[13px] font-black text-slate-600"
                         >
                             Privacy
                             <IoChevronDown size={12} />
@@ -1028,7 +1028,7 @@ function PostRowPremium({
                                                 onChangePrivacy(row.id, v);
                                                 setOpenMenu(false);
                                             }}
-                                            className="flex w-full items-center justify-between border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[9px] font-black text-slate-600 last:border-b-0"
+                                            className="flex w-full items-center justify-between border-b border-[#EEEAE2] px-3 py-2.5 text-left text-[13px] font-black text-slate-600 last:border-b-0"
                                         >
                                             <span className="capitalize">
                                                 {v}
@@ -1104,7 +1104,7 @@ function UniformThumbPremium({
                 </div>
             )}
 
-            <span className="absolute left-1.5 top-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[8px] font-black text-white backdrop-blur">
+            <span className="absolute left-1.5 top-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-[11px] font-black text-white backdrop-blur">
                 <IoTimeOutline className="-mt-0.5 inline" />{" "}
                 {dateStr.split(",")[0] ?? ""}
             </span>
@@ -1133,7 +1133,7 @@ function MiniMetric({
                 </span>
             </div>
 
-            <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+            <div className="mt-2 text-[11px] font-black uppercase tracking-[0.07em] text-slate-400">
                 {label}
             </div>
         </div>

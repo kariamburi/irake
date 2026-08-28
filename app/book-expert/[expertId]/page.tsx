@@ -711,7 +711,7 @@ export default function BookExpertPage() {
                         <button
                             type="button"
                             onClick={() => router.push("/ekari-experts")}
-                            className="mt-6 rounded-2xl px-5 py-3 text-sm font-black text-white"
+                            className="mt-6 rounded-2xl px-5 py-3 text-[13px] font-black text-white"
                             style={{ backgroundColor: EKARI.forest }}
                         >
                             Browse ekariExperts
@@ -741,7 +741,7 @@ export default function BookExpertPage() {
                         </h1>
 
                         <p
-                            className="mt-3 text-sm leading-6"
+                            className="mt-3 text-[14px] leading-6"
                             style={{ color: EKARI.subtext }}
                         >
                             Your consultation request has been sent to {expertName}.
@@ -753,7 +753,7 @@ export default function BookExpertPage() {
                             <button
                                 type="button"
                                 onClick={() => router.push("/account/bookings")}
-                                className="rounded-2xl px-4 py-3 text-sm font-black text-white"
+                                className="rounded-2xl px-4 py-3 text-[13px] font-black text-white"
                                 style={{ backgroundColor: EKARI.forest }}
                             >
                                 View my bookings
@@ -766,7 +766,7 @@ export default function BookExpertPage() {
                                         `/${(expert.handle || "").replace(/^@/, "")}`
                                     )
                                 }
-                                className="rounded-2xl border px-4 py-3 text-sm font-black"
+                                className="rounded-2xl border px-4 py-3 text-[13px] font-black"
                                 style={{
                                     borderColor: EKARI.hair,
                                     color: EKARI.text,
@@ -788,7 +788,7 @@ export default function BookExpertPage() {
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="mb-4 inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-sm font-bold"
+                        className="mb-4 inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-[13px] font-bold"
                         style={{
                             borderColor: EKARI.hair,
                             color: EKARI.text,
@@ -805,7 +805,7 @@ export default function BookExpertPage() {
                         >
                             <div>
                                 <p
-                                    className="text-xs font-black uppercase tracking-[0.18em]"
+                                    className="text-[13px] font-black uppercase tracking-[0.18em]"
                                     style={{ color: EKARI.gold }}
                                 >
                                     ekariExperts
@@ -819,7 +819,7 @@ export default function BookExpertPage() {
                                 </h1>
 
                                 <p
-                                    className="mt-2 text-sm leading-6"
+                                    className="mt-2 text-[14px] leading-6"
                                     style={{ color: EKARI.subtext }}
                                 >
                                     Choose how and when you would like to consult {expertName}.
@@ -828,7 +828,7 @@ export default function BookExpertPage() {
 
                             <section className="mt-7">
                                 <label
-                                    className="text-sm font-black"
+                                    className="text-[13px] font-black"
                                     style={{ color: EKARI.text }}
                                 >
                                     Consultation method
@@ -850,7 +850,7 @@ export default function BookExpertPage() {
                                                             method
                                                         )
                                                     }
-                                                    className="flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-black transition"
+                                                    className="flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 text-left text-[13px] font-black transition"
                                                     style={{
                                                         borderColor: selected
                                                             ? EKARI.gold
@@ -899,14 +899,14 @@ export default function BookExpertPage() {
 
                                         <div>
                                             <h2
-                                                className="text-sm font-black"
+                                                className="text-[13px] font-black"
                                                 style={{ color: EKARI.text }}
                                             >
                                                 Farm or visit location
                                             </h2>
 
                                             <p
-                                                className="mt-1 text-xs leading-5"
+                                                className="mt-1 text-[14px] leading-5"
                                                 style={{ color: EKARI.subtext }}
                                             >
                                                 Enter where the expert should meet you.
@@ -917,7 +917,7 @@ export default function BookExpertPage() {
 
                                     <label className="mt-4 block">
                                         <span
-                                            className="text-xs font-black"
+                                            className="text-[13px] font-black"
                                             style={{ color: EKARI.text }}
                                         >
                                             Visit address or landmark
@@ -934,14 +934,14 @@ export default function BookExpertPage() {
                                                 )
                                             }
                                             placeholder="Example: Njoro, near Egerton main gate"
-                                            className="mt-2 h-12 w-full rounded-2xl border bg-white px-4 text-sm outline-none focus:ring-2"
+                                            className="mt-2 h-12 w-full rounded-2xl border bg-white px-4 text-[15px] outline-none focus:ring-2"
                                             style={{ borderColor: EKARI.hair }}
                                         />
                                     </label>
 
                                     <label className="mt-4 block">
                                         <span
-                                            className="text-xs font-black"
+                                            className="text-[13px] font-black"
                                             style={{ color: EKARI.text }}
                                         >
                                             Contact phone for the visit
@@ -958,14 +958,14 @@ export default function BookExpertPage() {
                                                 )
                                             }
                                             placeholder="+254..."
-                                            className="mt-2 h-12 w-full rounded-2xl border bg-white px-4 text-sm outline-none focus:ring-2"
+                                            className="mt-2 h-12 w-full rounded-2xl border bg-white px-4 text-[15px] outline-none focus:ring-2"
                                             style={{ borderColor: EKARI.hair }}
                                         />
                                     </label>
 
                                     {expert.serviceCoverage?.serviceAreas?.length ? (
                                         <div
-                                            className="mt-4 rounded-xl px-3 py-2 text-xs"
+                                            className="mt-4 rounded-xl px-3 py-2 text-[14px]"
                                             style={{
                                                 backgroundColor: EKARI.soft,
                                                 color: EKARI.subtext,
@@ -984,7 +984,7 @@ export default function BookExpertPage() {
                             <section className="mt-7 grid gap-4 sm:grid-cols-2">
                                 <label className="block">
                                     <span
-                                        className="text-sm font-black"
+                                        className="text-[13px] font-black"
                                         style={{ color: EKARI.text }}
                                     >
                                         Preferred date
@@ -1007,7 +1007,7 @@ export default function BookExpertPage() {
                                                     event.target.value
                                                 )
                                             }
-                                            className="h-12 w-full rounded-2xl border bg-white pl-10 pr-3 text-sm outline-none focus:ring-2"
+                                            className="h-12 w-full rounded-2xl border bg-white pl-10 pr-3 text-[15px] outline-none focus:ring-2"
                                             style={{ borderColor: EKARI.hair }}
                                         />
                                     </div>
@@ -1015,7 +1015,7 @@ export default function BookExpertPage() {
 
                                 <label className="block">
                                     <span
-                                        className="text-sm font-black"
+                                        className="text-[13px] font-black"
                                         style={{ color: EKARI.text }}
                                     >
                                         Preferred time
@@ -1037,7 +1037,7 @@ export default function BookExpertPage() {
                                                     event.target.value
                                                 )
                                             }
-                                            className="h-12 w-full rounded-2xl border bg-white pl-10 pr-3 text-sm outline-none focus:ring-2"
+                                            className="h-12 w-full rounded-2xl border bg-white pl-10 pr-3 text-[15px] outline-none focus:ring-2"
                                             style={{ borderColor: EKARI.hair }}
                                         />
                                     </div>
@@ -1046,7 +1046,7 @@ export default function BookExpertPage() {
 
                             <label className="mt-7 block">
                                 <span
-                                    className="text-sm font-black"
+                                    className="text-[13px] font-black"
                                     style={{ color: EKARI.text }}
                                 >
                                     Consultation topic
@@ -1060,12 +1060,12 @@ export default function BookExpertPage() {
                                         updateField("topic", event.target.value)
                                     }
                                     placeholder="Example: Dairy cow feeding plan"
-                                    className="mt-2 h-12 w-full rounded-2xl border bg-white px-4 text-sm outline-none focus:ring-2"
+                                    className="mt-2 h-12 w-full rounded-2xl border bg-white px-4 text-[15px] outline-none focus:ring-2"
                                     style={{ borderColor: EKARI.hair }}
                                 />
 
                                 <span
-                                    className="mt-1 block text-right text-[11px]"
+                                    className="mt-1 block text-right text-[12px]"
                                     style={{ color: EKARI.subtext }}
                                 >
                                     {form.topic.length}/120
@@ -1074,7 +1074,7 @@ export default function BookExpertPage() {
 
                             <label className="mt-5 block">
                                 <span
-                                    className="text-sm font-black"
+                                    className="text-[13px] font-black"
                                     style={{ color: EKARI.text }}
                                 >
                                     Short message
@@ -1088,12 +1088,12 @@ export default function BookExpertPage() {
                                         updateField("message", event.target.value)
                                     }
                                     placeholder="Briefly explain what you need help with and any useful background."
-                                    className="mt-2 w-full resize-none rounded-2xl border bg-white px-4 py-3 text-sm leading-6 outline-none focus:ring-2"
+                                    className="mt-2 w-full resize-none rounded-2xl border bg-white px-4 py-3 text-[15px] leading-6 outline-none focus:ring-2"
                                     style={{ borderColor: EKARI.hair }}
                                 />
 
                                 <span
-                                    className="mt-1 block text-right text-[11px]"
+                                    className="mt-1 block text-right text-[12px]"
                                     style={{ color: EKARI.subtext }}
                                 >
                                     {form.message.length}/1000
@@ -1101,7 +1101,7 @@ export default function BookExpertPage() {
                             </label>
 
                             {error ? (
-                                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">
                                     {error}
                                 </div>
                             ) : null}
@@ -1113,7 +1113,7 @@ export default function BookExpertPage() {
                                     methods.length === 0 ||
                                     expert.acceptingBookings === false
                                 }
-                                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-[13px] font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                                 style={{
                                     background:
                                         "linear-gradient(135deg, #233F39, #C79257)",
@@ -1152,7 +1152,7 @@ export default function BookExpertPage() {
 
                                     {expert.headline ? (
                                         <p
-                                            className="mt-1 line-clamp-2 text-xs leading-5"
+                                            className="mt-1 line-clamp-2 text-[14px] leading-5"
                                             style={{ color: EKARI.subtext }}
                                         >
                                             {expert.headline}
@@ -1168,7 +1168,7 @@ export default function BookExpertPage() {
                                 }}
                             >
                                 <p
-                                    className="text-xs font-bold"
+                                    className="text-[13px] font-bold"
                                     style={{ color: EKARI.subtext }}
                                 >
                                     Consultation fee
@@ -1183,7 +1183,7 @@ export default function BookExpertPage() {
 
                                 {duration > 0 ? (
                                     <p
-                                        className="mt-2 inline-flex items-center gap-1 text-xs"
+                                        className="mt-2 inline-flex items-center gap-1 text-[13px]"
                                         style={{ color: EKARI.subtext }}
                                     >
                                         <IoTimeOutline size={14} /> {duration} minutes
@@ -1207,33 +1207,33 @@ export default function BookExpertPage() {
 
                             <div className="mt-4 flex flex-wrap gap-2">
                                 {expert.serviceCoverage?.offersOnlineServices ? (
-                                    <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-700">
+                                    <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-[12px] font-bold text-emerald-700">
                                         Online consultations
                                     </span>
                                 ) : null}
 
                                 {expert.serviceCoverage?.offersPhysicalVisits ? (
-                                    <span className="rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-700">
+                                    <span className="rounded-full bg-amber-50 px-3 py-1.5 text-[12px] font-bold text-amber-700">
                                         Physical visits
                                     </span>
                                 ) : null}
 
                                 {expert.serviceCoverage?.onlineCoverage ===
                                     "worldwide" ? (
-                                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
+                                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[12px] font-bold text-slate-600">
                                         Worldwide online
                                     </span>
                                 ) : null}
                             </div>
 
                             {expert.acceptingBookings === false ? (
-                                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[14px] text-amber-800">
                                     This expert is currently not accepting new clients.
                                 </div>
                             ) : null}
 
                             <p
-                                className="mt-5 text-xs leading-5"
+                                className="mt-5 text-[14px] leading-5"
                                 style={{ color: EKARI.subtext }}
                             >
                                 Submitting this form creates a pending request. The

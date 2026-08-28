@@ -28,7 +28,8 @@ const EKARI = {
     forest: "#D8E7DD",
     bg: "#173C2E",
     text: "#F7F3E8",
-    subtext: "#9DB2A6",
+    // subtext: "#9DB2A6",
+    subtext: "#ffffff",
     hair: "rgba(255,255,255,0.10)",
     gold: "#c69258",
 } as const;
@@ -417,7 +418,7 @@ export function LeftNavDesktop({
                         className={[
                             "flex h-11 w-full items-center justify-center",
                             "rounded-xl bg-[#c69258]",
-                            "text-[11px] font-black text-[#173C2E]",
+                            "text-[13px] font-black text-[#173C2E]",
                             "transition hover:bg-[#F8B33E]",
                             "active:scale-[0.98]",
                         ].join(" ")}

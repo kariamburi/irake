@@ -627,7 +627,7 @@ export default function ClientBookingsPage() {
                         Sign in to view your consultations
                     </h2>
 
-                    <p className="mt-2 text-[12px] font-medium leading-5 text-slate-500">
+                    <p className="mt-2 text-[14px] font-medium leading-5 text-slate-500">
                         Your expert consultation requests, payments and confirmed sessions will appear here.
                     </p>
 
@@ -640,7 +640,7 @@ export default function ClientBookingsPage() {
                                 )}`
                             )
                         }
-                        className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                        className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                     >
                         Sign in
                     </button>
@@ -711,7 +711,7 @@ export default function ClientBookingsPage() {
                         </button>
 
                         <div className="min-w-0 flex-1">
-                            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                            <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                 ekari Expert
                             </div>
 
@@ -721,7 +721,7 @@ export default function ClientBookingsPage() {
                                         My consultations
                                     </h1>
 
-                                    <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                                    <p className="mt-1 max-w-2xl text-[14px] font-medium leading-5 text-white/55 md:text-[15px]">
                                         Track expert requests, payments, confirmed sessions and consultation history.
                                     </p>
                                 </div>
@@ -733,7 +733,7 @@ export default function ClientBookingsPage() {
                                             "/ekari-experts"
                                         )
                                     }
-                                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
                                 >
                                     Find an expert
                                 </button>
@@ -765,7 +765,7 @@ export default function ClientBookingsPage() {
                                     }
                                     className={[
                                         "relative inline-flex h-12 shrink-0 items-center gap-1.5 px-3",
-                                        "text-[11px] font-black transition-colors",
+                                        "text-[13px] font-black transition-colors",
                                         selected
                                             ? "text-[#173C2E]"
                                             : "text-slate-400 hover:text-slate-700",
@@ -783,7 +783,7 @@ export default function ClientBookingsPage() {
                                     ] > 0 ? (
                                         <span
                                             className={[
-                                                "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
+                                                "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold",
                                                 selected
                                                     ? "bg-[#c69258] text-white"
                                                     : "bg-[#EFECE5] text-slate-500",
@@ -843,7 +843,7 @@ export default function ClientBookingsPage() {
                                         opacity: 0,
                                         y: -4,
                                     }}
-                                    className="mb-4 flex items-start gap-3 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700"
+                                    className="mb-4 flex items-start gap-3 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[14px] text-rose-700"
                                 >
                                     <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
@@ -973,7 +973,7 @@ export default function ClientBookingsPage() {
                         className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
                     >
                         <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                            <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                                 Consultation overview
                             </div>
 
@@ -1019,7 +1019,7 @@ export default function ClientBookingsPage() {
                                 </span>
 
                                 <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                    <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                                         Payments
                                     </div>
 
@@ -1036,17 +1036,17 @@ export default function ClientBookingsPage() {
                                 </div>
                             </div>
 
-                            <p className="mt-3 text-[10px] font-medium leading-4 text-slate-400">
+                            <p className="mt-3 text-[14px] font-medium leading-5 text-slate-500">
                                 Payment becomes available after an expert accepts a paid consultation request.
                             </p>
                         </section>
 
                         <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                            <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                                 Booking flow
                             </div>
 
-                            <div className="mt-3 space-y-2.5 text-[10px] font-semibold text-slate-500">
+                            <div className="mt-3 space-y-2.5 text-[13px] font-semibold text-slate-500">
                                 <FlowRow
                                     label="Request sent"
                                     active
@@ -1082,7 +1082,7 @@ export default function ClientBookingsPage() {
                         </section>
 
                         <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                            <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                                 Quick links
                             </div>
 
@@ -1094,7 +1094,7 @@ export default function ClientBookingsPage() {
                                             "/ekari-experts"
                                         )
                                     }
-                                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                                 >
                                     Browse experts
                                     <ChevronRight className="h-3.5 w-3.5" />
@@ -1107,7 +1107,7 @@ export default function ClientBookingsPage() {
                                             "/account/expert"
                                         )
                                     }
-                                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                                 >
                                     Expert settings
                                     <ChevronRight className="h-3.5 w-3.5" />
@@ -1238,7 +1238,7 @@ function BookingCard({
                                     onClick={
                                         onOpenExpert
                                     }
-                                    className="max-w-full truncate text-left text-[14px] font-black text-slate-900 hover:underline"
+                                    className="max-w-full truncate text-left text-[15px] font-black text-slate-900 hover:underline"
                                 >
                                     {booking.expertName ||
                                         "Ekari expert"}
@@ -1247,7 +1247,7 @@ function BookingCard({
                                 <span
                                     className={[
                                         "inline-flex items-center gap-1 rounded-full border px-2.5 py-1",
-                                        "text-[9px] font-black",
+                                        "text-[11px] font-black",
                                         statusMeta.className,
                                     ].join(
                                         " "
@@ -1261,14 +1261,14 @@ function BookingCard({
                             </div>
 
                             {booking.expertHeadline ? (
-                                <p className="mt-1 line-clamp-1 text-[10px] font-medium text-slate-400">
+                                <p className="mt-1 line-clamp-1 text-[12px] font-medium text-slate-500">
                                     {
                                         booking.expertHeadline
                                     }
                                 </p>
                             ) : null}
 
-                            <h2 className="mt-2 text-[13px] font-black text-slate-800">
+                            <h2 className="mt-2 text-[14px] font-black text-slate-900">
                                 {booking.topic ||
                                     "Expert consultation"}
                             </h2>
@@ -1276,7 +1276,7 @@ function BookingCard({
                     </div>
 
                     <div className="shrink-0 rounded-[14px] bg-[#F3F1EB] px-3 py-2.5 sm:min-w-[150px] sm:text-right">
-                        <p className="text-[8px] font-black uppercase tracking-[0.08em] text-slate-400">
+                        <p className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
                             Consultation fee
                         </p>
 
@@ -1351,18 +1351,18 @@ function BookingCard({
                             <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
 
                             <div className="min-w-0">
-                                <p className="text-[9px] font-black uppercase tracking-[0.08em] text-amber-700">
+                                <p className="text-[11px] font-black uppercase tracking-[0.08em] text-amber-700">
                                     Visit location
                                 </p>
 
-                                <p className="mt-1 text-[11px] font-black leading-5 text-slate-800">
+                                <p className="mt-1 text-[13px] font-black leading-5 text-slate-800">
                                     {
                                         booking.visitLocation
                                     }
                                 </p>
 
                                 {booking.visitContactPhone ? (
-                                    <p className="mt-1 text-[10px] font-medium text-slate-500">
+                                    <p className="mt-1 text-[12px] font-medium text-slate-500">
                                         Contact:{" "}
                                         {
                                             booking.visitContactPhone
@@ -1376,7 +1376,7 @@ function BookingCard({
 
                 {(booking.expertTimezone ||
                     booking.clientTimezone) ? (
-                    <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-semibold text-slate-400">
+                    <div className="mt-3 flex flex-wrap gap-2 text-[12px] font-semibold text-slate-500">
                         {booking.expertTimezone ? (
                             <span className="rounded-full bg-[#F3F1EB] px-2.5 py-1">
                                 Expert timezone:{" "}
@@ -1399,11 +1399,11 @@ function BookingCard({
 
                 {booking.message ? (
                     <div className="mt-4 rounded-[14px] bg-[#F3F1EB] px-4 py-3">
-                        <p className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                        <p className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
                             Your message
                         </p>
 
-                        <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-[11px] font-medium leading-5 text-slate-600">
+                        <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-[14px] font-medium leading-5 text-slate-600">
                             {
                                 booking.message
                             }
@@ -1416,7 +1416,7 @@ function BookingCard({
                 <button
                     type="button"
                     onClick={onOpenExpert}
-                    className="inline-flex items-center gap-1.5 text-[10px] font-black text-[#173C2E] hover:underline"
+                    className="inline-flex items-center gap-1.5 text-[13px] font-black text-[#173C2E] hover:underline"
                 >
                     View expert profile
                     <ChevronRight className="h-3.5 w-3.5" />
@@ -1435,7 +1435,7 @@ function BookingCard({
                             disabled={
                                 cancelling
                             }
-                            className="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-[10px] font-black text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-white px-3 text-[13px] font-black text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {cancelling ? (
                                 <>
@@ -1456,7 +1456,7 @@ function BookingCard({
                             type="button"
                             onClick={onPay}
                             disabled={paying}
-                            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {paying ? (
                                 <>
@@ -1479,7 +1479,7 @@ function BookingCard({
                             onClick={
                                 onOpenBooking
                             }
-                            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                         >
                             View details
                         </motion.button>
@@ -1501,12 +1501,12 @@ function InfoTile({
 }) {
     return (
         <div className="rounded-[13px] bg-[#F3F1EB] px-3 py-3">
-            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.07em] text-slate-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.07em] text-slate-400">
                 <Icon className="h-3.5 w-3.5 text-[#c69258]" />
                 {label}
             </div>
 
-            <p className="mt-1 truncate text-[11px] font-black text-slate-700">
+            <p className="mt-1 truncate text-[13px] font-black text-slate-800">
                 {value}
             </p>
         </div>
@@ -1550,7 +1550,7 @@ function PaymentBadge({
     return (
         <span
             className={[
-                "mt-1.5 inline-flex rounded-full border px-2 py-0.5 text-[8px] font-black",
+                "mt-1.5 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-black",
                 styles[status],
             ].join(" ")}
         >
@@ -1594,7 +1594,7 @@ function EmptyState({
                     : `No ${activeFilter} consultations`}
             </h2>
 
-            <p className="mx-auto mt-1 max-w-md text-[12px] font-medium leading-5 text-slate-400">
+            <p className="mx-auto mt-1 max-w-md text-[14px] font-medium leading-5 text-slate-500">
                 {activeFilter ===
                     "all"
                     ? "Browse ekariExperts and request a consultation from a specialist who matches your needs."
@@ -1606,7 +1606,7 @@ function EmptyState({
                 <button
                     type="button"
                     onClick={onBrowse}
-                    className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                    className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                 >
                     Browse experts
                 </button>
@@ -1645,7 +1645,7 @@ function MiniStat({
                 {value}
             </div>
 
-            <div className="mt-1 text-[9px] font-black uppercase tracking-[0.07em] opacity-70">
+            <div className="mt-1 text-[11px] font-black uppercase tracking-[0.07em] opacity-70">
                 {label}
             </div>
         </div>
@@ -1695,7 +1695,7 @@ function FullPageLoader() {
             <div className="text-center">
                 <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#173C2E]" />
 
-                <p className="mt-3 text-[11px] font-semibold text-slate-400">
+                <p className="mt-3 text-[13px] font-semibold text-slate-400">
                     Preparing your consultations…
                 </p>
             </div>

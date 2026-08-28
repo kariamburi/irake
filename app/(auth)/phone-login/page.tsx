@@ -192,7 +192,7 @@ function CountryPicker({
                 className={[
                     "inline-flex h-10 items-center gap-2",
                     "rounded-xl px-2.5",
-                    "text-[10px] font-black text-slate-700",
+                    "text-[13px] font-black text-slate-700",
                     "transition hover:bg-[#F3F1EB]",
                     "disabled:cursor-not-allowed disabled:opacity-50",
                 ].join(" ")}
@@ -249,7 +249,7 @@ function CountryPicker({
                                 )
                             }
                             placeholder="Search country or dial code..."
-                            className="h-10 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-semibold text-slate-700 outline-none focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
+                            className="h-10 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-[15px] font-medium text-slate-800 outline-none focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
                             autoFocus
                         />
                     </div>
@@ -308,13 +308,13 @@ function CountryPicker({
                                         />
 
                                         <div className="min-w-0 flex-1">
-                                            <div className="truncate text-[10px] font-black text-slate-700">
+                                            <div className="truncate text-[14px] font-black text-slate-800">
                                                 {
                                                     c.name
                                                 }
                                             </div>
 
-                                            <div className="mt-0.5 text-[8px] font-semibold text-slate-400">
+                                            <div className="mt-0.5 text-[12px] font-semibold text-slate-500">
                                                 {
                                                     c.dial
                                                 }{" "}
@@ -680,14 +680,14 @@ export default function PhoneLoginPage() {
 
                             <Link
                                 href="/login"
-                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/70 transition hover:bg-white/[0.11]"
+                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[11px] font-black text-white/70 transition hover:bg-white/[0.11]"
                             >
-                                Other login options
+                                Other options
                             </Link>
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center py-8 lg:py-10">
-                            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/65">
+                            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-white/65">
                                 <IoSparklesOutline
                                     size={12}
                                     className="text-[#c69258]"
@@ -696,38 +696,28 @@ export default function PhoneLoginPage() {
                             </div>
 
                             <h1 className="mt-5 max-w-[470px] text-[30px] font-black leading-[1.06] tracking-[-0.045em] sm:text-[36px] xl:text-[42px]">
-                                Sign in with the number connected to your account.
+                                Sign in with your phone number.
                             </h1>
 
-                            <p className="mt-4 max-w-[470px] text-[11px] font-medium leading-5 text-white/55 sm:text-[12px]">
-                                We&apos;ll send a one-time verification code to your mobile number so you can securely return to ekarihub.
+                            <p className="mt-4 max-w-[470px] text-[14px] font-medium leading-5 text-white/60 sm:text-[15px]">
+                                We&apos;ll send a 6-digit code to verify your number.
                             </p>
 
-                            <div className="mt-7 space-y-5">
+                            <div className="mt-6 space-y-4">
                                 <FeatureRow
                                     icon={<IoPhonePortraitOutline size={18} />}
-                                    title="Fast access"
-                                    description="Use your mobile number without needing to remember an email password."
+                                    title="Quick access"
+                                    description="Use the phone number linked to your account."
                                 />
 
                                 <FeatureRow
                                     icon={<IoShieldCheckmarkOutline size={18} />}
-                                    title="One-time verification"
-                                    description="A unique SMS code confirms that you control the phone number."
-                                />
-
-                                <FeatureRow
-                                    icon={<IoLockClosedOutline size={18} />}
-                                    title="Existing accounts only"
-                                    description="Phone sign-in checks that your ekarihub profile already exists before allowing access."
+                                    title="Secure verification"
+                                    description="Confirm sign-in with a one-time SMS code."
                                 />
                             </div>
 
 
-                        </div>
-
-                        <div className="pb-1 text-[9px] font-semibold text-white/30">
-                            Collaborate · Innovate · Cultivate
                         </div>
                     </motion.div>
                 </section>
@@ -773,15 +763,15 @@ export default function PhoneLoginPage() {
 
                             <Link
                                 href="/login"
-                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[9px] font-black text-[#173C2E]"
+                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[11px] font-black text-[#173C2E]"
                             >
                                 Other options
                             </Link>
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
-                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
-                                Phone verification
+                            <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                                Phone login
                             </div>
 
                             <h2 className="mt-1 text-[25px] font-black tracking-[-0.035em] text-slate-900 sm:text-[29px]">
@@ -790,22 +780,22 @@ export default function PhoneLoginPage() {
                                     : "Verify your phone number."}
                             </h2>
 
-                            <p className="mt-2 max-w-[480px] text-[10px] font-medium leading-5 text-slate-500">
+                            <p className="mt-2 max-w-[480px] text-[14px] font-medium leading-5 text-slate-500">
                                 {confirmation
                                     ? `We sent a 6-digit code to ${e164}.`
-                                    : "Choose your country and enter the phone number linked to your ekarihub account."}
+                                    : "Enter the phone number linked to your account."}
                             </p>
 
                             {!firebaseReady ? (
-                                <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[10px] font-semibold text-rose-700">
+                                <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[12px] font-semibold text-rose-700">
                                     Firebase is not configured yet.
                                 </div>
                             ) : null}
 
                             {!confirmation ? (
                                 <>
-                                    <div className="mt-6">
-                                        <label className="mb-1.5 block text-[10px] font-black text-slate-700">
+                                    <div className="mt-5">
+                                        <label className="mb-1.5 block text-[14px] font-black text-slate-800">
                                             Phone number
                                         </label>
 
@@ -829,7 +819,7 @@ export default function PhoneLoginPage() {
                                                 autoComplete="tel-national"
                                                 placeholder="712345678"
                                                 maxLength={12}
-                                                className="h-10 min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                                className="h-10 min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
                                                 value={localPhone}
                                                 onChange={(e) =>
                                                     setLocalPhone(
@@ -848,26 +838,10 @@ export default function PhoneLoginPage() {
                                                 disabled={disableAll || sending}
                                             />
                                         </div>
-
-                                        <div className="mt-2 flex items-center justify-between gap-3">
-                                            <div className="text-[9px] font-medium text-slate-400">
-                                                Sending to{" "}
-                                                <span className="font-black text-slate-600">
-                                                    {e164 || `${country.dial}…`}
-                                                </span>
-                                            </div>
-
-                                            {validPhone ? (
-                                                <span className="inline-flex items-center gap-1 text-[8px] font-black text-emerald-600">
-                                                    <IoCheckmarkCircleOutline size={12} />
-                                                    Valid format
-                                                </span>
-                                            ) : null}
-                                        </div>
                                     </div>
 
                                     {!!errorMsg ? (
-                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[10px] font-semibold leading-4 text-rose-700">
+                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-rose-700">
                                             {errorMsg}
 
                                             {showSignupLink ? (
@@ -887,7 +861,7 @@ export default function PhoneLoginPage() {
                                         type="button"
                                         onClick={() => void sendCode()}
                                         disabled={!validPhone || sending || disableAll}
-                                        className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white shadow-[0_10px_24px_rgba(23,60,46,0.14)] transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#173C2E] px-4 text-[13px] font-black text-white shadow-[0_10px_24px_rgba(23,60,46,0.14)] transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         {sending ? (
                                             <>
@@ -896,7 +870,7 @@ export default function PhoneLoginPage() {
                                             </>
                                         ) : (
                                             <>
-                                                Send verification code
+                                                Send code
                                                 <IoArrowForwardOutline
                                                     size={14}
                                                     className="transition-transform duration-200 group-hover:translate-x-0.5"
@@ -908,7 +882,7 @@ export default function PhoneLoginPage() {
                                     <button
                                         type="button"
                                         onClick={() => router.back()}
-                                        className="mx-auto mt-3 inline-flex h-9 items-center gap-1.5 px-3 text-[9px] font-black text-slate-400 transition hover:text-[#173C2E]"
+                                        className="mx-auto mt-3 inline-flex h-9 items-center gap-1.5 px-3 text-[12px] font-black text-slate-500 transition hover:text-[#173C2E]"
                                     >
                                         <IoArrowBackOutline size={13} />
                                         Back
@@ -916,16 +890,16 @@ export default function PhoneLoginPage() {
                                 </>
                             ) : (
                                 <>
-                                    <div className="mt-6">
+                                    <div className="mt-5">
                                         <div className="flex items-center justify-between">
-                                            <label className="text-[10px] font-black text-slate-700">
+                                            <label className="text-[13px] font-black text-slate-700">
                                                 Verification code
                                             </label>
 
                                             <button
                                                 type="button"
                                                 onClick={backToNumber}
-                                                className="text-[9px] font-black text-[#173C2E] transition hover:text-[#c69258]"
+                                                className="text-[12px] font-black text-[#173C2E] transition hover:text-[#c69258]"
                                             >
                                                 Change number
                                             </button>
@@ -1210,7 +1184,7 @@ export default function PhoneLoginPage() {
                                             </div>
                                         </div>
 
-                                        <div className="mt-3 flex items-center justify-between gap-3 text-[9px]">
+                                        <div className="mt-3 flex items-center justify-between gap-3 text-[12px]">
                                             <button
                                                 type="button"
                                                 disabled={
@@ -1233,7 +1207,7 @@ export default function PhoneLoginPage() {
                                     </div>
 
                                     {!!errorMsg ? (
-                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[10px] font-semibold leading-4 text-rose-700">
+                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-rose-700">
                                             {errorMsg}
 
                                             {showSignupLink ? (
@@ -1253,7 +1227,7 @@ export default function PhoneLoginPage() {
                                         type="button"
                                         onClick={() => void verifyCode()}
                                         disabled={!validCode || verifying || disableAll}
-                                        className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white shadow-[0_10px_24px_rgba(23,60,46,0.14)] transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#173C2E] px-4 text-[13px] font-black text-white shadow-[0_10px_24px_rgba(23,60,46,0.14)] transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         {verifying ? (
                                             <>
@@ -1262,7 +1236,7 @@ export default function PhoneLoginPage() {
                                             </>
                                         ) : (
                                             <>
-                                                Verify and continue
+                                                Verify
                                                 <IoArrowForwardOutline
                                                     size={14}
                                                     className="transition-transform duration-200 group-hover:translate-x-0.5"
@@ -1273,28 +1247,10 @@ export default function PhoneLoginPage() {
                                 </>
                             )}
 
-                            <div className="mt-5 rounded-[16px] border border-[#E5E0D6] bg-[#FBFAF6] px-4 py-3">
-                                <div className="flex items-start gap-2.5">
-                                    <IoLockClosedOutline
-                                        size={14}
-                                        className="mt-0.5 shrink-0 text-[#173C2E]"
-                                    />
-
-                                    <div>
-                                        <div className="text-[9px] font-black text-slate-600">
-                                            Secure account verification
-                                        </div>
-
-                                        <div className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
-                                            Never share your one-time verification code with another person.
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
-                        <div className="pt-5">
-                            <p className="text-center text-[9px] font-medium leading-4 text-slate-400">
+                        <div className="pt-4">
+                            <p className="text-center text-[12px] font-medium leading-5 text-slate-400">
                                 By continuing, you agree to our{" "}
                                 <Link
                                     href="/terms"
@@ -1341,11 +1297,11 @@ function FeatureRow({
             </div>
 
             <div className="min-w-0">
-                <div className="text-[12px] font-black text-white">
+                <div className="text-[15px] font-black text-white">
                     {title}
                 </div>
 
-                <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
+                <p className="mt-1 max-w-[390px] text-[14px] font-medium leading-5 text-white/55">
                     {description}
                 </p>
             </div>

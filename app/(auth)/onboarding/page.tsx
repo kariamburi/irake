@@ -168,7 +168,7 @@ function Field({
     return (
         <div className={`mt-4 ${className}`}>
             {label ? (
-                <div className="text-[10px] font-black text-slate-700">
+                <div className="text-[13px] font-black text-slate-700">
                     {label}
                 </div>
             ) : null}
@@ -178,7 +178,7 @@ function Field({
             </div>
 
             {helper ? (
-                <div className="mt-1.5 text-[9px] font-medium leading-4 text-slate-400">
+                <div className="mt-1.5 text-[12px] font-medium leading-4 text-slate-400">
                     {helper}
                 </div>
             ) : null}
@@ -224,7 +224,7 @@ function GenderPills({
                         className={[
                             "flex min-h-[46px] items-center justify-center gap-2",
                             "rounded-[13px] border px-3",
-                            "text-[10px] font-black",
+                            "text-[13px] font-black",
                             "transition-all duration-200 active:scale-[0.98]",
                             active
                                 ? "border-[#173C2E] bg-[#173C2E] text-white shadow-[0_8px_20px_rgba(23,60,46,0.12)]"
@@ -375,7 +375,7 @@ function SmartPicker({
                     </div>
 
                     <div
-                        className="mt-0.5 text-xs"
+                        className="mt-0.5 text-[13px]"
                         style={{ color: ekari.dim }}
                     >
                         Choose up to {max}
@@ -383,7 +383,7 @@ function SmartPicker({
                 </div>
 
                 <div
-                    className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-black"
+                    className="shrink-0 rounded-full border px-3 py-1.5 text-[13px] font-black"
                     style={{
                         borderColor:
                             value.length >= max
@@ -414,7 +414,7 @@ function SmartPicker({
                     }}
                 >
                     <div
-                        className="mb-2 text-[11px] font-black uppercase tracking-[0.1em]"
+                        className="mb-2 text-[14px] font-black uppercase tracking-[0.1em]"
                         style={{ color: ekari.dim }}
                     >
                         Your selections
@@ -426,7 +426,7 @@ function SmartPicker({
                                 key={item}
                                 type="button"
                                 onClick={() => toggle(item)}
-                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-extrabold text-white transition active:scale-[0.98]"
+                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-extrabold text-white transition active:scale-[0.98]"
                                 style={{
                                     background: ekari.forest,
                                 }}
@@ -458,7 +458,7 @@ function SmartPicker({
                             type="button"
                             onClick={() => toggle(item)}
                             disabled={disabled}
-                            className="flex min-h-[48px] items-center justify-between gap-2 rounded-2xl border px-3 py-2.5 text-left text-xs font-extrabold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+                            className="flex min-h-[48px] items-center justify-between gap-2 rounded-2xl border px-3 py-2.5 text-left text-[13px] font-extrabold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
                             style={{
                                 borderColor: active
                                     ? ekari.forest
@@ -537,7 +537,7 @@ function SmartPicker({
 
             {!canAddMore && (
                 <div
-                    className="mt-3 rounded-xl px-3 py-2 text-center text-xs font-semibold"
+                    className="mt-3 rounded-xl px-3 py-2 text-center text-[13px] font-semibold"
                     style={{
                         background: "rgba(243,154,34,0.10)",
                         color: ekari.forest,
@@ -581,7 +581,7 @@ function SmartPicker({
                                     </div>
 
                                     <div
-                                        className="mt-0.5 text-xs"
+                                        className="mt-0.5 text-[13px]"
                                         style={{ color: ekari.dim }}
                                     >
                                         {value.length}/{max} selected
@@ -620,7 +620,7 @@ function SmartPicker({
                                     onChange={(event) =>
                                         setQuery(event.target.value)
                                     }
-                                    className="h-full flex-1 bg-transparent text-sm font-semibold outline-none"
+                                    className="h-full flex-1 bg-transparent text-[15px] font-semibold outline-none"
                                     style={{ color: ekari.text }}
                                     placeholder={placeholder}
                                 />
@@ -675,7 +675,7 @@ function SmartPicker({
                                     {filteredGroups.map((group) => (
                                         <section key={group.title}>
                                             <div
-                                                className="mb-3 text-xs font-black uppercase tracking-[0.1em]"
+                                                className="mb-3 text-[13px] font-black uppercase tracking-[0.1em]"
                                                 style={{
                                                     color: ekari.dim,
                                                 }}
@@ -1163,7 +1163,7 @@ export default function OnboardingWizardPage() {
                     className={[
                         "inline-flex h-11 min-w-[112px] items-center justify-center gap-2",
                         "rounded-[13px] border border-[#DDD8CC] bg-white px-4",
-                        "text-[10px] font-black text-slate-600",
+                        "text-[13px] font-black text-slate-600",
                         "transition hover:bg-[#F3F1EB] active:scale-[0.98]",
                         "disabled:cursor-not-allowed disabled:opacity-45",
                     ].join(" ")}
@@ -1179,7 +1179,7 @@ export default function OnboardingWizardPage() {
                     className={[
                         "inline-flex h-11 min-w-[132px] items-center justify-center gap-2",
                         "rounded-[13px] bg-[#173C2E] px-5",
-                        "text-[10px] font-black text-white",
+                        "text-[13px] font-black text-white",
                         "shadow-[0_10px_24px_rgba(23,60,46,0.14)]",
                         "transition hover:bg-[#214C3A] active:scale-[0.98]",
                         "disabled:cursor-not-allowed disabled:opacity-45",
@@ -1382,7 +1382,7 @@ export default function OnboardingWizardPage() {
     function StepHeader({ title }: { title: string }) {
         return (
             <div className="mb-3 flex items-center justify-between">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: EKARI.dim }}>
+                <div className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: EKARI.dim }}>
                     Onboarding
                 </div>
                 <div className="font-black text-base md:text-lg" style={{ color: EKARI.text }}>
@@ -1404,7 +1404,7 @@ export default function OnboardingWizardPage() {
                     <button
                         type="button"
                         onClick={() => setConfirmOpen(true)}
-                        className="text-xs px-3 py-1.5 rounded-full border hover:bg-red-50 transition"
+                        className="text-[13px] px-3 py-1.5 rounded-full border hover:bg-red-50 transition"
                         style={{
                             borderColor: EKARI.hair,
                             color: EKARI.danger,
@@ -1596,11 +1596,11 @@ export default function OnboardingWizardPage() {
                         <BouncingBallLoader />
                     </div>
 
-                    <div className="mt-5 text-[12px] font-black text-slate-800">
+                    <div className="mt-5 text-[14px] font-black text-slate-800">
                         Preparing your profile...
                     </div>
 
-                    <div className="mt-1 text-[9px] font-medium text-slate-400">
+                    <div className="mt-1 text-[12px] font-medium text-slate-400">
                         Loading your account details and onboarding options.
                     </div>
                 </div>
@@ -1709,7 +1709,7 @@ export default function OnboardingWizardPage() {
                                         true
                                     )
                                 }
-                                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/65 transition hover:bg-white/[0.11]"
+                                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[12px] font-black text-white/65 transition hover:bg-white/[0.11]"
                             >
                                 <IoLogOutOutline size={13} />
                                 Exit
@@ -1720,7 +1720,7 @@ export default function OnboardingWizardPage() {
                         <div className="mt-5 lg:hidden">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
-                                    <div className="text-[8px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                                    <div className="text-[11px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                         Step {step} of 5
                                     </div>
 
@@ -1760,7 +1760,7 @@ export default function OnboardingWizardPage() {
 
                         {/* Desktop progress */}
                         <div className="hidden flex-1 flex-col justify-center py-8 lg:flex">
-                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                            <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                 Complete your account
                             </div>
 
@@ -1768,7 +1768,7 @@ export default function OnboardingWizardPage() {
                                 Build a profile people can trust.
                             </h1>
 
-                            <p className="mt-3 text-[10px] font-medium leading-5 text-white/50">
+                            <p className="mt-3 text-[13px] font-medium leading-5 text-white/50">
                                 Five quick steps help ekarihub personalize your community, opportunities and recommendations.
                             </p>
 
@@ -1862,20 +1862,20 @@ export default function OnboardingWizardPage() {
                                                 </span>
 
                                                 <span className="min-w-0 flex-1">
-                                                    <span className="block text-[10px] font-black text-white">
+                                                    <span className="block text-[13px] font-black text-white">
                                                         {
                                                             item.short
                                                         }
                                                     </span>
 
-                                                    <span className="mt-0.5 block text-[8px] font-medium leading-4 text-white/35">
+                                                    <span className="mt-0.5 block text-[11px] font-medium leading-4 text-white/35">
                                                         {
                                                             item.description
                                                         }
                                                     </span>
                                                 </span>
 
-                                                <span className="text-[9px] font-black text-white/25">
+                                                <span className="text-[12px] font-black text-white/25">
                                                     0
                                                     {
                                                         value
@@ -1896,11 +1896,11 @@ export default function OnboardingWizardPage() {
                                 />
 
                                 <div>
-                                    <div className="text-[9px] font-black text-white">
+                                    <div className="text-[12px] font-black text-white">
                                         Your profile powers discovery
                                     </div>
 
-                                    <div className="mt-1 text-[8px] font-medium leading-4 text-white/40">
+                                    <div className="mt-1 text-[11px] font-medium leading-4 text-white/40">
                                         Interests, roles and location help surface more relevant deeds, experts, markets and AI suggestions.
                                     </div>
                                 </div>
@@ -1935,7 +1935,7 @@ export default function OnboardingWizardPage() {
                             {/* Current step heading */}
                             <div className="mb-5 flex items-start justify-between gap-4">
                                 <div className="min-w-0">
-                                    <div className="text-[9px] font-black uppercase tracking-[0.11em] text-[#c69258]">
+                                    <div className="text-[12px] font-black uppercase tracking-[0.11em] text-[#c69258]">
                                         Step {step} of 5
                                     </div>
 
@@ -1943,7 +1943,7 @@ export default function OnboardingWizardPage() {
                                         {stepMeta[step].title}
                                     </h2>
 
-                                    <p className="mt-1.5 max-w-xl text-[10px] font-medium leading-5 text-slate-500">
+                                    <p className="mt-1.5 max-w-xl text-[13px] font-medium leading-5 text-slate-500">
                                         {stepMeta[step].description}
                                     </p>
                                 </div>
@@ -1973,7 +1973,7 @@ export default function OnboardingWizardPage() {
                                                     )
                                                 }
                                                 placeholder="First name"
-                                                className="h-12 w-full rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
+                                                className="h-12 w-full rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[14px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
                                             />
                                         </Field>
 
@@ -1993,7 +1993,7 @@ export default function OnboardingWizardPage() {
                                                     )
                                                 }
                                                 placeholder="Surname"
-                                                className="h-12 w-full rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
+                                                className="h-12 w-full rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[14px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/50 focus:ring-4 focus:ring-[#173C2E]/5"
                                             />
                                         </Field>
                                     </div>
@@ -2023,7 +2023,7 @@ export default function OnboardingWizardPage() {
                                             >
                                                 <input
                                                     placeholder="@handle"
-                                                    className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none"
+                                                    className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-slate-700 outline-none"
                                                     value={handle}
                                                     onChange={(e) =>
                                                         onChangeHandle(
@@ -2043,7 +2043,7 @@ export default function OnboardingWizardPage() {
                                                     <span
                                                         className={[
                                                             "ml-2 inline-flex h-6 items-center rounded-full px-2",
-                                                            "text-[8px] font-black",
+                                                            "text-[11px] font-black",
                                                             handleAvailable
                                                                 ? "bg-emerald-50 text-emerald-700"
                                                                 : "bg-rose-50 text-rose-600",
@@ -2067,7 +2067,7 @@ export default function OnboardingWizardPage() {
                                                     ""
                                                 }
                                                 disabled
-                                                className="h-12 w-full rounded-[14px] border border-[#E2DDD2] bg-[#F3F1EB] px-3 text-[11px] font-semibold text-slate-400 outline-none"
+                                                className="h-12 w-full rounded-[14px] border border-[#E2DDD2] bg-[#F3F1EB] px-3 text-[14px] font-semibold text-slate-400 outline-none"
                                             />
                                         </Field>
                                     </div>
@@ -2078,7 +2078,7 @@ export default function OnboardingWizardPage() {
                                     >
                                         <div className="grid grid-cols-[1fr_1.2fr_1fr] gap-2 sm:max-w-[500px]">
                                             <select
-                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[10px] font-semibold text-slate-600 outline-none"
+                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[13px] font-semibold text-slate-600 outline-none"
                                                 value={dobDay}
                                                 onChange={(e) =>
                                                     setDobDay(
@@ -2112,7 +2112,7 @@ export default function OnboardingWizardPage() {
                                             </select>
 
                                             <select
-                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[10px] font-semibold text-slate-600 outline-none"
+                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[13px] font-semibold text-slate-600 outline-none"
                                                 value={
                                                     dobMonth
                                                 }
@@ -2147,7 +2147,7 @@ export default function OnboardingWizardPage() {
                                             </select>
 
                                             <select
-                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[10px] font-semibold text-slate-600 outline-none"
+                                                className="h-12 min-w-0 rounded-[14px] border border-[#D9D3C7] bg-white px-3 text-[13px] font-semibold text-slate-600 outline-none"
                                                 value={dobYear}
                                                 onChange={(e) =>
                                                     setDobYear(
@@ -2181,7 +2181,7 @@ export default function OnboardingWizardPage() {
                                         </div>
 
                                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                            <span className="mr-1 text-[8px] font-semibold text-slate-400">
+                                            <span className="mr-1 text-[11px] font-semibold text-slate-400">
                                                 Quick:
                                             </span>
 
@@ -2199,7 +2199,7 @@ export default function OnboardingWizardPage() {
                                                                 item.year
                                                             )
                                                         }
-                                                        className="rounded-full border border-[#DDD8CC] bg-white px-2.5 py-1.5 text-[8px] font-black text-slate-500 transition hover:bg-[#F3F1EB]"
+                                                        className="rounded-full border border-[#DDD8CC] bg-white px-2.5 py-1.5 text-[11px] font-black text-slate-500 transition hover:bg-[#F3F1EB]"
                                                     >
                                                         {
                                                             item.label
@@ -2211,7 +2211,7 @@ export default function OnboardingWizardPage() {
 
                                         {!!dobDate &&
                                             !isAdult ? (
-                                            <div className="mt-2 text-[9px] font-black text-rose-600">
+                                            <div className="mt-2 text-[12px] font-black text-rose-600">
                                                 You must be at least 18 years old.
                                             </div>
                                         ) : null}
@@ -2227,7 +2227,7 @@ export default function OnboardingWizardPage() {
                                     </Field>
 
                                     {!canNext1 ? (
-                                        <div className="mt-4 rounded-[13px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[9px] font-semibold leading-4 text-amber-700">
+                                        <div className="mt-4 rounded-[13px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] font-semibold leading-4 text-amber-700">
                                             {!firstName.trim()
                                                 ? "Enter your first name."
                                                 : !surname.trim()
@@ -2264,13 +2264,13 @@ export default function OnboardingWizardPage() {
                             {step === 2 ? (
                                 <div>
                                     {taxonomyLoading ? (
-                                        <div className="mb-3 text-[9px] font-semibold text-slate-400">
+                                        <div className="mb-3 text-[12px] font-semibold text-slate-400">
                                             Loading interest options...
                                         </div>
                                     ) : null}
 
                                     {taxonomyError ? (
-                                        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[9px] font-semibold text-amber-700">
+                                        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-700">
                                             {
                                                 taxonomyError
                                             }{" "}
@@ -2316,13 +2316,13 @@ export default function OnboardingWizardPage() {
                             {step === 3 ? (
                                 <div>
                                     {taxonomyLoading ? (
-                                        <div className="mb-3 text-[9px] font-semibold text-slate-400">
+                                        <div className="mb-3 text-[12px] font-semibold text-slate-400">
                                             Loading role options...
                                         </div>
                                     ) : null}
 
                                     {taxonomyError ? (
-                                        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[9px] font-semibold text-amber-700">
+                                        <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-700">
                                             {
                                                 taxonomyError
                                             }{" "}
@@ -2372,7 +2372,7 @@ export default function OnboardingWizardPage() {
                                             </span>
 
                                             <div className="min-w-0 flex-1">
-                                                <div className="text-[10px] font-black text-slate-700">
+                                                <div className="text-[13px] font-black text-slate-700">
                                                     {locStatus ===
                                                         "ready" &&
                                                         coords
@@ -2381,7 +2381,7 @@ export default function OnboardingWizardPage() {
                                                         : "Add your location"}
                                                 </div>
 
-                                                <div className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
+                                                <div className="mt-1 text-[12px] font-medium leading-4 text-slate-400">
                                                     {coords
                                                         ? `${coords.lat.toFixed(
                                                             5
@@ -2404,7 +2404,7 @@ export default function OnboardingWizardPage() {
                                             }
                                             className={[
                                                 "inline-flex h-11 items-center justify-center gap-2 rounded-[13px] border",
-                                                "text-[9px] font-black transition",
+                                                "text-[12px] font-black transition",
                                                 locTab ===
                                                     "search"
                                                     ? "border-[#173C2E] bg-[#173C2E] text-white"
@@ -2426,7 +2426,7 @@ export default function OnboardingWizardPage() {
                                             }
                                             className={[
                                                 "inline-flex h-11 items-center justify-center gap-2 rounded-[13px] border",
-                                                "text-[9px] font-black transition",
+                                                "text-[12px] font-black transition",
                                                 locTab ===
                                                     "map"
                                                     ? "border-[#173C2E] bg-[#173C2E] text-white"
@@ -2450,13 +2450,13 @@ export default function OnboardingWizardPage() {
                                                             <BouncingBallLoader />
                                                         </div>
 
-                                                        <div className="mt-3 text-[9px] font-semibold text-slate-400">
+                                                        <div className="mt-3 text-[12px] font-semibold text-slate-400">
                                                             Loading place search...
                                                         </div>
                                                     </div>
                                                 </div>
                                             ) : loadError ? (
-                                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[9px] font-semibold text-rose-700">
+                                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[12px] font-semibold text-rose-700">
                                                     Failed to load Google Places. Check NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
                                                 </div>
                                             ) : (
@@ -2481,7 +2481,7 @@ export default function OnboardingWizardPage() {
                                                                 autocompleteInputRef
                                                             }
                                                             placeholder="Search town, village, farm or address"
-                                                            className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                                            className="min-w-0 flex-1 bg-transparent text-[15px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
                                                         />
                                                     </div>
                                                 </Autocomplete>
@@ -2494,7 +2494,7 @@ export default function OnboardingWizardPage() {
                                                     <BouncingBallLoader />
                                                 </div>
                                             ) : loadError ? (
-                                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[9px] font-semibold text-rose-700">
+                                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[12px] font-semibold text-rose-700">
                                                     Failed to load Google Maps. Check NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
                                                 </div>
                                             ) : (
@@ -2565,12 +2565,12 @@ export default function OnboardingWizardPage() {
                                                 </div>
                                             )}
 
-                                            <div className="mt-2 text-[9px] font-medium leading-4 text-slate-400">
+                                            <div className="mt-2 text-[12px] font-medium leading-4 text-slate-400">
                                                 Tap anywhere on the map to place your pin.
                                             </div>
 
                                             {resolvingAddress ? (
-                                                <div className="mt-1 text-[9px] font-semibold text-[#173C2E]">
+                                                <div className="mt-1 text-[12px] font-semibold text-[#173C2E]">
                                                     Resolving address...
                                                 </div>
                                             ) : null}
@@ -2578,7 +2578,7 @@ export default function OnboardingWizardPage() {
                                     )}
 
                                     {errorMsg ? (
-                                        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[9px] font-semibold text-rose-700">
+                                        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[12px] font-semibold text-rose-700">
                                             {
                                                 errorMsg
                                             }
@@ -2623,16 +2623,16 @@ export default function OnboardingWizardPage() {
                                                     )}
                                                 </div>
 
-                                                <div className="mt-3 text-[10px] font-black text-slate-700">
+                                                <div className="mt-3 text-[13px] font-black text-slate-700">
                                                     Profile photo
                                                 </div>
 
-                                                <div className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                                                <div className="mt-1 text-[11px] font-medium leading-4 text-slate-400">
                                                     Use a clear face photo or your farm / brand logo.
                                                 </div>
 
                                                 <div className="mt-4 flex flex-wrap justify-center gap-2">
-                                                    <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[#DDD8CC] bg-white px-3 text-[8px] font-black text-slate-600 transition hover:bg-[#F3F1EB]">
+                                                    <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[#DDD8CC] bg-white px-3 text-[11px] font-black text-slate-600 transition hover:bg-[#F3F1EB]">
                                                         <IoImagesOutline size={13} />
                                                         Choose
                                                         <input
@@ -2645,7 +2645,7 @@ export default function OnboardingWizardPage() {
                                                         />
                                                     </label>
 
-                                                    <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[#DDD8CC] bg-white px-3 text-[8px] font-black text-slate-600 transition hover:bg-[#F3F1EB]">
+                                                    <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[#DDD8CC] bg-white px-3 text-[11px] font-black text-slate-600 transition hover:bg-[#F3F1EB]">
                                                         <IoCameraOutline size={13} />
                                                         Camera
                                                         <input
@@ -2663,11 +2663,11 @@ export default function OnboardingWizardPage() {
                                         </div>
 
                                         <div>
-                                            <div className="text-[10px] font-black text-slate-700">
+                                            <div className="text-[13px] font-black text-slate-700">
                                                 How did you hear about ekarihub?
                                             </div>
 
-                                            <div className="mt-1 text-[9px] font-medium text-slate-400">
+                                            <div className="mt-1 text-[12px] font-medium text-slate-400">
                                                 This helps us understand which channels are most useful.
                                             </div>
 
@@ -2693,7 +2693,7 @@ export default function OnboardingWizardPage() {
                                                                 }
                                                                 className={[
                                                                     "min-h-[42px] rounded-[12px] border px-3",
-                                                                    "text-[9px] font-black transition active:scale-[0.98]",
+                                                                    "text-[12px] font-black transition active:scale-[0.98]",
                                                                     active
                                                                         ? "border-[#173C2E] bg-[#173C2E] text-white"
                                                                         : "border-[#DDD8CC] bg-white text-slate-500 hover:bg-[#F3F1EB]",
@@ -2718,11 +2718,11 @@ export default function OnboardingWizardPage() {
                                                     />
 
                                                     <div>
-                                                        <div className="text-[9px] font-black text-slate-700">
+                                                        <div className="text-[12px] font-black text-slate-700">
                                                             Ready to join the community
                                                         </div>
 
-                                                        <div className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
+                                                        <div className="mt-1 text-[11px] font-medium leading-4 text-slate-400">
                                                             Your profile will be created with your interests, roles, location and selected photo.
                                                         </div>
                                                     </div>
@@ -2732,7 +2732,7 @@ export default function OnboardingWizardPage() {
                                     </div>
 
                                     {errorMsg ? (
-                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[9px] font-semibold text-rose-700">
+                                        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[12px] font-semibold text-rose-700">
                                             {
                                                 errorMsg
                                             }

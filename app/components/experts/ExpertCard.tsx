@@ -175,7 +175,7 @@ function ExpertRating({
     if (safeCount === 0) {
         return (
             <div
-                className="inline-flex items-center gap-1.5 text-xs font-bold"
+                className="inline-flex items-center gap-1.5 text-[13px] font-bold"
                 style={{
                     color: EKARI.subtext,
                 }}
@@ -248,7 +248,7 @@ function ExpertRating({
             </div>
 
             <span
-                className="text-xs font-black"
+                className="text-[13px] font-black"
                 style={{
                     color: EKARI.text,
                 }}
@@ -257,7 +257,7 @@ function ExpertRating({
             </span>
 
             <span
-                className="text-[11px] font-semibold"
+                className="text-[13px] font-semibold"
                 style={{
                     color: EKARI.subtext,
                 }}
@@ -453,7 +453,7 @@ export default function ExpertCard({
                                 href={profilePath}
                                 className="inline-flex max-w-full items-center gap-1.5"
                             >
-                                <h2 className="truncate text-[17px] font-black tracking-[-0.02em] text-slate-900 transition group-hover:text-[#173C2E]">
+                                <h2 className="truncate text-[18px] font-black tracking-[-0.02em] text-slate-900 transition group-hover:text-[#173C2E]">
                                     {displayName}
                                 </h2>
 
@@ -467,7 +467,7 @@ export default function ExpertCard({
                                 ) : null}
                             </Link>
 
-                            <p className="mt-1 truncate text-[13px] font-extrabold text-[#c69258]">
+                            <p className="mt-1 truncate text-[15px] font-extrabold text-[#c69258]">
                                 {expert.headline ||
                                     expert.verificationRole ||
                                     expert.specialties?.[0] ||
@@ -480,7 +480,7 @@ export default function ExpertCard({
                             className={[
                                 "shrink-0 rounded-full border border-[#c69258]/45",
                                 "bg-[#FFF8ED] px-2.5 py-1",
-                                "text-[11px] font-black text-[#9A5A08]",
+                                "text-[13px] font-black text-[#9A5A08]",
                             ].join(" ")}
                         >
                             ★ {rating.toFixed(1)} ·{" "}
@@ -491,7 +491,7 @@ export default function ExpertCard({
                         </div>
                     </div>
 
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-semibold text-slate-400">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] font-semibold text-slate-400">
                         <span className="inline-flex items-center gap-1">
                             <IoLocationOutline
                                 size={14}
@@ -522,7 +522,7 @@ export default function ExpertCard({
                     </div>
 
                     {expert.expertBio ? (
-                        <p className="mt-3 line-clamp-3 text-[13px] leading-5 text-slate-600">
+                        <p className="mt-3 line-clamp-3 text-[15px] leading-[21px] text-slate-600">
                             {expert.expertBio}
                         </p>
                     ) : null}
@@ -535,7 +535,7 @@ export default function ExpertCard({
                                     className={[
                                         "rounded-full border border-[#B9DDAA]",
                                         "bg-[#F4FBF0] px-2.5 py-1",
-                                        "text-[10px] font-bold text-[#3F751D]",
+                                        "text-[12px] font-bold text-[#3F751D]",
                                     ].join(" ")}
                                 >
                                     {specialty}
@@ -550,7 +550,7 @@ export default function ExpertCard({
                             className={[
                                 "inline-flex min-h-10 items-center justify-center rounded-xl",
                                 "bg-[#173C2E] px-4",
-                                "text-[12px] font-black text-white",
+                                "text-[14px] font-black text-white",
                                 "transition-all duration-200",
                                 "hover:-translate-y-0.5 hover:bg-[#214C3A]",
                                 "active:translate-y-0 active:scale-[0.98]",
@@ -564,7 +564,7 @@ export default function ExpertCard({
                             className={[
                                 "inline-flex min-h-10 items-center justify-center rounded-xl",
                                 "bg-[#c69258] px-4",
-                                "text-[12px] font-black text-white",
+                                "text-[14px] font-black text-white",
                                 "transition-all duration-200",
                                 "hover:-translate-y-0.5 hover:bg-[#E98C12]",
                                 "active:translate-y-0 active:scale-[0.98]",
@@ -578,7 +578,7 @@ export default function ExpertCard({
                             className={[
                                 "inline-flex min-h-10 items-center justify-center rounded-xl",
                                 "border border-[#D7D2C7] bg-white px-4",
-                                "text-[12px] font-black text-slate-600",
+                                "text-[14px] font-black text-slate-600",
                                 "transition-all duration-200",
                                 "hover:border-[#c69258]/50 hover:bg-[#FFF9F0]",
                                 "active:scale-[0.98]",
@@ -588,7 +588,7 @@ export default function ExpertCard({
                         </Link>
 
                         <div className="ml-auto hidden sm:block">
-                            <div className="text-right text-[11px] font-black text-[#173C2E]">
+                            <div className="text-right text-[13px] font-black text-[#173C2E]">
                                 {getPriceLabel(expert)}
                             </div>
 

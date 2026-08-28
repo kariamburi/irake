@@ -557,7 +557,7 @@ export default function ExpertBookingsPage() {
                             Sign in required
                         </h1>
 
-                        <p className="mt-2 text-[12px] font-medium leading-5 text-slate-500">
+                        <p className="mt-2 text-[14px] font-medium leading-5 text-slate-500">
                             Sign in to manage your expert consultation requests.
                         </p>
 
@@ -568,7 +568,7 @@ export default function ExpertBookingsPage() {
                                     "/login?redirect=/account/expert/bookings"
                                 )
                             }
-                            className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                            className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                         >
                             Sign in
                         </button>
@@ -632,7 +632,7 @@ export default function ExpertBookingsPage() {
                             </button>
 
                             <div className="min-w-0 flex-1">
-                                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                                <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                                     ekari Expert
                                 </div>
 
@@ -642,13 +642,13 @@ export default function ExpertBookingsPage() {
                                             Consultation requests
                                         </h1>
 
-                                        <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                                        <p className="mt-1 max-w-2xl text-[14px] font-medium leading-5 text-white/55 md:text-[15px]">
                                             Review client requests, manage consultations and keep bookings moving.
                                         </p>
                                     </div>
 
                                     <div className="flex shrink-0 items-center gap-2">
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-3 py-1.5 text-[10px] font-black text-amber-200">
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-3 py-1.5 text-[11px] font-black text-amber-200">
                                             <span className="h-2 w-2 rounded-full bg-amber-300" />
                                             {counts.pending} pending
                                         </span>
@@ -662,7 +662,7 @@ export default function ExpertBookingsPage() {
                 {/* FILTER BAR */}
                 <div className="shrink-0 border-b border-[#DDD8CC] bg-[#FBFAF6]">
                     <div className="mx-auto flex max-w-[1180px] items-center gap-2 overflow-x-auto px-4 no-scrollbar md:px-6">
-                        <div className="mr-1 hidden items-center gap-1.5 text-[10px] font-black text-slate-400 sm:flex">
+                        <div className="mr-1 hidden items-center gap-1.5 text-[12px] font-black text-slate-400 sm:flex">
                             <IoFilterOutline
                                 size={13}
                             />
@@ -688,7 +688,7 @@ export default function ExpertBookingsPage() {
                                         }
                                         className={[
                                             "relative inline-flex h-12 shrink-0 items-center gap-1.5 px-3",
-                                            "text-[11px] font-black transition-colors",
+                                            "text-[13px] font-black transition-colors",
                                             active
                                                 ? "text-[#173C2E]"
                                                 : "text-slate-400 hover:text-slate-700",
@@ -706,7 +706,7 @@ export default function ExpertBookingsPage() {
                                             0 ? (
                                             <span
                                                 className={[
-                                                    "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
+                                                    "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold",
                                                     active
                                                         ? "bg-[#c69258] text-white"
                                                         : "bg-[#EFECE5] text-slate-500",
@@ -765,7 +765,7 @@ export default function ExpertBookingsPage() {
                                             opacity: 0,
                                             y: -4,
                                         }}
-                                        className="mb-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700"
+                                        className="mb-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700"
                                     >
                                         {error}
                                     </motion.div>
@@ -816,7 +816,7 @@ export default function ExpertBookingsPage() {
                                             : `${filter} requests`}
                                     </h2>
 
-                                    <p className="mt-1 text-[12px] font-medium text-slate-400">
+                                    <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                                         New bookings will appear here automatically.
                                     </p>
                                 </motion.div>
@@ -902,12 +902,12 @@ export default function ExpertBookingsPage() {
                                                                     />
 
                                                                     <div className="min-w-0">
-                                                                        <h2 className="truncate text-[14px] font-black text-slate-900">
+                                                                        <h2 className="truncate text-[15px] font-black text-slate-900">
                                                                             {booking.clientName ||
                                                                                 "Ekarihub member"}
                                                                         </h2>
 
-                                                                        <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
+                                                                        <p className="mt-0.5 truncate text-[12px] font-semibold text-slate-400">
                                                                             {booking.clientEmail ||
                                                                                 "Consultation client"}
                                                                         </p>
@@ -916,7 +916,7 @@ export default function ExpertBookingsPage() {
 
                                                                 <div className="flex flex-wrap items-center gap-2">
                                                                     <span
-                                                                        className={`w-fit rounded-full border px-2.5 py-1 text-[9px] font-black ${statusStyles(
+                                                                        className={`w-fit rounded-full border px-2.5 py-1 text-[11px] font-black ${statusStyles(
                                                                             booking.status
                                                                         )}`}
                                                                     >
@@ -926,7 +926,7 @@ export default function ExpertBookingsPage() {
                                                                     </span>
 
                                                                     <span
-                                                                        className={`rounded-full px-2.5 py-1 text-[9px] font-black ${paymentStyles(
+                                                                        className={`rounded-full px-2.5 py-1 text-[11px] font-black ${paymentStyles(
                                                                             booking.paymentStatus
                                                                         )}`}
                                                                     >
@@ -996,7 +996,7 @@ export default function ExpertBookingsPage() {
                                                             </div>
 
                                                             <div className="mt-4 rounded-[14px] bg-[#F3F1EB] px-4 py-3">
-                                                                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                                                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
                                                                     <IoBriefcaseOutline
                                                                         size={
                                                                             12
@@ -1006,13 +1006,13 @@ export default function ExpertBookingsPage() {
                                                                     Consultation topic
                                                                 </div>
 
-                                                                <p className="mt-1.5 text-[12px] font-black text-slate-800">
+                                                                <p className="mt-1.5 text-[14px] font-black text-slate-900">
                                                                     {booking.topic ||
                                                                         "General consultation"}
                                                                 </p>
 
                                                                 {booking.message ? (
-                                                                    <p className="mt-2 whitespace-pre-wrap text-[11px] font-medium leading-5 text-slate-500">
+                                                                    <p className="mt-2 whitespace-pre-wrap text-[14px] font-medium leading-5 text-slate-500">
                                                                         {
                                                                             booking.message
                                                                         }
@@ -1022,7 +1022,7 @@ export default function ExpertBookingsPage() {
                                                         </div>
 
                                                         <div className="flex flex-col gap-3 border-t border-[#E5E0D6] bg-[#F8F7F2] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold text-slate-400">
+                                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold text-slate-500">
                                                                 <span>
                                                                     Payment:{" "}
                                                                     <strong className="text-slate-600">
@@ -1060,7 +1060,7 @@ export default function ExpertBookingsPage() {
                                                                                     "declined"
                                                                                 )
                                                                             }
-                                                                            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 text-[10px] font-black text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+                                                                            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 text-[13px] font-black text-red-700 transition hover:bg-red-100 disabled:opacity-50"
                                                                         >
                                                                             <IoCloseCircleOutline
                                                                                 size={
@@ -1084,7 +1084,7 @@ export default function ExpertBookingsPage() {
                                                                                     "accepted"
                                                                                 )
                                                                             }
-                                                                            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#173C2E] px-3 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:opacity-50"
+                                                                            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#173C2E] px-3 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:opacity-50"
                                                                         >
                                                                             <IoCheckmarkCircleOutline
                                                                                 size={
@@ -1115,7 +1115,7 @@ export default function ExpertBookingsPage() {
                                                                                 "completed"
                                                                             )
                                                                         }
-                                                                        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-700 px-3 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:opacity-50"
+                                                                        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-700 px-3 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:opacity-50"
                                                                     >
                                                                         <IoCheckmarkCircleOutline
                                                                             size={
@@ -1157,7 +1157,7 @@ export default function ExpertBookingsPage() {
                             className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
                         >
                             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                                <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                                     Booking overview
                                 </div>
 
@@ -1207,7 +1207,7 @@ export default function ExpertBookingsPage() {
                                     </span>
 
                                     <div>
-                                        <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                        <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                                             Paid bookings
                                         </div>
 
@@ -1221,7 +1221,7 @@ export default function ExpertBookingsPage() {
                                 </div>
 
                                 <div className="mt-3 rounded-xl bg-[#F3F1EB] px-3 py-3">
-                                    <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                                    <div className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
                                         KES value
                                     </div>
 
@@ -1245,11 +1245,11 @@ export default function ExpertBookingsPage() {
                                     </span>
 
                                     <div className="min-w-0">
-                                        <div className="text-[12px] font-black text-slate-800">
+                                        <div className="text-[15px] font-black text-slate-900">
                                             Booking workflow
                                         </div>
 
-                                        <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                                        <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                                             Pending requests can be accepted or declined. Accepted consultations can be marked completed.
                                         </p>
                                     </div>
@@ -1257,7 +1257,7 @@ export default function ExpertBookingsPage() {
                             </section>
 
                             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                                <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                                     Quick links
                                 </div>
 
@@ -1269,7 +1269,7 @@ export default function ExpertBookingsPage() {
                                                 "/account/expert"
                                             )
                                         }
-                                        className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                                        className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                                     >
                                         Expert settings
                                         <IoOpenOutline
@@ -1286,7 +1286,7 @@ export default function ExpertBookingsPage() {
                                                 "/account/bookings"
                                             )
                                         }
-                                        className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                                        className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                                     >
                                         My bookings
                                         <IoOpenOutline
@@ -1303,7 +1303,7 @@ export default function ExpertBookingsPage() {
                                                 "/ekari-experts"
                                             )
                                         }
-                                        className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                                        className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                                     >
                                         ekariExperts
                                         <IoOpenOutline
@@ -1333,14 +1333,14 @@ function Info({
 }) {
     return (
         <div className="rounded-xl bg-[#F3F1EB] px-3 py-3">
-            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.07em] text-slate-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.07em] text-slate-400">
                 <span className="text-[#c69258]">
                     {icon}
                 </span>
                 {label}
             </div>
 
-            <p className="mt-1 truncate text-[11px] font-black text-slate-700">
+            <p className="mt-1 truncate text-[13px] font-black text-slate-800">
                 {value || "—"}
             </p>
         </div>
@@ -1377,7 +1377,7 @@ function MiniStat({
                 {value}
             </div>
 
-            <div className="mt-1 text-[9px] font-black uppercase tracking-[0.07em] opacity-70">
+            <div className="mt-1 text-[11px] font-black uppercase tracking-[0.07em] opacity-70">
                 {label}
             </div>
         </div>

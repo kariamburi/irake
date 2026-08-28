@@ -7,10 +7,8 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
     IoArrowForwardOutline,
-    IoCheckmarkCircleOutline,
     IoEyeOffOutline,
     IoEyeOutline,
-    IoLeafOutline,
     IoLockClosedOutline,
     IoMailOutline,
     IoPeopleOutline,
@@ -401,14 +399,14 @@ export default function SignupPage() {
 
                             <Link
                                 href="/login"
-                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/70 transition hover:bg-white/[0.11]"
+                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[11px] font-black text-white/70 transition hover:bg-white/[0.11]"
                             >
                                 Log in
                             </Link>
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center py-8 lg:py-10">
-                            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/65">
+                            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-white/65">
                                 <IoSparklesOutline
                                     size={12}
                                     className="text-[#c69258]"
@@ -417,60 +415,27 @@ export default function SignupPage() {
                             </div>
 
                             <h1 className="mt-5 max-w-[470px] text-[30px] font-black leading-[1.06] tracking-[-0.045em] sm:text-[36px] xl:text-[42px]">
-                                Build your agribusiness presence from day one.
+                                Create your ekarihub account.
                             </h1>
 
-                            <p className="mt-4 max-w-[470px] text-[11px] font-medium leading-5 text-white/55 sm:text-[12px]">
-                                Create one account for deeds, marketplace,
-                                experts, weather, ekari AI, Studio and the
-                                wider agribusiness community.
+                            <p className="mt-4 max-w-[470px] text-[14px] font-medium leading-5 text-white/60 sm:text-[15px]">
+                                Join the community and access ekarihub tools in one place.
                             </p>
 
-                            <div className="mt-7 space-y-5">
+                            <div className="mt-6 space-y-4">
                                 <FeatureRow
                                     icon={<IoPeopleOutline size={18} />}
                                     title="Join the community"
-                                    description="Connect with farmers, experts, buyers, sellers and people building across the agricultural value chain."
-                                />
-
-                                <FeatureRow
-                                    icon={<IoLeafOutline size={18} />}
-                                    title="Build a trusted profile"
-                                    description="Tell your story, showcase your work and establish a credible presence across the ekarihub ecosystem."
+                                    description="Connect with farmers, experts and agripreneurs."
                                 />
 
                                 <FeatureRow
                                     icon={<IoSparklesOutline size={18} />}
-                                    title="Unlock more opportunities"
-                                    description="Access markets, experts, AI guidance, weather intelligence, Studio tools and new partnerships."
+                                    title="Access more"
+                                    description="Use markets, experts, AI and other ekarihub tools."
                                 />
                             </div>
 
-                            <div className="mt-7 rounded-[17px] border border-white/10 bg-white/[0.055] p-4">
-                                <div className="flex items-start gap-3">
-                                    <IoShieldCheckmarkOutline
-                                        size={18}
-                                        className="mt-0.5 shrink-0 text-[#c69258]"
-                                    />
-
-                                    <div>
-                                        <div className="text-[10px] font-black text-white">
-                                            One secure account
-                                        </div>
-
-                                        <p className="mt-1 text-[9px] font-medium leading-4 text-white/45">
-                                            Your account gives you secure
-                                            access to the complete ekarihub
-                                            experience while keeping your
-                                            identity and activity connected.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="pb-1 text-[9px] font-semibold text-white/30">
-                            Collaborate · Innovate · Cultivate
                         </div>
                     </motion.div>
                 </section>
@@ -510,14 +475,14 @@ export default function SignupPage() {
 
                             <Link
                                 href="/login"
-                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[9px] font-black text-[#173C2E]"
+                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[11px] font-black text-[#173C2E]"
                             >
                                 Log in
                             </Link>
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
-                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                            <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                 Create account
                             </div>
 
@@ -525,10 +490,10 @@ export default function SignupPage() {
                                 Join ekarihub.
                             </h2>
 
-                            <p className="mt-2 max-w-[480px] text-[10px] font-medium leading-5 text-slate-500">
+                            <p className="mt-2 max-w-[480px] text-[14px] font-medium leading-5 text-slate-500">
                                 {authLoading
                                     ? "Checking your current session…"
-                                    : "Create your account with Google or use your email and password."}
+                                    : "Continue with Google or email."}
                             </p>
 
                             {/* Consent */}
@@ -548,19 +513,18 @@ export default function SignupPage() {
                                     <div className="min-w-0 flex-1">
                                         <label
                                             htmlFor="consent"
-                                            className="block cursor-pointer text-[10px] font-black text-slate-700"
+                                            className="block cursor-pointer text-[14px] font-black text-slate-800"
                                         >
                                             I agree to the account terms
                                         </label>
 
-                                        <p className="mt-1 text-[9px] font-medium leading-4 text-slate-400">
-                                            By creating an account, you agree
-                                            to our{" "}
+                                        <p className="mt-1 text-[13px] font-medium leading-5 text-slate-500">
+                                            By creating an account, you agree to our{" "}
                                             <Link
                                                 href="/terms"
                                                 className="font-black text-[#173C2E] transition hover:text-[#c69258]"
                                             >
-                                                Terms and Conditions
+                                                Terms
                                             </Link>{" "}
                                             and{" "}
                                             <Link
@@ -572,31 +536,24 @@ export default function SignupPage() {
                                             .
                                         </p>
 
-                                        <details className="mt-3 rounded-xl border border-[#E5E0D6] bg-white px-3 py-2.5 text-[9px] font-medium leading-4 text-slate-500">
-                                            <summary className="cursor-pointer font-black text-[#173C2E]">
+                                        <details className="mt-3 rounded-xl border border-[#E5E0D6] bg-white px-3 py-2.5 text-[12px] font-medium leading-5 text-slate-500">
+                                            <summary className="cursor-pointer text-[13px] font-black text-[#173C2E]">
                                                 Community Guidelines
                                             </summary>
 
-                                            <div className="mt-2">
-                                                By using ekarihub, you agree
-                                                not to post or share:
-                                                <br />
-                                                • Abusive, hateful, or violent
-                                                content
-                                                <br />
-                                                • Sexual or explicit content
-                                                <br />
-                                                • Fraudulent or misleading
-                                                content
-                                                <br />
-                                                • Illegal goods or services
-                                                <br />
-                                                <br />
-                                                <span className="font-black text-rose-600">
-                                                    Violation may result in
-                                                    account suspension or
-                                                    removal.
-                                                </span>
+                                            <div className="mt-2 space-y-1">
+                                                <p>By using ekarihub, you agree not to post or share:</p>
+
+                                                <ul className="list-disc space-y-1 pl-5">
+                                                    <li>Abusive, hateful, or violent content</li>
+                                                    <li>Sexual or explicit content</li>
+                                                    <li>Fraudulent or misleading content</li>
+                                                    <li>Illegal goods or services</li>
+                                                </ul>
+
+                                                <p className="pt-1 font-black text-rose-600">
+                                                    Violations may result in account suspension or removal.
+                                                </p>
                                             </div>
                                         </details>
                                     </div>
@@ -620,15 +577,14 @@ export default function SignupPage() {
                                 </span>
 
                                 <span className="min-w-0 flex-1 overflow-hidden">
-                                    <span className="block text-[12px] font-black text-slate-800">
+                                    <span className="block text-[15px] font-black text-slate-800">
                                         {loadingGoogle
                                             ? "Continuing with Google…"
                                             : "Continue with Google"}
                                     </span>
 
-                                    <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">
-                                        Create or continue with your Google
-                                        account.
+                                    <span className="mt-1 block text-[13px] font-medium leading-5 text-slate-500">
+                                        Continue with Google.
                                     </span>
                                 </span>
 
@@ -642,11 +598,11 @@ export default function SignupPage() {
                                 )}
                             </button>
 
-                            <div className="my-5 flex items-center gap-3">
+                            <div className="my-4 flex items-center gap-3">
                                 <div className="h-px flex-1 bg-[#E5E0D6]" />
 
-                                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-300">
-                                    or use email
+                                <span className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-300">
+                                    or
                                 </span>
 
                                 <div className="h-px flex-1 bg-[#E5E0D6]" />
@@ -664,7 +620,7 @@ export default function SignupPage() {
                                     inputMode="email"
                                     autoComplete="email"
                                     placeholder="Email address"
-                                    className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
                                     value={email}
                                     onChange={(e) =>
                                         setEmail(e.target.value)
@@ -689,7 +645,7 @@ export default function SignupPage() {
                                     }
                                     autoComplete="new-password"
                                     placeholder="Password"
-                                    className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
                                     value={password}
                                     onChange={(e) =>
                                         setPassword(e.target.value)
@@ -734,7 +690,7 @@ export default function SignupPage() {
                                     }
                                     autoComplete="new-password"
                                     placeholder="Confirm password"
-                                    className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
                                     value={confirm}
                                     onChange={(e) =>
                                         setConfirm(e.target.value)
@@ -750,7 +706,7 @@ export default function SignupPage() {
                             </div>
 
                             {/* Validation */}
-                            <div className="mt-2 space-y-1 text-[9px] font-semibold text-slate-400">
+                            <div className="mt-2 space-y-1 text-[12px] font-semibold text-slate-500">
                                 {!isValidEmail && email.length > 0 ? (
                                     <p>Enter a valid email address.</p>
                                 ) : null}
@@ -776,7 +732,7 @@ export default function SignupPage() {
 
                             {/* Error */}
                             {!!errorMsg ? (
-                                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[10px] font-semibold leading-4 text-rose-700">
+                                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-rose-700">
                                     {errorMsg}
                                 </div>
                             ) : null}
@@ -786,7 +742,7 @@ export default function SignupPage() {
                                 type="button"
                                 onClick={() => void handleSignup()}
                                 disabled={!isValid || disableAll}
-                                className="mt-4 flex h-12 w-full items-center justify-center rounded-[14px] bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                                className="mt-4 flex h-12 w-full items-center justify-center rounded-[14px] bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {loading ? (
                                     <span className="inline-flex items-center gap-2">
@@ -797,24 +753,11 @@ export default function SignupPage() {
                                     "Create account"
                                 )}
                             </button>
-
-                            <div className="mt-5 rounded-[16px] border border-[#E5E0D6] bg-[#FBFAF6] px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                    <IoCheckmarkCircleOutline
-                                        size={13}
-                                        className="text-[#173C2E]"
-                                    />
-
-                                    <span className="text-[9px] font-black text-slate-600">
-                                        One account across ekarihub.
-                                    </span>
-                                </div>
-                            </div>
                         </div>
 
                         {/* Footer */}
-                        <div className="pt-5">
-                            <div className="flex items-center justify-center gap-1 text-[10px]">
+                        <div className="pt-4">
+                            <div className="flex items-center justify-center gap-1 text-[13px]">
                                 <span className="font-medium text-slate-400">
                                     Already a member?
                                 </span>
@@ -829,23 +772,17 @@ export default function SignupPage() {
                             </div>
 
                             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-                                <Link
-                                    href="/about"
-                                    className="text-[9px] font-bold text-slate-400 transition hover:text-[#173C2E]"
-                                >
-                                    About
-                                </Link>
 
                                 <Link
                                     href="/terms"
-                                    className="text-[9px] font-bold text-slate-400 transition hover:text-[#173C2E]"
+                                    className="text-[12px] font-bold text-slate-400 transition hover:text-[#173C2E]"
                                 >
                                     Terms
                                 </Link>
 
                                 <Link
                                     href="/privacy"
-                                    className="text-[9px] font-bold text-slate-400 transition hover:text-[#173C2E]"
+                                    className="text-[12px] font-bold text-slate-400 transition hover:text-[#173C2E]"
                                 >
                                     Privacy
                                 </Link>
@@ -880,11 +817,11 @@ function FeatureRow({
             </div>
 
             <div className="min-w-0">
-                <div className="text-[12px] font-black text-white">
+                <div className="text-[15px] font-black text-white">
                     {title}
                 </div>
 
-                <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
+                <p className="mt-1 max-w-[390px] text-[14px] font-medium leading-5 text-white/55">
                     {description}
                 </p>
             </div>

@@ -18,6 +18,8 @@ import {
   Store,
   Scale,
   Bot,
+  PanelLeftOpen,
+  PanelLeftClose,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -161,13 +163,13 @@ const markdownComponents = {
     <h4 className="text-[16px] font-bold leading-tight text-slate-900 mt-2 mb-2">{children}</h4>
   ),
   p: ({ children }: any) => (
-    <p className="whitespace-pre-wrap text-slate-900 text-[15px] leading-7 mb-3 last:mb-0">{children}</p>
+    <p className="whitespace-pre-wrap text-slate-900 text-[16px] leading-7 mb-3 last:mb-0">{children}</p>
   ),
   ul: ({ children }: any) => (
-    <ul className="list-disc pl-5 space-y-1 mb-3 text-slate-900 text-[15px] leading-7">{children}</ul>
+    <ul className="list-disc pl-5 space-y-1 mb-3 text-slate-900 text-[16px] leading-7">{children}</ul>
   ),
   ol: ({ children }: any) => (
-    <ol className="list-decimal pl-5 space-y-1 mb-3 text-slate-900 text-[15px] leading-7">{children}</ol>
+    <ol className="list-decimal pl-5 space-y-1 mb-3 text-slate-900 text-[16px] leading-7">{children}</ol>
   ),
   li: ({ children }: any) => <li className="leading-7">{children}</li>,
   strong: ({ children }: any) => <strong className="font-extrabold text-slate-900">{children}</strong>,
@@ -248,6 +250,7 @@ export default function Page() {
   const [isTyping, setIsTyping] = useState(false);
 
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
+  const [desktopHistoryOpen, setDesktopHistoryOpen] = useState(true);
 
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingMsgIdRef = useRef<string | null>(null);
@@ -651,10 +654,10 @@ export default function Page() {
       <div className="border-b border-[#E4DED2] px-3.5 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.11em] text-slate-400">
+            <div className="text-[12px] font-black uppercase tracking-[0.11em] text-slate-400">
               Conversations
             </div>
-            <div className="mt-0.5 text-[15px] font-black text-slate-900">
+            <div className="mt-0.5 text-[16px] font-black text-slate-900">
               History
             </div>
           </div>
@@ -664,7 +667,7 @@ export default function Page() {
             className={[
               "inline-flex h-9 items-center gap-1.5 rounded-full",
               "bg-[#173C2E] px-3.5",
-              "text-[11px] font-black text-white",
+              "text-[13px] font-black text-white",
               "transition-all duration-200 ease-out",
               "hover:-translate-y-0.5 hover:bg-[#214C3A]",
               "active:translate-y-0 active:scale-[0.98]",
@@ -696,11 +699,11 @@ export default function Page() {
                 <MessageSquareText size={21} />
               </div>
 
-              <div className="mt-3 text-[13px] font-black text-slate-700">
+              <div className="mt-3 text-[15px] font-black text-slate-700">
                 No chats yet
               </div>
 
-              <p className="mt-1 text-[11px] leading-5 text-slate-400">
+              <p className="mt-1 text-[13px] leading-5 text-slate-400">
                 Start a new question and your conversations will appear here.
               </p>
             </div>
@@ -736,13 +739,13 @@ export default function Page() {
                     </span>
 
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12px] font-black">
+                      <div className="truncate text-[14px] font-black">
                         {c.title || "New Ask"}
                       </div>
 
                       <div
                         className={[
-                          "mt-1 text-[10px] font-medium",
+                          "mt-1 text-[12px] font-medium",
                           active ? "text-white/55" : "text-slate-400",
                         ].join(" ")}
                       >
@@ -765,7 +768,7 @@ export default function Page() {
           className={[
             "inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl",
             "border border-[#D9D3C7] bg-[#FBFAF6]",
-            "text-[11px] font-black text-slate-600",
+            "text-[13px] font-black text-slate-600",
             "transition-all duration-200",
             "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
             "active:scale-[0.98]",
@@ -830,11 +833,11 @@ export default function Page() {
                 </span>
 
                 <div className="min-w-0">
-                  <div className="truncate text-[13px] font-black text-white">
+                  <div className="truncate text-[15px] font-black text-white">
                     ekari AI
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-[9px] font-semibold text-white/45">
+                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-white/50">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     Agribusiness intelligence
                   </div>
@@ -872,11 +875,11 @@ export default function Page() {
                   </span>
 
                   <div>
-                    <div className="text-[15px] font-black text-slate-900">
+                    <div className="text-[16px] font-black text-slate-900">
                       What can I help you with?
                     </div>
 
-                    <p className="mt-1 text-[12px] leading-5 text-slate-500">
+                    <p className="mt-1 text-[14px] leading-5 text-slate-500">
                       Ask about crops, livestock, markets, weather, inputs,
                       regulations or upload a farm photo for analysis.
                     </p>
@@ -901,7 +904,7 @@ export default function Page() {
                         {item.icon}
                       </span>
 
-                      <span className="text-[11px] font-black leading-4 text-slate-700">
+                      <span className="text-[13px] font-black leading-5 text-slate-700">
                         {item.label}
                       </span>
                     </button>
@@ -923,7 +926,7 @@ export default function Page() {
                 >
                   <div
                     className={[
-                      "rounded-[18px] border px-3.5 py-3 text-[14px] leading-relaxed",
+                      "rounded-[18px] border px-3.5 py-3 text-[15px] leading-[22px]",
                       "shadow-[0_6px_18px_rgba(15,23,42,0.04)]",
                       mine ? "max-w-[90%]" : "max-w-[94%]",
                     ].join(" ")}
@@ -952,7 +955,7 @@ export default function Page() {
 
             {(sending && !isTyping) || isTyping ? (
               <div className="flex justify-start">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#E4DED2] bg-[#FBFAF6] px-3 py-1.5 text-[10px] font-semibold text-slate-400">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#E4DED2] bg-[#FBFAF6] px-3 py-1.5 text-[12px] font-semibold text-slate-400">
                   <span className="flex gap-0.5">
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258]" />
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258] [animation-delay:0.1s]" />
@@ -966,7 +969,7 @@ export default function Page() {
 
             <div ref={messagesEndRef} />
 
-            <p className="pt-2 text-center text-[10px] leading-5 text-slate-400">
+            <p className="pt-2 text-center text-[11px] leading-5 text-slate-400">
               ekari AI provides guidance only and is not a substitute for a
               certified agronomist, veterinarian or legal advisor.
             </p>
@@ -1037,7 +1040,7 @@ export default function Page() {
                 className={[
                   "min-h-[44px] max-h-32 flex-1 resize-none rounded-[16px]",
                   "border border-[#D9D3C7] bg-white px-3.5 py-2.5",
-                  "text-sm text-slate-800 outline-none placeholder:text-slate-400",
+                  "text-[15px] font-medium text-slate-900 outline-none placeholder:text-slate-400",
                   "transition-all duration-200",
                   "focus:border-[#c69258]/60 focus:ring-2 focus:ring-[#c69258]/10",
                 ].join(" ")}
@@ -1132,15 +1135,23 @@ export default function Page() {
     <AppShell handle={user?.displayName ?? undefined}>
       <div className="h-[100svh] w-full overflow-hidden bg-[#F8F7F2]">
         <div className="flex h-full w-full">
-          {/* AI HISTORY RAIL */}
-          <motion.aside
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.24, ease: "easeOut" }}
-            className="hidden h-full w-[270px] shrink-0 border-r border-[#E4DED2] bg-[#F8F7F2] lg:block xl:w-[286px]"
-          >
-            {HistoryList}
-          </motion.aside>
+          {/* AI HISTORY RAIL — collapsible like ChatGPT */}
+          <AnimatePresence initial={false}>
+            {desktopHistoryOpen ? (
+              <motion.aside
+                key="desktop-history"
+                initial={{ width: 0, opacity: 0, x: -12 }}
+                animate={{ width: 286, opacity: 1, x: 0 }}
+                exit={{ width: 0, opacity: 0, x: -12 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="hidden h-full shrink-0 overflow-hidden border-r border-[#E4DED2] bg-[#F8F7F2] lg:block"
+              >
+                <div className="h-full w-[286px]">
+                  {HistoryList}
+                </div>
+              </motion.aside>
+            ) : null}
+          </AnimatePresence>
 
           {/* MAIN AI WORKSPACE */}
           <div className="min-w-0 flex-1 overflow-hidden">
@@ -1155,7 +1166,34 @@ export default function Page() {
                 <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/[0.035]" />
                 <div className="pointer-events-none absolute -bottom-24 right-28 h-48 w-48 rounded-full bg-[#c69258]/10" />
 
-                <div className="flex items-center gap-4 px-5 py-4">
+                <div className="flex items-center gap-3 px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() => setDesktopHistoryOpen((open) => !open)}
+                    className={[
+                      "hidden h-10 w-10 shrink-0 place-items-center rounded-xl lg:grid",
+                      "border border-white/15 bg-white/[0.06] text-white",
+                      "transition-all duration-200",
+                      "hover:bg-white/[0.11] active:scale-95",
+                    ].join(" ")}
+                    aria-label={
+                      desktopHistoryOpen
+                        ? "Hide conversation history"
+                        : "Show conversation history"
+                    }
+                    title={
+                      desktopHistoryOpen
+                        ? "Hide conversation history"
+                        : "Show conversation history"
+                    }
+                  >
+                    {desktopHistoryOpen ? (
+                      <PanelLeftClose size={18} />
+                    ) : (
+                      <PanelLeftOpen size={18} />
+                    )}
+                  </button>
+
                   <button
                     onClick={goBack}
                     className={[
@@ -1174,7 +1212,7 @@ export default function Page() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-black uppercase tracking-[0.11em] text-[#c69258]">
+                    <div className="text-[12px] font-black uppercase tracking-[0.11em] text-[#c69258]">
                       Ekarihub Intelligence
                     </div>
 
@@ -1183,7 +1221,7 @@ export default function Page() {
                         {activeConvTitle}
                       </h1>
 
-                      <span className="hidden items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-2.5 py-1 text-[9px] font-bold text-white/50 sm:inline-flex">
+                      <span className="hidden items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-2.5 py-1 text-[12px] font-bold text-white/55 sm:inline-flex">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                         Agribusiness assistant
                       </span>
@@ -1196,7 +1234,7 @@ export default function Page() {
                     className={[
                       "inline-flex h-10 shrink-0 items-center gap-2 rounded-full",
                       "border border-white/15 bg-white/[0.07] px-4",
-                      "text-[11px] font-black text-white",
+                      "text-[13px] font-black text-white",
                       "transition-all duration-200",
                       "hover:-translate-y-0.5 hover:bg-white/[0.12]",
                       "active:translate-y-0 active:scale-[0.98]",
@@ -1233,11 +1271,11 @@ export default function Page() {
                         </span>
 
                         <div className="min-w-0 flex-1">
-                          <div className="text-[17px] font-black text-slate-900">
+                          <div className="text-[18px] font-black text-slate-900">
                             Ask ekari AI
                           </div>
 
-                          <p className="mt-1 max-w-2xl text-[12px] font-medium leading-5 text-slate-500">
+                          <p className="mt-1 max-w-2xl text-[14px] font-medium leading-5 text-slate-500">
                             Get help with crops, livestock, inputs, markets,
                             weather, regulations and agribusiness decisions.
                             You can also upload a photo for analysis.
@@ -1262,7 +1300,7 @@ export default function Page() {
                               {item.icon}
                             </span>
 
-                            <div className="mt-2 text-[11px] font-black text-slate-700">
+                            <div className="mt-2 text-[13px] font-black text-slate-700">
                               {item.label}
                             </div>
                           </button>
@@ -1284,7 +1322,7 @@ export default function Page() {
                       >
                         <div
                           className={[
-                            "rounded-[18px] border px-4 py-3 text-[14px] leading-relaxed",
+                            "rounded-[18px] border px-4 py-3 text-[15px] leading-[22px]",
                             "shadow-[0_8px_22px_rgba(15,23,42,0.035)]",
                             mine ? "max-w-[76%]" : "max-w-[84%]",
                           ].join(" ")}
@@ -1313,7 +1351,7 @@ export default function Page() {
 
                   {(sending && !isTyping) || isTyping ? (
                     <div className="flex justify-start">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-[#E4DED2] bg-[#FBFAF6] px-3 py-1.5 text-[10px] font-semibold text-slate-400">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-[#E4DED2] bg-[#FBFAF6] px-3 py-1.5 text-[12px] font-semibold text-slate-400">
                         <span className="flex gap-0.5">
                           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258]" />
                           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#c69258] [animation-delay:0.1s]" />
@@ -1329,7 +1367,7 @@ export default function Page() {
 
                   <div ref={messagesEndRef} />
 
-                  <p className="pt-2 text-center text-[10px] leading-5 text-slate-400">
+                  <p className="pt-2 text-center text-[11px] leading-5 text-slate-400">
                     ekari AI provides guidance only and is not a substitute for
                     a certified agronomist, veterinarian or legal advisor.
                   </p>
@@ -1401,7 +1439,7 @@ export default function Page() {
                       className={[
                         "min-h-[44px] max-h-32 flex-1 resize-none rounded-[16px]",
                         "border border-[#D9D3C7] bg-white px-4 py-2.5",
-                        "text-[13px] font-medium text-slate-800 outline-none placeholder:text-slate-400",
+                        "text-[15px] font-medium text-slate-900 outline-none placeholder:text-slate-400",
                         "transition-all duration-200",
                         "focus:border-[#c69258]/60 focus:ring-2 focus:ring-[#c69258]/10",
                       ].join(" ")}
@@ -1445,7 +1483,7 @@ export default function Page() {
                     </button>
                   </div>
 
-                  <div className="pt-1.5 text-[9px] font-medium text-slate-400">
+                  <div className="pt-1.5 text-[11px] font-medium text-slate-400">
                     Enter to send · Shift+Enter for a new line · Images up to{" "}
                     {MAX_IMAGE_MB}MB
                   </div>

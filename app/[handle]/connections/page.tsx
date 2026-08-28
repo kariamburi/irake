@@ -606,7 +606,7 @@ export default function HandleConnectionsPage() {
               onClick={() => goToTab(item.key)}
               className={[
                 "relative inline-flex h-12 shrink-0 items-center gap-2 px-3",
-                "text-[11px] font-black transition-colors duration-200",
+                "text-[13px] font-black transition-colors duration-200",
                 active
                   ? "text-[#173C2E]"
                   : "text-slate-400 hover:text-slate-700",
@@ -618,7 +618,7 @@ export default function HandleConnectionsPage() {
 
               <span
                 className={[
-                  "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
+                  "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px]",
                   active
                     ? "bg-[#c69258] text-white"
                     : "bg-[#EFECE5] text-slate-500",
@@ -679,7 +679,7 @@ export default function HandleConnectionsPage() {
           </button>
 
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+            <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               ekarihub community
             </div>
 
@@ -689,7 +689,7 @@ export default function HandleConnectionsPage() {
                   Connections
                 </h1>
 
-                <p className="mt-1 truncate text-[11px] font-medium text-white/50 md:text-[12px]">
+                <p className="mt-1 truncate text-[14px] font-medium leading-5 text-white/55 md:text-[15px]">
                   {ownerUsername || handleWithAt}
                 </p>
               </div>
@@ -697,7 +697,7 @@ export default function HandleConnectionsPage() {
               <button
                 type="button"
                 onClick={goBackToProfile}
-                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[10px] font-black text-white transition hover:bg-white/[0.11]"
+                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 text-[13px] font-black text-white transition hover:bg-white/[0.11]"
               >
                 View profile
                 <IoChevronForward size={13} />
@@ -730,7 +730,7 @@ export default function HandleConnectionsPage() {
                   {activeTabMeta.label}
                 </h2>
 
-                <p className="mt-0.5 text-[9px] font-semibold text-slate-400">
+                <p className="mt-0.5 text-[12px] font-semibold text-slate-500">
                   {formatCount(activeTabMeta.count)} connection
                   {activeTabMeta.count === 1 ? "" : "s"}
                 </p>
@@ -751,14 +751,14 @@ export default function HandleConnectionsPage() {
               setSearch(event.target.value)
             }
             placeholder={`Search ${activeTabMeta.label.toLowerCase()}`}
-            className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
           />
 
           {search ? (
             <button
               type="button"
               onClick={() => setSearch("")}
-              className="rounded-lg px-2 py-1 text-[9px] font-black text-slate-400 transition hover:bg-white hover:text-slate-700"
+              className="rounded-lg px-2 py-1 text-[12px] font-black text-slate-500 transition hover:bg-white hover:text-slate-700"
             >
               Clear
             </button>
@@ -770,7 +770,7 @@ export default function HandleConnectionsPage() {
         <div className="grid min-h-[320px] place-items-center">
           <div className="text-center">
             <BouncingBallLoader />
-            <p className="mt-3 text-[10px] font-semibold text-slate-400">
+            <p className="mt-3 text-[13px] font-semibold text-slate-400">
               Loading {activeTabMeta.label.toLowerCase()}…
             </p>
           </div>
@@ -804,11 +804,11 @@ export default function HandleConnectionsPage() {
             {loadingMore ? (
               <BouncingBallLoader />
             ) : !hasMore ? (
-              <span className="text-[9px] font-semibold text-slate-400">
+              <span className="text-[12px] font-semibold text-slate-400">
                 You’ve reached the end
               </span>
             ) : (
-              <span className="text-[9px] font-semibold text-slate-300">
+              <span className="text-[12px] font-semibold text-slate-300">
                 Scroll for more
               </span>
             )}
@@ -830,7 +830,7 @@ export default function HandleConnectionsPage() {
       className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
     >
       <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-        <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+        <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
           Connection overview
         </div>
 
@@ -868,11 +868,11 @@ export default function HandleConnectionsPage() {
           </span>
 
           <div>
-            <div className="text-[12px] font-black text-slate-800">
+            <div className="text-[15px] font-black text-slate-900">
               Partners
             </div>
 
-            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+            <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
               Partners are people who follow each other. It’s a quick way to identify stronger two-way connections.
             </p>
           </div>
@@ -886,11 +886,11 @@ export default function HandleConnectionsPage() {
           </span>
 
           <div>
-            <div className="text-[12px] font-black text-slate-800">
+            <div className="text-[15px] font-black text-slate-900">
               Mutual connections
             </div>
 
-            <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+            <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
               Mutual shows this profile’s followers who also follow you. It’s available when you’re signed in and viewing another profile.
             </p>
           </div>
@@ -900,7 +900,7 @@ export default function HandleConnectionsPage() {
       <button
         type="button"
         onClick={goBackToProfile}
-        className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[10px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
+        className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[13px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
       >
         Back to profile
         <IoChevronForward size={14} />
@@ -973,14 +973,14 @@ export default function HandleConnectionsPage() {
             Profile not found
           </h2>
 
-          <p className="mt-2 text-[11px] font-medium leading-5 text-slate-500">
+          <p className="mt-2 text-[14px] font-medium leading-5 text-slate-500">
             We couldn’t find the connections for {handleWithAt}.
           </p>
 
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[10px] font-black text-white transition hover:bg-[#214C3A]"
+            className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:bg-[#214C3A]"
           >
             Go home
           </button>
@@ -1142,18 +1142,18 @@ function Row({
         </div>
 
         <div className="min-w-0">
-          <div className="truncate text-[12px] font-black text-slate-800 sm:text-[13px]">
+          <div className="truncate text-[14px] font-black text-slate-800 sm:text-[13px]">
             {fullName}
           </div>
 
           {handle ? (
-            <div className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
+            <div className="mt-0.5 truncate text-[12px] font-semibold text-slate-400">
               {handle.startsWith("@")
                 ? handle
                 : `@${handle}`}
             </div>
           ) : (
-            <div className="mt-0.5 text-[10px] font-semibold text-slate-300">
+            <div className="mt-0.5 text-[12px] font-semibold text-slate-300">
               ekarihub member
             </div>
           )}
@@ -1164,7 +1164,7 @@ function Row({
         viewerUid !== id ? (
         pillLabel ===
           "Partners" ? (
-          <span className="inline-flex min-w-[88px] items-center justify-center gap-1.5 rounded-xl border border-[#D9D3C7] bg-[#F3F1EB] px-3 py-2 text-[9px] font-black text-[#173C2E]">
+          <span className="inline-flex min-w-[88px] items-center justify-center gap-1.5 rounded-xl border border-[#D9D3C7] bg-[#F3F1EB] px-3 py-2 text-[12px] font-black text-[#173C2E]">
             <IoPeopleCircleOutline
               size={12}
             />
@@ -1180,7 +1180,7 @@ function Row({
               onToggleFollow(id)
             }
             className={[
-              "min-w-[88px] rounded-xl px-3 py-2 text-[9px] font-black transition",
+              "min-w-[88px] rounded-xl px-3 py-2 text-[12px] font-black transition",
               pillLabel ===
                 "Following"
                 ? "border border-[#D9D3C7] bg-white text-slate-600 hover:bg-[#F3F1EB]"
@@ -1216,7 +1216,7 @@ function MiniStat({
         </span>
       </div>
 
-      <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+      <div className="mt-2 text-[11px] font-black uppercase tracking-[0.07em] text-slate-400">
         {label}
       </div>
     </div>
@@ -1315,7 +1315,7 @@ function EmptyConnections({
           {item.title}
         </h3>
 
-        <p className="mx-auto mt-1 max-w-sm text-[10px] font-medium leading-4 text-slate-400">
+        <p className="mx-auto mt-1 max-w-sm text-[14px] font-medium leading-5 text-slate-500">
           {item.text}
         </p>
       </div>

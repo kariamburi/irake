@@ -669,7 +669,7 @@ function DeleteModal({
           Delete notification?
         </div>
 
-        <p className="mt-2 text-[13px] font-medium leading-5 text-slate-500">
+        <p className="mt-2 text-[15px] font-medium leading-5 text-slate-500">
           This notification will be removed from your notification center.
         </p>
 
@@ -678,7 +678,7 @@ function DeleteModal({
             type="button"
             onClick={onCancel}
             disabled={deleting}
-            className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-slate-600"
+            className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[13px] font-black text-slate-600"
           >
             Cancel
           </button>
@@ -687,7 +687,7 @@ function DeleteModal({
             type="button"
             onClick={onConfirm}
             disabled={deleting}
-            className="h-10 rounded-xl bg-red-600 px-4 text-[12px] font-black text-white disabled:opacity-60"
+            className="h-10 rounded-xl bg-red-600 px-4 text-[13px] font-black text-white disabled:opacity-60"
           >
             {deleting
               ? "Deleting…"
@@ -937,14 +937,14 @@ function NotificationRow({
                   n.byPhotoURL
                 );
               }}
-              className="max-w-full truncate text-left text-[13px] font-black text-slate-900 hover:underline"
+              className="max-w-full truncate text-left text-[15px] font-black text-slate-900 hover:underline"
             >
               {senderName}
             </button>
 
             {n.type ===
               "admin_broadcast" ? (
-              <div className="mt-0.5 text-[12px] font-medium leading-5 text-slate-600">
+              <div className="mt-0.5 text-[14px] font-medium leading-[20px] text-slate-600">
                 {visibleText}
 
                 {isLongBroadcast ? (
@@ -969,14 +969,14 @@ function NotificationRow({
                 onClick={
                   openRelated
                 }
-                className="mt-0.5 block max-w-full text-left text-[12px] font-medium leading-5 text-slate-500 hover:text-slate-800"
+                className="mt-0.5 block max-w-full text-left text-[14px] font-medium leading-[20px] text-slate-500 hover:text-slate-800"
               >
                 {fullText}
               </button>
             )}
           </div>
 
-          <span className="shrink-0 text-[10px] font-semibold text-slate-400">
+          <span className="shrink-0 text-[12px] font-semibold text-slate-400">
             {timeAgo(
               n.createdAt
             )}
@@ -994,7 +994,7 @@ function NotificationRow({
               onClick={() =>
                 void followBack()
               }
-              className="h-8 rounded-full bg-[#173C2E] px-3 text-[10px] font-black text-white"
+              className="h-8 rounded-full bg-[#173C2E] px-3 text-[12px] font-black text-white"
             >
               Follow back
             </motion.button>
@@ -1010,7 +1010,7 @@ function NotificationRow({
               onClick={() =>
                 onOpenThread(n)
               }
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[12px] font-black text-slate-600"
             >
               <IoChatbubbleEllipsesOutline
                 size={13}
@@ -1128,24 +1128,24 @@ function FollowerItem({
                   row.photoURL
                 )
               }
-              className="block max-w-full truncate text-left text-[13px] font-black text-slate-900 hover:underline"
+              className="block max-w-full truncate text-left text-[15px] font-black text-slate-900 hover:underline"
             >
               {row.name ||
                 "User"}
             </button>
 
-            <p className="mt-0.5 text-[12px] font-medium text-slate-500">
+            <p className="mt-0.5 text-[14px] font-medium leading-[20px] text-slate-500">
               Started following you 🤝
             </p>
 
             {row.handle ? (
-              <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
+              <p className="mt-0.5 truncate text-[12px] font-semibold text-slate-400">
                 {row.handle}
               </p>
             ) : null}
           </div>
 
-          <span className="shrink-0 text-[10px] font-semibold text-slate-400">
+          <span className="shrink-0 text-[12px] font-semibold text-slate-400">
             {timeAgo(
               row.createdAt
             )}
@@ -1162,7 +1162,7 @@ function FollowerItem({
           onClick={() =>
             onMessage(row)
           }
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[12px] font-black text-slate-600"
         >
           <IoChatbubbleEllipsesOutline
             size={13}
@@ -1186,7 +1186,7 @@ function FollowerItem({
               row.userId
             )
           }
-          className="h-8 shrink-0 rounded-full bg-[#173C2E] px-3 text-[10px] font-black text-white disabled:opacity-50"
+          className="h-8 shrink-0 rounded-full bg-[#173C2E] px-3 text-[12px] font-black text-white disabled:opacity-50"
         >
           {pending
             ? "…"
@@ -1228,7 +1228,7 @@ function EmptyState({
           Nothing here yet
         </h3>
 
-        <p className="mt-1 text-[12px] font-medium leading-5 text-slate-400">
+        <p className="mt-1 text-[14px] font-medium leading-5 text-slate-400">
           {message}
         </p>
       </div>
@@ -2224,7 +2224,7 @@ export default function NotificationsPage() {
             ) : null}
 
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+              <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                 ekarihub updates
               </div>
 
@@ -2234,7 +2234,7 @@ export default function NotificationsPage() {
                     Notifications
                   </h1>
 
-                  <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                  <p className="mt-1 max-w-2xl text-[14px] font-medium leading-5 text-white/55 md:text-[15px]">
                     Stay up to date with activity, followers, bookings and important ekarihub notices.
                   </p>
                 </div>
@@ -2249,7 +2249,7 @@ export default function NotificationsPage() {
                       totalUnread ===
                       0
                     }
-                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.07] px-3 text-[10px] font-black text-white transition hover:bg-white/[0.12] disabled:opacity-40"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.07] px-3 text-[12px] font-black text-white transition hover:bg-white/[0.12] disabled:opacity-40"
                   >
                     <IoCheckmarkCircleOutline
                       size={14}
@@ -2291,7 +2291,7 @@ export default function NotificationsPage() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-bold text-white/45">
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] font-bold text-white/45">
                 <span className="rounded-full bg-white/[0.07] px-2.5 py-1">
                   {totalUnread} unread
                 </span>
@@ -2334,7 +2334,7 @@ export default function NotificationsPage() {
                       )
                     }
                     className={clsx(
-                      "relative inline-flex h-12 shrink-0 items-center gap-1.5 px-3 text-[11px] font-black transition-colors",
+                      "relative inline-flex h-12 shrink-0 items-center gap-1.5 px-3 text-[13px] font-black transition-colors",
                       active
                         ? "text-[#173C2E]"
                         : "text-slate-400 hover:text-slate-700"
@@ -2348,7 +2348,7 @@ export default function NotificationsPage() {
                       0 ? (
                       <span
                         className={clsx(
-                          "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[9px]",
+                          "grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px] font-black",
                           active
                             ? "bg-[#c69258] text-white"
                             : "bg-[#EFECE5] text-slate-500"
@@ -2398,7 +2398,7 @@ export default function NotificationsPage() {
                 )
               }
               placeholder="Search notifications..."
-              className="h-10 w-full rounded-[14px] border border-[#D9D3C7] bg-[#FBFAF6] pl-10 pr-4 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+              className="h-10 w-full rounded-[14px] border border-[#D9D3C7] bg-[#FBFAF6] pl-10 pr-4 text-[15px] font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
             />
           </div>
         </div>
@@ -2451,7 +2451,7 @@ export default function NotificationsPage() {
                   }
                 >
                   <div className="border-b border-[#E7E1D5] bg-[#F4F2ED] px-3 py-2 sm:px-4">
-                    <h2 className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
+                    <h2 className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
                       {bucket}
                     </h2>
                   </div>
@@ -2560,7 +2560,7 @@ export default function NotificationsPage() {
             Sign in to view notifications
           </h2>
 
-          <p className="mt-1 text-[12px] font-medium leading-5 text-slate-400">
+          <p className="mt-1 text-[14px] font-medium leading-5 text-slate-400">
             Likes, comments, followers, bookings and important updates will appear here.
           </p>
 
@@ -2571,7 +2571,7 @@ export default function NotificationsPage() {
                 "/getstarted?next=/notifications"
               )
             }
-            className="mt-5 h-10 rounded-xl bg-[#173C2E] px-4 text-[11px] font-black text-white"
+            className="mt-5 h-10 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white"
           >
             Continue
           </button>

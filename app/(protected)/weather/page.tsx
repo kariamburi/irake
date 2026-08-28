@@ -114,11 +114,11 @@ function WeatherLoadingCard({
                     <BouncingBallLoader />
                 </div>
 
-                <p className="mt-5 text-[13px] font-black text-slate-900">
+                <p className="mt-5 text-[15px] font-black text-slate-900">
                     {title}
                 </p>
 
-                <p className="mx-auto mt-1.5 max-w-sm text-[10px] font-medium leading-5 text-slate-400">
+                <p className="mx-auto mt-1.5 max-w-sm text-[13px] font-medium leading-5 text-slate-400">
                     {message}
                 </p>
             </div>
@@ -481,23 +481,23 @@ export default function WeatherPage() {
                                 </span>
 
                                 <div className="min-w-0">
-                                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                                    <p className="text-[12px] font-black uppercase tracking-[0.1em] text-slate-400">
                                         Forecast location
                                     </p>
 
-                                    <p className="mt-0.5 truncate text-[12px] font-black text-slate-800">
+                                    <p className="mt-0.5 truncate text-[14px] font-black text-slate-800">
                                         {displayedLocationName}
                                     </p>
 
                                     {displayedAddress ? (
-                                        <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">
+                                        <p className="mt-0.5 truncate text-[13px] font-medium text-slate-400">
                                             {displayedAddress}
                                         </p>
                                     ) : null}
 
                                     {displayedLatitude !== null &&
                                         displayedLongitude !== null ? (
-                                        <p className="mt-0.5 text-[9px] text-slate-300">
+                                        <p className="mt-0.5 text-[12px] text-slate-300">
                                             {displayedLatitude.toFixed(4)},{" "}
                                             {displayedLongitude.toFixed(4)}
                                         </p>
@@ -513,7 +513,7 @@ export default function WeatherPage() {
                                     className={[
                                         "inline-flex h-9 items-center justify-center gap-2 rounded-full",
                                         "border border-[#D7D2C7] bg-white px-3.5",
-                                        "text-[10px] font-black text-slate-600",
+                                        "text-[13px] font-black text-slate-600",
                                         "transition-all duration-200",
                                         "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
                                         "disabled:cursor-not-allowed disabled:opacity-60",
@@ -536,7 +536,7 @@ export default function WeatherPage() {
                                     className={[
                                         "inline-flex h-9 items-center justify-center gap-2 rounded-full",
                                         "border border-[#D7D2C7] bg-white px-3.5",
-                                        "text-[10px] font-black text-slate-600",
+                                        "text-[13px] font-black text-slate-600",
                                         "transition-all duration-200",
                                         "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
                                     ].join(" ")}
@@ -640,7 +640,7 @@ export default function WeatherPage() {
                                     className="shrink-0 text-emerald-700"
                                 />
 
-                                <span className="truncate text-[11px] font-semibold text-emerald-800">
+                                <span className="truncate text-[13px] font-semibold text-emerald-800">
                                     Ekarihub Weather
                                 </span>
                             </div>
@@ -674,7 +674,7 @@ export default function WeatherPage() {
                                     Weather for your farm
                                 </h1>
 
-                                <p className="truncate text-[11px] text-slate-500">
+                                <p className="truncate text-[13px] text-slate-500">
                                     {location
                                         ? displayedAddress ||
                                         displayedLocationName
@@ -682,7 +682,7 @@ export default function WeatherPage() {
                                 </p>
 
                                 {location && lastUpdated && (
-                                    <p className="mt-0.5 text-[10px] text-slate-400">
+                                    <p className="mt-0.5 text-[13px] text-slate-400">
                                         Updated {lastUpdatedLabel}
                                     </p>
                                 )}
@@ -692,7 +692,7 @@ export default function WeatherPage() {
                                 <button
                                     type="button"
                                     onClick={clearLocation}
-                                    className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700"
+                                    className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-[13px] font-semibold text-slate-700"
                                 >
                                     Change
                                 </button>
@@ -733,7 +733,7 @@ export default function WeatherPage() {
             }
             rightRailClassName="border-l border-[#E4DED2] bg-[#F8F7F2]"
         >
-            <div className="h-[100svh] w-full overflow-y-auto bg-[#F8F7F2] no-scrollbar">
+            <div className="flex h-[100svh] w-full flex-col overflow-hidden bg-[#F8F7F2]">
                 {/* Desktop hero */}
                 <motion.header
                     initial={{ opacity: 0 }}
@@ -742,7 +742,7 @@ export default function WeatherPage() {
                         duration: 0.3,
                         ease: "easeOut",
                     }}
-                    className="relative overflow-hidden bg-[#173C2E]"
+                    className="relative z-40 shrink-0 overflow-hidden bg-[#173C2E]"
                 >
                     <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/[0.035]" />
                     <div className="pointer-events-none absolute bottom-[-80px] right-20 h-48 w-48 rounded-full bg-[#c69258]/10" />
@@ -750,21 +750,21 @@ export default function WeatherPage() {
                     <div className="mx-auto max-w-[940px] px-5 pb-5 pt-5">
                         <div className="flex items-start justify-between gap-5">
                             <div className="min-w-0">
-                                <p className="text-[10px] font-black uppercase tracking-[0.11em] text-white/40">
-                                    Ekarihub Weather
+                                <p className="text-[13px] font-black uppercase tracking-[0.11em] text-white">
+                                    Weather for your farm
                                 </p>
 
-                                <h1 className="mt-1.5 text-[27px] font-black tracking-[-0.035em] text-white">
+                                {/** <h1 className="mt-1.5 text-[28px] font-black tracking-[-0.035em] text-white">
                                     Weather for your farm
-                                </h1>
+                                </h1> */}
 
-                                <p className="mt-1 max-w-2xl text-[12px] font-medium leading-5 text-white/50">
+                                <p className="mt-1 max-w-2xl text-[14px] font-medium leading-5 text-white/50">
                                     Local weather, rainfall probability and practical
                                     farming recommendations for the next seven days.
                                 </p>
 
                                 {location && lastUpdated ? (
-                                    <p className="mt-2 text-[10px] font-semibold text-white/35">
+                                    <p className="mt-2 text-[13px] font-semibold text-white/35">
                                         {isOfflineData
                                             ? "Showing saved forecast"
                                             : "Forecast updated"}{" "}
@@ -781,7 +781,7 @@ export default function WeatherPage() {
                                     className={[
                                         "inline-flex h-10 shrink-0 items-center gap-2 rounded-full",
                                         "border border-white/20 bg-white/[0.08] px-4",
-                                        "text-[11px] font-black text-white",
+                                        "text-[13px] font-black text-white",
                                         "backdrop-blur-sm transition-all duration-200",
                                         "hover:-translate-y-0.5 hover:bg-white/[0.13]",
                                         "active:translate-y-0 active:scale-[0.98]",
@@ -812,11 +812,11 @@ export default function WeatherPage() {
                                     </span>
 
                                     <div className="min-w-0">
-                                        <div className="text-[13px] font-black text-white">
+                                        <div className="text-[15px] font-black text-white">
                                             {displayedLocationName}
                                         </div>
 
-                                        <div className="mt-0.5 truncate text-[10px] font-medium text-white/45">
+                                        <div className="mt-0.5 truncate text-[13px] font-medium text-white/45">
                                             {displayedAddress ||
                                                 (displayedLatitude !== null &&
                                                     displayedLongitude !== null
@@ -835,7 +835,7 @@ export default function WeatherPage() {
                                         type="button"
                                         onClick={handleRefresh}
                                         disabled={loading}
-                                        className="inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-3.5 text-[10px] font-black text-white transition hover:bg-white/[0.13] disabled:opacity-60"
+                                        className="inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-3.5 text-[13px] font-black text-white transition hover:bg-white/[0.13] disabled:opacity-60"
                                     >
                                         <RefreshCw
                                             size={13}
@@ -851,7 +851,7 @@ export default function WeatherPage() {
                                     <button
                                         type="button"
                                         onClick={clearLocation}
-                                        className="inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-3.5 text-[10px] font-black text-white transition hover:bg-white/[0.13]"
+                                        className="inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-white/[0.08] px-3.5 text-[13px] font-black text-white transition hover:bg-white/[0.13]"
                                     >
                                         <MapPin size={13} />
                                         Change
@@ -862,10 +862,12 @@ export default function WeatherPage() {
                     </div>
                 </motion.header>
 
-                {/* Desktop page body */}
-                <main className="mx-auto max-w-[940px] px-5 pb-24 pt-4">
-                    {weatherContent}
-                </main>
+                {/* Desktop page body — only this area scrolls */}
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain no-scrollbar">
+                    <main className="mx-auto max-w-[940px] px-5 pb-24 pt-4">
+                        {weatherContent}
+                    </main>
+                </div>
             </div>
         </AppShellRightRail>
     );

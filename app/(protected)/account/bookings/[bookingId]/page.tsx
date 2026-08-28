@@ -574,7 +574,7 @@ export default function BookingDetailsPage() {
         <main className="grid h-full min-h-0 place-items-center bg-[#F8F7F2]">
           <div className="text-center">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#173C2E]" />
-            <p className="mt-3 text-[11px] font-semibold text-slate-400">
+            <p className="mt-3 text-[13px] font-semibold text-slate-400">
               Loading consultation…
             </p>
           </div>
@@ -607,14 +607,14 @@ export default function BookingDetailsPage() {
               Booking unavailable
             </h1>
 
-            <p className="mt-2 text-[12px] font-medium leading-5 text-slate-500">
+            <p className="mt-2 text-[14px] font-medium leading-5 text-slate-500">
               {error}
             </p>
 
             <button
               type="button"
               onClick={() => router.push("/account/bookings")}
-              className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+              className="mt-5 h-10 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
             >
               Return to bookings
             </button>
@@ -675,7 +675,7 @@ export default function BookingDetailsPage() {
               </button>
 
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+                <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                   ekari Expert
                 </div>
 
@@ -688,7 +688,7 @@ export default function BookingDetailsPage() {
                     />
 
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.08em] text-white/40">
+                      <p className="text-[12px] font-black uppercase tracking-[0.08em] text-white/40">
                         Expert consultation
                       </p>
 
@@ -697,7 +697,7 @@ export default function BookingDetailsPage() {
                       </h1>
 
                       {booking.expertHeadline ? (
-                        <p className="mt-1 line-clamp-2 max-w-2xl text-[11px] font-medium leading-5 text-white/50">
+                        <p className="mt-1 line-clamp-2 max-w-2xl text-[14px] font-medium leading-5 text-white/55">
                           {booking.expertHeadline}
                         </p>
                       ) : null}
@@ -707,7 +707,7 @@ export default function BookingDetailsPage() {
                   <span
                     className={[
                       "inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5",
-                      "text-[10px] font-black",
+                      "text-[12px] font-black",
                       booking.status === "completed"
                         ? "bg-emerald-400/15 text-emerald-200"
                         : booking.status === "declined" ||
@@ -738,7 +738,7 @@ export default function BookingDetailsPage() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] font-semibold text-rose-700"
+                    className="rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700"
                   >
                     {error}
                   </motion.div>
@@ -752,7 +752,7 @@ export default function BookingDetailsPage() {
                 transition={{ duration: 0.2 }}
                 className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
               >
-                <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                <div className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-400">
                   Consultation topic
                 </div>
 
@@ -762,11 +762,11 @@ export default function BookingDetailsPage() {
 
                 {booking.message ? (
                   <div className="mt-4 rounded-[14px] bg-[#F3F1EB] px-4 py-3">
-                    <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+                    <div className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
                       Your message
                     </div>
 
-                    <p className="mt-2 whitespace-pre-wrap text-[11px] font-medium leading-5 text-slate-600">
+                    <p className="mt-2 whitespace-pre-wrap text-[14px] font-medium leading-5 text-slate-600">
                       {booking.message}
                     </p>
                   </div>
@@ -850,11 +850,11 @@ export default function BookingDetailsPage() {
                     </span>
 
                     <div>
-                      <h3 className="text-[12px] font-black text-slate-900">
+                      <h3 className="text-[15px] font-black text-slate-900">
                         Timezones
                       </h3>
 
-                      <p className="mt-2 text-[11px] font-medium text-slate-500">
+                      <p className="mt-2 text-[13px] font-medium text-slate-500">
                         Your timezone:{" "}
                         <strong className="text-slate-700">
                           {formatTimezone(
@@ -863,7 +863,7 @@ export default function BookingDetailsPage() {
                         </strong>
                       </p>
 
-                      <p className="mt-1 text-[11px] font-medium text-slate-500">
+                      <p className="mt-1 text-[13px] font-medium text-slate-500">
                         Expert timezone:{" "}
                         <strong className="text-slate-700">
                           {formatTimezone(
@@ -894,11 +894,11 @@ export default function BookingDetailsPage() {
                     </span>
 
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-[12px] font-black text-amber-950">
+                      <h3 className="text-[14px] font-black text-amber-950">
                         Physical visit details
                       </h3>
 
-                      <div className="mt-3 space-y-2 text-[11px] font-medium leading-5 text-amber-900">
+                      <div className="mt-3 space-y-2 text-[13px] font-medium leading-5 text-amber-900">
                         <div>
                           <span className="font-black">
                             Visit location:
@@ -949,11 +949,11 @@ export default function BookingDetailsPage() {
                     </span>
 
                     <div>
-                      <h3 className="text-[12px] font-black text-slate-900">
+                      <h3 className="text-[15px] font-black text-slate-900">
                         Expert service location
                       </h3>
 
-                      <p className="mt-2 text-[11px] font-medium leading-5 text-slate-500">
+                      <p className="mt-2 text-[13px] font-medium leading-5 text-slate-500">
                         {locationLabel}
                       </p>
                     </div>
@@ -979,11 +979,11 @@ export default function BookingDetailsPage() {
                     </span>
 
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-[12px] font-black text-emerald-950">
+                      <h3 className="text-[14px] font-black text-emerald-950">
                         Your meeting is ready
                       </h3>
 
-                      <p className="mt-1 text-[11px] font-medium text-emerald-800">
+                      <p className="mt-1 text-[13px] font-medium text-emerald-800">
                         Use this link at the scheduled time.
                       </p>
 
@@ -991,7 +991,7 @@ export default function BookingDetailsPage() {
                         href={booking.meetingUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-emerald-800"
+                        className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-emerald-800"
                       >
                         Join consultation
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -1008,11 +1008,11 @@ export default function BookingDetailsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.025)] sm:p-5"
                 >
-                  <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">
+                  <div className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-400">
                     Cancellation reason
                   </div>
 
-                  <p className="mt-2 text-[11px] font-medium leading-5 text-slate-600">
+                  <p className="mt-2 text-[14px] font-medium leading-5 text-slate-600">
                     {booking.cancellationReason}
                   </p>
                 </motion.div>
@@ -1037,7 +1037,7 @@ export default function BookingDetailsPage() {
                   </span>
 
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.08em] text-slate-400">
+                    <div className="text-[12px] font-black uppercase tracking-[0.08em] text-slate-400">
                       Consultation payment
                     </div>
 
@@ -1051,7 +1051,7 @@ export default function BookingDetailsPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-3 border-t border-[#E4DED2] pt-4 text-[11px]">
+                <div className="mt-4 space-y-3 border-t border-[#E4DED2] pt-4 text-[13px]">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-400">
                       Consultation fee
@@ -1095,7 +1095,7 @@ export default function BookingDetailsPage() {
                     type="button"
                     onClick={startPayment}
                     disabled={paying}
-                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#c69258] px-5 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#c69258] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
                   >
                     {paying ? (
                       <>
@@ -1116,7 +1116,7 @@ export default function BookingDetailsPage() {
 
                 {booking.paymentStatus ===
                   "paid" ? (
-                  <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-center text-[10px] font-black text-emerald-700">
+                  <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-center text-[12px] font-black text-emerald-700">
                     Payment received
                   </div>
                 ) : null}
@@ -1124,7 +1124,7 @@ export default function BookingDetailsPage() {
                 {booking.paymentStatus ===
                   "not_required" ||
                   !paymentRequired ? (
-                  <div className="mt-4 rounded-xl bg-slate-100 p-3 text-center text-[10px] font-black text-slate-600">
+                  <div className="mt-4 rounded-xl bg-slate-100 p-3 text-center text-[12px] font-black text-slate-600">
                     No payment is required for this consultation.
                   </div>
                 ) : null}
@@ -1134,7 +1134,7 @@ export default function BookingDetailsPage() {
                     type="button"
                     onClick={cancelBooking}
                     disabled={cancelling}
-                    className="mt-3 h-10 w-full rounded-xl border border-rose-200 bg-white text-[10px] font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                    className="mt-3 h-10 w-full rounded-xl border border-rose-200 bg-white text-[13px] font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
                   >
                     {cancelling
                       ? "Cancelling…"
@@ -1144,7 +1144,7 @@ export default function BookingDetailsPage() {
               </section>
 
               <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                   Booking status
                 </div>
 
@@ -1164,11 +1164,11 @@ export default function BookingDetailsPage() {
                   </span>
 
                   <div className="min-w-0">
-                    <div className="text-[12px] font-black text-slate-800">
+                    <div className="text-[15px] font-black text-slate-900">
                       {statusLabel}
                     </div>
 
-                    <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                    <p className="mt-1 text-[12px] font-medium leading-5 text-slate-500">
                       Booking ID: {booking.id}
                     </p>
                   </div>
@@ -1176,7 +1176,7 @@ export default function BookingDetailsPage() {
               </section>
 
               <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                   Quick links
                 </div>
 
@@ -1192,7 +1192,7 @@ export default function BookingDetailsPage() {
                           )}`
                         )
                       }
-                      className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                      className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                     >
                       View expert profile
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -1204,7 +1204,7 @@ export default function BookingDetailsPage() {
                     onClick={() =>
                       router.push("/account/bookings")
                     }
-                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                   >
                     My consultations
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -1215,7 +1215,7 @@ export default function BookingDetailsPage() {
                     onClick={() =>
                       router.push("/ekari-experts")
                     }
-                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                    className="flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
                   >
                     Browse experts
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -1241,12 +1241,12 @@ function Detail({
 }) {
   return (
     <div className="rounded-[14px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.02)]">
-      <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+      <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
         <Icon className="h-3.5 w-3.5 text-[#c69258]" />
         {label}
       </div>
 
-      <p className="mt-1.5 break-words text-[11px] font-black leading-5 text-slate-700">
+      <p className="mt-1.5 break-words text-[13px] font-black leading-5 text-slate-800">
         {value}
       </p>
     </div>

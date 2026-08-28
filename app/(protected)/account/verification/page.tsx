@@ -473,7 +473,7 @@ export default function VerificationPage() {
     if (status === "approved") {
       return (
         <div
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border"
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[13px] font-bold border"
           style={{
             borderColor: EKARI.forest,
             color: EKARI.forest,
@@ -494,7 +494,7 @@ export default function VerificationPage() {
     }
     if (status === "payment_pending") {
       return (
-        <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-800 border border-sky-200">
+        <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-[13px] font-bold text-sky-800 border border-sky-200">
           <IoTimeOutline size={14} />
           <span>Waiting for payment confirmation</span>
         </div>
@@ -503,7 +503,7 @@ export default function VerificationPage() {
 
     if (status === "pending") {
       return (
-        <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
+        <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-[13px] font-bold text-amber-800 border border-amber-200">
           <IoTimeOutline size={14} />
           <span>Verification pending review</span>
         </div>
@@ -511,22 +511,22 @@ export default function VerificationPage() {
     }
     if (status === "rejected") {
       return (
-        <div className="inline-flex flex-col gap-1 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800 border border-rose-200">
+        <div className="inline-flex flex-col gap-1 rounded-lg bg-rose-50 px-3 py-2 text-[13px] text-rose-800 border border-rose-200">
           <div className="flex items-center gap-2 font-bold">
             <IoInformationCircleOutline size={14} />
             <span>Verification rejected</span>
           </div>
           {verification?.rejectionReason && (
-            <p className="text-[11px] leading-snug">Reason: {verification.rejectionReason}</p>
+            <p className="text-[13px] leading-snug">Reason: {verification.rejectionReason}</p>
           )}
-          <p className="text-[11px] leading-snug mt-1">
+          <p className="text-[13px] leading-snug mt-1">
             You can review your details and submit a new request below.
           </p>
         </div>
       );
     }
     return (
-      <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 border border-slate-200">
+      <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-[13px] font-semibold text-slate-700 border border-slate-200">
         <IoInformationCircleOutline size={14} />
         <span>Not verified yet</span>
       </div>
@@ -561,7 +561,7 @@ export default function VerificationPage() {
                 <div className="truncate text-[15px] font-black" style={{ color: EKARI.text }}>
                   Verification
                 </div>
-                <div className="truncate text-[11px]" style={{ color: EKARI.subtext }}>
+                <div className="truncate text-[13px] font-medium" style={{ color: EKARI.subtext }}>
                   Account verification
                 </div>
               </div>
@@ -607,7 +607,7 @@ export default function VerificationPage() {
             </button>
 
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+              <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
                 Account trust
               </div>
 
@@ -617,7 +617,7 @@ export default function VerificationPage() {
                     Account verification
                   </h1>
 
-                  <p className="mt-1 max-w-2xl text-[11px] font-medium leading-5 text-white/50 md:text-[12px]">
+                  <p className="mt-1 max-w-2xl text-[14px] font-medium leading-5 text-white/55 md:text-[15px]">
                     Verify your identity, professional role or organization to build trust across ekarihub.
                   </p>
                 </div>
@@ -646,11 +646,11 @@ export default function VerificationPage() {
                 </span>
 
                 <div className="min-w-0">
-                  <h2 className="text-[13px] font-black text-slate-900">
+                  <h2 className="text-[15px] font-black text-slate-900">
                     Verification is optional
                   </h2>
 
-                  <p className="mt-1 text-[11px] font-medium leading-5 text-slate-500">
+                  <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     You can use ekarihub and publish an expert profile without verification.
                     Approved accounts receive a verified badge that helps members identify reviewed identities and organizations.
                   </p>
@@ -662,7 +662,7 @@ export default function VerificationPage() {
               <div className="grid min-h-[300px] place-items-center">
                 <div className="text-center">
                   <BouncingBallLoader />
-                  <p className="mt-3 text-[11px] font-semibold text-slate-400">
+                  <p className="mt-3 text-[13px] font-semibold text-slate-400">
                     Loading verification…
                   </p>
                 </div>
@@ -671,8 +671,8 @@ export default function VerificationPage() {
             {/* Existing evidence */}
             {!loading && verification?.evidenceUrls && verification.evidenceUrls.length > 0 && (
               <div className="mt-4 rounded-[16px] border border-[#DDD8CC] bg-[#F3F1EB] p-4">
-                <div className="text-xs font-bold text-slate-700 mb-2">Submitted documents</div>
-                <ul className="list-disc pl-5 space-y-1 text-xs text-slate-700">
+                <div className="text-[14px] font-bold text-slate-800 mb-2">Submitted documents</div>
+                <ul className="list-disc pl-5 space-y-1 text-[14px] text-slate-700">
                   {verification.evidenceUrls.map((url, idx) => (
                     <li key={idx}>
                       <a
@@ -713,7 +713,7 @@ export default function VerificationPage() {
                     </div>
 
                     <p
-                      className="mt-1 text-xs leading-5"
+                      className="mt-1 text-[13px] leading-5"
                       style={{
                         color: EKARI.subtext,
                       }}
@@ -733,7 +733,7 @@ export default function VerificationPage() {
                           "/account/expert"
                         )
                       }
-                      className="mt-3 h-10 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                      className="mt-3 h-10 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                       style={{
                         backgroundColor:
                           EKARI.forest,
@@ -765,7 +765,7 @@ export default function VerificationPage() {
                       Your profile is verified
                     </div>
 
-                    <p className="mt-1 text-xs leading-5">
+                    <p className="mt-1 text-[13px] leading-5">
                       Your expert profile can now display a
                       verified badge. Verification helps clients
                       distinguish reviewed identities from
@@ -777,7 +777,7 @@ export default function VerificationPage() {
                       onClick={() =>
                         router.push("/account/expert")
                       }
-                      className="mt-3 h-10 rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                      className="mt-3 h-10 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                       style={{
                         backgroundColor: EKARI.forest,
                       }}
@@ -790,7 +790,7 @@ export default function VerificationPage() {
             )}
 
             {status === "payment_pending" && (
-              <div className="mt-4 rounded-[16px] border border-sky-200 bg-sky-50 p-4 text-[11px] font-medium leading-5 text-sky-900">
+              <div className="mt-4 rounded-[16px] border border-sky-200 bg-sky-50 p-4 text-[14px] font-medium leading-5 text-sky-900">
                 Your verification documents were saved. We are waiting for Paystack to confirm the
                 payment. Once payment is confirmed, your application will automatically move to the
                 admin review queue.
@@ -798,7 +798,7 @@ export default function VerificationPage() {
             )}
 
             {status === "pending" && (
-              <div className="mt-4 rounded-[16px] border border-amber-200 bg-amber-50 p-4 text-[11px] font-medium leading-5 text-amber-900">
+              <div className="mt-4 rounded-[16px] border border-amber-200 bg-amber-50 p-4 text-[14px] font-medium leading-5 text-amber-900">
                 We have received your verification request and payment. An admin will review your
                 documents. You’ll be notified once a decision is made.
               </div>
@@ -811,7 +811,7 @@ export default function VerificationPage() {
               >
                 {/* Progress bar */}
                 <div className="mb-4">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+                  <div className="flex items-center justify-between text-[13px] font-semibold text-slate-600 mb-2">
                     <span>
                       Step {step} of {TOTAL_STEPS}
                     </span>
@@ -834,9 +834,9 @@ export default function VerificationPage() {
                 {/* STEP 1 */}
                 {step === 1 && (
                   <>
-                    <div className="flex gap-2 items-center text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="flex gap-2 items-center text-[13px] font-bold uppercase tracking-wide text-slate-500">
                       <span
-                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[11px] font-black text-white"
+                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[13px] font-black text-white"
 
                       >
                         1
@@ -845,7 +845,7 @@ export default function VerificationPage() {
                     </div>
 
                     <div className="mt-3">
-                      <div className="text-[11px] font-semibold text-slate-600 mb-1">
+                      <div className="text-[13px] font-semibold text-slate-700 mb-1">
                         I want to verify my:
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -861,7 +861,7 @@ export default function VerificationPage() {
                               key={key}
                               type="button"
                               onClick={() => setVerificationType(key)}
-                              className={`px-3 py-1 rounded-full text-[11px] border transition ${active ? "font-bold shadow-sm" : "font-medium bg-slate-50 hover:bg-slate-100"
+                              className={`px-3 py-1 rounded-full text-[13px] border transition ${active ? "font-bold shadow-sm" : "font-medium bg-slate-50 hover:bg-slate-100"
                                 }`}
                               style={{
                                 borderColor: active ? EKARI.forest : EKARI.hair,
@@ -874,7 +874,7 @@ export default function VerificationPage() {
                           );
                         })}
                       </div>
-                      <p className="mt-1 text-[11px] text-slate-500">
+                      <p className="mt-1 text-[14px] leading-5 text-slate-500">
                         Use <span className="font-semibold">Individual</span> if you are verifying
                         yourself as a professional. Choose{" "}
                         <span className="font-semibold">Business</span> or{" "}
@@ -888,7 +888,7 @@ export default function VerificationPage() {
                         <div>
                           <label
                             htmlFor="organizationName"
-                            className="block text-xs font-semibold text-slate-700 mb-1"
+                            className="block text-[13px] font-semibold text-slate-700 mb-1"
                           >
                             Business / company name
                           </label>
@@ -898,10 +898,10 @@ export default function VerificationPage() {
                             value={organizationName}
                             onChange={(e) => setOrganizationName(e.target.value)}
                             placeholder="e.g. GreenFields Vet Clinic, AgroTech Ltd"
-                            className="w-full rounded-xl border border-[#D9D3C7] bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                            className="w-full rounded-xl border border-[#D9D3C7] bg-white px-3.5 py-2.5 text-[15px] outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
                             style={{ borderColor: EKARI.hair }}
                           />
-                          <p className="mt-1 text-[11px] text-slate-500">
+                          <p className="mt-1 text-[14px] leading-5 text-slate-500">
                             This will be shown on your profile for Business / Company verification.
                           </p>
                         </div>
@@ -909,7 +909,7 @@ export default function VerificationPage() {
 
                       {savedRoles.length > 0 && (
                         <div>
-                          <div className="text-[11px] font-semibold text-slate-600 mb-1">
+                          <div className="text-[13px] font-semibold text-slate-700 mb-1">
                             Choose from your saved roles
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -920,7 +920,7 @@ export default function VerificationPage() {
                                   key={r}
                                   type="button"
                                   onClick={() => setRoleLabel(r)}
-                                  className={`px-3 py-1 rounded-full text-[11px] border transition ${isActive
+                                  className={`px-3 py-1 rounded-full text-[13px] border transition ${isActive
                                     ? "font-bold shadow-sm"
                                     : "font-medium bg-slate-50 hover:bg-slate-100"
                                     }`}
@@ -935,14 +935,14 @@ export default function VerificationPage() {
                               );
                             })}
                           </div>
-                          <p className="mt-1 text-[11px] text-slate-500">
+                          <p className="mt-1 text-[14px] leading-5 text-slate-500">
                             Tap a role to use it for verification, or type a custom one below.
                           </p>
                         </div>
                       )}
 
                       <div>
-                        <label htmlFor="roleLabel" className="block text-xs font-semibold text-slate-700 mb-1">
+                        <label htmlFor="roleLabel" className="block text-[13px] font-semibold text-slate-700 mb-1">
                           {isIndividual ? "Role / profession" : "Your role / capacity in the organization"}
                         </label>
                         <input
@@ -955,10 +955,10 @@ export default function VerificationPage() {
                               ? "e.g. Veterinary doctor, Agronomist, Animal health technician"
                               : "e.g. Director, Co-founder, Practice owner, Manager"
                           }
-                          className="w-full rounded-xl border border-[#D9D3C7] bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                          className="w-full rounded-xl border border-[#D9D3C7] bg-white px-3.5 py-2.5 text-[15px] outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
                           style={{ borderColor: EKARI.hair }}
                         />
-                        <p className="mt-1 text-[11px] text-slate-500">
+                        <p className="mt-1 text-[14px] leading-5 text-slate-500">
                           This will be shown next to your verified badge.
                         </p>
                       </div>
@@ -969,9 +969,9 @@ export default function VerificationPage() {
                 {/* STEP 2 */}
                 {step === 2 && (
                   <>
-                    <div className="flex gap-2 items-center text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="flex gap-2 items-center text-[13px] font-bold uppercase tracking-wide text-slate-500">
                       <span
-                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[11px] font-black text-white"
+                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[13px] font-black text-white"
 
                       >
                         2
@@ -983,26 +983,26 @@ export default function VerificationPage() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <IoIdCardOutline size={18} style={{ color: EKARI.forest }} />
-                          <span className="text-xs font-semibold text-slate-700">National ID (front & back)</span>
+                          <span className="text-[13px] font-semibold text-slate-700">National ID (front & back)</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mb-2">
+                        <p className="text-[14px] leading-5 text-slate-500 mb-2">
                           Upload clear photos of the National ID of the person linked to this account
                           (for Business / Company, use the main owner / director). Make sure all text
                           is readable and corners are visible.
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-4 text-center text-xs text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
+                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-4 text-center text-[13px] text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
                             <span className="mb-1 flex items-center gap-2">
                               <IoCloudUploadOutline size={18} className="opacity-80" />
                               <span className="font-semibold">(National ID/ Driving Lisence/ Passport) front side</span>
                             </span>
-                            <span className="mt-0.5 text-[11px] text-slate-500">
+                            <span className="mt-0.5 text-[13px] text-slate-500">
                               Image file (JPG, PNG). Use a clear photo.
                             </span>
                             <input type="file" accept="image/*" className="hidden" onChange={handleIdFrontChange} />
                             {idFrontFile && (
-                              <span className="mt-2 text-[11px] text-slate-600 break-all">
+                              <span className="mt-2 text-[13px] text-slate-600 break-all">
                                 Selected: {idFrontFile.name}
                               </span>
                             )}
@@ -1018,17 +1018,17 @@ export default function VerificationPage() {
                             )}
                           </label>
 
-                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-4 text-center text-xs text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
+                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-4 text-center text-[13px] text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
                             <span className="mb-1 flex items-center gap-2">
                               <IoCloudUploadOutline size={18} className="opacity-80" />
                               <span className="font-semibold">(National ID/ Driving Lisence/ Passport) back side</span>
                             </span>
-                            <span className="mt-0.5 text-[11px] text-slate-500">
+                            <span className="mt-0.5 text-[13px] text-slate-500">
                               Image file (JPG, PNG). Make sure details are visible.
                             </span>
                             <input type="file" accept="image/*" className="hidden" onChange={handleIdBackChange} />
                             {idBackFile && (
-                              <span className="mt-2 text-[11px] text-slate-600 break-all">
+                              <span className="mt-2 text-[13px] text-slate-600 break-all">
                                 Selected: {idBackFile.name}
                               </span>
                             )}
@@ -1049,9 +1049,9 @@ export default function VerificationPage() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <IoCameraOutline size={18} style={{ color: EKARI.forest }} />
-                          <span className="text-xs font-semibold text-slate-700">Live selfie (required)</span>
+                          <span className="text-[13px] font-semibold text-slate-700">Live selfie (required)</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mb-2">
+                        <p className="text-[14px] leading-5 text-slate-500 mb-2">
                           Take a selfie now using your device camera. Your whole face should be visible,
                           with good lighting. This helps us confirm that you are the person on the ID.
                         </p>
@@ -1085,9 +1085,9 @@ export default function VerificationPage() {
                 {/* STEP 3 */}
                 {step === 3 && (
                   <>
-                    <div className="flex gap-2 items-center text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="flex gap-2 items-center text-[13px] font-bold uppercase tracking-wide text-slate-500">
                       <span
-                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[11px] font-black text-white"
+                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[13px] font-black text-white"
 
                       >
                         3
@@ -1096,20 +1096,20 @@ export default function VerificationPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      <label className="block text-[13px] font-semibold text-slate-700 mb-1">
                         Certificates & licences (optional)
                       </label>
-                      <p className="text-[11px] text-slate-500 mb-1">
+                      <p className="text-[14px] leading-5 text-slate-500 mb-1">
                         You can upload multiple files (PDF or images). For Business / Company, you may
                         include business registration, KRA pin certificate, licences, etc. You may also
                         combine everything into a single PDF.
                       </p>
 
                       <div className="mt-1 flex flex-col gap-3">
-                        <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-6 text-center text-xs text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
+                        <label className="flex cursor-pointer flex-col items-center justify-center rounded-[16px] border border-dashed border-[#CFC8BB] bg-[#F8F7F2] px-4 py-6 text-center text-[13px] text-slate-600 transition hover:border-[#c69258]/55 hover:bg-[#FFF9F0]">
                           <IoCloudUploadOutline size={20} className="mb-1 opacity-80" />
                           <span className="font-semibold">Upload documents</span>
-                          <span className="mt-0.5 text-[11px] text-slate-500">
+                          <span className="mt-0.5 text-[13px] text-slate-500">
                             PDF or image files. You can select multiple files.
                           </span>
                           <input
@@ -1122,7 +1122,7 @@ export default function VerificationPage() {
                         </label>
 
                         {files.length > 0 && (
-                          <div className="text-[11px] text-slate-600">
+                          <div className="text-[13px] text-slate-600">
                             Selected files:
                             <ul className="mt-1 space-y-0.5">
                               {files.map((f, i) => (
@@ -1131,7 +1131,7 @@ export default function VerificationPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveFile(i)}
-                                    className="text-[10px] px-2 py-0.5 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50"
+                                    className="text-[12px] px-2 py-0.5 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50"
                                   >
                                     Remove
                                   </button>
@@ -1148,9 +1148,9 @@ export default function VerificationPage() {
                 {/* STEP 4 */}
                 {step === 4 && (
                   <>
-                    <div className="flex gap-2 items-center text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="flex gap-2 items-center text-[13px] font-bold uppercase tracking-wide text-slate-500">
                       <span
-                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[11px] font-black text-white"
+                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[13px] font-black text-white"
 
                       >
                         4
@@ -1159,7 +1159,7 @@ export default function VerificationPage() {
                     </div>
 
                     <div>
-                      <label htmlFor="notes" className="block text-xs font-semibold text-slate-700 mb-1">
+                      <label htmlFor="notes" className="block text-[13px] font-semibold text-slate-700 mb-1">
                         Notes for the reviewer
                       </label>
                       <textarea
@@ -1172,7 +1172,7 @@ export default function VerificationPage() {
                             ? "Any additional details about your experience, licensing body, or registration number."
                             : "Any additional details about your business / company, registration details or anything else the reviewer should know."
                         }
-                        className="w-full rounded-xl border border-[#D9D3C7] bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
+                        className="w-full rounded-xl border border-[#D9D3C7] bg-white px-3.5 py-2.5 text-[15px] outline-none transition focus:border-[#173C2E]/45 focus:ring-2 focus:ring-[#173C2E]/5"
                         style={{ borderColor: EKARI.hair }}
                       />
                     </div>
@@ -1182,9 +1182,9 @@ export default function VerificationPage() {
                 {/* STEP 5 */}
                 {step === 5 && (
                   <>
-                    <div className="flex gap-2 items-center text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <div className="flex gap-2 items-center text-[13px] font-bold uppercase tracking-wide text-slate-500">
                       <span
-                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[11px] font-black text-white"
+                        className="grid h-6 w-6 place-items-center rounded-full bg-[#173C2E] text-[13px] font-black text-white"
 
                       >
                         5
@@ -1192,7 +1192,7 @@ export default function VerificationPage() {
                       <span>Step 5 – Payment & submit</span>
                     </div>
 
-                    <div className="flex flex-col gap-3 text-xs text-slate-600">
+                    <div className="flex flex-col gap-3 text-[14px] leading-5 text-slate-600">
                       <p>
                         Verification type:{" "}
                         <span className="font-semibold">
@@ -1216,7 +1216,7 @@ export default function VerificationPage() {
                             <span className="font-extrabold" style={{ color: EKARI.forest }}>
                               KSh {approxFeeKES.toLocaleString("en-KE")}
                             </span>{" "}
-                            <span className="text-[11px] text-slate-500">(≈ USD {feeUSD.toFixed(2)})</span>
+                            <span className="text-[13px] text-slate-500">(≈ USD {feeUSD.toFixed(2)})</span>
                           </>
                         )}{" "}
                         one-time.
@@ -1231,7 +1231,7 @@ export default function VerificationPage() {
                 )}
 
                 {errorMsg && (
-                  <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[11px] font-semibold text-rose-700">
+                  <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold text-rose-700">
                     {errorMsg}
                   </div>
                 )}
@@ -1240,7 +1240,7 @@ export default function VerificationPage() {
                   <button
                     type="button"
                     onClick={goBack}
-                    className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                    className="text-[13px] font-semibold text-slate-500 hover:text-slate-800"
                   >
                     ← Cancel
                   </button>
@@ -1250,7 +1250,7 @@ export default function VerificationPage() {
                       <button
                         type="button"
                         onClick={handlePrev}
-                        className="text-xs md:text-sm font-semibold text-slate-500 hover:text-slate-800"
+                        className="text-[13px] md:text-sm font-semibold text-slate-500 hover:text-slate-800"
                       >
                         Back
                       </button>
@@ -1260,7 +1260,7 @@ export default function VerificationPage() {
                       <button
                         type="button"
                         onClick={handleNext}
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
 
                       >
                         Next
@@ -1271,7 +1271,7 @@ export default function VerificationPage() {
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-[#c69258] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] disabled:opacity-60"
 
                       >
                         {submitting ? "Preparing checkout…" : "Submit & pay via Paystack"}
@@ -1292,7 +1292,7 @@ export default function VerificationPage() {
             className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
           >
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+              <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                 Verification progress
               </div>
 
@@ -1301,7 +1301,7 @@ export default function VerificationPage() {
                   {progressPercent}%
                 </div>
 
-                <div className="text-[10px] font-black text-slate-400">
+                <div className="text-[12px] font-black text-slate-400">
                   Step {step} / {TOTAL_STEPS}
                 </div>
               </div>
@@ -1315,7 +1315,7 @@ export default function VerificationPage() {
                 />
               </div>
 
-              <div className="mt-4 space-y-2 text-[10px] font-semibold">
+              <div className="mt-4 space-y-2 text-[12px] font-semibold">
                 {[
                   "Verification type & role",
                   "Identity verification",
@@ -1334,7 +1334,7 @@ export default function VerificationPage() {
                     >
                       <span
                         className={[
-                          "grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px] font-black",
+                          "grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-black",
                           done
                             ? "bg-emerald-100 text-emerald-700"
                             : active
@@ -1363,7 +1363,7 @@ export default function VerificationPage() {
             </section>
 
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+              <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                 Verification fee
               </div>
 
@@ -1373,7 +1373,7 @@ export default function VerificationPage() {
                   : `KSh ${approxFeeKES.toLocaleString("en-KE")}`}
               </div>
 
-              <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+              <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                 One-time verification review fee. Checkout is handled securely through Paystack.
               </p>
             </section>
@@ -1385,11 +1385,11 @@ export default function VerificationPage() {
                 </span>
 
                 <div>
-                  <div className="text-[12px] font-black text-slate-800">
+                  <div className="text-[15px] font-black text-slate-900">
                     What you’ll need
                   </div>
 
-                  <ul className="mt-2 space-y-1.5 text-[10px] font-medium leading-4 text-slate-400">
+                  <ul className="mt-2 space-y-1.5 text-[13px] font-medium leading-5 text-slate-500">
                     <li>• National ID, driving licence or passport</li>
                     <li>• Live selfie</li>
                     <li>• Professional role or organization details</li>
@@ -1400,14 +1400,14 @@ export default function VerificationPage() {
             </section>
 
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+              <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                 Quick links
               </div>
 
               <button
                 type="button"
                 onClick={() => router.push("/account/expert")}
-                className="mt-2 flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[10px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
+                className="mt-2 flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-left text-[13px] font-black text-slate-600 transition hover:bg-[#EEF3EE] hover:text-[#173C2E]"
               >
                 Expert settings
                 <span>→</span>
@@ -1428,7 +1428,7 @@ export default function VerificationPage() {
       <div className="grid min-h-[100svh] place-items-center bg-[#F8F7F2]">
         <div className="text-center">
           <BouncingBallLoader />
-          <p className="mt-3 text-[11px] font-semibold text-slate-400">
+          <p className="mt-3 text-[13px] font-semibold text-slate-400">
             Loading verification…
           </p>
         </div>

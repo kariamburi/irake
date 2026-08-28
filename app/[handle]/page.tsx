@@ -125,7 +125,7 @@ function StatPill({
         {value}
       </span>
 
-      <span className="text-[12px] font-semibold text-slate-400">
+      <span className="text-[13px] font-semibold text-slate-400">
         {label}
       </span>
     </Comp>
@@ -254,7 +254,7 @@ function SegmentedTabs({
               onClick={() => onChange(tab.key)}
               className={[
                 "relative inline-flex h-12 shrink-0 items-center gap-2 px-3",
-                "text-[12px] font-black transition-colors duration-200",
+                "text-[13px] font-black transition-colors duration-200",
                 active
                   ? "text-[#173C2E]"
                   : "text-slate-400 hover:text-slate-700",
@@ -314,16 +314,16 @@ function SectionHeader({
       <div className="flex min-w-0 items-center gap-2">
         <IoFunnelOutline size={14} className="text-slate-400" />
 
-        <h2 className="text-[13px] font-black text-slate-700">
+        <h2 className="text-[15px] font-black text-slate-800">
           {tabLabel}
         </h2>
 
-        <span className="rounded-full bg-[#EFECE5] px-2 py-0.5 text-[9px] font-bold text-slate-500">
+        <span className="rounded-full bg-[#EFECE5] px-2 py-0.5 text-[11px] font-bold text-slate-500">
           {tabLabel}
         </span>
       </div>
 
-      <p className="hidden truncate text-[10px] font-medium text-slate-400 sm:block">
+      <p className="hidden truncate text-[13px] font-medium text-slate-400 sm:block">
         {subtitle || defaultSubtitle}
       </p>
 
@@ -453,7 +453,7 @@ function ProfileHeroStorefront({
               }
               className={[
                 "inline-flex h-10 items-center gap-2 rounded-xl px-4",
-                "border border-white/15 bg-[#FBFAF6] text-[12px] font-black text-slate-800",
+                "border border-white/15 bg-[#FBFAF6] text-[13px] font-black text-slate-800",
                 "shadow-[0_8px_20px_rgba(0,0,0,0.10)]",
                 "transition-all duration-200",
                 "hover:-translate-y-0.5 hover:bg-white",
@@ -473,7 +473,7 @@ function ProfileHeroStorefront({
                   : onRequireAuth();
               }}
               className={[
-                "h-10 rounded-xl px-4 text-[12px] font-black",
+                "h-10 rounded-xl px-4 text-[13px] font-black",
                 "transition-all duration-200",
                 followState.isFollowing
                   ? "border border-white/20 bg-white/10 text-white hover:bg-white/15"
@@ -493,7 +493,7 @@ function ProfileHeroStorefront({
             disabled={isOwner || profile.isSuspended}
             className={[
               "inline-flex h-10 items-center gap-2 rounded-xl px-4",
-              "bg-[#c69258] text-[12px] font-black text-white",
+              "bg-[#c69258] text-[13px] font-black text-white",
               "transition-all duration-200",
               "hover:-translate-y-0.5 hover:bg-[#E98C12]",
               "disabled:cursor-not-allowed disabled:opacity-45",
@@ -559,20 +559,20 @@ function ProfileHeroStorefront({
                       "Profile"}
                   </h1>
 
-                  <div className="mt-0.5 truncate text-[13px] font-bold text-slate-400">
+                  <div className="mt-0.5 truncate text-[15px] font-bold text-slate-400">
                     {profile.handle || "@user"}
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {verificationLabel ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[10px] font-black text-[#3E6F28]">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[12px] font-black text-[#3E6F28]">
                         <IoShieldCheckmarkOutline size={13} />
                         {verificationLabel}
                       </span>
                     ) : null}
 
                     {showAdminBadge && isOwner ? (
-                      <span className="rounded-full bg-[#E9EEFF] px-2.5 py-1 text-[10px] font-black text-[#214E87]">
+                      <span className="rounded-full bg-[#E9EEFF] px-2.5 py-1 text-[12px] font-black text-[#214E87]">
                         Admin
                       </span>
                     ) : null}
@@ -580,7 +580,7 @@ function ProfileHeroStorefront({
                     {isOwner && storefrontExpired ? (
                       <Link
                         href="/seller/dashboard?tab=packages"
-                        className="rounded-full bg-[#FDECEC] px-2.5 py-1 text-[10px] font-black text-[#B3312C]"
+                        className="rounded-full bg-[#FDECEC] px-2.5 py-1 text-[12px] font-black text-[#B3312C]"
                       >
                         Storefront expired
                       </Link>
@@ -589,7 +589,7 @@ function ProfileHeroStorefront({
                     {isPremium && !profile.isSuspended ? (
                       <Link
                         href={`/store/${profile.id}?src=profile`}
-                        className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[10px] font-black text-[#3E6F28]"
+                        className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[12px] font-black text-[#3E6F28]"
                       >
                         <IoStorefrontOutline size={12} />
                         Store
@@ -628,7 +628,7 @@ function ProfileHeroStorefront({
               </div>
 
               {profile.bio ? (
-                <p className="mt-2 max-w-3xl text-[13px] font-medium leading-5 text-slate-600">
+                <p className="mt-2 max-w-3xl text-[15px] font-medium leading-[22px] text-slate-600">
                   {profile.bio}
                 </p>
               ) : null}
@@ -639,7 +639,7 @@ function ProfileHeroStorefront({
                     href={website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex max-w-[360px] items-center gap-1.5 truncate text-[11px] font-bold text-[#173C2E] underline decoration-[#173C2E]/25 underline-offset-2"
+                    className="inline-flex max-w-[360px] items-center gap-1.5 truncate text-[13px] font-bold text-[#173C2E] underline decoration-[#173C2E]/25 underline-offset-2"
                   >
                     <IoGlobeOutline size={13} />
                     {profile.website}
@@ -649,7 +649,7 @@ function ProfileHeroStorefront({
                 {canSeeContacts && phone ? (
                   <a
                     href={`tel:${phone}`}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#173C2E]"
+                    className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#173C2E]"
                   >
                     <IoCallOutline size={13} />
                     {phone}
@@ -660,7 +660,7 @@ function ProfileHeroStorefront({
           </div>
 
           {profile.isSuspended ? (
-            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-800">
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
               <div className="font-black">
                 Account suspended
               </div>
@@ -676,7 +676,7 @@ function ProfileHeroStorefront({
             {isOwner ? (
               <Link
                 href={`/${(profile.handle || "@user").replace(/^@/, "")}/edit`}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white text-[12px] font-black text-slate-700"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white text-[13px] font-black text-slate-700"
               >
                 <IoPencilOutline size={16} />
                 Edit
@@ -690,7 +690,7 @@ function ProfileHeroStorefront({
                     : onRequireAuth();
                 }}
                 className={[
-                  "h-11 rounded-xl text-[12px] font-black",
+                  "h-11 rounded-xl text-[13px] font-black",
                   followState.isFollowing
                     ? "border border-[#D9D3C7] bg-white text-slate-700"
                     : "bg-[#173C2E] text-white",
@@ -707,7 +707,7 @@ function ProfileHeroStorefront({
               onClick={() =>
                 profile.isSuspended ? null : onMessage()
               }
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#c69258] text-[12px] font-black text-white disabled:opacity-50"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#c69258] text-[13px] font-black text-white disabled:opacity-50"
               disabled={isOwner || profile.isSuspended}
               type="button"
             >
@@ -784,7 +784,7 @@ function ProfileHeroStorefront({
             />
           </div>
 
-          <div className="inline-flex items-center gap-1 rounded-full border border-[#c69258]/35 bg-[#FFF8ED] px-3 py-1.5 text-[11px] font-black text-[#8A5109]">
+          <div className="inline-flex items-center gap-1 rounded-full border border-[#c69258]/35 bg-[#FFF8ED] px-3 py-1.5 text-[13px] font-black text-[#8A5109]">
             <IoStarOutline size={14} className="text-[#c69258]" />
             {reviewsText} Rating
           </div>
@@ -797,7 +797,7 @@ function ProfileHeroStorefront({
           <div className="mx-auto flex max-w-[1040px] gap-2 overflow-x-auto px-4 py-2.5 no-scrollbar">
             <Link
               href={`/${handleSlug}/earnings`}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
             >
               <IoCashOutline size={14} className="text-[#c69258]" />
               Earnings
@@ -805,7 +805,7 @@ function ProfileHeroStorefront({
 
             <Link
               href="/seller/dashboard?tab=packages"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
             >
               <IoGridOutline size={14} className="text-[#c69258]" />
               Seller dashboard
@@ -813,7 +813,7 @@ function ProfileHeroStorefront({
 
             <Link
               href={`/store/${profile.id}?src=mystore`}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
             >
               <IoListOutline size={14} className="text-[#c69258]" />
               My listings
@@ -821,7 +821,7 @@ function ProfileHeroStorefront({
 
             {/**  <Link
               href="/nexus/events/saved"
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
             >
               <IoBookmarkOutline size={14} className="text-[#c69258]" />
               Saved events
@@ -830,7 +830,7 @@ function ProfileHeroStorefront({
             {showAdminBadge ? (
               <Link
                 href="/admin/overview"
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
               >
                 <IoAnalyticsOutline size={14} className="text-[#c69258]" />
                 Admin dashboard
@@ -953,7 +953,7 @@ function ProfessionalAccountSection({
                     : "Become an ekari Expert"}
                 </h2>
 
-                <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
+                <p className="mt-0.5 text-[13px] font-semibold text-slate-400">
                   {hasPublishedExpertProfile
                     ? "Expert profile · Farmer specialist"
                     : "Professional services on ekarihub"}
@@ -962,7 +962,7 @@ function ProfessionalAccountSection({
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <span
                     className={[
-                      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black",
+                      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-black",
                       isVerified
                         ? "bg-[#EAF4E7] text-[#3E6F28]"
                         : isVerificationPending
@@ -977,7 +977,7 @@ function ProfessionalAccountSection({
                   </span>
 
                   {isOwner && profile.isAdmin ? (
-                    <span className="rounded-full bg-[#E9EEFF] px-2.5 py-1 text-[10px] font-black text-[#214E87]">
+                    <span className="rounded-full bg-[#E9EEFF] px-2.5 py-1 text-[12px] font-black text-[#214E87]">
                       Admin
                     </span>
                   ) : null}
@@ -985,18 +985,18 @@ function ProfessionalAccountSection({
                   {isOwner && storefrontExpired ? (
                     <Link
                       href="/seller/dashboard?tab=packages"
-                      className="rounded-full bg-[#FDECEC] px-2.5 py-1 text-[10px] font-black text-[#B3312C]"
+                      className="rounded-full bg-[#FDECEC] px-2.5 py-1 text-[12px] font-black text-[#B3312C]"
                     >
                       Storefront expired
                     </Link>
                   ) : null}
                 </div>
 
-                <p className="mt-3 text-[12px] font-bold text-slate-600">
+                <p className="mt-3 text-[14px] font-bold text-slate-700">
                   {professionalLabel}
                 </p>
 
-                <p className="mt-1 max-w-3xl text-[11px] font-medium leading-5 text-slate-500">
+                <p className="mt-1 max-w-3xl text-[14px] font-medium leading-[21px] text-slate-500">
                   {description}
                   {isVerified &&
                     isOwner &&
@@ -1011,7 +1011,7 @@ function ProfessionalAccountSection({
               <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                 <Link
                   href="/account/expert"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A]"
                 >
                   <IoPencilOutline size={14} />
                   {hasPublishedExpertProfile
@@ -1022,13 +1022,13 @@ function ProfessionalAccountSection({
                 {hasPublishedExpertProfile ? (
                   <Link
                     href="/account/expert/bookings"
-                    className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[11px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
+                    className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[13px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
                   >
                     <IoCalendarOutline size={14} />
                     Expert bookings
 
                     {expertBookingsBadge > 0 ? (
-                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#c69258] px-1 text-[9px] text-white">
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#c69258] px-1 text-[11px] text-white">
                         {expertBookingsBadge > 99
                           ? "99+"
                           : expertBookingsBadge}
@@ -1039,13 +1039,13 @@ function ProfessionalAccountSection({
 
                 <Link
                   href="/account/bookings"
-                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[11px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
+                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[13px] font-black text-slate-600 transition hover:border-[#c69258]/50 hover:bg-[#FFF9F0]"
                 >
                   <IoListOutline size={14} />
                   My bookings
 
                   {myBookingsBadge > 0 ? (
-                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#c69258] px-1 text-[9px] text-white">
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#c69258] px-1 text-[11px] text-white">
                       {myBookingsBadge > 99
                         ? "99+"
                         : myBookingsBadge}
@@ -1057,7 +1057,7 @@ function ProfessionalAccountSection({
                   href="/account/verification"
                   className={[
                     "inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-4",
-                    "text-[11px] font-black transition",
+                    "text-[13px] font-black transition",
                     isVerified
                       ? "border-[#D9D3C7] bg-white text-slate-600 hover:bg-[#FFF9F0]"
                       : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
@@ -1334,7 +1334,7 @@ function DeedProcessingGate({
 
               {!isFailed && (
                 <div className="mt-4">
-                  <div className="mb-1 flex items-center justify-between text-[12px] font-semibold text-slate-600">
+                  <div className="mb-1 flex items-center justify-between text-[13px] font-semibold text-slate-600">
                     <span>Status: {status}</span>
                     <span>{Math.round(rawP * 100)}%</span>
                   </div>
@@ -1364,7 +1364,7 @@ function DeedProcessingGate({
           </div>
 
           {/* Footer hint */}
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-[13px] text-slate-600">
             Note: While processing, profile actions are disabled.
           </div>
         </div>
@@ -1982,7 +1982,7 @@ function VideoTile({
 
       {!ready && <div className="absolute inset-0 bg-black/40" />}
 
-      <div className="absolute left-0 right-0 bottom-0 p-2 text-white text-xs bg-gradient-to-t from-black/70 to-black/0">
+      <div className="absolute left-0 right-0 bottom-0 p-2 text-white text-[13px] bg-gradient-to-t from-black/70 to-black/0">
         <span className="inline-flex items-center gap-1 font-semibold">
           <IoPlayCircleOutline className="opacity-80" /> {views}
         </span>
@@ -1990,7 +1990,7 @@ function VideoTile({
 
       {!ready && (
         <div className="absolute inset-0 grid place-items-center">
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-black/5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[13px] font-semibold text-slate-700 ring-1 ring-black/5">
             <IoLockClosedOutline />
             {deed.status}
           </span>
@@ -2027,7 +2027,7 @@ function VideoTile({
             "absolute right-2 top-2 z-20",
             "inline-flex h-9 items-center gap-1.5 rounded-full",
             "border border-white/20 bg-black/65 px-3",
-            "text-[11px] font-black text-white backdrop-blur-md",
+            "text-[13px] font-black text-white backdrop-blur-md",
             "shadow-[0_8px_24px_rgba(0,0,0,0.35)]",
             "transition hover:bg-black/80 active:scale-[0.97]",
             "disabled:cursor-not-allowed disabled:opacity-60",
@@ -2322,7 +2322,7 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
                   <div
                     className={`absolute left-2 top-2 ${statusColor(
                       p
-                    )} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center gap-1`}
+                    )} text-white text-[13px] font-black h-6 px-2 rounded-full flex items-center gap-1`}
                   >
                     <IoCheckmarkDone size={12} />
                     {statusLabel}
@@ -2330,13 +2330,13 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
                 </div>
 
                 <div className="p-3">
-                  <div className="text-[13px] font-extrabold text-gray-900 line-clamp-2">
+                  <div className="text-[15px] font-extrabold text-gray-900 line-clamp-2">
                     {p.name || "Untitled"}
                   </div>
                   <div className="text-emerald-700 font-black">{priceText}</div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {!!p.category && (
-                      <span className="inline-flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-[12px] font-bold">
+                      <span className="inline-flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-[13px] font-bold">
                         <IoPricetagOutline className="text-emerald-700" size={14} />
                         {p.category}
                       </span>
@@ -2349,7 +2349,7 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
                       {p.status !== "active" && (
                         <button
                           onClick={() => updateStatus(p, "active")}
-                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 text-white text-xs font-bold hover:opacity-90"
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-700 text-white text-[13px] font-bold hover:opacity-90"
                         >
                           <IoCheckmarkDone /> Activate
                         </button>
@@ -2357,7 +2357,7 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
                       {p.status !== "sold" && (
                         <button
                           onClick={() => updateStatus(p, "sold")}
-                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 text-white text-xs font-bold hover:opacity-90"
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-600 text-white text-[13px] font-bold hover:opacity-90"
                         >
                           <IoCashOutline /> Sold
                         </button>
@@ -2365,7 +2365,7 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
                       {p.status !== "reserved" && (
                         <button
                           onClick={() => updateStatus(p, "reserved")}
-                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500 text-white text-xs font-bold hover:opacity-90"
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-500 text-white text-[13px] font-bold hover:opacity-90"
                         >
                           <IoTimeOutline /> Reserve
                         </button>
@@ -2373,14 +2373,14 @@ function OwnerListingsGrid({ uid, isOwner }: { uid: string; isOwner: boolean }) 
                       {p.status !== "hidden" && (
                         <button
                           onClick={() => updateStatus(p, "hidden")}
-                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-600 text-white text-xs font-bold hover:opacity-90"
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-600 text-white text-[13px] font-bold hover:opacity-90"
                         >
                           <IoEyeOffOutline /> Hide
                         </button>
                       )}
                       <button
                         onClick={() => removeListing(p)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-600 text-white text-xs font-bold hover:opacity-90"
+                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-600 text-white text-[13px] font-bold hover:opacity-90"
                       >
                         <IoTrashOutline /> Delete
                       </button>
@@ -2587,7 +2587,7 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-50"
+            className="ml-auto text-[13px] font-bold text-emerald-700 hover:underline disabled:opacity-50"
           >
             {refreshing ? "Refreshing..." : "Reload"}
           </button>
@@ -2616,7 +2616,7 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
                         <div className="text-[15px] font-extrabold text-gray-900 truncate">
                           {e.title || "Untitled event"}
                         </div>
-                        <div className="text-[13px] text-gray-500 flex flex-wrap items-center gap-1">
+                        <div className="text-[15px] text-gray-500 flex flex-wrap items-center gap-1">
                           <span>{fmtDate(e.dateISO)}</span>
                           {e.location && (
                             <>
@@ -2648,11 +2648,11 @@ function ProfileEvents({ uid, isOwner }: { uid: string; isOwner: boolean }) {
                 </div>
 
                 <div className="flex gap-3 mt-2">
-                  <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-xs font-bold">
+                  <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-[13px] font-bold">
                     <IoHeartOutline className="text-emerald-700" size={14} />
                     {likes}
                   </div>
-                  <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-xs font-bold">
+                  <div className="flex items-center gap-1 border border-gray-200 rounded-full px-2.5 py-1 text-[13px] font-bold">
                     <IoPeopleOutline className="text-emerald-700" size={14} />
                     {rsvps}
                   </div>
@@ -2866,7 +2866,7 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="ml-auto text-xs font-bold text-emerald-700 hover:underline disabled:opacity-60"
+            className="ml-auto text-[13px] font-bold text-emerald-700 hover:underline disabled:opacity-60"
           >
             {refreshing ? "Refreshing..." : "Reload"}
           </button>
@@ -2892,7 +2892,7 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
                   <div className="font-extrabold text-gray-900 text-[15px] leading-5 line-clamp-2">
                     {item.title || "Untitled discussion"}
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-[13px]">
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-[15px]">
                     {!!item.createdAt && (
                       <span className="inline-flex items-center gap-1 text-gray-500">
                         <IoTimeOutline size={14} />
@@ -2904,12 +2904,12 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
                       {(item.repliesCount ?? 0).toString()} answers
                     </span>
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${statusCls}`}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[13px] font-bold ${statusCls}`}
                     >
                       {statusTxt}
                     </span>
                     {item._pending && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[13px] font-extrabold bg-amber-100 text-amber-800">
                         Syncing…
                       </span>
                     )}
@@ -2921,7 +2921,7 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
                     <button
                       onClick={() => togglePublish(item)}
                       disabled={busyId === item.id}
-                      className={`h-9 px-3 rounded-full text-white text-xs font-extrabold transition
+                      className={`h-9 px-3 rounded-full text-white text-[13px] font-extrabold transition
                       ${isPublished ? "bg-amber-600" : "bg-emerald-700"} hover:opacity-90 disabled:opacity-60`}
                     >
                       {busyId === item.id
@@ -2937,7 +2937,7 @@ function ProfileDiscussions({ uid, isOwner }: { uid: string; isOwner: boolean })
                       className="h-9 w-10 grid place-items-center rounded-lg bg-rose-50 border border-rose-200 disabled:opacity-60"
                     >
                       {busyId === item.id ? (
-                        <span className="text-rose-600 text-xs font-bold">…</span>
+                        <span className="text-rose-600 text-[13px] font-bold">…</span>
                       ) : (
                         <IoTrashOutline className="text-rose-600" size={18} />
                       )}
@@ -3926,8 +3926,8 @@ function ExpertRatingDisplay({
           <span
             className={
               light
-                ? "text-[11px] font-bold text-white/70"
-                : "text-[11px] font-semibold text-slate-500"
+                ? "text-[13px] font-bold text-white/70"
+                : "text-[13px] font-semibold text-slate-500"
             }
           >
             ({safeCount}{" "}
@@ -3941,8 +3941,8 @@ function ExpertRatingDisplay({
         <span
           className={
             light
-              ? "text-xs font-bold text-white/70"
-              : "text-xs font-bold text-slate-500"
+              ? "text-[13px] font-bold text-white/70"
+              : "text-[13px] font-bold text-slate-500"
           }
         >
           New
@@ -4105,7 +4105,7 @@ function ExpertPublicSection({
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={[
-                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black",
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px] font-black",
                     expert.verified
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                       : "border-slate-200 bg-slate-50 text-slate-600",
@@ -4127,7 +4127,7 @@ function ExpertPublicSection({
                 {expert.acceptingBookings !==
                   false ? (
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black"
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-black"
                     style={{
                       color:
                         EKARI.forest,
@@ -4146,14 +4146,14 @@ function ExpertPublicSection({
                     Accepting clients
                   </span>
                 ) : (
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-500">
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-[13px] font-black text-slate-500">
                     Not accepting clients
                   </span>
                 )}
 
                 {expert.serviceCoverage
                   ?.offersOnlineServices ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[13px] font-black text-emerald-700">
                     <IoGlobeOutline
                       size={13}
                     />
@@ -4164,7 +4164,7 @@ function ExpertPublicSection({
 
                 {expert.serviceCoverage
                   ?.offersPhysicalVisits ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[13px] font-black text-amber-700">
                     <IoLocationOutline
                       size={13}
                     />
@@ -4186,7 +4186,7 @@ function ExpertPublicSection({
                   "Agricultural professional"}
               </h2>
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold">
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] font-semibold">
                 {locationText ? (
                   <span
                     className="inline-flex min-w-0 items-center gap-1.5"
@@ -4271,7 +4271,7 @@ function ExpertPublicSection({
                 />
 
                 <div
-                  className="mt-1 text-[10px] font-bold"
+                  className="mt-1 text-[12px] font-bold"
                   style={{
                     color:
                       EKARI.subtext,
@@ -4303,7 +4303,7 @@ function ExpertPublicSection({
                 </div>
 
                 <div
-                  className="mt-1 text-[10px] font-bold"
+                  className="mt-1 text-[12px] font-bold"
                   style={{
                     color:
                       EKARI.subtext,
@@ -4334,7 +4334,7 @@ function ExpertPublicSection({
                 </div>
 
                 <div
-                  className="mt-1 text-[10px] font-bold"
+                  className="mt-1 text-[12px] font-bold"
                   style={{
                     color:
                       EKARI.subtext,
@@ -4393,7 +4393,7 @@ function ExpertPublicSection({
                         key={
                           specialty
                         }
-                        className="rounded-full border px-3 py-1.5 text-xs font-bold"
+                        className="rounded-full border px-3 py-1.5 text-[13px] font-bold"
                         style={{
                           borderColor:
                             "rgba(35,63,57,0.18)",
@@ -4564,7 +4564,7 @@ function ExpertPublicSection({
                   {expert.terms.summary}
                 </p>
 
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-semibold text-slate-600">
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[13px] font-semibold text-slate-600">
                   {expert.terms
                     .cancellationNoticeHours ? (
                     <span>
@@ -4595,7 +4595,7 @@ function ExpertPublicSection({
 
                 {expert.terms
                   .cancellationPolicy ? (
-                  <p className="mt-3 text-xs leading-5 text-slate-500">
+                  <p className="mt-3 text-[13px] leading-5 text-slate-500">
                     {
                       expert.terms
                         .cancellationPolicy
@@ -4620,7 +4620,7 @@ function ExpertPublicSection({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p
-                    className="text-[10px] font-black uppercase tracking-[0.14em]"
+                    className="text-[12px] font-black uppercase tracking-[0.14em]"
                     style={{
                       color:
                         EKARI.primary,
@@ -4642,7 +4642,7 @@ function ExpertPublicSection({
                 {consultationDuration >
                   0 ? (
                   <span
-                    className="rounded-full px-2.5 py-1 text-[10px] font-black"
+                    className="rounded-full px-2.5 py-1 text-[12px] font-black"
                     style={{
                       color:
                         EKARI.forest,
@@ -4661,7 +4661,7 @@ function ExpertPublicSection({
               {physicalVisitFee !==
                 null ? (
                 <div
-                  className="mt-3 rounded-xl px-3 py-2.5 text-xs"
+                  className="mt-3 rounded-xl px-3 py-2.5 text-[13px]"
                   style={{
                     backgroundColor:
                       "rgba(199,146,87,0.10)",
@@ -4709,7 +4709,7 @@ function ExpertPublicSection({
                 expert.acceptingBookings !==
                 false ? (
                 <p
-                  className="mt-3 text-center text-[10px] leading-4"
+                  className="mt-3 text-center text-[12px] leading-4"
                   style={{
                     color:
                       EKARI.subtext,
@@ -4724,7 +4724,7 @@ function ExpertPublicSection({
               {isOwner ? (
                 <Link
                   href="/account/expert"
-                  className="mt-3 inline-flex w-full items-center justify-center rounded-xl border px-4 py-2.5 text-xs font-black"
+                  className="mt-3 inline-flex w-full items-center justify-center rounded-xl border px-4 py-2.5 text-[13px] font-black"
                   style={{
                     borderColor:
                       EKARI.hair,
@@ -5152,7 +5152,7 @@ export default function HandleProfilePage() {
                 {handleWithAt}
               </div>
 
-              <div className="truncate text-[11px] text-white/45">
+              <div className="truncate text-[13px] text-white/45">
                 Profile
               </div>
             </div>

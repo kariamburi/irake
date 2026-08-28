@@ -158,7 +158,7 @@ function Chip({
   return (
     <span
       className={[
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[9px] font-black",
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-black",
         active
           ? "border-[#F3D7B2] bg-[#FFF4E3] text-[#9A5A08]"
           : "border-[#D9D3C7] bg-[#F3F1EB] text-slate-500",
@@ -180,7 +180,7 @@ function StatPill({
 }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-slate-600"
+      className="inline-flex items-center gap-1.5 rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[11px] font-black text-slate-600"
       title={title}
     >
       <span className="text-[#c69258]">
@@ -205,7 +205,7 @@ function PremiumButton({
   className?: string;
 }) {
   const classes = [
-    "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[10px] font-black transition",
+    "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[13px] font-black transition",
     variant === "primary"
       ? "bg-[#c69258] text-white hover:-translate-y-0.5 hover:bg-[#E98C12]"
       : "border border-[#D9D3C7] bg-white text-[#173C2E] hover:bg-[#EEF3EE]",
@@ -252,7 +252,7 @@ function Kpi({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[9px] font-black uppercase tracking-[0.08em] text-slate-400">
+          <div className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400">
             {title}
           </div>
 
@@ -330,7 +330,7 @@ function RailStat({
         </span>
       </div>
 
-      <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+      <div className="mt-2 text-[11px] font-black uppercase tracking-[0.07em] text-slate-400">
         {label}
       </div>
     </div>
@@ -469,7 +469,7 @@ export default function AnalyticsPage() {
           </button>
 
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+            <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               Deed studio
             </div>
 
@@ -479,7 +479,7 @@ export default function AnalyticsPage() {
                   Deed analytics
                 </h1>
 
-                <p className="mt-1 text-[10px] font-medium text-white/50 sm:text-[11px]">
+                <p className="mt-1 text-[14px] font-medium leading-5 text-white/55 sm:text-[15px]">
                   Review the performance and details of this individual deed.
                 </p>
               </div>
@@ -513,7 +513,7 @@ export default function AnalyticsPage() {
           <div className="text-center">
             <TikBallsLoader />
 
-            <p className="mt-3 text-[10px] font-semibold text-slate-400">
+            <p className="mt-3 text-[13px] font-semibold text-slate-400">
               Loading deed analytics…
             </p>
           </div>
@@ -529,7 +529,7 @@ export default function AnalyticsPage() {
               Deed not found
             </div>
 
-            <p className="mt-1 text-[10px] font-medium text-slate-400">
+            <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
               This deed may have been removed or is no longer available.
             </p>
 
@@ -555,7 +555,7 @@ export default function AnalyticsPage() {
                   />
 
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#c69258]">
+                    <div className="text-[12px] font-black uppercase tracking-[0.09em] text-[#c69258]">
                       Deed overview
                     </div>
 
@@ -600,7 +600,7 @@ export default function AnalyticsPage() {
                     {!!deedPath ? (
                       <Link
                         href={deedPath}
-                        className="mt-3 inline-flex items-center gap-1 text-[10px] font-black text-[#173C2E] hover:underline"
+                        className="mt-3 inline-flex items-center gap-1 text-[13px] font-black text-[#173C2E] hover:underline"
                       >
                         View public deed
                         <IoChevronForward size={12} />
@@ -617,7 +617,7 @@ export default function AnalyticsPage() {
                 <div className="p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                      <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                         Performance
                       </div>
 
@@ -650,7 +650,7 @@ export default function AnalyticsPage() {
                           </span>
                         </div>
 
-                        <div className="mt-2 text-[8px] font-black uppercase tracking-[0.07em] text-slate-400">
+                        <div className="mt-2 text-[11px] font-black uppercase tracking-[0.07em] text-slate-400">
                           {stat.label}
                         </div>
                       </motion.div>
@@ -663,7 +663,7 @@ export default function AnalyticsPage() {
             {/* Technical/content KPIs */}
             <Card>
               <div className="p-4 sm:p-5">
-                <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                   Content details
                 </div>
 
@@ -714,11 +714,11 @@ export default function AnalyticsPage() {
                     </span>
 
                     <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+                      <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                         Discovery
                       </div>
 
-                      <h2 className="mt-0.5 text-[13px] font-black text-slate-900">
+                      <h2 className="mt-0.5 text-[15px] font-black text-slate-900">
                         Tags
                       </h2>
                     </div>
@@ -728,7 +728,7 @@ export default function AnalyticsPage() {
                     {deed.tags.map((tag: string) => (
                       <span
                         key={tag}
-                        className="rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[9px] font-black text-[#173C2E]"
+                        className="rounded-full border border-[#D9D3C7] bg-[#F3F1EB] px-2.5 py-1 text-[12px] font-black text-[#173C2E]"
                       >
                         #{tag}
                       </span>
@@ -742,7 +742,7 @@ export default function AnalyticsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Link
                 href="/studio/deeds"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[13px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
               >
                 ← Back to deeds
               </Link>
@@ -771,7 +771,7 @@ export default function AnalyticsPage() {
             className="hidden space-y-3 xl:sticky xl:top-4 xl:block"
           >
             <section className="rounded-[18px] border border-[#DDD8CC] bg-[#FBFAF6] p-4 shadow-[0_10px_28px_rgba(15,23,42,0.03)]">
-              <div className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-400">
+              <div className="text-[12px] font-black uppercase tracking-[0.09em] text-slate-400">
                 Performance snapshot
               </div>
 
@@ -817,11 +817,11 @@ export default function AnalyticsPage() {
                 </span>
 
                 <div>
-                  <div className="text-[12px] font-black text-slate-800">
+                  <div className="text-[15px] font-black text-slate-900">
                     Performance tip
                   </div>
 
-                  <p className="mt-1 text-[10px] font-medium leading-4 text-slate-400">
+                  <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     Compare views with likes, comments and shares to understand whether reach is translating into engagement.
                   </p>
                 </div>
@@ -835,11 +835,11 @@ export default function AnalyticsPage() {
                 </span>
 
                 <div>
-                  <div className="text-[12px] font-black text-slate-800">
+                  <div className="text-[15px] font-black text-slate-900">
                     Deed state
                   </div>
 
-                  <div className="mt-2 space-y-1.5 text-[10px] font-semibold text-slate-500">
+                  <div className="mt-2 space-y-1.5 text-[13px] font-semibold text-slate-500">
                     <div className="flex items-center justify-between gap-2">
                       <span>Visibility</span>
                       <span className="font-black text-slate-700">
@@ -871,7 +871,7 @@ export default function AnalyticsPage() {
 
             <Link
               href="/studio/deeds"
-              className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[10px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
+              className="flex h-11 w-full items-center justify-between rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[13px] font-black text-[#173C2E] shadow-[0_10px_28px_rgba(15,23,42,0.025)] transition hover:bg-[#EEF3EE]"
             >
               Manage deeds
               <IoChevronForward size={14} />

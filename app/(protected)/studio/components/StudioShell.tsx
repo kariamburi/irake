@@ -74,10 +74,10 @@ export default function StudioShell({
                         </span>
 
                         <div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.09em] text-[#c69258]">
+                            <div className="text-[12px] font-black uppercase tracking-[0.09em] text-[#c69258]">
                                 Studio
                             </div>
-                            <div className="text-[11px] font-black text-slate-700">
+                            <div className="text-[14px] font-black text-slate-700">
                                 {title ?? "Deed studio"}
                             </div>
                         </div>
@@ -92,7 +92,7 @@ export default function StudioShell({
                                     key={href}
                                     href={href}
                                     className={[
-                                        "relative inline-flex h-full items-center gap-2 px-3 text-[10px] font-black transition-colors",
+                                        "relative inline-flex h-full items-center gap-2 px-3 text-[13px] font-black transition-colors",
                                         active
                                             ? "text-[#173C2E]"
                                             : "text-slate-400 hover:text-slate-700",
@@ -121,7 +121,7 @@ export default function StudioShell({
 
                     <Link
                         href={ctaHref}
-                        className="hidden h-9 items-center gap-1.5 rounded-xl bg-[#c69258] px-3.5 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] sm:inline-flex"
+                        className="hidden h-9 items-center gap-1.5 rounded-xl bg-[#c69258] px-3.5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12] sm:inline-flex"
                     >
                         <IoAddOutline size={14} />
                         {ctaLabel.replace(/^\+\s*/, "")}
@@ -161,10 +161,10 @@ export default function StudioShell({
                                 }}
                             >
                                 <div>
-                                    <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                                    <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                         ekarihub
                                     </div>
-                                    <div className="mt-0.5 text-[16px] font-black text-slate-900">
+                                    <div className="mt-0.5 text-[18px] font-black text-slate-900">
                                         Deed studio
                                     </div>
                                 </div>
@@ -182,7 +182,7 @@ export default function StudioShell({
                                 <Link
                                     href={ctaHref}
                                     onClick={() => setNavOpen(false)}
-                                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] text-[11px] font-black text-white"
+                                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#c69258] text-[13px] font-black text-white"
                                 >
                                     <IoAddOutline size={15} />
                                     {ctaLabel.replace(/^\+\s*/, "")}
@@ -198,7 +198,7 @@ export default function StudioShell({
                                                 href={href}
                                                 onClick={() => setNavOpen(false)}
                                                 className={[
-                                                    "flex h-11 items-center gap-3 rounded-xl px-3 text-[11px] font-black transition",
+                                                    "flex h-11 items-center gap-3 rounded-xl px-3 text-[14px] font-black transition",
                                                     active
                                                         ? "bg-[#E8ECE8] text-[#173C2E]"
                                                         : "text-slate-500 hover:bg-[#F3F1EB]",
@@ -217,7 +217,7 @@ export default function StudioShell({
                                         setNavOpen(false);
                                         router.push("/");
                                     }}
-                                    className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[10px] font-black text-[#173C2E]"
+                                    className="mt-6 inline-flex h-10 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-3 text-[13px] font-black text-[#173C2E]"
                                 >
                                     <IoChevronBack size={14} />
                                     Back to ekarihub

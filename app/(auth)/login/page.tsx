@@ -18,13 +18,11 @@ import {
     IoChevronUp,
     IoEyeOffOutline,
     IoEyeOutline,
-    IoLeafOutline,
     IoLockClosedOutline,
     IoMailOutline,
     IoPeopleOutline,
     IoPersonAddOutline,
     IoPhonePortraitOutline,
-    IoShieldCheckmarkOutline,
     IoSparklesOutline,
 } from "react-icons/io5";
 import {
@@ -545,7 +543,7 @@ export default function LoginPage() {
 
                             <Link
                                 href="/getstarted"
-                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[9px] font-black text-white/70 transition hover:bg-white/[0.11]"
+                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[11px] font-black text-white/70 transition hover:bg-white/[0.11]"
                             >
                                 Get started
                             </Link>
@@ -555,40 +553,24 @@ export default function LoginPage() {
 
 
                             <h1 className="mt-5 max-w-[470px] text-[30px] font-black leading-[1.06] tracking-[-0.045em] sm:text-[36px] xl:text-[42px]">
-                                Continue building your agribusiness journey.
+                                Welcome back to ekarihub.
                             </h1>
 
-                            <p className="mt-4 max-w-[470px] text-[11px] font-medium leading-5 text-white/55 sm:text-[12px]">
-                                Sign back in to your ekarihub account and continue connecting, learning, trading and growing across the ecosystem.
+                            <p className="mt-4 max-w-[470px] text-[14px] font-medium leading-5 text-white/60 sm:text-[15px]">
+                                Sign in to continue where you left off.
                             </p>
-
-                            <div className="mt-7 space-y-5">
+                            <div className="mt-6 space-y-4">
                                 <div className="flex items-start gap-3">
                                     <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#c69258]">
                                         <IoPeopleOutline size={18} />
                                     </div>
 
                                     <div>
-                                        <div className="text-[12px] font-black text-white">
-                                            Reconnect with your community
+                                        <div className="text-[15px] font-black text-white">
+                                            Reconnect
                                         </div>
-                                        <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
-                                            Return to your network, conversations, followers and the people building across agribusiness.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-3">
-                                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] border border-white/10 bg-white/[0.07] text-[#c69258]">
-                                        <IoLeafOutline size={18} />
-                                    </div>
-
-                                    <div>
-                                        <div className="text-[12px] font-black text-white">
-                                            Continue your deeds
-                                        </div>
-                                        <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
-                                            Pick up where you left off, share progress and keep building your trusted presence.
+                                        <p className="mt-1 max-w-[390px] text-[14px] font-medium leading-5 text-white/55">
+                                            Return to your community, conversations and activity.
                                         </p>
                                     </div>
                                 </div>
@@ -599,21 +581,17 @@ export default function LoginPage() {
                                     </div>
 
                                     <div>
-                                        <div className="text-[12px] font-black text-white">
-                                            Access your tools
+                                        <div className="text-[15px] font-black text-white">
+                                            Continue
                                         </div>
-                                        <p className="mt-1 max-w-[390px] text-[10px] font-medium leading-[18px] text-white/50">
-                                            Open ekariMarket, experts, Studio, weather, AI and the rest of your personalized ekarihub experience.
+                                        <p className="mt-1 max-w-[390px] text-[14px] font-medium leading-5 text-white/55">
+                                            Access your deeds, tools, market and expert services.
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
 
-                        </div>
-
-                        <div className="pb-1 text-[9px] font-semibold text-white/30">
-                            Collaborate · Innovate · Cultivate
                         </div>
                     </motion.div>
                 </section>
@@ -657,14 +635,14 @@ export default function LoginPage() {
 
                             <Link
                                 href="/getstarted"
-                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[9px] font-black text-[#173C2E]"
+                                className="inline-flex h-9 items-center rounded-xl border border-[#DDD8CC] bg-[#FBFAF6] px-3 text-[11px] font-black text-[#173C2E]"
                             >
                                 Get started
                             </Link>
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center py-3 lg:py-8">
-                            <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                            <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
                                 Account access
                             </div>
 
@@ -672,10 +650,10 @@ export default function LoginPage() {
                                 Log in to ekarihub.
                             </h2>
 
-                            <p className="mt-2 max-w-[480px] text-[10px] font-medium leading-5 text-slate-500">
+                            <p className="mt-2 max-w-[480px] text-[14px] font-medium leading-5 text-slate-500">
                                 {authLoading
                                     ? "Checking your current session…"
-                                    : "Choose the sign-in method that works best for you."}
+                                    : "Choose a sign-in method."}
                             </p>
 
                             <button
@@ -686,18 +664,18 @@ export default function LoginPage() {
                                 disabled={
                                     disableAll
                                 }
-                                className="group mt-6 flex w-full items-center gap-3 rounded-[18px] bg-[#173C2E] p-4 text-left text-white shadow-[0_12px_28px_rgba(23,60,46,0.14)] transition-all duration-200 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
+                                className="group mt-5 flex w-full items-center gap-3 rounded-[18px] bg-[#173C2E] p-4 text-left text-white shadow-[0_12px_28px_rgba(23,60,46,0.14)] transition-all duration-200 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white/[0.09] text-[#c69258]">
                                     <IoPhonePortraitOutline size={20} />
                                 </span>
 
                                 <span className="min-w-0 flex-1">
-                                    <span className="block text-[12px] font-black">
+                                    <span className="block text-[15px] font-black">
                                         Continue with phone number
                                     </span>
-                                    <span className="mt-1 block text-[9px] font-medium leading-4 text-white/50">
-                                        Use the phone number linked to your account.
+                                    <span className="mt-1 block text-[11px] font-medium leading-4 text-white/50">
+                                        Use your account phone number.
                                     </span>
                                 </span>
 
@@ -727,14 +705,14 @@ export default function LoginPage() {
                                 </span>
 
                                 <span className="min-w-0 flex-1">
-                                    <span className="block text-[12px] font-black text-slate-800">
+                                    <span className="block text-[15px] font-black text-slate-800">
                                         {loadingGoogle
                                             ? "Continuing with Google…"
                                             : "Continue with Google"}
                                     </span>
 
-                                    <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">
-                                        Sign in securely with your Google account.
+                                    <span className="mt-1 block text-[11px] font-medium leading-4 text-slate-400">
+                                        Continue with Google.
                                     </span>
                                 </span>
 
@@ -748,10 +726,10 @@ export default function LoginPage() {
                                 )}
                             </button>
 
-                            <div className="my-5 flex items-center gap-3">
+                            <div className="my-4 flex items-center gap-3">
                                 <div className="h-px flex-1 bg-[#E5E0D6]" />
-                                <span className="text-[8px] font-black uppercase tracking-[0.1em] text-slate-300">
-                                    or use email
+                                <span className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-300">
+                                    or
                                 </span>
                                 <div className="h-px flex-1 bg-[#E5E0D6]" />
                             </div>
@@ -767,7 +745,7 @@ export default function LoginPage() {
                                 disabled={
                                     disableAll
                                 }
-                                className="flex h-11 w-full items-center justify-between rounded-[15px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[10px] font-black text-[#173C2E] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                                className="flex h-11 w-full items-center justify-between rounded-[15px] border border-[#DDD8CC] bg-[#FBFAF6] px-4 text-[13px] font-black text-[#173C2E] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 <span>
                                     {emailOpen
@@ -816,7 +794,7 @@ export default function LoginPage() {
                                                     inputMode="email"
                                                     autoComplete="email"
                                                     placeholder="Email address"
-                                                    className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
                                                     value={
                                                         email
                                                     }
@@ -849,7 +827,7 @@ export default function LoginPage() {
                                                     }
                                                     autoComplete="current-password"
                                                     placeholder="Password"
-                                                    className="min-w-0 flex-1 bg-transparent text-[11px] font-semibold text-slate-700 outline-none placeholder:text-slate-400"
+                                                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
                                                     value={
                                                         password
                                                     }
@@ -906,7 +884,7 @@ export default function LoginPage() {
                                             </div>
 
                                             {!!errorMsg ? (
-                                                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[10px] font-semibold leading-4 text-rose-700">
+                                                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-rose-700">
                                                     {errorMsg}
                                                 </div>
                                             ) : null}
@@ -920,7 +898,7 @@ export default function LoginPage() {
                                                     !isValid ||
                                                     disableAll
                                                 }
-                                                className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-[#173C2E] px-4 text-[10px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                                                className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
                                             >
                                                 {loadingEmail
                                                     ? "Logging in…"
@@ -935,7 +913,7 @@ export default function LoginPage() {
                                                 disabled={
                                                     disableAll
                                                 }
-                                                className="mx-auto mt-3 block text-[9px] font-black text-slate-400 transition hover:text-[#173C2E] disabled:opacity-50"
+                                                className="mx-auto mt-3 block text-[12px] font-black text-slate-500 transition hover:text-[#173C2E] disabled:opacity-50"
                                             >
                                                 Forgot your password?
                                             </button>
@@ -946,26 +924,14 @@ export default function LoginPage() {
 
                             {!emailOpen &&
                                 !!errorMsg ? (
-                                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[10px] font-semibold leading-4 text-rose-700">
+                                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-rose-700">
                                     {errorMsg}
                                 </div>
                             ) : null}
-
-                            <div className="mt-5 rounded-[16px] border border-[#E5E0D6] bg-[#FBFAF6] px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                    <IoLockClosedOutline
-                                        size={13}
-                                        className="text-[#173C2E]"
-                                    />
-                                    <span className="text-[9px] font-black text-slate-600">
-                                        Your account stays protected.
-                                    </span>
-                                </div>
-                            </div>
                         </div>
 
-                        <div className="pt-5">
-                            <div className="flex items-center justify-center gap-1 text-[10px]">
+                        <div className="pt-4">
+                            <div className="flex items-center justify-center gap-1 text-[13px]">
                                 <span className="font-medium text-slate-400">
                                     New here?
                                 </span>
@@ -979,7 +945,7 @@ export default function LoginPage() {
                                 </Link>
                             </div>
 
-                            <p className="mt-3 text-center text-[9px] font-medium leading-4 text-slate-400">
+                            <p className="mt-3 text-center text-[12px] font-medium leading-5 text-slate-400">
                                 By continuing, you agree to ekarihub&apos;s{" "}
                                 <Link
                                     href="/terms"

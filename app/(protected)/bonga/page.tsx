@@ -47,6 +47,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import AppShell from "@/app/components/AppShell";
 import BouncingBallLoader from "@/components/ui/TikBallsLoader";
 import SmartAvatar from "@/app/components/SmartAvatar";
+import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 
 /* ================================================================ */
 
@@ -333,6 +334,7 @@ export default function BongaThreadPage() {
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [desktopThreadsOpen, setDesktopThreadsOpen] = useState(true);
   const [peerCache, setPeerCache] = useState<Record<string, UserLite>>({});
 
   /* ---------------- RIGHT PANEL STATE ---------------- */
@@ -1209,7 +1211,7 @@ export default function BongaThreadPage() {
           <span className="w-2 h-2 rounded-full bg-slate-400 animate-pulse" style={{ animationDelay: "120ms" }} />
           <span className="w-2 h-2 rounded-full bg-slate-400 animate-pulse" style={{ animationDelay: "240ms" }} />
         </span>
-        <span className="text-xs font-semibold" style={{ color: EKARI.dim }}>
+        <span className="text-[13px] font-semibold" style={{ color: EKARI.dim }}>
           Typing…
         </span>
       </div>
@@ -1293,7 +1295,7 @@ export default function BongaThreadPage() {
       <header className="shrink-0 bg-[#173C2E] px-4 pb-4 pt-4 text-white">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.12em] text-[#c69258]">
+            <div className="text-[12px] font-black uppercase tracking-[0.12em] text-[#c69258]">
               ekarihub messaging
             </div>
 
@@ -1301,7 +1303,7 @@ export default function BongaThreadPage() {
               Bonga
             </h1>
 
-            <p className="mt-0.5 text-[11px] font-medium text-white/45">
+            <p className="mt-0.5 text-[13px] font-medium text-white/45">
               {threads.length} conversation{threads.length === 1 ? "" : "s"}
               {unreadThreads > 0
                 ? ` · ${unreadThreads} unread`
@@ -1324,7 +1326,7 @@ export default function BongaThreadPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search conversations…"
-            className="h-11 w-full rounded-[15px] border border-white/10 bg-[#FBFAF6] pl-10 pr-4 text-[13px] font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+            className="h-11 w-full rounded-[15px] border border-white/10 bg-[#FBFAF6] pl-10 pr-4 text-[15px] font-medium text-slate-900 outline-none placeholder:text-slate-400"
           />
         </div>
       </header>
@@ -1341,11 +1343,11 @@ export default function BongaThreadPage() {
                 <IoChatbubblesOutline size={24} />
               </div>
 
-              <div className="mt-3 text-[14px] font-black text-slate-800">
+              <div className="mt-3 text-[15px] font-black text-slate-800">
                 No conversations
               </div>
 
-              <p className="mt-1 text-[12px] leading-5 text-slate-400">
+              <p className="mt-1 text-[13px] leading-5 text-slate-400">
                 Start chatting from a profile, listing or expert page.
               </p>
             </div>
@@ -1409,7 +1411,7 @@ export default function BongaThreadPage() {
                     <div className="flex items-center gap-2">
                       <div
                         className={[
-                          "truncate text-[14px]",
+                          "truncate text-[15px]",
                           hasUnread
                             ? "font-black text-slate-900"
                             : "font-extrabold text-slate-800",
@@ -1418,7 +1420,7 @@ export default function BongaThreadPage() {
                         {name}
                       </div>
 
-                      <span className="ml-auto shrink-0 text-[10px] font-medium text-slate-400">
+                      <span className="ml-auto shrink-0 text-[12px] font-medium text-slate-400">
                         {formatListTime(timestamp)}
                       </span>
                     </div>
@@ -1426,7 +1428,7 @@ export default function BongaThreadPage() {
                     <div className="mt-0.5 flex items-center gap-2">
                       <p
                         className={[
-                          "min-w-0 flex-1 truncate text-[12px]",
+                          "min-w-0 flex-1 truncate text-[13px]",
                           hasUnread
                             ? "font-bold text-slate-700"
                             : "font-medium text-slate-400",
@@ -1436,7 +1438,7 @@ export default function BongaThreadPage() {
                       </p>
 
                       {hasUnread ? (
-                        <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[#c69258] px-1.5 text-[9px] font-black text-white">
+                        <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[#c69258] px-1.5 text-[11px] font-black text-white">
                           {(item.unread ?? 0) > 99
                             ? "99+"
                             : item.unread}
@@ -1460,108 +1462,121 @@ export default function BongaThreadPage() {
     <div className="h-[100dvh] w-full overflow-hidden bg-[#F8F7F2]">
       <div className="flex h-[100dvh] w-full overflow-hidden bg-[#FBFAF6]">
         {/* ===================== LEFT: Sidebar (desktop) ===================== */}
-        <aside className="hidden h-full w-[330px] shrink-0 flex-col overflow-hidden border-r border-[#DDD8CC] bg-[#F8F7F2] md:flex xl:w-[350px]">
-          <div className="shrink-0 border-b border-white/10 bg-[#173C2E] px-4 py-4 text-white">
-            <div className="flex items-center gap-2">
-              <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/[0.08] text-[#c69258]">
-                <IoChatbubblesOutline size={18} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[14px] font-black text-white">Bonga</div>
-                <div className="truncate text-[10px] font-medium text-white/45">
-                  {threads.length} conversations
-                  {unreadThreads > 0 ? ` · ${unreadThreads} unread` : ""}
+        <motion.aside
+          initial={false}
+          animate={{
+            width: desktopThreadsOpen ? 350 : 0,
+            opacity: desktopThreadsOpen ? 1 : 0,
+          }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          className="hidden h-full shrink-0 overflow-hidden border-r border-[#DDD8CC] bg-[#F8F7F2] md:block"
+          aria-hidden={!desktopThreadsOpen}
+        >
+          <div className="flex h-full w-[350px] flex-col overflow-hidden">
+
+            <div className="shrink-0 border-b border-white/10 bg-[#173C2E] px-4 py-4 text-white">
+              <div className="flex items-center gap-2">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/[0.08] text-[#c69258]">
+                  <IoChatbubblesOutline size={18} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[15px] font-black text-white">Bonga</div>
+                  <div className="truncate text-[12px] font-medium text-white/45">
+                    {threads.length} conversations
+                    {unreadThreads > 0 ? ` · ${unreadThreads} unread` : ""}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="text-[10px] font-black uppercase tracking-[0.1em] text-white/30">
-              Messages
-            </div>
-          </div>
-
-          <div className="shrink-0 border-b border-[#DDD8CC] bg-[#F8F7F2] px-3 py-3">
-            <div className="flex h-10 items-center gap-2 rounded-[14px] border border-[#D9D3C7] bg-[#FBFAF6] px-3">
-              <IoSearchOutline size={16} color={EKARI.dim} />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search inbox..."
-                className="w-full bg-transparent outline-none text-sm"
-                style={{ color: EKARI.text }}
-              />
-            </div>
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {threadsLoading ? (
-              <div className="h-full flex items-center justify-center py-10"><BouncingBallLoader /></div>
-            ) : filteredThreads.length === 0 ? (
-              <div className="px-4 py-10 text-center">
-                <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>No conversations</div>
-                <div className="text-xs mt-1" style={{ color: EKARI.dim }}>Start chatting from a profile or listing.</div>
+              <div className="text-[12px] font-black uppercase tracking-[0.1em] text-white/30">
+                Messages
               </div>
-            ) : (
-              <div className="py-2">
-                {filteredThreads.map((t) => {
-                  const p = peerCache[t.peerId];
-                  if (!p?.handle) return null;
-                  const name = (p?.firstName || p?.handle || "User") + (p?.surname ? ` ${p.surname}` : "");
-                  const isActive = t.threadId === threadId;
-                  const ts = t.lastMessageAt || t.updatedAt;
+            </div>
 
-                  const subtitle =
-                    t.lastMessageType === "image"
-                      ? "📷 Photo"
-                      : t.lastMessageType === "audio"
-                        ? "🎤 Voice"
-                        : t.lastMessageType === "product"
-                          ? "🛒 Product"
-                          : t.lastMessageText || "Say hi 👋";
+            <div className="shrink-0 border-b border-[#DDD8CC] bg-[#F8F7F2] px-3 py-3">
+              <div className="flex h-10 items-center gap-2 rounded-[14px] border border-[#D9D3C7] bg-[#FBFAF6] px-3">
+                <IoSearchOutline size={16} color={EKARI.dim} />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search inbox..."
+                  className="w-full bg-transparent text-[15px] font-medium outline-none"
+                  style={{ color: EKARI.text }}
+                />
+              </div>
+            </div>
 
-                  return (
-                    <button
-                      key={t.threadId}
-                      type="button"
-                      onClick={() => openThread(t)}
-                      className={[
-                        "mx-2 flex w-[calc(100%-1rem)] items-center gap-3 rounded-[16px] px-3 py-2.5 text-left",
-                        "transition-all duration-200",
-                        isActive
-                          ? "bg-[#E8EFEA] shadow-[inset_0_0_0_1px_rgba(23,60,46,0.06)]"
-                          : "hover:bg-white/75",
-                      ].join(" ")}
-                    >
-                      <div className="relative shrink-0">
-                        <SmartAvatar
-                          src={p?.photoURL || ""}
-                          alt={name}
-                          size={46}
-                        />
-                      </div>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {threadsLoading ? (
+                <div className="h-full flex items-center justify-center py-10"><BouncingBallLoader /></div>
+              ) : filteredThreads.length === 0 ? (
+                <div className="px-4 py-10 text-center">
+                  <div className="text-sm font-extrabold" style={{ color: EKARI.text }}>No conversations</div>
+                  <div className="text-[13px] mt-1" style={{ color: EKARI.dim }}>Start chatting from a profile or listing.</div>
+                </div>
+              ) : (
+                <div className="py-2">
+                  {filteredThreads.map((t) => {
+                    const p = peerCache[t.peerId];
+                    if (!p?.handle) return null;
+                    const name = (p?.firstName || p?.handle || "User") + (p?.surname ? ` ${p.surname}` : "");
+                    const isActive = t.threadId === threadId;
+                    const ts = t.lastMessageAt || t.updatedAt;
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="font-extrabold text-sm truncate" style={{ color: EKARI.text }}>{name}</div>
-                          <div className="text-[11px] shrink-0" style={{ color: EKARI.dim }}>{formatListTime(ts)}</div>
+                    const subtitle =
+                      t.lastMessageType === "image"
+                        ? "📷 Photo"
+                        : t.lastMessageType === "audio"
+                          ? "🎤 Voice"
+                          : t.lastMessageType === "product"
+                            ? "🛒 Product"
+                            : t.lastMessageText || "Say hi 👋";
+
+                    return (
+                      <button
+                        key={t.threadId}
+                        type="button"
+                        onClick={() => openThread(t)}
+                        className={[
+                          "mx-2 flex w-[calc(100%-1rem)] items-center gap-3 rounded-[16px] px-3 py-2.5 text-left",
+                          "transition-all duration-200",
+                          isActive
+                            ? "bg-[#E8EFEA] shadow-[inset_0_0_0_1px_rgba(23,60,46,0.06)]"
+                            : "hover:bg-white/75",
+                        ].join(" ")}
+                      >
+                        <div className="relative shrink-0">
+                          <SmartAvatar
+                            src={p?.photoURL || ""}
+                            alt={name}
+                            size={46}
+                          />
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 mt-0.5">
-                          <div className="text-xs truncate" style={{ color: EKARI.dim }}>{subtitle}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-extrabold text-sm truncate" style={{ color: EKARI.text }}>{name}</div>
+                            <div className="text-[13px] shrink-0" style={{ color: EKARI.dim }}>{formatListTime(ts)}</div>
+                          </div>
 
-                          {!!(t.unread && t.unread > 0) && (
-                            <div className="min-w-[20px] h-5 px-2 rounded-full text-[11px] font-extrabold flex items-center justify-center shrink-0" style={{ backgroundColor: EKARI.gold, color: "#fff" }}>
-                              {t.unread > 99 ? "99+" : t.unread}
-                            </div>
-                          )}
+                          <div className="flex items-center justify-between gap-2 mt-0.5">
+                            <div className="text-[13px] truncate" style={{ color: EKARI.dim }}>{subtitle}</div>
+
+                            {!!(t.unread && t.unread > 0) && (
+                              <div className="min-w-[20px] h-5 px-2 rounded-full text-[13px] font-extrabold flex items-center justify-center shrink-0" style={{ backgroundColor: EKARI.gold, color: "#fff" }}>
+                                {t.unread > 99 ? "99+" : t.unread}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
           </div>
-        </aside>
+        </motion.aside>
 
         {/* ===================== RIGHT: Thread Panel ===================== */}
         <motion.main
@@ -1574,6 +1589,28 @@ export default function BongaThreadPage() {
           {/* Header */}
           <div className="sticky top-0 z-30 flex h-[64px] shrink-0 items-center justify-between border-b border-[#DDD8CC] bg-[#FBFAF6]/95 px-4 backdrop-blur-xl">
             <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setDesktopThreadsOpen((open) => !open)}
+                className="hidden h-9 w-9 shrink-0 place-items-center rounded-xl border border-[#D9D3C7] bg-white text-slate-600 transition hover:bg-[#F3F1EB] md:grid"
+                aria-label={
+                  desktopThreadsOpen
+                    ? "Hide conversations"
+                    : "Show conversations"
+                }
+                title={
+                  desktopThreadsOpen
+                    ? "Hide conversations"
+                    : "Show conversations"
+                }
+              >
+                {desktopThreadsOpen ? (
+                  <PanelLeftClose size={18} />
+                ) : (
+                  <PanelLeftOpen size={18} />
+                )}
+              </button>
+
               <button
                 onClick={() =>
                   router.replace("/bonga", {
@@ -1597,8 +1634,8 @@ export default function BongaThreadPage() {
                 </div>
 
                 <div className="min-w-0">
-                  <div className="font-extrabold text-slate-900 text-sm truncate">{headerTitle}</div>
-                  <div className="text-xs text-slate-500 truncate">
+                  <div className="truncate text-[15px] font-extrabold text-slate-900">{headerTitle}</div>
+                  <div className="truncate text-[13px] font-medium text-slate-500">
                     {peerTyping ? "Typing…" : peerActiveNow ? "Active now" : lastSeenText(onlineNow, lastActiveAny)}
                   </div>
                 </div>
@@ -1612,7 +1649,7 @@ export default function BongaThreadPage() {
 
           {/* Debug panel */}
           {debug && (
-            <div className="border-b bg-white px-3 py-2 text-[12px]" style={{ borderColor: EKARI.hair, color: EKARI.text }}>
+            <div className="border-b bg-white px-3 py-2 text-[13px]" style={{ borderColor: EKARI.hair, color: EKARI.text }}>
               <div className="flex flex-wrap gap-x-5 gap-y-1 items-center">
                 <div><b>myActiveNow:</b> {String(myActiveNow)}</div>
                 <div><b>peerActiveNow:</b> {String(peerActiveNow)}</div>
@@ -1620,7 +1657,7 @@ export default function BongaThreadPage() {
                 <div><b>peer active:</b> {agoShort(activeMapSnap.peerMs)}</div>
                 <div><b>threadId:</b> {threadId}</div>
               </div>
-              <div className="text-[11px]" style={{ color: EKARI.dim }}>
+              <div className="text-[13px]" style={{ color: EKARI.dim }}>
                 Tip: open same thread on another device, add <b>?debug=1</b>, watch peerActiveNow flip true/false.
               </div>
             </div>
@@ -1680,7 +1717,7 @@ export default function BongaThreadPage() {
                     <button
                       onClick={loadOlder}
                       disabled={pagingOlder}
-                      className="h-8 px-3 rounded-lg border text-xs font-bold transition hover:bg-black/5 disabled:opacity-60"
+                      className="h-8 px-3 rounded-lg border text-[13px] font-bold transition hover:bg-black/5 disabled:opacity-60"
                       style={{ borderColor: EKARI.hair, color: EKARI.text }}
                       type="button"
                     >
@@ -1709,7 +1746,7 @@ export default function BongaThreadPage() {
                     <React.Fragment key={msg.id}>
                       {showDateDivider ? (
                         <div className="my-4 flex justify-center">
-                          <div className="rounded-full bg-[#F3F4F6] px-3 py-1 text-[11px] font-medium text-gray-600">
+                          <div className="rounded-full bg-[#F3F4F6] px-3 py-1 text-[13px] font-medium text-gray-600">
                             {formatChatDate(msg.createdAt)}
                           </div>
                         </div>
@@ -1735,7 +1772,7 @@ export default function BongaThreadPage() {
                           <div
                             className={[
                               "text-[15px] border shadow-sm px-3 py-2",
-                              "max-w-full break-words whitespace-pre-wrap leading-5",
+                              "max-w-full break-words whitespace-pre-wrap leading-[22px]",
                               mine
                                 ? isFirst
                                   ? "rounded-2xl rounded-tr-md"
@@ -1781,7 +1818,7 @@ export default function BongaThreadPage() {
                                         }}
                                       />
                                     </div>
-                                    <div className="mt-1 text-[11px]" style={{ color: EKARI.dim }}>
+                                    <div className="mt-1 text-[13px]" style={{ color: EKARI.dim }}>
                                       Voice message
                                     </div>
                                   </div>
@@ -1812,11 +1849,11 @@ export default function BongaThreadPage() {
                                   </div>
 
                                   <div className="min-w-0 flex-1">
-                                    <div className="text-xs font-extrabold text-slate-900 truncate">
+                                    <div className="text-[13px] font-extrabold text-slate-900 truncate">
                                       {msg.listing.name || "Product"}
                                     </div>
 
-                                    <div className="text-[11px] text-slate-600 truncate">
+                                    <div className="text-[13px] text-slate-600 truncate">
                                       {msg.listing.currency === "USD"
                                         ? `USD ${(Number(msg.listing.price || 0)).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
                                         : `KSh ${(Number(msg.listing.price || 0)).toLocaleString("en-KE", { maximumFractionDigits: 0 })}`}
@@ -1837,7 +1874,7 @@ export default function BongaThreadPage() {
                             )}
                           </div>
 
-                          {isLast && <div className="mt-1 text-[11px] text-slate-500 px-1">{formatMsgTime(msg.createdAt)}</div>}
+                          {isLast && <div className="mt-1 text-[13px] text-slate-500 px-1">{formatMsgTime(msg.createdAt)}</div>}
                         </div>
                       </div>
                     </React.Fragment>);
@@ -1872,7 +1909,7 @@ export default function BongaThreadPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-extrabold truncate" style={{ color: EKARI.text }}>{pending.name || "Attached product"}</div>
-                      <div className="text-xs truncate" style={{ color: EKARI.dim }}>
+                      <div className="text-[13px] truncate" style={{ color: EKARI.dim }}>
                         {fmtMoney(pending.price, (pending.currency as any) || "KES")}
                         {pending.unit ? ` • ${pending.unit}` : ""}
                       </div>
@@ -1883,7 +1920,7 @@ export default function BongaThreadPage() {
                     <button
                       type="button"
                       onClick={() => router.push(pending.url || `/market/${encodeURIComponent(pending.id)}`)}
-                      className="h-8 px-3 rounded-full border text-xs font-extrabold hover:bg-black/5"
+                      className="h-8 px-3 rounded-full border text-[13px] font-extrabold hover:bg-black/5"
                       style={{ borderColor: "rgba(199,146,87,0.32)", backgroundColor: "rgba(199,146,87,0.16)", color: EKARI.text }}
                     >
                       View
@@ -1961,10 +1998,10 @@ export default function BongaThreadPage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-extrabold text-slate-900 truncate">
+                          <div className="text-[13px] font-extrabold text-slate-900 truncate">
                             {pending.name || "Product inquiry"}
                           </div>
-                          <div className="text-[11px] text-slate-500 truncate">
+                          <div className="text-[13px] text-slate-500 truncate">
                             {pending.url}
                           </div>
                         </div>
@@ -1985,7 +2022,7 @@ export default function BongaThreadPage() {
                         <button
                           type="button"
                           onClick={() => setPending(ctxListing)}
-                          className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold hover:bg-black/5"
+                          className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-extrabold hover:bg-black/5"
                           style={{ borderColor: EKARI.hair, color: EKARI.text }}
                           title="Attach last referenced product"
                         >

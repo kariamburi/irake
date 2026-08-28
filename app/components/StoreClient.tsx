@@ -250,7 +250,7 @@ function StatChip({
                 {value}
             </span>
 
-            <span className="text-[11px] font-semibold text-slate-400">
+            <span className="text-[13px] font-semibold text-slate-400">
                 {label}
             </span>
         </div>
@@ -557,18 +557,18 @@ export function StoreCoverHero({
                         >
                             <IoArrowBack size={19} />
                         </button></div>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-[10px] font-black text-white backdrop-blur-md">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-[12px] font-black text-white backdrop-blur-md">
                         <IoStorefrontOutline size={13} />
                         ekariMarket Store
                     </span>
 
                     {isPremiumStore ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F39A22]/20 px-2.5 py-1 text-[9px] font-black text-[#FFE4B9]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F39A22]/20 px-2.5 py-1 text-[11px] font-black text-[#FFE4B9]">
                             <IoSparklesOutline size={12} />
                             Storefront active
                         </span>
                     ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black text-white/70">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-black text-white/70">
                             <IoLockClosedOutline size={12} />
                             Private
                         </span>
@@ -583,7 +583,7 @@ export function StoreCoverHero({
                                 [
                                     "inline-flex h-9 cursor-pointer items-center gap-2 rounded-full",
                                     "border border-white/15 bg-[#FBFAF6]/95 px-3",
-                                    "text-[10px] font-black text-slate-700",
+                                    "text-[12px] font-black text-slate-700",
                                     "shadow-[0_8px_20px_rgba(0,0,0,.12)]",
                                     "transition-all duration-200",
                                 ].join(" "),
@@ -645,7 +645,7 @@ export function StoreCoverHero({
                             type="button"
                             onClick={onToggleFollow}
                             className={[
-                                "h-10 rounded-xl px-4 text-[11px] font-black",
+                                "h-10 rounded-xl px-4 text-[13px] font-black",
                                 "transition-all duration-200",
                                 isFollowing
                                     ? "border border-white/20 bg-white/10 text-white hover:bg-white/15"
@@ -662,7 +662,7 @@ export function StoreCoverHero({
                         <button
                             type="button"
                             onClick={onMessage}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
                         >
                             <IoChatbubbleEllipsesOutline size={16} />
                             Message
@@ -671,7 +671,7 @@ export function StoreCoverHero({
                         <button
                             type="button"
                             onClick={onSellPress}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
+                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#F39A22] px-4 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#E98C12]"
                         >
                             <IoPricetagOutline size={16} />
                             Sell / Lease
@@ -733,7 +733,7 @@ export function StoreCoverHero({
                                     </h1>
 
                                     <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                        <span className="text-[12px] font-bold text-slate-400">
+                                        <span className="text-[14px] font-bold text-slate-400">
                                             {normalizeHandle(
                                                 userDoc?.handle
                                             ) ||
@@ -741,7 +741,7 @@ export function StoreCoverHero({
                                         </span>
 
                                         {locationText ? (
-                                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400">
+                                            <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-slate-500">
                                                 <IoLocationOutline size={12} />
                                                 {locationText}
                                             </span>
@@ -750,14 +750,14 @@ export function StoreCoverHero({
 
                                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                                         {showVerified ? (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[10px] font-black text-[#3E6F28]">
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF4E7] px-2.5 py-1 text-[12px] font-black text-[#3E6F28]">
                                                 <IoShieldCheckmark size={12} />
                                                 Verified seller
                                             </span>
                                         ) : null}
 
                                         {isPremiumStore ? (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF4E3] px-2.5 py-1 text-[10px] font-black text-[#9A5A08]">
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF4E3] px-2.5 py-1 text-[12px] font-black text-[#9A5A08]">
                                                 <IoSparklesOutline size={12} />
                                                 Premium storefront
                                             </span>
@@ -765,13 +765,13 @@ export function StoreCoverHero({
                                     </div>
 
                                     {userDoc?.bio ? (
-                                        <p className="mt-2 max-w-3xl text-[12px] font-medium leading-5 text-slate-600">
+                                        <p className="mt-2 max-w-3xl text-[15px] font-medium leading-[22px] text-slate-600">
                                             {userDoc.bio}
                                         </p>
                                     ) : null}
 
                                     {err ? (
-                                        <div className="mt-2 inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[9px] font-black text-rose-700">
+                                        <div className="mt-2 inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-black text-rose-700">
                                             {err}
                                         </div>
                                     ) : null}
@@ -813,7 +813,7 @@ export function StoreCoverHero({
                                 type="button"
                                 onClick={onToggleFollow}
                                 className={[
-                                    "h-11 rounded-xl text-[11px] font-black",
+                                    "h-11 rounded-xl text-[13px] font-black",
                                     isFollowing
                                         ? "border border-[#D9D3C7] bg-white text-slate-700"
                                         : "bg-[#173C2E] text-white",
@@ -827,7 +827,7 @@ export function StoreCoverHero({
                             <button
                                 type="button"
                                 onClick={onSellPress}
-                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#173C2E] text-[11px] font-black text-white"
+                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#173C2E] text-[13px] font-black text-white"
                             >
                                 <IoPricetagOutline size={15} />
                                 Sell / Lease
@@ -835,7 +835,7 @@ export function StoreCoverHero({
                         ) : (
                             <button
                                 disabled
-                                className="h-11 rounded-xl border border-[#D9D3C7] bg-white text-[11px] font-black text-slate-400"
+                                className="h-11 rounded-xl border border-[#D9D3C7] bg-white text-[13px] font-black text-slate-400"
                             >
                                 Follow
                             </button>
@@ -845,7 +845,7 @@ export function StoreCoverHero({
                             <button
                                 type="button"
                                 onClick={onMessage}
-                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F39A22] text-[11px] font-black text-white"
+                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#F39A22] text-[13px] font-black text-white"
                             >
                                 <IoChatbubbleEllipsesOutline size={16} />
                                 Message
@@ -854,7 +854,7 @@ export function StoreCoverHero({
                             <button
                                 type="button"
                                 onClick={() => window.location.href = "/market"}
-                                className="h-11 rounded-xl border border-[#D9D3C7] bg-white text-[11px] font-black text-slate-700"
+                                className="h-11 rounded-xl border border-[#D9D3C7] bg-white text-[13px] font-black text-slate-700"
                             >
                                 Market
                             </button>
@@ -937,7 +937,7 @@ export function StoreCoverHero({
                         )}
                     />
 
-                    <div className="ml-auto hidden items-center gap-1.5 text-[10px] font-bold text-slate-400 sm:flex">
+                    <div className="ml-auto hidden items-center gap-1.5 text-[12px] font-bold text-slate-400 sm:flex">
                         <IoStorefrontOutline
                             size={13}
                             className="text-[#F39A22]"
@@ -1042,7 +1042,7 @@ export function StorefrontHero({
                         <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
                             {showVerified && (
                                 <span
-                                    className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black border"
+                                    className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-black border"
                                     style={{
                                         borderColor: "rgba(255,255,255,0.35)",
                                         background: "rgba(255,255,255,0.18)",
@@ -1056,7 +1056,7 @@ export function StorefrontHero({
                             )}
                             {isPremiumStore ? (
                                 <span
-                                    className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black"
+                                    className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-black"
                                     style={{
                                         background: "rgba(199,146,87,0.22)",
                                         color: "white",
@@ -1069,7 +1069,7 @@ export function StorefrontHero({
                                 </span>
                             ) : (
                                 <span
-                                    className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-black"
+                                    className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-black"
                                     style={{
                                         background: "rgba(255,255,255,0.12)",
                                         color: "white",
@@ -1106,12 +1106,12 @@ export function StorefrontHero({
                                 </div>
 
                                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                    <span className="text-xs font-bold" style={{ color: EKARI.dim }}>
+                                    <span className="text-[13px] font-bold" style={{ color: EKARI.dim }}>
                                         {handleText}
                                     </span>
 
                                     {locationText && (
-                                        <span className="inline-flex items-center gap-1 text-xs" style={{ color: EKARI.dim }}>
+                                        <span className="inline-flex items-center gap-1 text-[13px]" style={{ color: EKARI.dim }}>
                                             <IoLocationOutline size={13} />
                                             <span className="truncate">{locationText}</span>
                                         </span>
@@ -1282,14 +1282,14 @@ export function StorefrontHero({
 
                                 {(phone || wa || website) && (
                                     <div className="mt-2 flex items-center justify-between">
-                                        <div className="text-xs font-bold" style={{ color: EKARI.dim }}>
+                                        <div className="text-[13px] font-bold" style={{ color: EKARI.dim }}>
                                             Quick contacts
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {phone && (
                                                 <a
                                                     href={`tel:${phone}`}
-                                                    className="text-xs font-black underline"
+                                                    className="text-[13px] font-black underline"
                                                     style={{ color: EKARI.text }}
                                                 >
                                                     Call
@@ -1300,7 +1300,7 @@ export function StorefrontHero({
                                                     href={wa}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-xs font-black underline"
+                                                    className="text-[13px] font-black underline"
                                                     style={{ color: EKARI.text }}
                                                 >
                                                     WhatsApp
@@ -1311,7 +1311,7 @@ export function StorefrontHero({
                                                     href={website}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-xs font-black underline"
+                                                    className="text-[13px] font-black underline"
                                                     style={{ color: EKARI.text }}
                                                 >
                                                     Website
@@ -1324,7 +1324,7 @@ export function StorefrontHero({
                         </div>
 
                         {/* Optional: subtle “brand strip” */}
-                        <div className="mt-4 flex items-center justify-between text-[11px]" style={{ color: EKARI.dim }}>
+                        <div className="mt-4 flex items-center justify-between text-[13px]" style={{ color: EKARI.dim }}>
                             <span>
                                 Powered by <span className="font-black" style={{ color: EKARI.text }}>ekarihub</span>
                             </span>
@@ -1414,7 +1414,7 @@ function SegmentedTabs({
                             }
                             className={[
                                 "relative inline-flex h-12 shrink-0 items-center gap-2 px-3",
-                                "text-[11px] font-black transition-colors duration-200",
+                                "text-[13px] font-black transition-colors duration-200",
                                 active
                                     ? "text-[#173C2E]"
                                     : "text-slate-400 hover:text-slate-700",
@@ -1425,7 +1425,7 @@ function SegmentedTabs({
 
                             <span
                                 className={[
-                                    "rounded-full px-1.5 py-0.5 text-[9px]",
+                                    "rounded-full px-1.5 py-0.5 text-[11px] font-bold",
                                     active
                                         ? "bg-[#173C2E]/8 text-[#173C2E]"
                                         : "bg-[#EFECE5] text-slate-400",
@@ -1466,7 +1466,7 @@ function SortSelect({
             className={[
                 "inline-flex h-9 items-center gap-2 rounded-full",
                 "border border-[#D9D3C7] bg-[#FBFAF6] px-3",
-                "text-[10px] font-black text-slate-600",
+                "text-[13px] font-black text-slate-600",
                 "transition-all duration-200",
                 "hover:border-[#F39A22]/50 hover:bg-[#FFF9F0]",
             ].join(" ")}
@@ -1478,7 +1478,7 @@ function SortSelect({
             />
 
             <select
-                className="cursor-pointer bg-transparent text-[10px] font-black text-slate-600 outline-none"
+                className="cursor-pointer bg-transparent text-[13px] font-black text-slate-600 outline-none"
                 value={value}
                 onChange={(e) =>
                     onChange(
@@ -1541,13 +1541,13 @@ export function CatalogHeader({
                         {title}
                     </h2>
 
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#E8ECE8] px-2.5 py-1 text-[9px] font-black text-[#173C2E]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#E8ECE8] px-2.5 py-1 text-[11px] font-black text-[#173C2E]">
                         <IoFunnelOutline size={11} />
                         {tabLabel}
                     </span>
                 </div>
 
-                <p className="mt-1 text-[11px] font-medium text-slate-400">
+                <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
                     {subtitle ||
                         "Browse this seller’s active listings."}
                 </p>
@@ -1685,14 +1685,14 @@ function InsightCard({
 }) {
     return (
         <div className="rounded-2xl border p-4 bg-white" style={{ borderColor: EKARI.hair }}>
-            <div className="text-xs font-extrabold" style={{ color: EKARI.dim }}>
+            <div className="text-[13px] font-extrabold" style={{ color: EKARI.dim }}>
                 {title}
             </div>
             <div className="mt-1 text-2xl font-black" style={{ color: EKARI.text }}>
                 {value}
             </div>
             {subtitle && (
-                <div className="mt-1 text-xs" style={{ color: EKARI.dim }}>
+                <div className="mt-1 text-[13px]" style={{ color: EKARI.dim }}>
                     {subtitle}
                 </div>
             )}
@@ -1817,7 +1817,7 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
                             Store Insights
                         </h2>
                         <span
-                            className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black"
+                            className="inline-flex items-center rounded-full px-2.5 py-1 text-[13px] font-black"
                             style={{ background: headerBadge.bg, color: headerBadge.fg }}
                         >
                             {headerBadge.text}
@@ -1827,7 +1827,7 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
                             {tier !== "advanced" && (
                                 <button
                                     onClick={onUpgrade}
-                                    className="h-9 px-3 rounded-xl font-black text-xs text-white"
+                                    className="h-9 px-3 rounded-xl font-black text-[13px] text-white"
                                     style={{ backgroundColor: EKARI.gold }}
                                 >
                                     Upgrade for insights
@@ -1857,19 +1857,19 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
 
                                     <div className="mt-3 flex flex-wrap gap-2">
                                         <div
-                                            className="rounded-full border px-3 py-1 text-[11px] font-black"
+                                            className="rounded-full border px-3 py-1 text-[13px] font-black"
                                             style={{ borderColor: EKARI.hair, color: EKARI.dim }}
                                         >
                                             Views • —
                                         </div>
                                         <div
-                                            className="rounded-full border px-3 py-1 text-[11px] font-black"
+                                            className="rounded-full border px-3 py-1 text-[13px] font-black"
                                             style={{ borderColor: EKARI.hair, color: EKARI.dim }}
                                         >
                                             Clicks • —
                                         </div>
                                         <div
-                                            className="rounded-full border px-3 py-1 text-[11px] font-black"
+                                            className="rounded-full border px-3 py-1 text-[13px] font-black"
                                             style={{ borderColor: EKARI.hair, color: EKARI.dim }}
                                         >
                                             Leads • —
@@ -1902,7 +1902,7 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
                             {tier === "advanced" && (
                                 <div className="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
                                     <div className="rounded-2xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
-                                        <div className="text-xs font-extrabold" style={{ color: EKARI.dim }}>
+                                        <div className="text-[13px] font-extrabold" style={{ color: EKARI.dim }}>
                                             Traffic sources (7d)
                                         </div>
 
@@ -1933,12 +1933,12 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
                                             </div>
                                         </div>
 
-                                        <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                                        <div className="mt-2 text-[13px]" style={{ color: EKARI.dim }}>
                                             Total {nfmt(totalTraffic)} views
                                         </div>
 
 
-                                        <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                                        <div className="mt-2 text-[13px]" style={{ color: EKARI.dim }}>
                                             Weekly trend (last 7 days)
                                         </div>
                                         <div className="mt-3 h-40">
@@ -1948,7 +1948,7 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
 
                                     {/* ✅ FIXED: removed accidental double wrapper */}
                                     <div className="rounded-2xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
-                                        <div className="text-xs font-extrabold" style={{ color: EKARI.dim }}>
+                                        <div className="text-[13px] font-extrabold" style={{ color: EKARI.dim }}>
                                             Conversion (7d)
                                         </div>
 
@@ -1973,7 +1973,7 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
                                             </div>
                                         </div>
 
-                                        <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                                        <div className="mt-2 text-[13px]" style={{ color: EKARI.dim }}>
                                             CTR = clicks ÷ views • Lead rate = leads ÷ clicks
                                         </div>
                                         <div className="mt-3 h-40">
@@ -1983,13 +1983,13 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
                                     </div>
 
                                     <div className="rounded-2xl border bg-white p-4" style={{ borderColor: EKARI.hair }}>
-                                        <div className="text-xs font-extrabold" style={{ color: EKARI.dim }}>
+                                        <div className="text-[13px] font-extrabold" style={{ color: EKARI.dim }}>
                                             Exports & reports
                                         </div>
                                         <div className="mt-2 flex flex-wrap gap-2">
                                             <button
                                                 onClick={onExportCsv}
-                                                className="h-9 px-3 rounded-xl border text-xs font-black"
+                                                className="h-9 px-3 rounded-xl border text-[13px] font-black"
                                                 style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
                                             >
                                                 Export CSV
@@ -1997,13 +1997,13 @@ function StoreInsights({ tier, onUpgrade, data, onExportCsv, onExportSummary, da
 
                                             <button
                                                 onClick={onExportSummary}
-                                                className="h-9 px-3 rounded-xl border text-xs font-black"
+                                                className="h-9 px-3 rounded-xl border text-[13px] font-black"
                                                 style={{ borderColor: EKARI.hair, color: EKARI.text, background: "white" }}
                                             >
                                                 Download summary
                                             </button>
                                         </div>
-                                        <div className="mt-2 text-xs" style={{ color: EKARI.dim }}>
+                                        <div className="mt-2 text-[13px]" style={{ color: EKARI.dim }}>
                                             (Available with advanced analytics)
                                         </div>
                                     </div>
@@ -2727,7 +2727,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                         </h3>
 
                                         <span
-                                            className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black"
+                                            className="inline-flex items-center rounded-full px-2.5 py-1 text-[13px] font-black"
                                             style={{
                                                 background: "rgba(15,23,42,0.06)",
                                                 color: EKARI.dim,
@@ -2834,7 +2834,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                             <div
                                                 className={`absolute left-2 top-2 ${statusColorClass(
                                                     p
-                                                )} text-white text-[11px] font-black h-6 px-2 rounded-full flex items-center`}
+                                                )} text-white text-[13px] font-black h-6 px-2 rounded-full flex items-center`}
                                             >
                                                 {status.charAt(0).toUpperCase() + status.slice(1)}
                                             </div>
@@ -2845,7 +2845,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 {status !== "active" && (
                                                     <button
                                                         onClick={() => updateListingStatus(p, "active")}
-                                                        className="px-2 py-1 rounded-md bg-emerald-700 text-white text-xs hover:opacity-90"
+                                                        className="px-2 py-1 rounded-md bg-emerald-700 text-white text-[13px] hover:opacity-90"
                                                     >
                                                         Activate
                                                     </button>
@@ -2854,7 +2854,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 {status !== "sold" && (
                                                     <button
                                                         onClick={() => updateListingStatus(p, "sold")}
-                                                        className="px-2 py-1 rounded-md bg-amber-600 text-white text-xs hover:opacity-90"
+                                                        className="px-2 py-1 rounded-md bg-amber-600 text-white text-[13px] hover:opacity-90"
                                                     >
                                                         Sold
                                                     </button>
@@ -2863,7 +2863,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 {status !== "reserved" && (
                                                     <button
                                                         onClick={() => updateListingStatus(p, "reserved")}
-                                                        className="px-2 py-1 rounded-md bg-yellow-500 text-white text-xs hover:opacity-90"
+                                                        className="px-2 py-1 rounded-md bg-yellow-500 text-white text-[13px] hover:opacity-90"
                                                     >
                                                         Reserve
                                                     </button>
@@ -2872,7 +2872,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                                 {status !== "hidden" && (
                                                     <button
                                                         onClick={() => updateListingStatus(p, "hidden")}
-                                                        className="px-2 py-1 rounded-md bg-gray-600 text-white text-xs hover:opacity-90"
+                                                        className="px-2 py-1 rounded-md bg-gray-600 text-white text-[13px] hover:opacity-90"
                                                     >
                                                         Hide
                                                     </button>
@@ -2880,7 +2880,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
 
                                                 <button
                                                     onClick={() => deleteListing(p)}
-                                                    className="px-2 py-1 rounded-md bg-red-600 text-white text-xs hover:opacity-90"
+                                                    className="px-2 py-1 rounded-md bg-red-600 text-white text-[13px] hover:opacity-90"
                                                 >
                                                     Delete
                                                 </button>
@@ -2906,7 +2906,7 @@ export default function StoreClient({ sellerId }: { sellerId: string }) {
                                         {loadingMore ? "Loading…" : "Load more"}
                                     </button>
                                 ) : (
-                                    <div className="text-xs" style={{ color: EKARI.dim }}>
+                                    <div className="text-[13px]" style={{ color: EKARI.dim }}>
                                         {tab === "all" ? "End of listings." : "Tip: switch to All to load more."}
                                     </div>
                                 )}
