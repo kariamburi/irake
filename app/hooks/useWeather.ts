@@ -128,6 +128,9 @@ export function useWeather(
     const lastFetchTimeRef =
         useRef<number>(0);
 
+    const lastFetchKeyRef =
+        useRef<string | null>(null);
+
     /*
      * Prevent two identical requests from running
      * at the same time.
@@ -333,8 +336,13 @@ export function useWeather(
                     Date.now() -
                     lastFetchTimeRef.current;
 
+                const isSameLocationAsLastFetch =
+                    lastFetchKeyRef.current ===
+                    requestKey;
+
                 if (
                     !forceRefresh &&
+                    isSameLocationAsLastFetch &&
                     lastFetchTimeRef.current >
                     0 &&
                     timeSinceLastFetch <
@@ -418,6 +426,9 @@ export function useWeather(
 
                     lastFetchTimeRef.current =
                         Date.now();
+
+                    lastFetchKeyRef.current =
+                        requestKey;
 
                     storeWeather(
                         weatherData,
@@ -521,8 +532,18 @@ export function useWeather(
                 cacheAge <
                 MIN_AUTO_REFRESH_INTERVAL
             ) {
+                const requestKey =
+                    `${latitude.toFixed(
+                        4
+                    )},${longitude.toFixed(
+                        4
+                    )}`;
+
                 lastFetchTimeRef.current =
                     cached.savedAt;
+
+                lastFetchKeyRef.current =
+                    requestKey;
 
                 return;
             }

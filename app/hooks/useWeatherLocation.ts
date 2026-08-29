@@ -3,6 +3,7 @@
 import {
     useCallback,
     useEffect,
+    useRef,
     useState,
 } from "react";
 
@@ -40,9 +41,67 @@ interface UseWeatherLocationResult {
 const WEATHER_LOCATION_STORAGE_KEY =
     "ekarihub_weather_location";
 
-export function useWeatherLocation(): UseWeatherLocationResult {
+const SAME_TAB_EVENT =
+    "ekarihub-weather-location-change";
+
+type Subscriber = (
+    location: SelectedWeatherLocation | null
+) => void;
+
+const subscribers =
+    new Set<Subscriber>();
+
+let sharedLocation:
+    SelectedWeatherLocation | null | undefined =
+    undefined;
+
+function broadcast(
+    nextLocation:
+        SelectedWeatherLocation | null
+) {
+    sharedLocation =
+        nextLocation;
+
+    subscribers.forEach(
+        (subscriber) => {
+            subscriber(
+                nextLocation
+            );
+        }
+    );
+}
+
+function isStoredWeatherLocation(
+    value: unknown
+): value is StoredWeatherLocation {
+    if (
+        typeof value !== "object" ||
+        value === null
+    ) {
+        return false;
+    }
+
+    const stored =
+        value as StoredWeatherLocation;
+
+    return (
+        !!stored.location &&
+        Number.isFinite(
+            stored.location.latitude
+        ) &&
+        Number.isFinite(
+            stored.location.longitude
+        )
+    );
+}
+
+export function useWeatherLocation():
+    UseWeatherLocationResult {
     const [location, setLocation] =
-        useState<SelectedWeatherLocation | null>(
+        useState<
+            SelectedWeatherLocation | null
+        >(
+            sharedLocation ??
             null
         );
 
@@ -51,47 +110,137 @@ export function useWeatherLocation(): UseWeatherLocationResult {
         setPermissionState,
     ] =
         useState<LocationPermissionState>(
-            "idle"
+            sharedLocation
+                ? "granted"
+                : "idle"
         );
 
     const [error, setError] =
-        useState<string | null>(null);
+        useState<string | null>(
+            null
+        );
 
     const [initialized, setInitialized] =
-        useState(false);
+        useState(
+            sharedLocation !==
+            undefined
+        );
 
-    const saveLocation = useCallback(
-        (
-            selectedLocation: SelectedWeatherLocation
-        ) => {
-            if (typeof window === "undefined") {
-                return;
-            }
+    const mountedRef =
+        useRef(true);
 
-            const storedLocation: StoredWeatherLocation =
-            {
-                location: selectedLocation,
-                savedAt: Date.now(),
+    useEffect(() => {
+        mountedRef.current = true;
+
+        return () => {
+            mountedRef.current =
+                false;
+        };
+    }, []);
+
+    useEffect(() => {
+        const subscriber:
+            Subscriber =
+            (
+                nextLocation
+            ) => {
+                if (
+                    !mountedRef.current
+                ) {
+                    return;
+                }
+
+                setLocation(
+                    nextLocation
+                );
+
+                setPermissionState(
+                    nextLocation
+                        ? "granted"
+                        : "idle"
+                );
+
+                setError(null);
+                setInitialized(true);
             };
 
-            try {
-                window.localStorage.setItem(
-                    WEATHER_LOCATION_STORAGE_KEY,
-                    JSON.stringify(storedLocation)
-                );
-            } catch (storageError) {
-                console.error(
-                    "Failed to save weather location:",
-                    storageError
-                );
-            }
-        },
-        []
-    );
+        subscribers.add(
+            subscriber
+        );
+
+        if (
+            sharedLocation !==
+            undefined
+        ) {
+            subscriber(
+                sharedLocation
+            );
+        }
+
+        return () => {
+            subscribers.delete(
+                subscriber
+            );
+        };
+    }, []);
+
+    const saveLocation =
+        useCallback(
+            (
+                selectedLocation:
+                    SelectedWeatherLocation
+            ) => {
+                if (
+                    typeof window ===
+                    "undefined"
+                ) {
+                    return;
+                }
+
+                const storedLocation:
+                    StoredWeatherLocation =
+                {
+                    location:
+                        selectedLocation,
+                    savedAt:
+                        Date.now(),
+                };
+
+                try {
+                    window.localStorage.setItem(
+                        WEATHER_LOCATION_STORAGE_KEY,
+                        JSON.stringify(
+                            storedLocation
+                        )
+                    );
+
+                    window.dispatchEvent(
+                        new CustomEvent(
+                            SAME_TAB_EVENT,
+                            {
+                                detail:
+                                    selectedLocation,
+                            }
+                        )
+                    );
+                } catch (
+                storageError
+                ) {
+                    console.error(
+                        "Failed to save weather location:",
+                        storageError
+                    );
+                }
+            },
+            []
+        );
 
     const loadSavedLocation =
         useCallback(() => {
-            if (typeof window === "undefined") {
+            if (
+                typeof window ===
+                "undefined"
+            ) {
                 setInitialized(true);
                 return;
             }
@@ -103,40 +252,54 @@ export function useWeatherLocation(): UseWeatherLocationResult {
                     );
 
                 if (!storedValue) {
-                    setInitialized(true);
+                    if (
+                        sharedLocation ===
+                        undefined
+                    ) {
+                        broadcast(
+                            null
+                        );
+                    }
+
                     return;
                 }
 
-                const storedLocation =
+                const parsed =
                     JSON.parse(
                         storedValue
-                    ) as StoredWeatherLocation;
+                    ) as unknown;
 
                 if (
-                    !storedLocation.location ||
-                    !Number.isFinite(
-                        storedLocation.location
-                            .latitude
-                    ) ||
-                    !Number.isFinite(
-                        storedLocation.location
-                            .longitude
+                    !isStoredWeatherLocation(
+                        parsed
                     )
                 ) {
                     window.localStorage.removeItem(
                         WEATHER_LOCATION_STORAGE_KEY
                     );
 
-                    setInitialized(true);
+                    if (
+                        sharedLocation ===
+                        undefined
+                    ) {
+                        broadcast(
+                            null
+                        );
+                    }
+
                     return;
                 }
 
-                setLocation(
-                    storedLocation.location
+                broadcast(
+                    parsed.location
                 );
 
-                setPermissionState("granted");
-            } catch (storageError) {
+                setPermissionState(
+                    "granted"
+                );
+            } catch (
+            storageError
+            ) {
                 console.error(
                     "Failed to load saved weather location:",
                     storageError
@@ -154,12 +317,105 @@ export function useWeatherLocation(): UseWeatherLocationResult {
         loadSavedLocation();
     }, [loadSavedLocation]);
 
+    useEffect(() => {
+        if (
+            typeof window ===
+            "undefined"
+        ) {
+            return;
+        }
+
+        const handleStorage =
+            (
+                event:
+                    StorageEvent
+            ) => {
+                if (
+                    event.key !==
+                    WEATHER_LOCATION_STORAGE_KEY
+                ) {
+                    return;
+                }
+
+                if (
+                    !event.newValue
+                ) {
+                    broadcast(
+                        null
+                    );
+                    return;
+                }
+
+                try {
+                    const parsed =
+                        JSON.parse(
+                            event.newValue
+                        ) as unknown;
+
+                    if (
+                        isStoredWeatherLocation(
+                            parsed
+                        )
+                    ) {
+                        broadcast(
+                            parsed.location
+                        );
+                    }
+                } catch (
+                storageError
+                ) {
+                    console.error(
+                        "Failed to sync weather location:",
+                        storageError
+                    );
+                }
+            };
+
+        const handleSameTab =
+            (
+                event: Event
+            ) => {
+                const customEvent =
+                    event as CustomEvent<
+                        SelectedWeatherLocation | null
+                    >;
+
+                broadcast(
+                    customEvent.detail ??
+                    null
+                );
+            };
+
+        window.addEventListener(
+            "storage",
+            handleStorage
+        );
+
+        window.addEventListener(
+            SAME_TAB_EVENT,
+            handleSameTab
+        );
+
+        return () => {
+            window.removeEventListener(
+                "storage",
+                handleStorage
+            );
+
+            window.removeEventListener(
+                SAME_TAB_EVENT,
+                handleSameTab
+            );
+        };
+    }, []);
+
     const requestLocation =
         useCallback(() => {
             setError(null);
 
             if (
-                typeof navigator === "undefined" ||
+                typeof navigator ===
+                "undefined" ||
                 !navigator.geolocation
             ) {
                 setPermissionState(
@@ -177,97 +433,109 @@ export function useWeatherLocation(): UseWeatherLocationResult {
                 "requesting"
             );
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const selectedLocation: SelectedWeatherLocation =
-                    {
-                        latitude:
-                            position.coords.latitude,
+            navigator.geolocation
+                .getCurrentPosition(
+                    (position) => {
+                        const selectedLocation:
+                            SelectedWeatherLocation =
+                        {
+                            latitude:
+                                position.coords.latitude,
 
-                        longitude:
-                            position.coords.longitude,
+                            longitude:
+                                position.coords.longitude,
 
-                        locationName:
-                            "Current location",
+                            locationName:
+                                "Current location",
 
-                        source: "gps",
-                    };
+                            source:
+                                "gps",
+                        };
 
-                    setLocation(
-                        selectedLocation
-                    );
+                        broadcast(
+                            selectedLocation
+                        );
 
-                    setPermissionState(
-                        "granted"
-                    );
-
-                    setError(null);
-
-                    saveLocation(
-                        selectedLocation
-                    );
-                },
-
-                (locationError) => {
-                    console.error(
-                        "Browser location error:",
-                        locationError
-                    );
-
-                    if (
-                        locationError.code ===
-                        locationError.PERMISSION_DENIED
-                    ) {
                         setPermissionState(
-                            "denied"
+                            "granted"
                         );
 
-                        setError(
-                            "Location permission was denied. Select your county to continue."
+                        setError(null);
+
+                        saveLocation(
+                            selectedLocation
+                        );
+                    },
+
+                    (
+                        locationError
+                    ) => {
+                        console.error(
+                            "Browser location error:",
+                            locationError
                         );
 
-                        return;
-                    }
+                        if (
+                            locationError.code ===
+                            locationError.PERMISSION_DENIED
+                        ) {
+                            setPermissionState(
+                                "denied"
+                            );
 
-                    if (
-                        locationError.code ===
-                        locationError.TIMEOUT
-                    ) {
+                            setError(
+                                "Location permission was denied. Select your county to continue."
+                            );
+
+                            return;
+                        }
+
+                        if (
+                            locationError.code ===
+                            locationError.TIMEOUT
+                        ) {
+                            setPermissionState(
+                                "unavailable"
+                            );
+
+                            setError(
+                                "Location detection took too long. Try again or select your county."
+                            );
+
+                            return;
+                        }
+
                         setPermissionState(
                             "unavailable"
                         );
 
                         setError(
-                            "Location detection took too long. Try again or select your county."
+                            "We could not detect your location. Select your county instead."
                         );
+                    },
 
-                        return;
+                    {
+                        enableHighAccuracy:
+                            false,
+
+                        timeout:
+                            10000,
+
+                        maximumAge:
+                            30 *
+                            60 *
+                            1000,
                     }
-
-                    setPermissionState(
-                        "unavailable"
-                    );
-
-                    setError(
-                        "We could not detect your location. Select your county instead."
-                    );
-                },
-
-                {
-                    enableHighAccuracy: false,
-                    timeout: 10000,
-                    maximumAge:
-                        30 * 60 * 1000,
-                }
-            );
+                );
         }, [saveLocation]);
 
     const selectManualLocation =
         useCallback(
             (
-                selectedLocation: SelectedWeatherLocation
+                selectedLocation:
+                    SelectedWeatherLocation
             ) => {
-                setLocation(
+                broadcast(
                     selectedLocation
                 );
 
@@ -286,13 +554,32 @@ export function useWeatherLocation(): UseWeatherLocationResult {
 
     const clearLocation =
         useCallback(() => {
-            setLocation(null);
-            setPermissionState("idle");
+            broadcast(
+                null
+            );
+
+            setPermissionState(
+                "idle"
+            );
+
             setError(null);
 
-            if (typeof window !== "undefined") {
+            if (
+                typeof window !==
+                "undefined"
+            ) {
                 window.localStorage.removeItem(
                     WEATHER_LOCATION_STORAGE_KEY
+                );
+
+                window.dispatchEvent(
+                    new CustomEvent(
+                        SAME_TAB_EVENT,
+                        {
+                            detail:
+                                null,
+                        }
+                    )
                 );
             }
         }, []);

@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/app/hooks/useAuth";
 import { useInboxTotalsWeb } from "@/hooks/useInboxTotalsWeb";
 import UserAvatarMenu from "./UserAvatarMenu";
+import UserAvatarMenuHome from "./UserAvatarMenuHome";
 
 /* Theme */
 const EKARI = {
@@ -404,7 +405,7 @@ export function LeftNavDesktop({
             {/* Signed-in account */}
             {authUid ? (
                 <div className="shrink-0 border-t border-white/10 p-3">
-                    <UserAvatarMenu
+                    <UserAvatarMenuHome
                         uid={authUid}
                         handle={handle}
                         photoURL={photoURL}
