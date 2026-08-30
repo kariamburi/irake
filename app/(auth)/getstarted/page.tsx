@@ -165,14 +165,14 @@ export default function OnboardingPage() {
                                 variants={item}
                                 className="mt-5 max-w-[470px] text-[30px] font-black leading-[1.06] tracking-[-0.045em] sm:text-[36px] xl:text-[42px]"
                             >
-                                Grow with the right agricultural community.
+                                Grow with the right agribusiness community.
                             </motion.h1>
 
                             <motion.p
                                 variants={item}
                                 className="mt-4 max-w-[470px] text-[14px] font-medium leading-5 text-white/60 sm:text-[15px]"
                             >
-                                Connect, share and discover opportunities across agriculture.
+                                Connect, share and discover opportunities across agribusiness.
                             </motion.p>
 
                             <div className="mt-6 space-y-4">

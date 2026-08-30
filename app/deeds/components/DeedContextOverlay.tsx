@@ -257,8 +257,8 @@ export default function DeedContextOverlay({
                          * Market styling
                          */
                         "border",
-                        "border-[#c69258]/70",
-                        "bg-[#E99A18]",
+                        "border-[#C79257]/70",
+                        "bg-[#C79257]",
 
                         /*
                          * Spacing

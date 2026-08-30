@@ -108,7 +108,7 @@ function ActionButton({
 
     const desktopBorder =
         special === "uplift"
-            ? "rgba(243,165,38,0.95)"
+            ? "rgba(255,255,255,0.22)"
             : tone === "like"
                 ? active
                     ? "rgba(244,63,94,0.95)"
