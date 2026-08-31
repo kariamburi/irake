@@ -4,10 +4,12 @@ import React from "react";
 import {
     IoArrowRedo,
     IoBookmark,
+    IoBookmarkOutline,
     IoChatbubble,
+    IoChatbubbleOutline,
     IoEllipsisHorizontal,
     IoHeart,
-    IoCashOutline,
+    IoHeartOutline,
     IoVolumeHigh,
     IoVolumeMute,
 } from "react-icons/io5";
@@ -16,6 +18,7 @@ type Props = {
     liked: boolean;
     commented?: boolean;
     saved: boolean;
+
     muted?: boolean;
     showMute?: boolean;
 
@@ -28,6 +31,7 @@ type Props = {
     onOpenComments?: () => void;
     onShare: () => void;
     onToggleSave: () => void;
+
     onToggleMute?: () => void;
     onMoreClick?: () => void;
 
@@ -35,15 +39,23 @@ type Props = {
     onSupportClick?: () => void;
 
     authordeeds?: boolean;
+
+    /**
+     * Kept for compatibility with existing callers.
+     * Both variants now intentionally use the same
+     * mobile-inspired visual language.
+     */
     variant?: "overlay" | "desktop";
 };
 
-const EKARI_THEME = {
+const EKARI = {
     forest: "#233F39",
-    gold: "#c69258",
-    goldSoft: "#D79A36",
+    gold: "#C79257",
+    lightGold: "#fab15d",
     green: "#16A34A",
-    white: "#FFFFFF",
+
+    heart: "#FF647C",
+    share: "#49D6F6",
 };
 
 function formatCount(n?: number) {
@@ -64,261 +76,214 @@ function formatCount(n?: number) {
     return String(value);
 }
 
+/* -------------------------------------------------------------------------- */
+/*                              ACTION BUTTON                                 */
+/* -------------------------------------------------------------------------- */
+
 type ActionButtonProps = {
     icon: React.ReactNode;
-    label: string;
+
+    label?: string;
+
     onClick?: () => void;
-    active?: boolean;
-    authordeeds?: boolean;
+
     title?: string;
+
+    disabled?: boolean;
+
+    /**
+     * Kept for compatibility.
+     * We don't use this to create a different desktop design anymore.
+     */
     variant?: "overlay" | "desktop";
-    special?: "uplift" | "mute";
-    tone?: "default" | "like" | "comment" | "share" | "save" | "more";
 };
 
 function ActionButton({
     icon,
     label,
     onClick,
-    active = false,
-    authordeeds = false,
     title,
-    variant = "overlay",
-    special,
-    tone = "default",
+    disabled = false,
 }: ActionButtonProps) {
-    const isDesktop = variant === "desktop";
-
-    const desktopBackground =
-        special === "uplift"
-            ? "rgba(243,165,38,0.18)"
-            : tone === "like"
-                ? active
-                    ? "rgba(244,63,94,0.18)"
-                    : "rgba(10,15,12,0.50)"
-                : tone === "share"
-                    ? "rgba(34,211,238,0.12)"
-                    : tone === "comment"
-                        ? "rgba(255,255,255,0.08)"
-                        : tone === "save"
-                            ? active
-                                ? "rgba(243,165,38,0.16)"
-                                : "rgba(255,255,255,0.08)"
-                            : "rgba(10,15,12,0.50)";
-
-    const desktopBorder =
-        special === "uplift"
-            ? "rgba(255,255,255,0.22)"
-            : tone === "like"
-                ? active
-                    ? "rgba(244,63,94,0.95)"
-                    : "rgba(255,255,255,0.22)"
-                : tone === "share"
-                    ? "rgba(34,211,238,0.72)"
-                    : tone === "save"
-                        ? active
-                            ? "rgba(243,165,38,0.78)"
-                            : "rgba(255,255,255,0.22)"
-                        : "rgba(255,255,255,0.22)";
-
     return (
         <button
             type="button"
             onClick={onClick}
-            aria-pressed={active}
             title={title}
+            disabled={disabled}
             className={[
-                "group flex flex-col items-center gap-[3px]",
-                "transition-transform duration-200 ease-out",
-                "hover:-translate-y-[2px] active:translate-y-0",
+                "group",
+                "flex w-[58px] flex-col items-center justify-center",
+                "mt-2",
+                "outline-none",
+                "select-none",
+
+                "transition-all duration-150 ease-out",
+
+                disabled
+                    ? "cursor-default opacity-55"
+                    : "cursor-pointer",
             ].join(" ")}
         >
+            {/* -------------------------------------------------------------- */}
+            {/*                         ICON CIRCLE                            */}
+            {/* -------------------------------------------------------------- */}
+
             <div
                 className={[
-                    "relative grid place-items-center rounded-full",
-                    "transition-all duration-300 ease-out",
-                    "active:scale-90",
-                    isDesktop
+                    "relative",
+
+                    "flex h-[42px] w-[42px]",
+                    "items-center justify-center",
+
+                    "rounded-full",
+
+                    "border border-white/[0.28]",
+
+                    "bg-white/[0.10]",
+
+                    "transition-all duration-150 ease-out",
+
+                    !disabled
                         ? [
-                            "h-[48px] w-[48px]",
-                            "group-hover:scale-[1.08]",
-                            "group-hover:-translate-y-[1px]",
-                            "group-hover:shadow-[0_12px_30px_rgba(0,0,0,0.35)]",
+                            "group-hover:bg-white/[0.15]",
+                            "group-active:scale-[0.95]",
+                            "group-active:opacity-75",
                         ].join(" ")
-                        : "h-9 w-9 md:h-10 md:w-10 group-hover:scale-[1.06]",
-                    !isDesktop || authordeeds
-                        ? "ring-1 ring-white/10"
                         : "",
                 ].join(" ")}
-                style={
-                    isDesktop && !authordeeds
-                        ? {
-                            background: desktopBackground,
-                            border: `1px solid ${desktopBorder}`,
-                            backdropFilter: "blur(12px)",
-                            WebkitBackdropFilter: "blur(12px)",
-                            boxShadow:
-                                "0 10px 24px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.07)",
-                        }
-                        : undefined
-                }
             >
-                {special === "uplift" && (
-                    <span
-                        className={[
-                            "pointer-events-none absolute inset-[-3px] rounded-full",
-                            "border border-[#c69258]/25 opacity-45",
-                            "transition-all duration-500 ease-out",
-                            "group-hover:inset-[-6px] group-hover:opacity-90",
-                        ].join(" ")}
-                    />
-                )}
-
-                <span
-                    className={[
-                        "relative z-10 grid place-items-center",
-                        "transition-transform duration-300 ease-out",
-                        tone === "like" && active
-                            ? "scale-110 -rotate-6"
-                            : "",
-                        tone === "save" && active
-                            ? "scale-110 -translate-y-[1px]"
-                            : "",
-                        tone === "comment"
-                            ? "group-hover:scale-110 group-hover:-rotate-3"
-                            : "",
-                        tone === "share"
-                            ? "group-hover:translate-x-[2px] group-hover:-translate-y-[2px]"
-                            : "",
-                        tone === "more"
-                            ? "group-hover:rotate-90"
-                            : "",
-                    ].join(" ")}
-                >
-                    {icon}
-                </span>
+                {icon}
             </div>
 
-            <span
-                className={[
-                    "select-none whitespace-nowrap font-extrabold tracking-[0.01em]",
-                    isDesktop
-                        ? "text-[10px] leading-[12px]"
-                        : "text-[11px] leading-none md:text-[11px]",
-                ].join(" ")}
-                style={
-                    isDesktop && !authordeeds
-                        ? {
-                            color:
-                                special === "uplift"
-                                    ? EKARI_THEME.gold
-                                    : EKARI_THEME.white,
-                            textShadow:
-                                "0 2px 5px rgba(0,0,0,0.68)",
-                        }
-                        : {
-                            color: EKARI_THEME.white,
-                            textShadow:
-                                "0 2px 4px rgba(0,0,0,0.60)",
-                        }
-                }
-            >
-                {label}
-            </span>
+            {/* -------------------------------------------------------------- */}
+            {/*                         COUNT / LABEL                          */}
+            {/* -------------------------------------------------------------- */}
+
+            {label ? (
+                <span
+                    className={[
+                        "mt-[3px]",
+
+                        "whitespace-nowrap",
+
+                        "text-center",
+                        "text-[12px]",
+                        "leading-[15px]",
+                        "font-semibold",
+
+                        "text-white/[0.92]",
+                    ].join(" ")}
+                    style={{
+                        textShadow:
+                            "0 1px 3px rgba(0,0,0,0.72)",
+                    }}
+                >
+                    {label}
+                </span>
+            ) : null}
         </button>
     );
 }
 
+/* -------------------------------------------------------------------------- */
+/*                           MOBILE STYLE ICON                                */
+/* -------------------------------------------------------------------------- */
+
+function RailIcon({
+    children,
+    color = "#FFFFFF",
+}: {
+    children: React.ReactNode;
+    color?: string;
+}) {
+    return (
+        <span
+            className="flex items-center justify-center"
+            style={{
+                color,
+                filter:
+                    "drop-shadow(0 1px 3px rgba(0,0,0,0.55))",
+            }}
+        >
+            {children}
+        </span>
+    );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                           DEED ACTION RAIL                                 */
+/* -------------------------------------------------------------------------- */
+
 export function DeedActionRailWeb({
     liked,
+
     commented = false,
+
     saved,
+
     muted = true,
+
     showMute = false,
 
     likeCount,
+
     commentCount,
+
     shareCount,
+
     saveCount,
 
     onToggleLike,
+
     onOpenComments,
+
     onShare,
+
     onToggleSave,
+
     onToggleMute,
 
     canSupport = false,
+
     onSupportClick,
+
     onMoreClick,
 
-    authordeeds,
+    authordeeds = false,
+
     variant = "overlay",
 }: Props) {
-    const isDesktop = variant === "desktop";
-
-    const normalIconStyle: React.CSSProperties = isDesktop
-        ? {
-            color: "#FFFFFF",
-            filter:
-                "drop-shadow(0 2px 4px rgba(0,0,0,0.55))",
-        }
-        : {
-            color: "#FF4D6D",
-            filter:
-                "drop-shadow(0 2px 4px rgba(0,0,0,0.60))",
-        };
-
-    const activeIconStyle: React.CSSProperties = isDesktop
-        ? {
-            color: EKARI_THEME.gold,
-            filter:
-                "drop-shadow(0 2px 4px rgba(0,0,0,0.55))",
-        }
-        : {
-            color: EKARI_THEME.green,
-            filter:
-                "drop-shadow(0 2px 4px rgba(0,0,0,0.60))",
-        };
-
-    const muteIconStyle: React.CSSProperties = {
-        color: "#FFFFFF",
-        filter:
-            "drop-shadow(0 2px 4px rgba(0,0,0,0.60))",
-    };
-
-    const shareIconStyle: React.CSSProperties = isDesktop
-        ? {
-            color: "#22D3EE",
-            filter:
-                "drop-shadow(0 2px 4px rgba(0,0,0,0.55))",
-        }
-        : normalIconStyle;
-
     return (
         <div
             className={[
-                "pointer-events-auto flex flex-col items-center",
-                isDesktop ? "gap-[12px]" : "gap-2",
+                "pointer-events-auto",
+
+                "flex w-[58px]",
+                "flex-col",
+
+                "items-center",
+                "justify-end",
             ].join(" ")}
+            data-variant={variant}
         >
-            {/* UPLIFT */}
+            {/* -------------------------------------------------------------- */}
+            {/*                            UPLIFT                              */}
+            {/* -------------------------------------------------------------- */}
+
             {canSupport ? (
                 <ActionButton
-                    active={false}
                     label="Uplift"
-                    authordeeds={authordeeds}
                     onClick={onSupportClick}
                     title="Uplift this deed"
-                    variant={variant}
-                    special="uplift"
-                    tone="default"
                     icon={
                         <span
+                            className="flex items-center justify-center"
                             style={{
-                                fontSize: 20,
+                                fontSize: 22,
                                 lineHeight: 1,
                                 filter:
-                                    "drop-shadow(0 2px 4px rgba(0,0,0,0.55))",
+                                    "drop-shadow(0 1px 3px rgba(0,0,0,0.55))",
                             }}
                         >
                             💰
@@ -327,128 +292,121 @@ export function DeedActionRailWeb({
                 />
             ) : null}
 
-            {/* LIKE */}
+            {/* -------------------------------------------------------------- */}
+            {/*                              LIKE                              */}
+            {/* -------------------------------------------------------------- */}
+
             <ActionButton
-                active={liked}
-                authordeeds={authordeeds}
                 label={formatCount(likeCount)}
                 onClick={onToggleLike}
                 title={liked ? "Unlike" : "Like"}
-                variant={variant}
-                tone="like"
                 icon={
-                    <IoHeart
-                        size={21}
-                        style={
-                            liked
-                                ? activeIconStyle
-                                : normalIconStyle
-                        }
-                    />
+                    <RailIcon color={EKARI.heart}>
+                        {liked ? (
+                            <IoHeart size={23} />
+                        ) : (
+                            <IoHeartOutline size={23} />
+                        )}
+                    </RailIcon>
                 }
             />
 
-            {/* COMMENTS */}
+            {/* -------------------------------------------------------------- */}
+            {/*                           COMMENTS                             */}
+            {/* -------------------------------------------------------------- */}
+
             <ActionButton
-                active={commented}
-                authordeeds={authordeeds}
                 label={formatCount(commentCount)}
                 onClick={onOpenComments}
                 title="Comments"
-                variant={variant}
-                tone="comment"
                 icon={
-                    <IoChatbubble
-                        size={20}
-                        style={
+                    <RailIcon
+                        color={
                             commented
-                                ? activeIconStyle
-                                : normalIconStyle
+                                ? EKARI.lightGold
+                                : "#FFFFFF"
                         }
-                    />
+                    >
+                        {commented ? (
+                            <IoChatbubble size={22} />
+                        ) : (
+                            <IoChatbubbleOutline size={22} />
+                        )}
+                    </RailIcon>
                 }
             />
 
-            {/* SHARE */}
-            <ActionButton
-                active={false}
-                authordeeds={authordeeds}
-                label={formatCount(shareCount)}
-                onClick={onShare}
-                title="Share"
-                variant={variant}
-                tone="share"
-                icon={
-                    <IoArrowRedo
-                        size={21}
-                        style={shareIconStyle}
-                    />
-                }
-            />
+            {/* -------------------------------------------------------------- */}
+            {/*                              SAVE                              */}
+            {/* -------------------------------------------------------------- */}
 
-            {/* SAVE */}
             <ActionButton
-                active={saved}
-                authordeeds={authordeeds}
                 label={formatCount(saveCount)}
                 onClick={onToggleSave}
                 title={saved ? "Unsave" : "Save"}
-                variant={variant}
-                tone="save"
                 icon={
-                    <IoBookmark
-                        size={20}
-                        style={
-                            saved
-                                ? activeIconStyle
-                                : normalIconStyle
-                        }
-                    />
+                    <RailIcon color="#FFFFFF">
+                        {saved ? (
+                            <IoBookmark size={22} />
+                        ) : (
+                            <IoBookmarkOutline size={22} />
+                        )}
+                    </RailIcon>
                 }
             />
 
-            {/* OPTIONAL MUTE */}
+            {/* -------------------------------------------------------------- */}
+            {/*                             SHARE                              */}
+            {/* -------------------------------------------------------------- */}
+
+            <ActionButton
+                label="Share"
+                onClick={onShare}
+                title="Share"
+                icon={
+                    <RailIcon color={EKARI.share}>
+                        <IoArrowRedo size={22} />
+                    </RailIcon>
+                }
+            />
+
+            {/* -------------------------------------------------------------- */}
+            {/*                     OPTIONAL MUTE / SOUND                      */}
+            {/* -------------------------------------------------------------- */}
+
             {showMute && onToggleMute ? (
                 <ActionButton
-                    active={!muted}
-                    authordeeds={authordeeds}
                     label={muted ? "Muted" : "Sound"}
                     onClick={onToggleMute}
                     title={muted ? "Unmute" : "Mute"}
-                    variant={variant}
-                    special="mute"
                     icon={
-                        muted ? (
-                            <IoVolumeMute
-                                size={20}
-                                style={muteIconStyle}
-                            />
-                        ) : (
-                            <IoVolumeHigh
-                                size={20}
-                                style={muteIconStyle}
-                            />
-                        )
+                        <RailIcon color="#FFFFFF">
+                            {muted ? (
+                                <IoVolumeMute size={22} />
+                            ) : (
+                                <IoVolumeHigh size={22} />
+                            )}
+                        </RailIcon>
                     }
                 />
             ) : null}
 
-            {/* MORE */}
-            <ActionButton
-                active={false}
-                authordeeds={authordeeds}
-                label=""
-                onClick={onMoreClick}
-                title="More options"
-                variant={variant}
-                tone="more"
-                icon={
-                    <IoEllipsisHorizontal
-                        size={22}
-                        style={normalIconStyle}
-                    />
-                }
-            />
+            {/* -------------------------------------------------------------- */}
+            {/*                              MORE                              */}
+            {/* -------------------------------------------------------------- */}
+
+            {!authordeeds && onMoreClick ? (
+                <ActionButton
+                    label="More"
+                    onClick={onMoreClick}
+                    title="More options"
+                    icon={
+                        <RailIcon color="#FFFFFF">
+                            <IoEllipsisHorizontal size={22} />
+                        </RailIcon>
+                    }
+                />
+            ) : null}
         </div>
     );
 }
