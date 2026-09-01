@@ -397,12 +397,7 @@ export default function SignupPage() {
                                 />
                             </Link>
 
-                            <Link
-                                href="/login"
-                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[11px] font-black text-white/70 transition hover:bg-white/[0.11]"
-                            >
-                                Log in
-                            </Link>
+
                         </div>
 
                         <div className="flex flex-1 flex-col justify-center py-8 lg:py-10">
@@ -434,6 +429,12 @@ export default function SignupPage() {
                                     title="Access more"
                                     description="Use markets, experts, AI and other ekarihub tools."
                                 />
+                                <Link
+                                    href="/login"
+                                    className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[11px] font-black text-white/70 transition hover:bg-white/[0.11]"
+                                >
+                                    Log in
+                                </Link>
                             </div>
 
                         </div>
