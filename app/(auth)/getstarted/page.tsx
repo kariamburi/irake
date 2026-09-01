@@ -142,12 +142,7 @@ export default function OnboardingPage() {
                                 />
                             </Link>
 
-                            <Link
-                                href="/about"
-                                className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.06] px-3 text-[11px] font-black text-white/70 transition hover:bg-white/[0.11]"
-                            >
-                                About ekarihub
-                            </Link>
+
                         </motion.div>
 
                         <div className="flex flex-1 flex-col justify-center py-8 lg:py-10">
@@ -187,6 +182,14 @@ export default function OnboardingPage() {
                                     title="Discover"
                                     description="Find ideas, services, markets and opportunities."
                                 />
+                                <motion.div variants={item}>
+                                    <Link
+                                        href="/about"
+                                        className="inline-flex h-9 items-center rounded-xl border border-white/50 bg-white/[0.06] px-3 text-[11px] font-black text-white/70 transition hover:bg-white/[0.11]"
+                                    >
+                                        About ekarihub
+                                    </Link>
+                                </motion.div>
                             </div>
                         </div>
                     </motion.div>
