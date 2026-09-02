@@ -783,7 +783,7 @@ export default function BookExpertPage() {
 
     return (
         <AppShell>
-            <main className="min-h-screen w-full bg-slate-50 px-3 py-5">
+            <main className="h-screen w-full overflow-y-auto overscroll-contain bg-slate-50 px-3 py-5 pb-10">
                 <div className="mx-auto max-w-5xl">
                     <button
                         type="button"
