@@ -1476,6 +1476,153 @@ export default function ExpertSettingsPage() {
     };
   }, [expertProfile, userSummary?.timezone]);
 
+  /*
+   * Keep the main users/{uid} profile location synchronized with
+   * the primary location selected in Expert Settings.
+   *
+   * This ensures older screens/components that still read the user's
+   * general profile location show the same place as the expert profile.
+   */
+  const syncUserProfileLocation = useCallback(
+    async (): Promise<void> => {
+      if (!user?.uid || !expertProfile) {
+        throw new Error(
+          "Your expert profile could not be loaded."
+        );
+      }
+
+      const primary = expertProfile.primaryLocation;
+
+      const latitude =
+        primary.coordinates?.latitude ?? null;
+
+      const longitude =
+        primary.coordinates?.longitude ?? null;
+
+      const locationPayload = {
+        placeId: primary.placeId || null,
+
+        label: String(
+          primary.label || ""
+        ).trim(),
+
+        formattedAddress: String(
+          primary.label || ""
+        ).trim(),
+
+        countryCode: String(
+          primary.countryCode || ""
+        )
+          .trim()
+          .toUpperCase(),
+
+        country: String(
+          primary.country || ""
+        ).trim(),
+
+        region: String(
+          primary.region || ""
+        ).trim(),
+
+        county: String(
+          primary.region || ""
+        ).trim(),
+
+        city: String(
+          primary.city || ""
+        ).trim(),
+
+        town: String(
+          primary.city || ""
+        ).trim(),
+
+        locality: String(
+          primary.locality || ""
+        ).trim(),
+
+        latitude,
+        longitude,
+
+        lat: latitude,
+        lng: longitude,
+
+        geohash:
+          primary.coordinates?.geohash || null,
+
+        timezone:
+          primary.timezone ||
+          expertProfile.availability.timezone ||
+          userSummary?.timezone ||
+          "UTC",
+      };
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          /*
+           * New structured mirrors.
+           */
+          location: locationPayload,
+          primaryLocation: locationPayload,
+          profileLocation: locationPayload,
+
+          /*
+           * Legacy/top-level mirrors used by older parts of ekarihub.
+           */
+          countryCode: locationPayload.countryCode,
+          country: locationPayload.country,
+          county: locationPayload.county,
+          region: locationPayload.region,
+          city: locationPayload.city,
+          town: locationPayload.town,
+          latitude: locationPayload.latitude,
+          longitude: locationPayload.longitude,
+          timezone: locationPayload.timezone,
+
+          updatedAt: serverTimestamp(),
+        },
+        {
+          merge: true,
+        }
+      );
+
+      /*
+       * Keep this page's local user summary consistent immediately.
+       */
+      setUserSummary((previous) => {
+        if (!previous) return previous;
+
+        return {
+          ...previous,
+          profileLocation: {
+            placeId: locationPayload.placeId,
+            label: locationPayload.label,
+            countryCode: locationPayload.countryCode,
+            country: locationPayload.country,
+            region: locationPayload.region,
+            city: locationPayload.city,
+            locality: locationPayload.locality,
+            coordinates:
+              latitude !== null && longitude !== null
+                ? {
+                  latitude,
+                  longitude,
+                  geohash: locationPayload.geohash,
+                }
+                : null,
+            timezone: locationPayload.timezone,
+          },
+          timezone: locationPayload.timezone,
+        };
+      });
+    },
+    [
+      expertProfile,
+      user?.uid,
+      userSummary?.timezone,
+    ]
+  );
+
   const handleSave = async (
     event: FormEvent
   ) => {
@@ -1545,6 +1692,12 @@ export default function ExpertSettingsPage() {
           suspendedReason: null,
         });
       }
+
+      /*
+       * Expert Settings primary location should also become
+       * the user's main profile location.
+       */
+      await syncUserProfileLocation();
 
       const savedStatus = existingSnapshot.exists()
         ? String(
@@ -1657,6 +1810,12 @@ export default function ExpertSettingsPage() {
           suspendedReason: null,
         });
       }
+
+      /*
+       * Publish is one-click: save the latest expert fields and
+       * synchronize the same location to users/{uid} before publishing.
+       */
+      await syncUserProfileLocation();
     };
 
   const handlePublish = async () => {
