@@ -1517,7 +1517,10 @@ export default function ExpertSettingsPage() {
       if (existingSnapshot.exists()) {
         await updateDoc(
           expertReference,
-          editablePayload
+          {
+            uid: user.uid,
+            ...editablePayload,
+          }
         );
       } else {
         await setDoc(expertReference, {
@@ -1624,17 +1627,36 @@ export default function ExpertSettingsPage() {
       const expertSnapshot =
         await getDoc(expertReference);
 
-      if (!expertSnapshot.exists()) {
-        throw new Error(
-          "Save your expert profile before publishing it."
+      const editablePayload = buildEditablePayload();
+
+      // Publishing is a one-click action:
+      // save the latest form values first, creating the private draft
+      // automatically when this is the expert's first publication.
+      if (expertSnapshot.exists()) {
+        await updateDoc(
+          expertReference,
+          {
+            uid: user.uid,
+            ...editablePayload,
+          }
         );
+      } else {
+        await setDoc(expertReference, {
+          uid: user.uid,
+          status: "draft",
+          isDiscoverable: false,
+          ...editablePayload,
+          rating: {
+            average: 0,
+            count: 0,
+          },
+          completedConsultations: 0,
+          createdAt: serverTimestamp(),
+          publishedAt: null,
+          suspendedAt: null,
+          suspendedReason: null,
+        });
       }
-
-      await updateDoc(
-        expertReference,
-        buildEditablePayload()
-      );
-
     };
 
   const handlePublish = async () => {
@@ -1652,7 +1674,7 @@ export default function ExpertSettingsPage() {
 
     if (validationError) {
       setErrorMessage(
-        `${validationError} Save or correct your details before publishing.`
+        `${validationError} Correct your details before publishing.`
       );
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -3074,104 +3096,102 @@ export default function ExpertSettingsPage() {
 
                 <div
                   className="sticky bottom-3 z-30 rounded-[18px] border border-[#D9D3C7] bg-[#FBFAF6]/95 p-3 shadow-[0_16px_38px_rgba(15,23,42,0.12)] backdrop-blur-xl"
-
                 >
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="submit"
-                      disabled={saving || publishing || unpublishing}
-                      className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#173C2E] bg-white px-5 text-[13px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:cursor-not-allowed disabled:opacity-60"
-                      style={{
-                        borderColor: EKARI.forest,
-                        color: EKARI.forest,
-                        backgroundColor: "#FFFFFF",
-                      }}
-                    >
-                      <IoSaveOutline size={19} />
-                      {saving ? "Saving…" : "Save changes"}
-                    </button>
+                  {expertProfile.status === "active" &&
+                    expertProfile.isDiscoverable ? (
+                    <>
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <button
+                          type="submit"
+                          disabled={saving || publishing || unpublishing}
+                          className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#173C2E] bg-white px-5 text-[13px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:cursor-not-allowed disabled:opacity-60"
+                          style={{
+                            borderColor: EKARI.forest,
+                            color: EKARI.forest,
+                            backgroundColor: "#FFFFFF",
+                          }}
+                        >
+                          <IoSaveOutline size={19} />
+                          {saving ? "Saving…" : "Save changes"}
+                        </button>
 
-                    {expertProfile.status === "active" &&
-                      expertProfile.isDiscoverable ? (
+                        <button
+                          type="button"
+                          onClick={handleUnpublish}
+                          disabled={saving || publishing || unpublishing}
+                          className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 px-5 text-[13px] font-black text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+                          style={{ backgroundColor: "#B45309" }}
+                        >
+                          <IoPauseOutline size={19} />
+                          {unpublishing
+                            ? "Pausing…"
+                            : "Pause public profile"}
+                        </button>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-center gap-2 text-center">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                        <p
+                          className="text-[13px] font-semibold"
+                          style={{ color: EKARI.subtext }}
+                        >
+                          Your expert profile is currently public. Save changes after editing.
+                        </p>
+                      </div>
+
                       <button
                         type="button"
-                        onClick={handleUnpublish}
-                        disabled={saving || publishing || unpublishing}
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 px-5 text-[13px] font-black text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
-                        style={{ backgroundColor: "#B45309" }}
+                        onClick={() => router.push("/ekari-experts")}
+                        className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                        style={{
+                          borderColor: EKARI.hair,
+                          color: EKARI.forest,
+                        }}
                       >
-                        <IoCloseOutline size={20} />
-                        {unpublishing
-                          ? "Pausing…"
-                          : "Pause public profile"}
+                        <IoOpenOutline size={18} />
+                        View in ekariExperts
                       </button>
-                    ) : (
+                    </>
+                  ) : expertProfile.status === "suspended" ? (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center">
+                      <p className="text-[13px] font-black text-red-700">
+                        This expert profile is suspended.
+                      </p>
+                      <p className="mt-1 text-[12px] font-semibold text-red-600">
+                        Publishing is unavailable until the suspension is removed.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
                       <button
                         type="button"
                         onClick={handlePublish}
-                        disabled={
-                          saving ||
-                          publishing ||
-                          unpublishing ||
-                          expertProfile.status === "suspended"
-                        }
-                        className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
-
+                        disabled={saving || publishing || unpublishing}
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <IoGlobeOutline size={19} />
                         {publishing
-                          ? "Publishing…"
+                          ? expertProfile.status === "paused"
+                            ? "Republishing…"
+                            : "Publishing…"
                           : expertProfile.status === "paused"
-                            ? "Republish profile"
+                            ? "Republish expert profile"
                             : "Publish expert profile"}
                       </button>
-                    )}
-                  </div>
 
-                  <div className="mt-3 flex items-center justify-center gap-2 text-center">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{
-                        backgroundColor:
-                          expertProfile.status === "active" &&
-                            expertProfile.isDiscoverable
-                            ? "#16A34A"
-                            : expertProfile.status === "suspended"
-                              ? "#DC2626"
-                              : "#D97706",
-                      }}
-                    />
-
-                    <p
-                      className="text-[13px] font-semibold"
-                      style={{ color: EKARI.subtext }}
-                    >
-                      {expertProfile.status === "active" &&
-                        expertProfile.isDiscoverable
-                        ? "Your expert profile is currently public."
-                        : expertProfile.status === "paused"
-                          ? "Your expert profile is paused and hidden from search."
-                          : expertProfile.status === "suspended"
-                            ? "Your expert profile has been suspended."
-                            : "Your expert profile is saved privately as a draft."}
-                    </p>
-                  </div>
-
-                  {expertProfile.status === "active" &&
-                    expertProfile.isDiscoverable ? (
-                    <button
-                      type="button"
-                      onClick={() => router.push("/ekari-experts")}
-                      className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
-                      style={{
-                        borderColor: EKARI.hair,
-                        color: EKARI.forest,
-                      }}
-                    >
-                      <IoOpenOutline size={18} />
-                      View in ekariExperts
-                    </button>
-                  ) : null}
+                      <div className="mt-3 flex items-center justify-center gap-2 text-center">
+                        <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                        <p
+                          className="text-[13px] font-semibold"
+                          style={{ color: EKARI.subtext }}
+                        >
+                          {expertProfile.status === "paused"
+                            ? "Republishing saves your latest changes automatically and makes the profile public again."
+                            : "Publishing saves your latest changes automatically. No separate save step is required."}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </form>
             ) : null}
