@@ -44,7 +44,6 @@ import {
   IoNavigateOutline,
   IoLogoWhatsapp,
   IoOpenOutline,
-  IoPauseOutline,
   IoSaveOutline,
   IoSearchOutline,
   IoShieldCheckmarkOutline,
@@ -901,7 +900,6 @@ export default function ExpertSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [unpublishing, setUnpublishing] = useState(false);
 
   const [userSummary, setUserSummary] =
     useState<UserSummary | null>(null);
@@ -1623,6 +1621,19 @@ export default function ExpertSettingsPage() {
     ]
   );
 
+  /*
+   * SINGLE SAVE + PUBLISH ACTION
+   *
+   * Every valid form submission:
+   * 1. Saves the latest form values to expertProfiles/{uid}
+   * 2. Synchronizes the selected expert location to users/{uid}
+   * 3. Calls publishExpertProfile()
+   * 4. The backend refreshes publicExperts/{uid}
+   *
+   * For an already active expert, calling publishExpertProfile()
+   * acts as a public-profile refresh, so the user never needs to
+   * pause and republish manually after editing.
+   */
   const handleSave = async (
     event: FormEvent
   ) => {
@@ -1633,22 +1644,27 @@ export default function ExpertSettingsPage() {
 
     if (!user?.uid || !expertProfile) {
       setErrorMessage(
-        "You must be logged in to save expert settings."
+        "You must be logged in to update your expert profile."
       );
-
       return;
     }
-
 
     const validationError = validateProfile();
 
     if (validationError) {
       setErrorMessage(validationError);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+
       return;
     }
 
     try {
       setSaving(true);
+      setPublishing(true);
 
       const expertReference = doc(
         db,
@@ -1659,8 +1675,12 @@ export default function ExpertSettingsPage() {
       const existingSnapshot =
         await getDoc(expertReference);
 
-      const editablePayload = buildEditablePayload();
+      const editablePayload =
+        buildEditablePayload();
 
+      /*
+       * Save the latest editable expert fields first.
+       */
       if (existingSnapshot.exists()) {
         await updateDoc(
           expertReference,
@@ -1670,181 +1690,46 @@ export default function ExpertSettingsPage() {
           }
         );
       } else {
-        await setDoc(expertReference, {
-          uid: user.uid,
-
-          status: "draft",
-          isDiscoverable: false,
-
-          ...editablePayload,
-
-          rating: {
-            average: 0,
-            count: 0,
-          },
-
-          completedConsultations: 0,
-
-          createdAt: serverTimestamp(),
-
-          publishedAt: null,
-          suspendedAt: null,
-          suspendedReason: null,
-        });
-      }
-
-      /*
-       * Expert Settings primary location should also become
-       * the user's main profile location.
-       */
-      await syncUserProfileLocation();
-
-      const savedStatus = existingSnapshot.exists()
-        ? String(
-          existingSnapshot.data()?.status || "draft"
-        )
-        : "draft";
-
-      const savedIsDiscoverable =
-        existingSnapshot.exists() &&
-        existingSnapshot.data()?.isDiscoverable === true;
-
-      setExpertProfile((previous: any) => {
-        if (!previous) return previous;
-
-        return {
-          ...previous,
-
-          status: savedStatus as ExpertProfile["status"],
-
-          isDiscoverable: savedIsDiscoverable,
-
-          updatedAt: new Date(),
-        };
-      });
-
-      setSuccessMessage(
-        savedStatus === "active" &&
-          savedIsDiscoverable
-          ? "Your expert service settings have been saved and the public listing will update automatically."
-          : "Your expert service settings have been saved."
-      );
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-
-    } catch (error: any) {
-      console.error(
-        "Failed to save expert profile:",
-        {
-          code: error?.code,
-          message: error?.message,
-          error,
-        }
-      );
-
-      if (
-        error?.code === "permission-denied" ||
-        error?.code === "firestore/permission-denied"
-      ) {
-        setErrorMessage(
-          "Firebase denied permission to save this expert profile. Confirm that the expertProfiles rules allow authenticated users to create and update their own profile."
-        );
-      } else {
-        setErrorMessage(
-          error?.message ||
-          "We could not save your expert settings."
-        );
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveLatestExpertFields =
-    async (): Promise<void> => {
-      if (!user?.uid || !expertProfile) {
-        throw new Error(
-          "Your expert profile could not be loaded."
-        );
-      }
-
-      const expertReference = doc(
-        db,
-        "expertProfiles",
-        user.uid
-      );
-
-      const expertSnapshot =
-        await getDoc(expertReference);
-
-      const editablePayload = buildEditablePayload();
-
-      // Publishing is a one-click action:
-      // save the latest form values first, creating the private draft
-      // automatically when this is the expert's first publication.
-      if (expertSnapshot.exists()) {
-        await updateDoc(
+        await setDoc(
           expertReference,
           {
             uid: user.uid,
+
+            status: "draft",
+            isDiscoverable: false,
+
             ...editablePayload,
+
+            rating: {
+              average: 0,
+              count: 0,
+            },
+
+            completedConsultations: 0,
+
+            createdAt: serverTimestamp(),
+
+            publishedAt: null,
+            suspendedAt: null,
+            suspendedReason: null,
           }
         );
-      } else {
-        await setDoc(expertReference, {
-          uid: user.uid,
-          status: "draft",
-          isDiscoverable: false,
-          ...editablePayload,
-          rating: {
-            average: 0,
-            count: 0,
-          },
-          completedConsultations: 0,
-          createdAt: serverTimestamp(),
-          publishedAt: null,
-          suspendedAt: null,
-          suspendedReason: null,
-        });
       }
 
       /*
-       * Publish is one-click: save the latest expert fields and
-       * synchronize the same location to users/{uid} before publishing.
+       * Keep users/{uid} location synchronized with the expert
+       * primary location before refreshing the public profile.
        */
       await syncUserProfileLocation();
-    };
 
-  const handlePublish = async () => {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    if (!user?.uid || !expertProfile) {
-      setErrorMessage(
-        "You must be logged in and have an expert profile before publishing."
-      );
-      return;
-    }
-
-    const validationError = validateProfile();
-
-    if (validationError) {
-      setErrorMessage(
-        `${validationError} Correct your details before publishing.`
-      );
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    try {
-      setPublishing(true);
-
-      // Save the current form values before the backend publishes them.
-      await saveLatestExpertFields();
-
+      /*
+       * Refresh/publish publicExperts/{uid}.
+       *
+       * This callable can be used both for:
+       * - first publication
+       * - republishing a paused profile
+       * - refreshing an already active public profile after edits
+       */
       const publishExpertProfile = httpsCallable<
         Record<string, never>,
         {
@@ -1853,71 +1738,62 @@ export default function ExpertSettingsPage() {
           isDiscoverable: boolean;
           message: string;
         }
-      >(functions, "publishExpertProfile");
-
-      const result = await publishExpertProfile({});
-
-      setSuccessMessage(
-        result.data.message || "Your expert profile is now public."
+      >(
+        functions,
+        "publishExpertProfile"
       );
 
-      await loadData();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (error: any) {
-      console.error("Failed to publish expert profile:", error);
+      const result =
+        await publishExpertProfile({});
 
-      const detailedErrors = error?.details?.errors;
+      await loadData();
+
+      setSuccessMessage(
+        existingSnapshot.exists() &&
+          existingSnapshot.data()?.status === "active" &&
+          existingSnapshot.data()?.isDiscoverable === true
+          ? "Your changes have been saved and your public expert profile has been updated."
+          : (
+            result.data.message ||
+            "Your expert profile has been saved and published."
+          )
+      );
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    } catch (error: any) {
+      console.error(
+        "SAVE_AND_PUBLISH_EXPERT_PROFILE_FAILED",
+        {
+          code: error?.code,
+          message: error?.message,
+          details: error?.details,
+          error,
+        }
+      );
+
+      const detailedErrors =
+        error?.details?.errors;
+
       const message =
-        (Array.isArray(detailedErrors) && detailedErrors[0]) ||
+        (
+          Array.isArray(detailedErrors) &&
+          detailedErrors[0]
+        ) ||
         error?.message ||
-        "We could not publish your expert profile.";
+        "We could not save and update your expert profile.";
 
       setErrorMessage(message);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     } finally {
+      setSaving(false);
       setPublishing(false);
-    }
-  };
-
-  const handleUnpublish = async () => {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    if (!user?.uid) {
-      setErrorMessage("You must be logged in to pause your profile.");
-      return;
-    }
-
-    try {
-      setUnpublishing(true);
-
-      const unpublishExpertProfile = httpsCallable<
-        Record<string, never>,
-        {
-          success: boolean;
-          status: string;
-          isDiscoverable: boolean;
-          message: string;
-        }
-      >(functions, "unpublishExpertProfile");
-
-      const result = await unpublishExpertProfile({});
-
-      setSuccessMessage(
-        result.data.message || "Your expert profile has been paused."
-      );
-
-      await loadData();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (error: any) {
-      console.error("Failed to pause expert profile:", error);
-
-      setErrorMessage(
-        error?.message || "We could not pause your expert profile."
-      );
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } finally {
-      setUnpublishing(false);
     }
   };
 
@@ -3256,66 +3132,12 @@ export default function ExpertSettingsPage() {
                 <div
                   className="sticky bottom-3 z-30 rounded-[18px] border border-[#D9D3C7] bg-[#FBFAF6]/95 p-3 shadow-[0_16px_38px_rgba(15,23,42,0.12)] backdrop-blur-xl"
                 >
-                  {expertProfile.status === "active" &&
-                    expertProfile.isDiscoverable ? (
-                    <>
-                      <div className="flex flex-col gap-3 sm:flex-row">
-                        <button
-                          type="submit"
-                          disabled={saving || publishing || unpublishing}
-                          className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#173C2E] bg-white px-5 text-[13px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE] disabled:cursor-not-allowed disabled:opacity-60"
-                          style={{
-                            borderColor: EKARI.forest,
-                            color: EKARI.forest,
-                            backgroundColor: "#FFFFFF",
-                          }}
-                        >
-                          <IoSaveOutline size={19} />
-                          {saving ? "Saving…" : "Save changes"}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleUnpublish}
-                          disabled={saving || publishing || unpublishing}
-                          className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-700 px-5 text-[13px] font-black text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
-                          style={{ backgroundColor: "#B45309" }}
-                        >
-                          <IoPauseOutline size={19} />
-                          {unpublishing
-                            ? "Pausing…"
-                            : "Pause public profile"}
-                        </button>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-center gap-2 text-center">
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                        <p
-                          className="text-[13px] font-semibold"
-                          style={{ color: EKARI.subtext }}
-                        >
-                          Your expert profile is currently public. Save changes after editing.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => router.push("/ekari-experts")}
-                        className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
-                        style={{
-                          borderColor: EKARI.hair,
-                          color: EKARI.forest,
-                        }}
-                      >
-                        <IoOpenOutline size={18} />
-                        View in ekariExperts
-                      </button>
-                    </>
-                  ) : expertProfile.status === "suspended" ? (
+                  {expertProfile.status === "suspended" ? (
                     <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center">
                       <p className="text-[13px] font-black text-red-700">
                         This expert profile is suspended.
                       </p>
+
                       <p className="mt-1 text-[12px] font-semibold text-red-600">
                         Publishing is unavailable until the suspension is removed.
                       </p>
@@ -3323,32 +3145,76 @@ export default function ExpertSettingsPage() {
                   ) : (
                     <>
                       <button
-                        type="button"
-                        onClick={handlePublish}
-                        disabled={saving || publishing || unpublishing}
+                        type="submit"
+                        disabled={saving || publishing}
                         className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <IoGlobeOutline size={19} />
-                        {publishing
-                          ? expertProfile.status === "paused"
-                            ? "Republishing…"
-                            : "Publishing…"
-                          : expertProfile.status === "paused"
-                            ? "Republish expert profile"
-                            : "Publish expert profile"}
+                        {saving || publishing ? (
+                          <>
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                            Saving & publishing…
+                          </>
+                        ) : (
+                          <>
+                            {profileIsPublic ? (
+                              <IoSaveOutline size={19} />
+                            ) : (
+                              <IoGlobeOutline size={19} />
+                            )}
+
+                            {profileIsPublic
+                              ? "Save & update public profile"
+                              : "Save & publish profile"}
+                          </>
+                        )}
                       </button>
 
                       <div className="mt-3 flex items-center justify-center gap-2 text-center">
-                        <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                        <span
+                          className={[
+                            "h-2.5 w-2.5 rounded-full",
+                            profileIsPublic
+                              ? "bg-emerald-500"
+                              : "bg-amber-500",
+                          ].join(" ")}
+                        />
+
                         <p
                           className="text-[13px] font-semibold"
-                          style={{ color: EKARI.subtext }}
+                          style={{
+                            color: EKARI.subtext,
+                          }}
                         >
-                          {expertProfile.status === "paused"
-                            ? "Republishing saves your latest changes automatically and makes the profile public again."
-                            : "Publishing saves your latest changes automatically. No separate save step is required."}
+                          {profileIsPublic
+                            ? "Saving also refreshes your public expert profile automatically."
+                            : expertProfile.status === "paused"
+                              ? "Your latest changes will be saved and your expert profile will be published again."
+                              : "Your latest changes will be saved and published in one step."}
                         </p>
                       </div>
+
+                      {profileIsPublic ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(
+                              "/ekari-experts"
+                            )
+                          }
+                          className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-[#173C2E] transition hover:bg-[#EEF3EE]"
+                          style={{
+                            borderColor:
+                              EKARI.hair,
+                            color:
+                              EKARI.forest,
+                          }}
+                        >
+                          <IoOpenOutline
+                            size={18}
+                          />
+                          View in ekariExperts
+                        </button>
+                      ) : null}
                     </>
                   )}
                 </div>
