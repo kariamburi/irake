@@ -44,6 +44,7 @@ import {
   IoNavigateOutline,
   IoLogoWhatsapp,
   IoOpenOutline,
+  IoPauseOutline,
   IoSaveOutline,
   IoSearchOutline,
   IoShieldCheckmarkOutline,
@@ -900,6 +901,7 @@ export default function ExpertSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [unpublishing, setUnpublishing] = useState(false);
 
   const [userSummary, setUserSummary] =
     useState<UserSummary | null>(null);
@@ -1794,6 +1796,74 @@ export default function ExpertSettingsPage() {
     } finally {
       setSaving(false);
       setPublishing(false);
+    }
+  };
+
+  /*
+   * SECONDARY PAUSE ACTION
+   *
+   * Only shown while the expert profile is currently public.
+   * Pausing removes the public listing but keeps all saved settings.
+   * The main button becomes "Save & publish profile" afterwards.
+   */
+  const handleUnpublish = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (!user?.uid) {
+      setErrorMessage(
+        "You must be logged in to pause your profile."
+      );
+      return;
+    }
+
+    try {
+      setUnpublishing(true);
+
+      const unpublishExpertProfile = httpsCallable<
+        Record<string, never>,
+        {
+          success: boolean;
+          status: string;
+          isDiscoverable: boolean;
+          message: string;
+        }
+      >(
+        functions,
+        "unpublishExpertProfile"
+      );
+
+      const result =
+        await unpublishExpertProfile({});
+
+      setSuccessMessage(
+        result.data.message ||
+        "Your expert profile has been paused."
+      );
+
+      await loadData();
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    } catch (error: any) {
+      console.error(
+        "FAILED_TO_PAUSE_EXPERT_PROFILE",
+        error
+      );
+
+      setErrorMessage(
+        error?.message ||
+        "We could not pause your expert profile."
+      );
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    } finally {
+      setUnpublishing(false);
     }
   };
 
@@ -3146,10 +3216,10 @@ export default function ExpertSettingsPage() {
                     <>
                       <button
                         type="submit"
-                        disabled={saving || publishing}
+                        disabled={saving || publishing || unpublishing}
                         className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#173C2E] px-5 text-[13px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {saving || publishing ? (
+                        {saving || publishing || unpublishing ? (
                           <>
                             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
                             Saving & publishing…
@@ -3192,6 +3262,41 @@ export default function ExpertSettingsPage() {
                               : "Your latest changes will be saved and published in one step."}
                         </p>
                       </div>
+
+                      {profileIsPublic ? (
+                        <button
+                          type="button"
+                          onClick={handleUnpublish}
+                          disabled={
+                            saving ||
+                            publishing ||
+                            unpublishing
+                          }
+                          className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border px-4 text-[12px] font-black transition disabled:cursor-not-allowed disabled:opacity-60"
+                          style={{
+                            borderColor:
+                              "rgba(180,35,24,0.22)",
+                            backgroundColor:
+                              "rgba(180,35,24,0.04)",
+                            color:
+                              EKARI.danger,
+                          }}
+                        >
+                          {unpublishing ? (
+                            <>
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-300 border-t-red-700" />
+                              Pausing…
+                            </>
+                          ) : (
+                            <>
+                              <IoPauseOutline
+                                size={18}
+                              />
+                              Pause public profile
+                            </>
+                          )}
+                        </button>
+                      ) : null}
 
                       {profileIsPublic ? (
                         <button
