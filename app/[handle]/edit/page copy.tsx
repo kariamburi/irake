@@ -30,6 +30,8 @@ import {
 import {
   getAuth,
   onAuthStateChanged,
+  linkWithPhoneNumber,
+  RecaptchaVerifier,
 } from "firebase/auth";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import {
@@ -428,12 +430,8 @@ export default function EditProfilePage() {
   const [localPhone, setLocalPhone] = useState("");
 
   const phoneE164 = useMemo(() => {
-    const digits = (localPhone || "")
-      .replace(/[^\d]/g, "")
-      .replace(/^0+/, "");
-
+    const digits = (localPhone || "").replace(/[^\d]/g, "");
     if (!digits) return "";
-
     return `${phoneCountry.dial}${digits}`;
   }, [phoneCountry, localPhone]);
 
@@ -485,9 +483,16 @@ export default function EditProfilePage() {
     null
   );
   const [countryCode, setCountryCode] = useState<string | null>(null);
-  // Phone is profile contact information only.
-  // It is no longer linked to Firebase Auth and no SMS verification is used.
+  // ✅ Initialize picker from stored phone if possible
+  // phone link state
   const [phoneBusy, setPhoneBusy] = useState(false);
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsCode, setSmsCode] = useState("");
+  const confirmationResultRef =
+    useRef<
+      ReturnType<typeof linkWithPhoneNumber> extends Promise<infer T> ? T : any | null
+    >(null);
+  const recaptchaRef = useRef<any>(null);
 
   // Delete account state
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -624,7 +629,7 @@ export default function EditProfilePage() {
             setLocalPhone(existing.replace(/[^\d]/g, ""));
           }
 
-          setPhoneVerified(!!d.phoneVerified);
+          setPhoneVerified(!!d.phoneVerified || !!u.phoneNumber);
           setCountryCode(d.countryCode ?? null);
           setAllowPushNotifications(d.allowPushNotifications !== false);
           setAllowEmailNotifications(d.allowEmailNotifications !== false);
@@ -827,14 +832,36 @@ export default function EditProfilePage() {
     [avatarPreview]
   );
 
-  // ---------- Save profile phone (no Firebase Auth linking / no SMS OTP) ----------
-  const saveProfilePhone = async () => {
+  // ---------- Phone link (web SDK with invisible Recaptcha) ----------
+  const ensureRecaptcha = () => {
+    if (recaptchaRef.current) return true;
+    try {
+      const node =
+        document.getElementById("recaptcha-container") ||
+        (() => {
+          const div = document.createElement("div");
+          div.id = "recaptcha-container";
+          div.style.position = "fixed";
+          div.style.bottom = "-10000px";
+          document.body.appendChild(div);
+          return div;
+        })();
+
+      // @ts-ignore
+      recaptchaRef.current = new RecaptchaVerifier(getAuth(), node, {
+        size: "invisible",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const sendSms = async (e164: string) => {
     if (!uid) return;
 
-    if (!validPhoneE164) {
-      setErrorMsg(
-        "That phone number looks invalid. Check the country code and number."
-      );
+    if (!/^\+\d{8,15}$/.test(e164)) {
+      setErrorMsg("That phone number looks invalid. Check the country code and number.");
       return;
     }
 
@@ -843,22 +870,51 @@ export default function EditProfilePage() {
     setSuccessMsg("");
 
     try {
+      ensureRecaptcha();
+      const conf = await linkWithPhoneNumber(
+        getAuth().currentUser!,
+        e164,
+        recaptchaRef.current
+      );
+
+      confirmationResultRef.current = conf;
+
+      // keep phone state in sync
+      setPhone(e164);
+      setSmsSent(true);
+    } catch (err: any) {
+      // use the same clean mapping you have in phone-login if you want
+      setErrorMsg(err?.message || "Could not send code");
+    } finally {
+      setPhoneBusy(false);
+    }
+  };
+
+
+  const confirmSms = async () => {
+    if (!confirmationResultRef.current) return;
+
+    setPhoneBusy(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      await confirmationResultRef.current.confirm(smsCode);
+
+      // ✅ save verified phone + country
       await saveField({
         phone: phoneE164,
-        phoneCountryCode: phoneCountry.code,
+        phoneVerified: true,
         countryCode: phoneCountry.code,
-        phoneVerified: false,
       });
 
       setPhone(phoneE164);
-      setPhoneVerified(false);
+      setPhoneVerified(true);
       setCountryCode(phoneCountry.code);
+
       setSheet(null);
     } catch (err: any) {
-      setErrorMsg(
-        err?.message ||
-        "Could not save phone number."
-      );
+      setErrorMsg(err?.message || "Invalid code");
     } finally {
       setPhoneBusy(false);
     }
@@ -909,7 +965,7 @@ export default function EditProfilePage() {
       },
       {
         label: "Phone",
-        complete: !!phone,
+        complete: !!phone && phoneVerified,
       },
       {
         label: "Website",
@@ -939,6 +995,7 @@ export default function EditProfilePage() {
     surname,
     bio,
     phone,
+    phoneVerified,
     website,
     areaOfInterest,
     roles,
@@ -1151,11 +1208,13 @@ export default function EditProfilePage() {
                 <div className="grid gap-2 md:grid-cols-2">
                   <ItemRow
                     label="Phone"
-                    value={phone || "Add phone"}
-                    status={phone ? "success" : undefined}
+                    value={phone ? `${phoneVerified ? "Verified · " : "Unverified · "}${phone}` : "Add phone"}
+                    status={phone ? (phoneVerified ? "success" : "warning") : undefined}
                     onEdit={() => {
+                      setSmsSent(false);
+                      setSmsCode("");
+                      confirmationResultRef.current = null;
                       setErrorMsg("");
-                      setSuccessMsg("");
                       setSheet("phone");
                     }}
                   />
@@ -1398,7 +1457,7 @@ export default function EditProfilePage() {
                   <span
                     className={[
                       "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
-                      phone
+                      phoneVerified
                         ? "bg-emerald-100 text-emerald-700"
                         : "bg-amber-100 text-amber-700",
                     ].join(" ")}
@@ -1408,13 +1467,13 @@ export default function EditProfilePage() {
 
                   <div>
                     <div className="text-[15px] font-black text-slate-900">
-                      Phone contact
+                      Account security
                     </div>
 
                     <p className="mt-1 text-[14px] font-medium leading-5 text-slate-500">
-                      {phone
-                        ? "Your phone number is saved as profile contact information."
-                        : "Add a phone number so people can contact you when appropriate."}
+                      {phoneVerified
+                        ? "Your phone number is verified."
+                        : "Verify your phone number to strengthen account recovery and trust."}
                     </p>
                   </div>
                 </div>
@@ -1781,66 +1840,115 @@ export default function EditProfilePage() {
       {/* PHONE */}
       <BottomSheet
         open={sheet === "phone"}
-        title="Add phone number"
+        title="Verify & link phone"
         onClose={() => setSheet(null)}
       >
-        <div className="space-y-3">
-          <FieldLabel label="Phone number">
-            <div className="flex h-11 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-2 transition focus-within:border-[#173C2E]/45">
-              <CountryPicker
-                value={phoneCountry}
-                onChange={setPhoneCountry}
-                disabled={phoneBusy}
-              />
+        {!smsSent ? (
+          <div className="space-y-3">
+            <FieldLabel label="Phone number">
+              <div className="flex h-11 items-center gap-2 rounded-xl border border-[#D9D3C7] bg-white px-2 transition focus-within:border-[#173C2E]/45">
+                <CountryPicker
+                  value={phoneCountry}
+                  onChange={setPhoneCountry}
+                  disabled={phoneBusy}
+                />
 
-              <div className="h-6 w-px bg-[#E2DED5]" />
+                <div className="h-6 w-px bg-[#E2DED5]" />
 
-              <input
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel-national"
-                placeholder="712345678"
-                maxLength={12}
-                className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                value={localPhone}
-                onChange={(event) =>
-                  setLocalPhone(
-                    event.target.value.replace(
-                      /[^\d]/g,
-                      ""
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  placeholder="712345678"
+                  maxLength={12}
+                  className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                  value={localPhone}
+                  onChange={(event) =>
+                    setLocalPhone(
+                      event.target.value.replace(/[^\d]/g, "")
                     )
+                  }
+                  disabled={phoneBusy}
+                />
+              </div>
+            </FieldLabel>
+
+            <div className="text-[11px] font-medium text-slate-400">
+              Sending to:{" "}
+              <span className="font-black text-slate-600">
+                {phoneE164 || `${phoneCountry.dial}…`}
+              </span>
+            </div>
+
+            <SheetActions
+              onCancel={() => setSheet(null)}
+              disabled={phoneBusy || !validPhoneE164}
+              saveText={phoneBusy ? "Sending…" : "Send code"}
+              onSave={() => sendSms(phoneE164)}
+            />
+
+            {errorMsg ? (
+              <p className="text-[12px] font-semibold text-rose-600">
+                {errorMsg}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <FieldLabel label="Verification code">
+              <input
+                value={smsCode}
+                onChange={(event) =>
+                  setSmsCode(
+                    event.target.value.replace(/[^\d]/g, "").slice(0, 6)
                   )
                 }
-                disabled={phoneBusy}
+                placeholder="6-digit code"
+                className="h-11 w-full rounded-xl border border-[#D9D3C7] bg-white px-3 text-sm font-bold tracking-[0.2em] outline-none transition focus:border-[#173C2E]/45"
               />
+            </FieldLabel>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                disabled={phoneBusy}
+                onClick={() => {
+                  setSmsSent(false);
+                  setSmsCode("");
+                }}
+                className="text-[12px] font-black text-slate-500 hover:text-[#173C2E]"
+              >
+                Change number
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={phoneBusy || !validPhoneE164}
+                  onClick={() => sendSms(phoneE164)}
+                  className="h-10 rounded-xl border border-[#D9D3C7] bg-white px-4 text-[12px] font-black text-slate-600 transition hover:bg-[#F3F1EB] disabled:opacity-50"
+                >
+                  Resend
+                </button>
+
+                <button
+                  type="button"
+                  disabled={phoneBusy || smsCode.length !== 6}
+                  onClick={confirmSms}
+                  className="h-10 rounded-xl bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:opacity-50"
+                >
+                  {phoneBusy ? "Verifying…" : "Verify & link"}
+                </button>
+              </div>
             </div>
-          </FieldLabel>
 
-          <div className="rounded-xl border border-[#E5E0D6] bg-[#FBFAF6] px-3 py-2.5 text-[12px] font-medium leading-5 text-slate-500">
-            This number is saved as profile contact information. It is not used
-            for sign-in and no SMS verification is required.
+            {errorMsg ? (
+              <p className="text-[12px] font-semibold text-rose-600">
+                {errorMsg}
+              </p>
+            ) : null}
           </div>
-
-          <div className="text-[11px] font-medium text-slate-400">
-            Saving as:{" "}
-            <span className="font-black text-slate-600">
-              {phoneE164 || `${phoneCountry.dial}…`}
-            </span>
-          </div>
-
-          <SheetActions
-            onCancel={() => setSheet(null)}
-            disabled={phoneBusy || !validPhoneE164}
-            saveText={phoneBusy ? "Saving…" : "Save phone"}
-            onSave={saveProfilePhone}
-          />
-
-          {errorMsg ? (
-            <p className="text-[12px] font-semibold text-rose-600">
-              {errorMsg}
-            </p>
-          ) : null}
-        </div>
+        )}
       </BottomSheet>
 
       <div id="recaptcha-container" />

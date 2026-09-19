@@ -22,6 +22,7 @@ import {
     IoMailOutline,
     IoPeopleOutline,
     IoPersonAddOutline,
+    IoPhonePortraitOutline,
     IoSparklesOutline,
 } from "react-icons/io5";
 import {
@@ -54,17 +55,6 @@ const EKARI = {
 
 export default function LoginPage() {
     const router = useRouter();
-    /*
- * Email OTP rollout cutoff.
- *
- * Existing email/password users created before this time
- * continue to log in normally.
- *
- * Email/password users created on/after this time must have
- * users/{uid}.emailOtpVerified === true.
- */
-    const EMAIL_OTP_ENFORCEMENT_FROM =
-        new Date("2026-09-19T12:50:00.000Z").getTime();
     const {
         user,
         loading: authLoading,
@@ -327,55 +317,18 @@ export default function LoginPage() {
         let alive = true;
 
         (async () => {
-            try {
-                const tokenResult =
-                    await user.getIdTokenResult();
-
-                const signInProvider =
-                    tokenResult?.signInProvider;
-
-                if (
-                    signInProvider ===
-                    "password"
-                ) {
-                    const allowed =
-                        await canEmailUserEnter(
-                            user
-                        );
-
-                    if (!allowed) {
-                        await authBundle?.auth
-                            ?.signOut()
-                            .catch(() => { });
-
-                        if (alive) {
-                            setErrorMsg(
-                                "Your email verification is incomplete. Please complete signup using the 6-digit email verification code."
-                            );
-                        }
-
-                        return;
-                    }
-                }
-
-                const dest =
-                    await resolveDestination(
-                        user.uid
-                    );
-
-                if (!alive) {
-                    return;
-                }
-
-                router.replace(
-                    dest
+            const dest =
+                await resolveDestination(
+                    user.uid
                 );
-            } catch (err) {
-                console.error(
-                    "Post-login check failed:",
-                    err
-                );
+
+            if (!alive) {
+                return;
             }
+
+            router.replace(
+                dest
+            );
         })();
 
         return () => {
@@ -387,35 +340,7 @@ export default function LoginPage() {
         authLoading,
         postAuthChecking,
         safeNext,
-        authBundle,
     ]);
-
-    const canEmailUserEnter =
-        async (firebaseUser: any) => {
-            const createdAt =
-                firebaseUser?.metadata?.creationTime
-                    ? new Date(firebaseUser.metadata.creationTime).getTime()
-                    : 0;
-
-            if (
-                !Number.isFinite(createdAt) ||
-                createdAt < EMAIL_OTP_ENFORCEMENT_FROM
-            ) {
-                return true;
-            }
-
-            const snap =
-                await getDoc(
-                    doc(db, "users", firebaseUser.uid)
-                );
-
-            const data =
-                snap.exists()
-                    ? (snap.data() as any)
-                    : {};
-
-            return data?.emailOtpVerified === true;
-        };
 
     const handleLoginEmail =
         async () => {
@@ -428,21 +353,29 @@ export default function LoginPage() {
                 return;
             }
 
-            const { auth } = authBundle;
+            const {
+                auth,
+            } = authBundle;
 
             setErrorMsg("");
-            setLoadingEmail(true);
-            setPostAuthChecking(true);
+            setLoadingEmail(
+                true
+            );
+            setPostAuthChecking(
+                true
+            );
 
             try {
                 const cred =
                     await signInWithEmailAndPassword(
                         auth,
-                        email.trim().toLowerCase(),
+                        email.trim(),
                         password
                     );
 
-                const uid = cred.user?.uid;
+                const uid =
+                    cred.user
+                        ?.uid;
 
                 if (!uid) {
                     setErrorMsg(
@@ -451,32 +384,37 @@ export default function LoginPage() {
                     return;
                 }
 
-                const allowed =
-                    await canEmailUserEnter(
-                        cred.user
-                    );
-
-                if (!allowed) {
-                    await auth.signOut().catch(() => { });
-
-                    setErrorMsg(
-                        "Your email verification is incomplete. Please complete signup using the 6-digit email verification code."
-                    );
-                    return;
-                }
-
                 const dest =
-                    await resolveDestination(uid);
+                    await resolveDestination(
+                        uid
+                    );
 
-                router.replace(dest);
-            } catch (err: any) {
+                router.replace(
+                    dest
+                );
+            } catch (
+            err: any
+            ) {
                 setErrorMsg(
-                    mapAuthError(err)
+                    mapAuthError(
+                        err
+                    )
                 );
             } finally {
-                setPostAuthChecking(false);
-                setLoadingEmail(false);
+                setPostAuthChecking(
+                    false
+                );
+                setLoadingEmail(
+                    false
+                );
             }
+        };
+
+    const continueWithPhone =
+        () => {
+            router.push(
+                "/phone-login"
+            );
         };
 
     const continueWithGoogle =
@@ -713,6 +651,35 @@ export default function LoginPage() {
                                     ? "Checking your current session…"
                                     : "Choose a sign-in method."}
                             </p>
+
+                            <button
+                                type="button"
+                                onClick={
+                                    continueWithPhone
+                                }
+                                disabled={
+                                    disableAll
+                                }
+                                className="group mt-5 flex w-full items-center gap-3 rounded-[18px] bg-[#173C2E] p-4 text-left text-white shadow-[0_12px_28px_rgba(23,60,46,0.14)] transition-all duration-200 hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-white/[0.09] text-[#c69258]">
+                                    <IoPhonePortraitOutline size={20} />
+                                </span>
+
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-[15px] font-black">
+                                        Continue with phone number
+                                    </span>
+                                    <span className="mt-1 block text-[11px] font-medium leading-4 text-white/50">
+                                        Use your account phone number.
+                                    </span>
+                                </span>
+
+                                <IoArrowForwardOutline
+                                    size={16}
+                                    className="shrink-0 text-white/45 transition-transform duration-200 group-hover:translate-x-1"
+                                />
+                            </button>
 
                             <button
                                 type="button"
