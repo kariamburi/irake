@@ -4,7 +4,9 @@ import React from "react";
 
 import { PublicExpert } from "@/app/types/publicExpert";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useAuth } from "@/app/hooks/useAuth";
 import {
     IoArrowForward,
     IoCallOutline,
@@ -28,6 +30,9 @@ const EKARI = {
     soft: "#F8FAFC",
     success: "#15803D",
 };
+
+const makeThreadId = (a: string, b: string) =>
+    [a, b].sort().join("_");
 
 function getInitials(name: string): string {
     const parts = name
@@ -155,6 +160,7 @@ function getLocationLabel(
         "Location not specified"
     );
 }
+
 function ExpertRating({
     average,
     count,
@@ -271,6 +277,7 @@ function ExpertRating({
         </div>
     );
 }
+
 function ConsultationIcons({
     methods,
 }: {
@@ -318,6 +325,7 @@ function ConsultationIcons({
                     <IoVideocamOutline size={15} />
                 </span>
             ) : null}
+
             {visibleMethods.includes("chat") ? (
                 <span
                     title="Ekarihub chat"
@@ -332,6 +340,7 @@ function ConsultationIcons({
                     />
                 </span>
             ) : null}
+
             {visibleMethods.includes("physical") ? (
                 <span
                     title="Physical farm visit"
@@ -344,7 +353,6 @@ function ConsultationIcons({
                     <IoLocationOutline size={15} />
                 </span>
             ) : null}
-
         </div>
     );
 }
@@ -354,6 +362,9 @@ export default function ExpertCard({
 }: {
     expert: PublicExpert;
 }) {
+    const { user } = useAuth();
+    const router = useRouter();
+
     const profilePath = expert.handle
         ? `/${encodeURIComponent(expert.handle)}`
         : `/ekari-experts/${encodeURIComponent(
@@ -368,6 +379,83 @@ export default function ExpertCard({
             .join(" ")
             .trim() ||
         "ekari Expert";
+
+    const openBonga = React.useCallback(() => {
+        if (!user?.uid) {
+            try {
+                const next =
+                    typeof window !== "undefined"
+                        ? window.location.pathname +
+                        window.location.search
+                        : "/";
+
+                router.push(
+                    `/login?next=${encodeURIComponent(
+                        next
+                    )}`
+                );
+            } catch {
+                router.push("/login");
+            }
+
+            return;
+        }
+
+        const peerId = expert.uid;
+
+        if (!peerId || user.uid === peerId) {
+            return;
+        }
+
+        const peerName = displayName;
+        const peerPhotoURL =
+            expert.photoURL || "";
+        const peerHandle =
+            expert.handle || "";
+
+        const threadId = makeThreadId(
+            user.uid,
+            peerId
+        );
+
+        const qs = new URLSearchParams();
+
+        qs.set("peerId", peerId);
+
+        if (peerName) {
+            qs.set(
+                "peerName",
+                peerName
+            );
+        }
+
+        if (peerPhotoURL) {
+            qs.set(
+                "peerPhotoURL",
+                peerPhotoURL
+            );
+        }
+
+        if (peerHandle) {
+            qs.set(
+                "peerHandle",
+                peerHandle
+            );
+        }
+
+        router.push(
+            `/bonga/${encodeURIComponent(
+                threadId
+            )}?${qs.toString()}`
+        );
+    }, [
+        user?.uid,
+        router,
+        expert.uid,
+        expert.photoURL,
+        expert.handle,
+        displayName,
+    ]);
 
     const rating =
         Number(expert.rating?.average) || 0;
@@ -393,8 +481,14 @@ export default function ExpertCard({
 
     return (
         <motion.article
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{
+                opacity: 0,
+                y: 8,
+            }}
+            animate={{
+                opacity: 1,
+                y: 0,
+            }}
             transition={{
                 duration: 0.28,
                 ease: "easeOut",
@@ -421,20 +515,29 @@ export default function ExpertCard({
                             "ring-1 ring-black/[0.05]",
                         ].join(" ")}
                     >
-                        {expert.photoURL && !imageFailed ? (
+                        {expert.photoURL &&
+                            !imageFailed ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                                src={expert.photoURL}
-                                alt={displayName}
+                                src={
+                                    expert.photoURL
+                                }
+                                alt={
+                                    displayName
+                                }
                                 loading="lazy"
                                 referrerPolicy="no-referrer"
                                 className="h-full w-full object-cover"
                                 onError={() =>
-                                    setImageFailed(true)
+                                    setImageFailed(
+                                        true
+                                    )
                                 }
                             />
                         ) : (
-                            getInitials(displayName)
+                            getInitials(
+                                displayName
+                            )
                         )}
                     </div>
 
@@ -450,17 +553,23 @@ export default function ExpertCard({
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                             <Link
-                                href={profilePath}
+                                href={
+                                    profilePath
+                                }
                                 className="inline-flex max-w-full items-center gap-1.5"
                             >
                                 <h2 className="truncate text-[18px] font-black tracking-[-0.02em] text-slate-900 transition group-hover:text-[#173C2E]">
-                                    {displayName}
+                                    {
+                                        displayName
+                                    }
                                 </h2>
 
                                 {expert.verificationStatus ===
                                     "approved" ? (
                                     <IoCheckmarkCircle
-                                        size={16}
+                                        size={
+                                            16
+                                        }
                                         className="shrink-0 text-[#c69258]"
                                         title="Verified expert"
                                     />
@@ -470,7 +579,8 @@ export default function ExpertCard({
                             <p className="mt-1 truncate text-[15px] font-extrabold text-[#c69258]">
                                 {expert.headline ||
                                     expert.verificationRole ||
-                                    expert.specialties?.[0] ||
+                                    expert
+                                        .specialties?.[0] ||
                                     expert.organizationName ||
                                     "Agricultural professional"}
                             </p>
@@ -483,7 +593,11 @@ export default function ExpertCard({
                                 "text-[13px] font-black text-[#9A5A08]",
                             ].join(" ")}
                         >
-                            ★ {rating.toFixed(1)} ·{" "}
+                            ★{" "}
+                            {rating.toFixed(
+                                1
+                            )}{" "}
+                            ·{" "}
                             {ratingCount}{" "}
                             {ratingCount === 1
                                 ? "review"
@@ -497,13 +611,23 @@ export default function ExpertCard({
                                 size={14}
                                 className="text-[#c69258]"
                             />
-                            {getLocationLabel(expert)}
+
+                            {getLocationLabel(
+                                expert
+                            )}
                         </span>
 
                         <span className="inline-flex items-center gap-1">
-                            <IoPeopleOutline size={14} />
-                            {completedConsultations} consultation
-                            {completedConsultations === 1
+                            <IoPeopleOutline
+                                size={14}
+                            />
+
+                            {
+                                completedConsultations
+                            }{" "}
+                            consultation
+                            {completedConsultations ===
+                                1
                                 ? ""
                                 : "s"}
                         </span>
@@ -523,24 +647,36 @@ export default function ExpertCard({
 
                     {expert.expertBio ? (
                         <p className="mt-3 line-clamp-3 text-[15px] leading-[21px] text-slate-600">
-                            {expert.expertBio}
+                            {
+                                expert.expertBio
+                            }
                         </p>
                     ) : null}
 
                     {specialties.length ? (
                         <div className="mt-3 flex flex-wrap gap-1.5">
-                            {specialties.map((specialty) => (
-                                <span
-                                    key={specialty}
-                                    className={[
-                                        "rounded-full border border-[#B9DDAA]",
-                                        "bg-[#F4FBF0] px-2.5 py-1",
-                                        "text-[12px] font-bold text-[#3F751D]",
-                                    ].join(" ")}
-                                >
-                                    {specialty}
-                                </span>
-                            ))}
+                            {specialties.map(
+                                (
+                                    specialty
+                                ) => (
+                                    <span
+                                        key={
+                                            specialty
+                                        }
+                                        className={[
+                                            "rounded-full border border-[#B9DDAA]",
+                                            "bg-[#F4FBF0] px-2.5 py-1",
+                                            "text-[12px] font-bold text-[#3F751D]",
+                                        ].join(
+                                            " "
+                                        )}
+                                    >
+                                        {
+                                            specialty
+                                        }
+                                    </span>
+                                )
+                            )}
                         </div>
                     ) : null}
 
@@ -559,19 +695,31 @@ export default function ExpertCard({
                             Book consultation
                         </Link>
 
-                        <Link
-                            href="/bonga"
+                        <button
+                            type="button"
+                            onClick={
+                                openBonga
+                            }
+                            disabled={
+                                !!user?.uid &&
+                                user.uid ===
+                                expert.uid
+                            }
                             className={[
-                                "inline-flex min-h-10 items-center justify-center rounded-xl",
+                                "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl",
                                 "bg-[#c69258] px-4",
                                 "text-[14px] font-black text-white",
                                 "transition-all duration-200",
                                 "hover:-translate-y-0.5 hover:bg-[#E98C12]",
                                 "active:translate-y-0 active:scale-[0.98]",
+                                "disabled:cursor-not-allowed disabled:opacity-45",
                             ].join(" ")}
                         >
+                            <IoChatbubbleEllipsesOutline
+                                size={17}
+                            />
                             Bonga
-                        </Link>
+                        </button>
 
                         <Link
                             href={profilePath}
@@ -589,7 +737,9 @@ export default function ExpertCard({
 
                         <div className="ml-auto hidden sm:block">
                             <div className="text-right text-[13px] font-black text-[#173C2E]">
-                                {getPriceLabel(expert)}
+                                {getPriceLabel(
+                                    expert
+                                )}
                             </div>
 
                             <div className="mt-1">
