@@ -17,6 +17,7 @@ import {
 } from "react-icons/io5";
 import {
     createUserWithEmailAndPassword,
+    deleteUser,
     signInWithPopup,
 } from "firebase/auth";
 import {
@@ -27,6 +28,7 @@ import {
 } from "firebase/firestore";
 
 import { db, getAuthSafe } from "@/lib/firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { useAuth } from "@/app/hooks/useAuth";
 
 const EKARI = {
@@ -122,6 +124,26 @@ export default function SignupPage() {
     const [loadingGoogle, setLoadingGoogle] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
+    const [successMsg, setSuccessMsg] = useState("");
+    const [emailStep, setEmailStep] =
+        useState<"details" | "otp">("details");
+    const [otp, setOtp] = useState("");
+    const [otpSending, setOtpSending] = useState(false);
+    const [otpVerifying, setOtpVerifying] = useState(false);
+    const [resendCountdown, setResendCountdown] = useState(0);
+
+    useEffect(() => {
+        if (resendCountdown <= 0) return;
+
+        const timer = window.setInterval(() => {
+            setResendCountdown((value) =>
+                Math.max(value - 1, 0)
+            );
+        }, 1000);
+
+        return () => window.clearInterval(timer);
+    }, [resendCountdown]);
+
     useEffect(() => {
         let alive = true;
 
@@ -170,6 +192,8 @@ export default function SignupPage() {
     const disableAll =
         loading ||
         loadingGoogle ||
+        otpSending ||
+        otpVerifying ||
         authLoading ||
         !authBundle;
 
@@ -235,7 +259,14 @@ export default function SignupPage() {
     };
 
     useEffect(() => {
-        if (authLoading || !user) return;
+        if (
+            authLoading ||
+            loading ||
+            loadingGoogle ||
+            otpSending ||
+            otpVerifying ||
+            !user
+        ) return;
 
         let alive = true;
 
@@ -253,59 +284,285 @@ export default function SignupPage() {
 
         // We intentionally react to the authenticated user state here.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, authLoading, router]);
+    }, [
+        user,
+        authLoading,
+        router,
+        loading,
+        loadingGoogle,
+        otpSending,
+        otpVerifying,
+    ]);
 
-    const handleSignup = async () => {
+    const mapOtpError = (err: any) => {
+        const code = String(err?.code || "");
+        const message = String(err?.message || "");
+
+        if (
+            code.includes("resource-exhausted") ||
+            message.toLowerCase().includes("too many")
+        ) {
+            return "Too many verification attempts. Please wait before trying again.";
+        }
+
+        if (code.includes("already-exists")) {
+            return "An account already exists with this email. Please log in instead.";
+        }
+
+        if (message.toLowerCase().includes("expired")) {
+            return "This verification code has expired. Please request a new code.";
+        }
+
+        if (
+            message.toLowerCase().includes("incorrect") ||
+            message.toLowerCase().includes("invalid")
+        ) {
+            return "The verification code is incorrect.";
+        }
+
+        return (
+            message ||
+            "Unable to verify your email. Please try again."
+        );
+    };
+
+    const requestSignupOtp = async (
+        isResend = false
+    ) => {
         if (
             !isValid ||
-            loading ||
-            loadingGoogle ||
-            authLoading ||
-            !authBundle
+            disableAll
         ) {
             return;
         }
 
-        const { auth } = authBundle;
+        if (
+            isResend &&
+            resendCountdown > 0
+        ) {
+            return;
+        }
 
-        setLoading(true);
+        setOtpSending(true);
         setErrorMsg("");
+        setSuccessMsg("");
 
         try {
-            const cred = await createUserWithEmailAndPassword(
-                auth,
-                email.trim(),
-                password
+            const fn = httpsCallable(
+                getFunctions(),
+                "requestSignupOtp"
             );
 
-            const u = cred.user;
-            const uid = u?.uid;
+            const response =
+                await fn({
+                    email:
+                        email
+                            .trim()
+                            .toLowerCase(),
+                });
 
-            if (!uid) {
-                setErrorMsg("Could not create account. Please try again.");
+            const data =
+                (response.data as any) ||
+                {};
+
+            if (
+                data?.success === false
+            ) {
+                throw new Error(
+                    data?.message ||
+                    "Unable to send verification code."
+                );
+            }
+
+            setOtp("");
+            setResendCountdown(
+                Number(
+                    data?.resendAfterSeconds ||
+                    60
+                )
+            );
+            setEmailStep("otp");
+            setSuccessMsg(
+                `We sent a 6-digit verification code to ${email
+                    .trim()
+                    .toLowerCase()}.`
+            );
+        } catch (err: any) {
+            setErrorMsg(
+                mapOtpError(err)
+            );
+        } finally {
+            setOtpSending(false);
+        }
+    };
+
+    const verifyOtpAndCreateAccount =
+        async () => {
+            const finalOtp =
+                otp
+                    .replace(/\D/g, "")
+                    .slice(0, 6);
+
+            if (
+                !/^\d{6}$/.test(finalOtp) ||
+                disableAll ||
+                !authBundle
+            ) {
                 return;
             }
 
-            /*
-             * Save the email-provider profile too.
-             * This keeps the Firestore auth-profile structure consistent
-             * with Google-created accounts.
-             */
-            await saveAuthProviderProfile({
-                uid,
-                email: u.email || email.trim(),
-                displayName: u.displayName,
-                photoURL: u.photoURL,
-                provider: "email",
-            });
+            const { auth } = authBundle;
+            let createdUser: any = null;
+            let finalized = false;
 
-            const dest = await resolveDestination(uid);
-            router.replace(dest);
-        } catch (err: any) {
-            setErrorMsg(mapAuthError(err));
-        } finally {
-            setLoading(false);
+            setOtpVerifying(true);
+            setErrorMsg("");
+            setSuccessMsg("");
+
+            try {
+                const normalizedEmail =
+                    email
+                        .trim()
+                        .toLowerCase();
+
+                const verifyFn =
+                    httpsCallable(
+                        getFunctions(),
+                        "verifySignupOtp"
+                    );
+
+                const verifyResponse =
+                    await verifyFn({
+                        email: normalizedEmail,
+                        code: finalOtp,
+                    });
+
+                const verifyData =
+                    (verifyResponse.data as any) ||
+                    {};
+
+                if (
+                    verifyData?.verified !== true ||
+                    !verifyData?.signupToken
+                ) {
+                    throw new Error(
+                        "The verification code is incorrect."
+                    );
+                }
+
+                const signupToken =
+                    String(
+                        verifyData.signupToken
+                    );
+
+                setLoading(true);
+
+                const cred =
+                    await createUserWithEmailAndPassword(
+                        auth,
+                        normalizedEmail,
+                        password
+                    );
+
+                createdUser =
+                    cred.user;
+
+                const finalizeFn =
+                    httpsCallable(
+                        getFunctions(),
+                        "finalizeSignupOtp"
+                    );
+
+                const finalizeResponse =
+                    await finalizeFn({
+                        email: normalizedEmail,
+                        signupToken,
+                    });
+
+                const finalizeData =
+                    (finalizeResponse.data as any) ||
+                    {};
+
+                if (
+                    finalizeData?.verified !== true ||
+                    finalizeData?.success !== true
+                ) {
+                    throw new Error(
+                        "Unable to complete email verification."
+                    );
+                }
+
+                finalized = true;
+
+                await saveAuthProviderProfile({
+                    uid:
+                        cred.user.uid,
+                    email:
+                        cred.user.email ||
+                        normalizedEmail,
+                    displayName:
+                        cred.user.displayName,
+                    photoURL:
+                        cred.user.photoURL,
+                    provider:
+                        "email",
+                });
+
+                const dest =
+                    await resolveDestination(
+                        cred.user.uid
+                    );
+
+                router.replace(dest);
+            } catch (err: any) {
+                if (
+                    createdUser &&
+                    !finalized
+                ) {
+                    try {
+                        await deleteUser(
+                            createdUser
+                        );
+                    } catch (
+                    cleanupErr
+                    ) {
+                        console.error(
+                            "Signup cleanup failed:",
+                            cleanupErr
+                        );
+
+                        try {
+                            await auth.signOut();
+                        } catch { }
+                    }
+                }
+
+                const code =
+                    String(
+                        err?.code || ""
+                    );
+
+                setErrorMsg(
+                    code.startsWith("auth/")
+                        ? mapAuthError(err)
+                        : mapOtpError(err)
+                );
+            } finally {
+                setOtpVerifying(false);
+                setLoading(false);
+            }
+        };
+
+    const changeEmail = () => {
+        if (disableAll) {
+            return;
         }
+
+        setEmailStep("details");
+        setOtp("");
+        setErrorMsg("");
+        setSuccessMsg("");
+        setResendCountdown(0);
     };
 
     const continueWithGoogle = async () => {
@@ -609,151 +866,257 @@ export default function SignupPage() {
                                 <div className="h-px flex-1 bg-[#E5E0D6]" />
                             </div>
 
-                            {/* Email */}
-                            <div className="flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
-                                <IoMailOutline
-                                    className="mr-2 shrink-0 text-slate-400"
-                                    size={17}
-                                />
+                            {emailStep === "details" ? (
+                                <>
+                                    {/* Email */}
+                                    <div className="flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                                        <IoMailOutline
+                                            className="mr-2 shrink-0 text-slate-400"
+                                            size={17}
+                                        />
 
-                                <input
-                                    type="email"
-                                    inputMode="email"
-                                    autoComplete="email"
-                                    placeholder="Email address"
-                                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
-                                    value={email}
-                                    onChange={(e) =>
-                                        setEmail(e.target.value)
-                                    }
-                                    aria-label="Email"
-                                    disabled={disableAll}
-                                />
-                            </div>
+                                        <input
+                                            type="email"
+                                            inputMode="email"
+                                            autoComplete="email"
+                                            placeholder="Email address"
+                                            className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
+                                            value={email}
+                                            onChange={(e) =>
+                                                setEmail(e.target.value)
+                                            }
+                                            aria-label="Email"
+                                            disabled={disableAll}
+                                        />
+                                    </div>
 
-                            {/* Password */}
-                            <div className="mt-3 flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
-                                <IoLockClosedOutline
-                                    className="mr-2 shrink-0 text-slate-400"
-                                    size={17}
-                                />
+                                    {/* Password */}
+                                    <div className="mt-3 flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                                        <IoLockClosedOutline
+                                            className="mr-2 shrink-0 text-slate-400"
+                                            size={17}
+                                        />
 
-                                <input
-                                    type={
-                                        showPassword
-                                            ? "text"
-                                            : "password"
-                                    }
-                                    autoComplete="new-password"
-                                    placeholder="Password"
-                                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
-                                    value={password}
-                                    onChange={(e) =>
-                                        setPassword(e.target.value)
-                                    }
-                                    aria-label="Password"
-                                    disabled={disableAll}
-                                />
+                                        <input
+                                            type={
+                                                showPassword
+                                                    ? "text"
+                                                    : "password"
+                                            }
+                                            autoComplete="new-password"
+                                            placeholder="Password"
+                                            className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
+                                            value={password}
+                                            onChange={(e) =>
+                                                setPassword(e.target.value)
+                                            }
+                                            aria-label="Password"
+                                            disabled={disableAll}
+                                        />
 
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setShowPassword((value) => !value)
-                                    }
-                                    className="ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-[#F3F1EB] hover:text-[#173C2E]"
-                                    aria-label={
-                                        showPassword
-                                            ? "Hide password"
-                                            : "Show password"
-                                    }
-                                    disabled={disableAll}
-                                >
-                                    {showPassword ? (
-                                        <IoEyeOffOutline size={17} />
-                                    ) : (
-                                        <IoEyeOutline size={17} />
-                                    )}
-                                </button>
-                            </div>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setShowPassword(
+                                                    (value) =>
+                                                        !value
+                                                )
+                                            }
+                                            className="ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-[#F3F1EB] hover:text-[#173C2E]"
+                                            aria-label={
+                                                showPassword
+                                                    ? "Hide password"
+                                                    : "Show password"
+                                            }
+                                            disabled={disableAll}
+                                        >
+                                            {showPassword ? (
+                                                <IoEyeOffOutline size={17} />
+                                            ) : (
+                                                <IoEyeOutline size={17} />
+                                            )}
+                                        </button>
+                                    </div>
 
-                            {/* Confirm password */}
-                            <div className="mt-3 flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
-                                <IoShieldCheckmarkOutline
-                                    className="mr-2 shrink-0 text-slate-400"
-                                    size={17}
-                                />
+                                    {/* Confirm password */}
+                                    <div className="mt-3 flex h-12 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                                        <IoShieldCheckmarkOutline
+                                            className="mr-2 shrink-0 text-slate-400"
+                                            size={17}
+                                        />
 
-                                <input
-                                    type={
-                                        showPassword
-                                            ? "text"
-                                            : "password"
-                                    }
-                                    autoComplete="new-password"
-                                    placeholder="Confirm password"
-                                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
-                                    value={confirm}
-                                    onChange={(e) =>
-                                        setConfirm(e.target.value)
-                                    }
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            void handleSignup();
-                                        }
-                                    }}
-                                    aria-label="Confirm password"
-                                    disabled={disableAll}
-                                />
-                            </div>
+                                        <input
+                                            type={
+                                                showPassword
+                                                    ? "text"
+                                                    : "password"
+                                            }
+                                            autoComplete="new-password"
+                                            placeholder="Confirm password"
+                                            className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
+                                            value={confirm}
+                                            onChange={(e) =>
+                                                setConfirm(e.target.value)
+                                            }
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    void requestSignupOtp(false);
+                                                }
+                                            }}
+                                            aria-label="Confirm password"
+                                            disabled={disableAll}
+                                        />
+                                    </div>
 
-                            {/* Validation */}
-                            <div className="mt-2 space-y-1 text-[12px] font-semibold text-slate-500">
-                                {!isValidEmail && email.length > 0 ? (
-                                    <p>Enter a valid email address.</p>
-                                ) : null}
+                                    <div className="mt-2 space-y-1 text-[12px] font-semibold text-slate-500">
+                                        {!isValidEmail &&
+                                            email.length > 0 ? (
+                                            <p>Enter a valid email address.</p>
+                                        ) : null}
 
-                                {password.length > 0 &&
-                                    password.length < 6 ? (
-                                    <p>
-                                        Password must be at least 6 characters.
+                                        {password.length > 0 &&
+                                            password.length < 6 ? (
+                                            <p>Password must be at least 6 characters.</p>
+                                        ) : null}
+
+                                        {confirm.length > 0 &&
+                                            confirm !== password ? (
+                                            <p>Passwords must match.</p>
+                                        ) : null}
+
+                                        {!consent ? (
+                                            <p>Please accept the terms to continue.</p>
+                                        ) : null}
+                                    </div>
+
+                                    {!!errorMsg ? (
+                                        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-rose-700">
+                                            {errorMsg}
+                                        </div>
+                                    ) : null}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => void requestSignupOtp(false)}
+                                        disabled={!isValid || disableAll}
+                                        className="mt-4 flex h-12 w-full items-center justify-center rounded-[14px] bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {otpSending ? (
+                                            <span className="inline-flex items-center gap-2">
+                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                                                Sending code…
+                                            </span>
+                                        ) : (
+                                            "Send verification code"
+                                        )}
+                                    </button>
+                                </>
+                            ) : (
+                                <div>
+                                    <div className="rounded-[16px] border border-[#DDD8CC] bg-[#FBFAF6] p-4">
+                                        <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#c69258]">
+                                            Verify your email
+                                        </div>
+
+                                        <div className="mt-1 text-[17px] font-black text-slate-900">
+                                            Enter the 6-digit code
+                                        </div>
+
+                                        <p className="mt-1 text-[13px] font-medium leading-5 text-slate-500">
+                                            We sent a verification code to{" "}
+                                            <span className="font-black text-slate-700">
+                                                {email.trim().toLowerCase()}
+                                            </span>
+                                        </p>
+                                    </div>
+
+                                    {!!successMsg ? (
+                                        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-emerald-700">
+                                            {successMsg}
+                                        </div>
+                                    ) : null}
+
+                                    <div className="mt-3 flex h-14 items-center rounded-[14px] border border-[#D9D3C7] bg-white px-3 transition-all focus-within:border-[#173C2E]/50 focus-within:ring-4 focus-within:ring-[#173C2E]/5">
+                                        <IoShieldCheckmarkOutline
+                                            className="mr-2 shrink-0 text-slate-400"
+                                            size={18}
+                                        />
+
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code"
+                                            placeholder="000000"
+                                            className="min-w-0 flex-1 bg-transparent text-center text-[22px] font-black tracking-[0.35em] text-slate-900 outline-none placeholder:text-slate-300"
+                                            value={otp}
+                                            onChange={(e) =>
+                                                setOtp(
+                                                    e.target.value
+                                                        .replace(/\D/g, "")
+                                                        .slice(0, 6)
+                                                )
+                                            }
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    void verifyOtpAndCreateAccount();
+                                                }
+                                            }}
+                                            maxLength={6}
+                                            disabled={disableAll}
+                                            aria-label="Verification code"
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <p className="mt-2 text-[12px] font-semibold text-slate-400">
+                                        Enter the code exactly as shown in your email.
                                     </p>
-                                ) : null}
 
-                                {confirm.length > 0 &&
-                                    confirm !== password ? (
-                                    <p>Passwords must match.</p>
-                                ) : null}
+                                    {!!errorMsg ? (
+                                        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-rose-700">
+                                            {errorMsg}
+                                        </div>
+                                    ) : null}
 
-                                {!consent ? (
-                                    <p>
-                                        Please accept the terms to continue.
-                                    </p>
-                                ) : null}
-                            </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => void verifyOtpAndCreateAccount()}
+                                        disabled={!/^\d{6}$/.test(otp) || disableAll}
+                                        className="mt-4 flex h-12 w-full items-center justify-center rounded-[14px] bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {otpVerifying || loading ? (
+                                            <span className="inline-flex items-center gap-2">
+                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                                                Verifying…
+                                            </span>
+                                        ) : (
+                                            "Verify & create account"
+                                        )}
+                                    </button>
 
-                            {/* Error */}
-                            {!!errorMsg ? (
-                                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-5 text-rose-700">
-                                    {errorMsg}
+                                    <div className="mt-3 flex items-center justify-between gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={changeEmail}
+                                            disabled={disableAll}
+                                            className="text-[12px] font-black text-[#173C2E] disabled:opacity-50"
+                                        >
+                                            Change email
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => void requestSignupOtp(true)}
+                                            disabled={resendCountdown > 0 || disableAll}
+                                            className="text-[12px] font-black text-[#173C2E] disabled:opacity-40"
+                                        >
+                                            {resendCountdown > 0
+                                                ? `Resend in ${resendCountdown}s`
+                                                : "Resend code"}
+                                        </button>
+                                    </div>
                                 </div>
-                            ) : null}
-
-                            {/* Create */}
-                            <button
-                                type="button"
-                                onClick={() => void handleSignup()}
-                                disabled={!isValid || disableAll}
-                                className="mt-4 flex h-12 w-full items-center justify-center rounded-[14px] bg-[#173C2E] px-4 text-[13px] font-black text-white transition hover:bg-[#214C3A] disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {loading ? (
-                                    <span className="inline-flex items-center gap-2">
-                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                                        Creating account…
-                                    </span>
-                                ) : (
-                                    "Create account"
-                                )}
-                            </button>
+                            )}
                         </div>
 
                         {/* Footer */}
