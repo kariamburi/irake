@@ -12,6 +12,8 @@ import {
 } from "react-icons/io5";
 import {
   collection,
+  doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -285,6 +287,39 @@ function expertCoordinates(data: any) {
     : null;
 }
 
+function validExpertName(value: unknown): string {
+  const name = text(value);
+  return name.toLowerCase() === "ekari expert" ? "" : name;
+}
+
+function fullExpertName(data: any): string {
+  const profile = data?.profile ?? {};
+  const first = text(data?.firstName) || text(profile?.firstName);
+  const last = text(data?.surname) || text(data?.lastName) ||
+    text(profile?.surname) || text(profile?.lastName);
+  return (
+    validExpertName([first, last].filter(Boolean).join(" ")) ||
+    validExpertName(data?.displayName) ||
+    validExpertName(data?.name) ||
+    validExpertName(profile?.displayName) ||
+    validExpertName(profile?.name)
+  );
+}
+
+function expertProfession(data: any): string {
+  const profile = data?.profile ?? {};
+  return (
+    text(data?.professionalTitle) ||
+    text(data?.profession) ||
+    text(data?.occupation) ||
+    text(profile?.professionalTitle) ||
+    text(profile?.profession) ||
+    text(data?.headline) ||
+    text(data?.verificationRole) ||
+    text(Array.isArray(data?.specialties) ? data.specialties[0] : "")
+  );
+}
+
 function expertScore(data: any) {
   const rating = firstNumber(data?.rating?.average, data?.ratingAverage) ?? 0;
   const ratingCount = firstNumber(data?.rating?.count, data?.ratingCount) ?? 0;
@@ -366,9 +401,13 @@ export default function DiscoveryRail({ activeDeed }: Props) {
       limit(100)
     );
 
-    return onSnapshot(
+    let active = true;
+    let latestSnapshot = 0;
+
+    const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
+      async (snapshot) => {
+        const snapshotVersion = ++latestSnapshot;
         const viewerLat = num(location?.latitude);
         const viewerLng = num(location?.longitude);
         const locationText = text(location?.locationName).toLowerCase();
@@ -400,14 +439,8 @@ export default function DiscoveryRail({ activeDeed }: Props) {
 
             return {
               uid: text(data?.uid || snap.id),
-              displayName:
-                text(data?.displayName) ||
-                [data?.firstName, data?.surname].map(text).filter(Boolean).join(" ") ||
-                "ekari Expert",
-              headline:
-                text(data?.headline) ||
-                text(Array.isArray(data?.specialties) ? data.specialties[0] : "") ||
-                "Agricultural expert",
+              displayName: fullExpertName(data),
+              headline: expertProfession(data) || "Agricultural professional",
               photoURL: text(data?.photoURL),
               handle: text(data?.handle),
               rating: firstNumber(data?.rating?.average, data?.ratingAverage) ?? 0,
@@ -438,15 +471,57 @@ export default function DiscoveryRail({ activeDeed }: Props) {
             return b.score - a.score;
           });
 
-        setNearbyExpert(candidates[0] ?? null);
-        setExpertLoading(false);
+        const selected = candidates[0] ?? null;
+        if (!selected) {
+          if (active && snapshotVersion === latestSnapshot) {
+            setNearbyExpert(null);
+            setExpertLoading(false);
+          }
+          return;
+        }
+
+        // The published expert document may not contain the account holder's
+        // full name or profession. Resolve the selected expert from users/{uid}.
+        // Only fetch one user profile, not all 100 candidates.
+        let enriched = selected;
+        if (!selected.displayName || selected.headline === "Agricultural professional") {
+          try {
+            const userSnapshot = await getDoc(doc(db, "users", selected.uid));
+            if (userSnapshot.exists()) {
+              const account = userSnapshot.data();
+              enriched = {
+                ...selected,
+                displayName: selected.displayName || fullExpertName(account),
+                headline: selected.headline === "Agricultural professional"
+                  ? expertProfession(account) || selected.headline
+                  : selected.headline,
+              };
+            }
+          } catch (error) {
+            console.warn("DISCOVERY_RAIL_EXPERT_PROFILE_FALLBACK_FAILED", error);
+          }
+        }
+
+        if (active && snapshotVersion === latestSnapshot) {
+          setNearbyExpert({
+            ...enriched,
+            displayName: enriched.displayName || "Agricultural expert",
+          });
+          setExpertLoading(false);
+        }
       },
       (error) => {
         console.error("DISCOVERY_RAIL_EXPERTS_FAILED", error);
+        if (!active) return;
         setNearbyExpert(null);
         setExpertLoading(false);
       }
     );
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [location?.latitude, location?.longitude, location?.locationName]);
 
   /* FRESH LISTINGS */

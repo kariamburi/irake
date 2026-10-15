@@ -22,15 +22,17 @@ type Props = {
 };
 
 function getExpertName(expert: PublicExpert) {
+    const fullName = [expert.firstName, expert.surname]
+        .map((part) => String(part || "").trim())
+        .filter(Boolean)
+        .join(" ");
+    const publicName = String(expert.displayName || "").trim();
     return (
-        expert.displayName?.trim() ||
-        [expert.firstName, expert.surname]
-            .filter(Boolean)
-            .join(" ")
-            .trim() ||
+        fullName ||
+        (publicName.toLowerCase() !== "ekari expert" ? publicName : "") ||
         expert.organizationName?.trim() ||
         expert.handle?.trim() ||
-        "ekari Expert"
+        "Agricultural expert"
     );
 }
 

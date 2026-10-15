@@ -371,14 +371,18 @@ export default function ExpertCard({
             expert.uid
         )}`;
 
+    // Prefer the expert's real full name over a generic publishing label.
+    const fullName = [expert.firstName, expert.surname]
+        .map((part) => String(part || "").trim())
+        .filter(Boolean)
+        .join(" ");
+    const publicName = String(expert.displayName || "").trim();
     const displayName =
-        expert.displayName?.trim() ||
+        fullName ||
+        (publicName.toLowerCase() !== "ekari expert" ? publicName : "") ||
         expert.organizationName?.trim() ||
-        [expert.firstName, expert.surname]
-            .filter(Boolean)
-            .join(" ")
-            .trim() ||
-        "ekari Expert";
+        expert.handle?.trim() ||
+        "Agricultural expert";
 
     const openBonga = React.useCallback(() => {
         if (!user?.uid) {

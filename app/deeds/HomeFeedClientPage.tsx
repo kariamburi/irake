@@ -11,7 +11,7 @@ import { useUserProfile } from "../providers/UserProfileProvider";
 import OpenInAppBanner from "../components/OpenInAppBanner";
 import { EkariSideMenuSheet } from "../components/EkariSideMenuSheet";
 import MobileBottomTabs from "../components/navigation/MobileBottomTabs";
-import DiscoveryRail from "../components/DiscoveryRail";
+//import DiscoveryRail from "../components/DiscoveryRail";
 
 type Props = {
   archivePageNumber?: number;
@@ -104,9 +104,6 @@ export default function HomeFeedClientPage({
 
   return (
     <AppShell
-      rightRail={
-        <DiscoveryRail />
-      }
       handle={profile?.handle ?? undefined}>
       <OpenInAppBanner
         webUrl={typeof window !== "undefined" ? window.location.href : "https://ekarihub.com/"}

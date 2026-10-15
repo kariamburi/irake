@@ -399,9 +399,26 @@ async function loadUserRatingStats(
                             ?.reviewsCount
                     );
 
+                    const userProfile = userData.profile || {};
+                    const clean = (value: unknown) =>
+                        typeof value === "string" ? value.trim() : "";
+                    const firstName = clean(userData.firstName) || clean(userProfile.firstName);
+                    const surname = clean(userData.surname) || clean(userData.lastName) ||
+                        clean(userProfile.surname) || clean(userProfile.lastName);
+                    const fullName = [firstName, surname].filter(Boolean).join(" ");
+                    const accountName = clean(userData.displayName) || clean(userData.name) ||
+                        clean(userProfile.displayName) || clean(userProfile.name);
+                    const profession = clean(userData.professionalTitle) ||
+                        clean(userData.profession) || clean(userData.occupation) ||
+                        clean(userProfile.professionalTitle) || clean(userProfile.profession);
+
                     ratingMap.set(
                         userDocument.id,
                         {
+                            firstName,
+                            surname,
+                            fullName: fullName || (accountName.toLowerCase() !== "ekari expert" ? accountName : ""),
+                            profession,
                             average:
                                 Number.isFinite(
                                     average
@@ -461,6 +478,10 @@ function getTimestampMillis(
 type UserRatingStats = {
     average: number;
     count: number;
+    firstName: string;
+    surname: string;
+    fullName: string;
+    profession: string;
 };
 function chunkArray<T>(
     values: T[],
@@ -595,14 +616,26 @@ function MarketplaceContent() {
                             return expert;
                         }
 
+                        const publicFullName = [expert.firstName, expert.surname]
+                            .map((part) => String(part || "").trim())
+                            .filter(Boolean)
+                            .join(" ");
+                        const publishedName = String(expert.displayName || "").trim();
+                        const isGenericName = !publishedName ||
+                            publishedName.toLowerCase() === "ekari expert";
+
                         return {
                             ...expert,
-
+                            // Fill missing public listing names from the corresponding user profile.
+                            firstName: expert.firstName?.trim() || profileRating.firstName,
+                            surname: expert.surname?.trim() || profileRating.surname,
+                            displayName: publicFullName ||
+                                (!isGenericName ? publishedName : "") ||
+                                profileRating.fullName || "",
+                            headline: expert.headline?.trim() || profileRating.profession || "",
                             rating: {
-                                average:
-                                    profileRating.average,
-                                count:
-                                    profileRating.count,
+                                average: profileRating.average,
+                                count: profileRating.count,
                             },
                         };
                     });
@@ -1229,55 +1262,58 @@ function MarketplaceContent() {
 
                     {/* FILTER BAR */}
                     <section className="sticky top-0 z-30 border-b border-[#E4DED2] bg-[#FBFAF6]/95 backdrop-blur-xl">
-                        <div className="mx-auto flex max-w-[940px] items-center gap-2 overflow-x-auto px-5 py-3 no-scrollbar">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSpecialty("");
-                                }}
-                                className={[
-                                    "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4",
-                                    "text-[14px] font-black transition-all duration-200",
-                                    !specialty
-                                        ? "border-[#173C2E] bg-[#173C2E] text-white"
-                                        : "border-[#D9D3C7] bg-white text-slate-600 hover:border-[#C7BFB1]",
-                                    "active:scale-[0.98]",
-                                ].join(" ")}
-                            >
-                                <IoGridOutline size={15} />
-                                All specialties
-                            </button>
+                        <div className="mx-auto flex w-full max-w-[940px] min-w-0 items-center gap-2 px-3 py-3 sm:px-5">
+                            {/* Specialty chips scroll independently; filters remain visible. */}
+                            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSpecialty("");
+                                    }}
+                                    className={[
+                                        "inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4",
+                                        "text-[14px] font-black transition-all duration-200",
+                                        !specialty
+                                            ? "border-[#173C2E] bg-[#173C2E] text-white"
+                                            : "border-[#D9D3C7] bg-white text-slate-600 hover:border-[#C7BFB1]",
+                                        "active:scale-[0.98]",
+                                    ].join(" ")}
+                                >
+                                    <IoGridOutline size={15} />
+                                    All specialties
+                                </button>
 
-                            {quickSpecialties.map(
-                                (item) => {
-                                    const active =
-                                        specialty === item;
+                                {quickSpecialties.map(
+                                    (item) => {
+                                        const active =
+                                            specialty === item;
 
-                                    return (
-                                        <button
-                                            key={item}
-                                            type="button"
-                                            onClick={() =>
-                                                setSpecialty(
+                                        return (
+                                            <button
+                                                key={item}
+                                                type="button"
+                                                onClick={() =>
+                                                    setSpecialty(
+                                                        active
+                                                            ? ""
+                                                            : item
+                                                    )
+                                                }
+                                                className={[
+                                                    "h-10 shrink-0 rounded-full border px-4",
+                                                    "text-[14px] font-bold transition-all duration-200",
                                                     active
-                                                        ? ""
-                                                        : item
-                                                )
-                                            }
-                                            className={[
-                                                "h-10 shrink-0 rounded-full border px-4",
-                                                "text-[14px] font-bold transition-all duration-200",
-                                                active
-                                                    ? "border-[#173C2E] bg-[#173C2E] text-white"
-                                                    : "border-[#D9D3C7] bg-white text-slate-600 hover:border-[#C7BFB1] hover:bg-[#FFFDF8]",
-                                                "active:scale-[0.98]",
-                                            ].join(" ")}
-                                        >
-                                            {item}
-                                        </button>
-                                    );
-                                }
-                            )}
+                                                        ? "border-[#173C2E] bg-[#173C2E] text-white"
+                                                        : "border-[#D9D3C7] bg-white text-slate-600 hover:border-[#C7BFB1] hover:bg-[#FFFDF8]",
+                                                    "active:scale-[0.98]",
+                                                ].join(" ")}
+                                            >
+                                                {item}
+                                            </button>
+                                        );
+                                    }
+                                )}
+                            </div>
 
                             <button
                                 type="button"
@@ -1285,8 +1321,8 @@ function MarketplaceContent() {
                                     setFiltersOpen(true)
                                 }
                                 className={[
-                                    "ml-auto inline-flex h-10 shrink-0 items-center gap-2 rounded-full",
-                                    "border border-[#D9D3C7] bg-white px-4",
+                                    "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full",
+                                    "border border-[#D9D3C7] bg-white px-3 sm:px-4",
                                     "text-[14px] font-black text-slate-600",
                                     "transition-all duration-200",
                                     "hover:border-[#c69258]/55 hover:bg-[#FFF9F0]",
@@ -1294,7 +1330,8 @@ function MarketplaceContent() {
                                 ].join(" ")}
                             >
                                 <IoFilterOutline size={15} />
-                                Filter experts
+                                <span className="hidden sm:inline">Filter experts</span>
+                                <span className="sm:hidden">Filters</span>
                                 {activeFilterCount > 0 ? (
                                     <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#c69258] px-1 text-[11px] text-white">
                                         {activeFilterCount}
