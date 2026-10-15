@@ -312,6 +312,33 @@ function CategoryRail({
     );
 }
 
+
+// Accept the coordinate variants written by different market listing forms.
+// Do not interpret a missing coordinate as Nairobi (or latitude/longitude 0).
+function listingCoordinates(item: Product): { latitude: number; longitude: number } | null {
+    const p = item as any;
+    const candidates = [
+        p.location,
+        p.location?.coordinates,
+        p.place?.coordinates,
+        p.place?.location,
+        p.place,
+        p.coordinates,
+        p.geo,
+    ];
+    for (const value of candidates) {
+        if (!value) continue;
+        const lat = Number(value.latitude ?? value.lat);
+        const lng = Number(value.longitude ?? value.lng ?? value.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lng) &&
+            Math.abs(lat) <= 90 && Math.abs(lng) <= 180 &&
+            !(lat === 0 && lng === 0)) {
+            return { latitude: lat, longitude: lng };
+        }
+    }
+    return null;
+}
+
 /* ---------------- page ---------------- */
 export default function MarketPage() {
     const isMobile = useIsMobile();
@@ -404,50 +431,32 @@ export default function MarketPage() {
         )
         : null;
     const applyClientFilters = useCallback(
-        (docs: Product[]) => {
-            const visible = docs.filter((p) => computeStatus(p) !== "hidden");
-
-            const searched = debouncedSearch
-                ? visible.filter((p) => {
-                    const inName = (
-                        p.nameLower ||
-                        p.name?.toLowerCase?.() ||
-                        ""
-                    ).includes(debouncedSearch);
-                    const inPlace = (
-                        p.place?.textLower ||
-                        p.place?.countyLower ||
-                        p.place?.townLower ||
-                        ""
-                    ).includes(debouncedSearch);
-                    return inName || inPlace;
-                })
-                : visible;
-
-            const byLocText = filters.locationText
-                ? searched.filter((p) =>
-                    (
-                        p.place?.textLower ||
-                        p.place?.countyLower ||
-                        p.place?.townLower ||
-                        ""
-                    ).includes(toLower(filters.locationText)),
-                )
-                : searched;
-
-            const byRadius =
-                filters.center && filters.radiusKm
-                    ? byLocText.filter((p) =>
-                        p.location
-                            ? distanceKm(filters.center!, p.location) <=
-                            (filters.radiusKm as number)
-                            : false,
-                    )
-                    : byLocText;
-
-            return byRadius;
-        },
-        [debouncedSearch, filters.locationText, filters.center, filters.radiusKm],
+        (docs: Product[]) => docs.filter((p) => {
+            if (computeStatus(p) === "hidden") return false;
+            const item = p as any;
+            const locationFields = [p.place?.textLower, p.place?.countyLower,
+            p.place?.townLower, item.place?.text, item.place?.county,
+            item.place?.town].filter(Boolean).join(" ").toLowerCase();
+            const itemName = String(p.nameLower || p.name || "").toLowerCase();
+            if (debouncedSearch && !(`${itemName} ${locationFields}`).includes(debouncedSearch)) return false;
+            if (filters.type && String(item.type || "").toLowerCase() !== String(filters.type).toLowerCase()) return false;
+            if (filters.category && String(item.categoryLower || item.category || "").trim().toLowerCase() !== toLower(filters.category).trim()) return false;
+            if (typeof filters.minPrice === "number" && Number(item.price) < filters.minPrice) return false;
+            if (typeof filters.maxPrice === "number" && Number(item.price) > filters.maxPrice) return false;
+            const countyValue = String(item.place?.countyLower || item.place?.county || "").trim().toLowerCase();
+            const townValue = String(item.place?.townLower || item.place?.town || "").trim().toLowerCase();
+            if (filters.county && countyValue !== toLower(filters.county).trim()) return false;
+            if (filters.town && townValue !== toLower(filters.town).trim()) return false;
+            if (filters.name && !itemName.includes(toLower(filters.name).trim())) return false;
+            if (filters.currency && String(item.currency || "KES").toUpperCase() !== filters.currency) return false;
+            if (filters.locationText && !locationFields.includes(toLower(filters.locationText).trim())) return false;
+            if (filters.center && typeof filters.radiusKm === "number" && filters.radiusKm > 0) {
+                const coordinates = listingCoordinates(p);
+                if (!coordinates || distanceKm(filters.center, coordinates) > filters.radiusKm) return false;
+            }
+            return true;
+        }),
+        [debouncedSearch, filters.type, filters.category, filters.minPrice, filters.maxPrice, filters.county, filters.town, filters.name, filters.currency, filters.locationText, filters.center, filters.radiusKm],
     );
     const handleSelectType = useCallback((type: MarketType | null) => {
         setFilters((prev): Filters => ({
@@ -654,19 +663,9 @@ export default function MarketPage() {
 
             wheres.push(where("status", "==", "active"));
 
-            if (filters.type) wheres.push(where("type", "==", filters.type));
-            if (filters.category)
-                wheres.push(
-                    where("categoryLower", "==", filters.category.toLowerCase()),
-                );
-            if (typeof filters.minPrice === "number")
-                wheres.push(where("price", ">=", filters.minPrice));
-            if (typeof filters.maxPrice === "number")
-                wheres.push(where("price", "<=", filters.maxPrice));
-            if (filters.county)
-                wheres.push(where("place.countyLower", "==", toLower(filters.county)));
-            if (filters.town)
-                wheres.push(where("place.townLower", "==", toLower(filters.town)));
+            // Keep Firestore query stable. Combining multiple optional filters
+            // with featured/rankBoost ordering otherwise needs a different composite
+            // index for each combination. Apply optional filters on the client.
 
             wheres.forEach((w) => (qRef = query(qRef, w)));
 
@@ -682,7 +681,9 @@ export default function MarketPage() {
             else qRef = query(qRef, orderBy("price", "desc"));
 
             if (after) qRef = query(qRef, startAfter(after));
-            qRef = query(qRef, limit(24));
+            const clientFiltered = Boolean(filters.type || filters.category || filters.minPrice != null || filters.maxPrice != null || filters.county || filters.town || debouncedSearch || filters.name || filters.locationText ||
+                filters.currency || (filters.center && filters.radiusKm));
+            qRef = query(qRef, limit(clientFiltered ? 100 : 24));
             return qRef;
         },
         [
@@ -692,6 +693,12 @@ export default function MarketPage() {
             filters.maxPrice,
             filters.county,
             filters.town,
+            filters.name,
+            filters.locationText,
+            filters.currency,
+            filters.center,
+            filters.radiusKm,
+            debouncedSearch,
             sort,
         ],
     );
@@ -718,7 +725,7 @@ export default function MarketPage() {
                             ...(d.data() as any),
                         })) as Product[];
                         lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
-                        setHasMore(snap.docs.length === 24);
+                        setHasMore(snap.docs.length === (filters.type || filters.category || filters.minPrice != null || filters.maxPrice != null || filters.county || filters.town || debouncedSearch || filters.name || filters.locationText || filters.currency || (filters.center && filters.radiusKm) ? 100 : 24));
 
                         const filtered = applyClientFilters(docs);
 
@@ -731,6 +738,7 @@ export default function MarketPage() {
                         }
                     },
                     (err: any) => {
+                        console.error("EKARI_MARKET_QUERY_FAILED", { code: err?.code, message: err?.message, filters, sort });
                         setItems([]);
                         lastDocRef.current = null;
                         setHasMore(false);
@@ -748,7 +756,7 @@ export default function MarketPage() {
                     ...(d.data() as any),
                 })) as Product[];
                 lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
-                setHasMore(snap.docs.length === 24);
+                setHasMore(snap.docs.length === (filters.type || filters.category || filters.minPrice != null || filters.maxPrice != null || filters.county || filters.town || debouncedSearch || filters.name || filters.locationText || filters.currency || (filters.center && filters.radiusKm) ? 100 : 24));
 
                 const filtered = applyClientFilters(docs);
 
@@ -757,6 +765,7 @@ export default function MarketPage() {
                 setInitialLoading(false);
             }
         } catch (err: any) {
+            console.error("EKARI_MARKET_QUERY_FAILED", { code: err?.code, message: err?.message, filters, sort });
             setItems([]);
             lastDocRef.current = null;
             setHasMore(false);
@@ -813,7 +822,7 @@ export default function MarketPage() {
             })) as Product[];
 
             lastDocRef.current = snap.docs[snap.docs.length - 1] || null;
-            setHasMore(snap.docs.length === 24);
+            setHasMore(snap.docs.length === (filters.type || filters.category || filters.minPrice != null || filters.maxPrice != null || filters.county || filters.town || debouncedSearch || filters.name || filters.locationText || filters.currency || (filters.center && filters.radiusKm) ? 100 : 24));
 
             setItems((previousItems) => {
                 const existingIds = new Set(previousItems.map((item) => item.id));
