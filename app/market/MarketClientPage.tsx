@@ -935,9 +935,9 @@ export default function MarketPage() {
             );
         if (filters.category) chips.push(filters.category);
         if (typeof filters.minPrice === "number")
-            chips.push(`≥ ${KES(filters.minPrice)}`);
+            chips.push(`≥ ${filters.currency === "USD" ? `USD ${filters.minPrice.toLocaleString()}` : KES(filters.minPrice)}`);
         if (typeof filters.maxPrice === "number")
-            chips.push(`≤ ${KES(filters.maxPrice)}`);
+            chips.push(`≤ ${filters.currency === "USD" ? `USD ${filters.maxPrice.toLocaleString()}` : KES(filters.maxPrice)}`);
         if (filters.county) chips.push(filters.county);
         if (filters.town) chips.push(filters.town);
         if (filters.locationText) chips.push(filters.locationText);

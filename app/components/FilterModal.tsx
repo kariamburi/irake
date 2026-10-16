@@ -48,6 +48,10 @@ export default function FilterModal({ open, onClose, initial, onApply }: {
 }) {
     const [mounted, setMounted] = useState(false);
     const [name, setName] = useState("");
+    const [minPrice, setMinPrice] = useState("");
+    const [maxPrice, setMaxPrice] = useState("");
+    const [priceCurrency, setPriceCurrency] = useState<CurrencyCode>("KES");
+    const [priceError, setPriceError] = useState("");
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [names, setNames] = useState<string[]>([]);
     const [distanceEnabled, setDistanceEnabled] = useState(false);
@@ -61,6 +65,10 @@ export default function FilterModal({ open, onClose, initial, onApply }: {
     useEffect(() => {
         if (!open) return;
         setName(initial.name || "");
+        setMinPrice(initial.minPrice != null ? String(initial.minPrice) : "");
+        setMaxPrice(initial.maxPrice != null ? String(initial.maxPrice) : "");
+        setPriceCurrency(initial.currency === "USD" ? "USD" : "KES");
+        setPriceError("");
         setShowSuggestions(false);
         setRadius(initial.radiusKm || 25);
         setCenter(validCenter(initial.center) ? initial.center : null);
@@ -135,6 +143,10 @@ export default function FilterModal({ open, onClose, initial, onApply }: {
 
     function clearFilters() {
         setName("");
+        setMinPrice("");
+        setMaxPrice("");
+        setPriceCurrency("KES");
+        setPriceError("");
         setPlaceQuery("");
         setCenter(null);
         setDistanceEnabled(false);
@@ -150,16 +162,28 @@ export default function FilterModal({ open, onClose, initial, onApply }: {
     }
 
     function apply() {
+        const min = minPrice.trim() === "" ? undefined : Number(minPrice);
+        const max = maxPrice.trim() === "" ? undefined : Number(maxPrice);
+        if ((min !== undefined && (!Number.isFinite(min) || min < 0)) ||
+            (max !== undefined && (!Number.isFinite(max) || max < 0))) {
+            setPriceError("Enter valid, non-negative amounts.");
+            return;
+        }
+        if (min !== undefined && max !== undefined && min > max) {
+            setPriceError("Minimum price cannot exceed maximum price.");
+            return;
+        }
+        setPriceError("");
         if (distanceEnabled && !validCenter(center)) {
             setLocError("Find and select a valid location before applying a distance radius.");
             return;
         }
         onApply({
             type: initial.type || null, category: null, name: name.trim() || null,
-            minPrice: undefined, maxPrice: undefined, county: null, town: null,
+            minPrice: min, maxPrice: max, county: null, town: null,
             // Don't additionally text-filter place fields: radius must include neighboring counties.
             locationText: null, radiusKm: distanceEnabled ? radius : null,
-            center: distanceEnabled ? center : null, currency: null
+            center: distanceEnabled ? center : null, currency: (min !== undefined || max !== undefined) ? priceCurrency : null
         });
         onClose();
     }
@@ -169,7 +193,7 @@ export default function FilterModal({ open, onClose, initial, onApply }: {
         <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/45 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onMouseDown={e => { if (e.currentTarget === e.target) onClose(); }}>
             <section role="dialog" aria-modal="true" aria-labelledby="market-filter-heading" className="flex max-h-[93svh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border border-[#E5E7EB] bg-white shadow-2xl sm:rounded-3xl">
                 <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                    <div><h2 id="market-filter-heading" className="text-lg font-black text-[#173C2E]">Find listings</h2><p className="text-xs text-slate-500">Search by name, or narrow by distance</p></div>
+                    <div><h2 id="market-filter-heading" className="text-lg font-black text-[#173C2E]">Find listings</h2><p className="text-xs text-slate-500">Search by name, price range or distance</p></div>
                     <button type="button" onClick={onClose} aria-label="Close filters" className="grid h-9 w-9 place-items-center rounded-full hover:bg-slate-100"><IoClose size={20} /></button>
                 </header>
                 <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
@@ -183,6 +207,34 @@ export default function FilterModal({ open, onClose, initial, onApply }: {
                             {suggestions.map(s => <button type="button" key={s} onClick={() => { setName(s); setShowSuggestions(false); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50">{s}</button>)}
                         </div>}
                         <p className="mt-2 text-xs text-slate-400">Partial names work too; you do not need to choose a product type.</p>
+                    </div>
+                    <div>
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <label htmlFor="market-min-price" className="text-sm font-extrabold text-slate-700">Price range</label>
+                            <div className="flex gap-1 rounded-lg border border-slate-200 p-1" aria-label="Price currency">
+                                {(["KES", "USD"] as const).map(code => (
+                                    <button key={code} type="button" onClick={() => { setPriceCurrency(code); setPriceError(""); }}
+                                        aria-pressed={priceCurrency === code}
+                                        className={`rounded-md px-3 py-1 text-xs font-bold ${priceCurrency === code ? "bg-[#173C2E] text-white" : "text-slate-600 hover:bg-slate-100"}`}>
+                                        {code}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div><label htmlFor="market-min-price" className="mb-1 block text-xs font-semibold text-slate-500">Minimum ({priceCurrency})</label>
+                                <input id="market-min-price" inputMode="decimal" type="number" min="0" step="any" value={minPrice}
+                                    onChange={e => { setMinPrice(e.target.value); setPriceError(""); }} placeholder="e.g. 500"
+                                    className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#173C2E]" />
+                            </div>
+                            <div><label htmlFor="market-max-price" className="mb-1 block text-xs font-semibold text-slate-500">Maximum ({priceCurrency})</label>
+                                <input id="market-max-price" inputMode="decimal" type="number" min="0" step="any" value={maxPrice}
+                                    onChange={e => { setMaxPrice(e.target.value); setPriceError(""); }} placeholder="e.g. 10,000"
+                                    className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#173C2E]" />
+                            </div>
+                        </div>
+                        {priceError && <p role="alert" className="mt-2 text-xs font-semibold text-rose-600">{priceError}</p>}
+                        <p className="mt-2 text-xs text-slate-400">Leave either amount empty for an open-ended range. Prices are compared in the selected currency, without conversion.</p>
                     </div>
                     <div className="rounded-2xl border border-slate-200 p-4">
                         <label className="flex cursor-pointer items-center justify-between gap-3">
