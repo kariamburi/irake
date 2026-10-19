@@ -20,6 +20,7 @@ import {
   Bot,
   PanelLeftOpen,
   PanelLeftClose,
+  Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -239,6 +240,9 @@ export default function Page() {
   const [convs, setConvs] = useState<Conv[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Conv | null>(null);
+  const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<Msg[]>([WELCOME]);
   const [input, setInput] = useState("");
@@ -417,6 +421,42 @@ export default function Page() {
     },
     [user?.uid, stopTyping]
   );
+
+  const deleteChat = useCallback(async () => {
+    if (!deleteTarget || !user) return;
+    const id = deleteTarget.id;
+    setDeletingChatId(id);
+    setDeleteError(null);
+    try {
+      const token = await user.getIdToken();
+      const endpoint = process.env.NEXT_PUBLIC_EKARI_AI_DELETE_ENDPOINT ||
+        "https://us-central1-ekarihub-aed5a.cloudfunctions.net/deleteEkariAiConversation";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ conversationId: id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Delete failed (${response.status})`);
+      setConvs((prev) => prev.filter((c) => c.id !== id));
+      if (conversationId === id) {
+        stopTyping();
+        setConversationId(null);
+        setMessages([WELCOME]);
+        setInput("");
+        setPendingImage(null);
+        setPendingFile(null);
+      }
+      setDeleteTarget(null);
+    } catch (error: any) {
+      setDeleteError(error?.message || "Could not delete this conversation.");
+    } finally {
+      setDeletingChatId(null);
+    }
+  }, [deleteTarget, user, conversationId, stopTyping]);
 
   const startNewChat = useCallback(() => {
     stopTyping();
@@ -714,53 +754,81 @@ export default function Page() {
               const active = c.id === conversationId;
 
               return (
-                <button
-                  key={c.id}
-                  onClick={() => loadConversation(c.id)}
-                  className={[
-                    "group w-full rounded-2xl border px-3 py-2.5 text-left",
-                    "transition-all duration-200 ease-out",
-                    active
-                      ? "border-[#173C2E] bg-[#173C2E] text-white shadow-[0_8px_18px_rgba(23,60,46,0.12)]"
-                      : "border-[#E4DED2] bg-[#FBFAF6] text-slate-800 hover:translate-x-0.5 hover:border-[#CFC8BA] hover:bg-white",
-                  ].join(" ")}
-                  title={c.title || "Chat"}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <span
-                      className={[
-                        "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl",
-                        active
-                          ? "bg-white/10 text-[#c69258]"
-                          : "bg-[#E8ECE8] text-[#173C2E]",
-                      ].join(" ")}
-                    >
-                      <Sparkles size={15} />
-                    </span>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[14px] font-black">
-                        {c.title || "New Ask"}
-                      </div>
-
-                      <div
+                <div className="group flex items-center gap-1.5">
+                  <button
+                    key={c.id}
+                    onClick={() => loadConversation(c.id)}
+                    className={[
+                      "group min-w-0 flex-1 rounded-2xl border px-3 py-2.5 text-left",
+                      "transition-all duration-200 ease-out",
+                      active
+                        ? "border-[#173C2E] bg-[#173C2E] text-white shadow-[0_8px_18px_rgba(23,60,46,0.12)]"
+                        : "border-[#E4DED2] bg-[#FBFAF6] text-slate-800 hover:translate-x-0.5 hover:border-[#CFC8BA] hover:bg-white",
+                    ].join(" ")}
+                    title={c.title || "Chat"}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span
                         className={[
-                          "mt-1 text-[12px] font-medium",
-                          active ? "text-white/55" : "text-slate-400",
+                          "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl",
+                          active
+                            ? "bg-white/10 text-[#c69258]"
+                            : "bg-[#E8ECE8] text-[#173C2E]",
                         ].join(" ")}
                       >
-                        {typeof c.messageCount === "number"
-                          ? `${c.messageCount} message${c.messageCount === 1 ? "" : "s"}`
-                          : "Conversation"}
+                        <Sparkles size={15} />
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[14px] font-black">
+                          {c.title || "New Ask"}
+                        </div>
+
+                        <div
+                          className={[
+                            "mt-1 text-[12px] font-medium",
+                            active ? "text-white/55" : "text-slate-400",
+                          ].join(" ")}
+                        >
+                          {typeof c.messageCount === "number"
+                            ? `${c.messageCount} message${c.messageCount === 1 ? "" : "s"}`
+                            : "Conversation"}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDeleteError(null); setDeleteTarget(c); }}
+                    disabled={deletingChatId !== null || (sending && conversationId === c.id)}
+                    aria-label={`Delete ${c.title || "conversation"}`}
+                    title="Delete conversation"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Trash2 size={17} />
+                  </button>
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 px-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget && !deletingChatId) setDeleteTarget(null); }}>
+          <div role="alertdialog" aria-modal="true" aria-labelledby="delete-ai-chat-title" aria-describedby="delete-ai-chat-description" className="w-full max-w-sm rounded-2xl border border-[#E4DED2] bg-white p-5 shadow-2xl">
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600"><Trash2 size={20} /></div>
+            <h2 id="delete-ai-chat-title" className="text-lg font-black text-slate-900">Delete conversation?</h2>
+            <p id="delete-ai-chat-description" className="mt-2 text-sm leading-6 text-slate-600">“{deleteTarget.title || "New Ask"}” and its messages will be permanently deleted. This cannot be undone.</p>
+            {deleteError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-700">{deleteError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={!!deletingChatId} onClick={() => setDeleteTarget(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={!!deletingChatId} onClick={deleteChat} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">{deletingChatId ? "Deleting…" : "Delete chat"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="border-t border-[#E4DED2] p-2.5">
         <button
