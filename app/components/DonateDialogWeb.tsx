@@ -19,7 +19,8 @@ type Props = {
 type FinanceSettings = {
     usdToKesRate?: number; // e.g. 130
     processingFeePercent?: number; // e.g. 2.9
-    usdDonationPresets?: number[]; // e.g. [1,5,10,15,20,50,100]
+    usdDonationPresets?: number[]; // legacy setting, not used for KES uplift tiers
+    kesUpliftPresets?: number[]; // optional enabled subset of the nine requested KES denominations
     platformSharePercent?: number; // e.g. 10
 };
 
@@ -31,9 +32,47 @@ type WalletDoc = {
 
 type PayMethod = "wallet" | "paystack";
 
-const FALLBACK_PRESETS_USD = [1, 5, 10, 15, 20, 50, 100];
+// Fixed KES uplift denominations requested by ekarihub.
+// Keep the existing seven approved Apple product IDs; only KSh 49 and 99 are new.
+// The server MUST independently verify the StoreKit transaction, SKU and credited amount.
+type UpliftTier = {
+    kes: number;
+    appleProductId: string;
+    appleUsdNominal: number;
+};
+
+const UPLIFT_TIERS: UpliftTier[] = [
+    { kes: 49, appleProductId: "uplift_usd_0_39", appleUsdNominal: 0.39 },
+    { kes: 99, appleProductId: "uplift_usd_0_79", appleUsdNominal: 0.79 },
+    { kes: 129, appleProductId: "uplift_usd_1", appleUsdNominal: 1 },
+    { kes: 649, appleProductId: "uplift_usd_5", appleUsdNominal: 5 },
+    { kes: 1299, appleProductId: "uplift_usd_10", appleUsdNominal: 10 },
+    { kes: 1949, appleProductId: "uplift_usd_15", appleUsdNominal: 15 },
+    { kes: 2599, appleProductId: "uplift_usd_20", appleUsdNominal: 20 },
+    { kes: 6499, appleProductId: "uplift_usd_50", appleUsdNominal: 50 },
+    { kes: 12999, appleProductId: "uplift_usd_100", appleUsdNominal: 100 },
+];
+
 const FALLBACK_USD_TO_KES = 130;
 const FALLBACK_PLATFORM_SHARE = 10;
+
+function displayAmountForTier(kes: number, currency: PreferredCurrency, rate: number): number {
+    return currency === "KES" ? kes : Math.round((kes / rate) * 100) / 100;
+}
+
+function formatUpliftAmount(amount: number, currency: PreferredCurrency): string {
+    return currency === "KES" ? amount.toLocaleString("en-KE") : amount.toFixed(2);
+}
+
+function getEnabledTiers(finance: FinanceSettings | null): UpliftTier[] {
+    const config = finance?.kesUpliftPresets;
+    if (!Array.isArray(config) || !config.length) return UPLIFT_TIERS;
+    // Do not allow an admin setting to expose an arbitrary denomination
+    // without a corresponding Apple SKU in the iOS application.
+    const enabled = UPLIFT_TIERS.filter((tier) => config.includes(tier.kes));
+    return enabled.length ? enabled : UPLIFT_TIERS;
+}
+
 const FALLBACK_PROCESSING_FEE = 2.9;
 
 const EKARI = {
@@ -65,7 +104,7 @@ export function DonateDialogWeb({
     const [currency, setCurrency] = useState<PreferredCurrency>("KES");
 
     // ✅ store selection in USD major (base), then derive display amount from currency
-    const [selectedUsdMajor, setSelectedUsdMajor] = useState<number | null>(null);
+    const [selectedKesMajor, setSelectedKesMajor] = useState<number | null>(null);
 
     const [loading, setLoading] = useState(false);
 
@@ -148,7 +187,7 @@ export function DonateDialogWeb({
         return () => unsub();
     }, [authUid]);
 
-    // ---------- Derived values from finance settings ----------
+    // ---------- Derive the same exact KES denominations as Android and iOS ----------
     const {
         displayPresets,
         symbol,
@@ -157,56 +196,42 @@ export function DonateDialogWeb({
         processingFee,
         effectiveRate,
     } = useMemo(() => {
-        const usdPresets =
-            finance?.usdDonationPresets && finance.usdDonationPresets.length
-                ? finance.usdDonationPresets
-                : FALLBACK_PRESETS_USD;
-
         const usdToKes =
             finance?.usdToKesRate && finance.usdToKesRate > 0
                 ? finance.usdToKesRate
                 : FALLBACK_USD_TO_KES;
-
-        let presets: number[];
-        let sym: string;
-
-        if (currency === "USD") {
-            presets = usdPresets;
-            sym = "USD";
-        } else {
-            // Display in KES -> convert from USD base presets
-            presets = usdPresets.map((v) => Math.round(v * usdToKes));
-            sym = "KSh";
-        }
-
-        if (!presets.length) presets = FALLBACK_PRESETS_USD;
-
         const platform = finance?.platformSharePercent ?? FALLBACK_PLATFORM_SHARE;
-        const creator = 100 - platform;
-        const fee = finance?.processingFeePercent ?? FALLBACK_PROCESSING_FEE;
-
         return {
-            displayPresets: presets,
-            symbol: sym,
+            displayPresets: getEnabledTiers(finance),
+            symbol: currency === "USD" ? "USD" : "KSh",
             platformShare: platform,
-            creatorShare: creator,
-            processingFee: fee,
+            creatorShare: 100 - platform,
+            processingFee: finance?.processingFeePercent ?? FALLBACK_PROCESSING_FEE,
             effectiveRate: usdToKes,
         };
     }, [finance, currency]);
 
-    // ---------- Derive selected display amount from selectedUsdMajor ----------
-    const selectedDisplayAmount = useMemo(() => {
-        if (selectedUsdMajor == null) return null;
+    useEffect(() => {
+        if (!displayPresets.length) return;
+        setSelectedKesMajor((prev) =>
+            prev != null && displayPresets.some((tier) => tier.kes === prev)
+                ? prev
+                : (displayPresets.find((tier) => tier.kes === 1299) ||
+                    displayPresets[Math.floor(displayPresets.length / 2)]).kes
+        );
+    }, [displayPresets]);
 
-        if (currency === "USD") {
-            // keep 2dp for USD display
-            return Math.round(selectedUsdMajor * 100) / 100;
-        }
+    const selectedTier = useMemo(
+        () => displayPresets.find((tier) => tier.kes === selectedKesMajor) || null,
+        [displayPresets, selectedKesMajor]
+    );
 
-        // KES displayed as whole numbers
-        return Math.round(selectedUsdMajor * effectiveRate);
-    }, [selectedUsdMajor, currency, effectiveRate]);
+    const selectedDisplayAmount = useMemo(
+        () => selectedTier == null
+            ? null
+            : displayAmountForTier(selectedTier.kes, currency, effectiveRate),
+        [selectedTier, currency, effectiveRate]
+    );
 
     // ---------- Wallet derived values ----------
     const walletUsdMajor = useMemo(
@@ -222,23 +247,10 @@ export function DonateDialogWeb({
     const hasWallet = authUid != null && walletUsdMajor > 0;
 
     const canUseWalletForCurrentAmount = useMemo(() => {
-        if (!hasWallet) return false;
-        if (selectedUsdMajor == null || selectedUsdMajor <= 0) return false;
-        return selectedUsdMajor <= walletUsdMajor;
-    }, [hasWallet, selectedUsdMajor, walletUsdMajor]);
-
-    // ---------- Initialise default selected amount (store as USD base) ----------
-    useEffect(() => {
-        if (!displayPresets.length) return;
-
-        const midDisplay = displayPresets[Math.floor(displayPresets.length / 2)];
-
-        setSelectedUsdMajor((prev) => {
-            if (prev != null) return prev; // keep user's previous selection
-            const usd = currency === "USD" ? midDisplay : midDisplay / effectiveRate;
-            return Math.round(usd * 100) / 100; // keep 2dp
-        });
-    }, [displayPresets, currency, effectiveRate]);
+        if (!hasWallet || selectedTier == null) return false;
+        const requiredUsdMinor = Math.round((selectedTier.kes / effectiveRate) * 100);
+        return (wallet?.pendingBalance ?? 0) >= requiredUsdMinor;
+    }, [hasWallet, selectedTier, wallet?.pendingBalance, effectiveRate]);
 
     if (!open) return null;
 
@@ -374,7 +386,7 @@ export function DonateDialogWeb({
 
                 {/* Centered sheet container */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-full max-w-[600px] rounded-3xl bg-white px-4 pb-5 pt-3 shadow-xl translate-y-0 transition-transform duration-200">
+                    <div className="w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-3xl bg-white px-4 pb-5 pt-3 shadow-xl translate-y-0 transition-transform duration-200">
                         {/* handle bar */}
                         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
 
@@ -478,23 +490,16 @@ export function DonateDialogWeb({
                             </div>
                         )}
 
-                        {/* amount chips */}
+                        {/* Exact KES uplift denominations; USD display uses finance exchange rate */}
                         <div className="mb-4 flex flex-wrap gap-2">
-                            {displayPresets.map((amt) => {
-                                const active = selectedDisplayAmount === amt;
+                            {displayPresets.map((tier) => {
+                                const active = selectedKesMajor === tier.kes;
+                                const amount = displayAmountForTier(tier.kes, currency, effectiveRate);
                                 return (
                                     <button
-                                        key={amt}
+                                        key={tier.kes}
                                         type="button"
-                                        onClick={() => {
-                                            const usd =
-                                                currency === "USD"
-                                                    ? amt
-                                                    : amt / effectiveRate;
-                                            setSelectedUsdMajor(
-                                                Math.round(usd * 100) / 100
-                                            );
-                                        }}
+                                        onClick={() => setSelectedKesMajor(tier.kes)}
                                         className={[
                                             "rounded-full border px-3 py-1.5 text-sm font-semibold transition",
                                             active
@@ -502,7 +507,7 @@ export function DonateDialogWeb({
                                                 : "border-gray-200 bg-gray-50 text-gray-800 hover:bg-gray-100",
                                         ].join(" ")}
                                     >
-                                        {symbol} {amt}
+                                        {symbol} {formatUpliftAmount(amount, currency)}
                                     </button>
                                 );
                             })}
