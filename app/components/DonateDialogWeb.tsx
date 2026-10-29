@@ -39,25 +39,27 @@ type UpliftTier = {
     kes: number;
     appleProductId: string;
     appleUsdNominal: number;
+    usdPrice: number; // exact USD display/checkout amount for web and Android
 };
 
 const UPLIFT_TIERS: UpliftTier[] = [
-    { kes: 49, appleProductId: "uplift_usd_0_39", appleUsdNominal: 0.39 },
-    { kes: 99, appleProductId: "uplift_usd_0_79", appleUsdNominal: 0.79 },
-    { kes: 129, appleProductId: "uplift_usd_1", appleUsdNominal: 1 },
-    { kes: 649, appleProductId: "uplift_usd_5", appleUsdNominal: 5 },
-    { kes: 1299, appleProductId: "uplift_usd_10", appleUsdNominal: 10 },
-    { kes: 1949, appleProductId: "uplift_usd_15", appleUsdNominal: 15 },
-    { kes: 2599, appleProductId: "uplift_usd_20", appleUsdNominal: 20 },
-    { kes: 6499, appleProductId: "uplift_usd_50", appleUsdNominal: 50 },
-    { kes: 12999, appleProductId: "uplift_usd_100", appleUsdNominal: 100 },
+    { kes: 49, appleProductId: "uplift_usd_0_39", appleUsdNominal: 0.39, usdPrice: 0.39 },
+    { kes: 99, appleProductId: "uplift_usd_0_79", appleUsdNominal: 0.79, usdPrice: 0.79 },
+    { kes: 129, appleProductId: "uplift_usd_1", appleUsdNominal: 1, usdPrice: 0.99 },
+    { kes: 649, appleProductId: "uplift_usd_5", appleUsdNominal: 5, usdPrice: 4.99 },
+    { kes: 1299, appleProductId: "uplift_usd_10", appleUsdNominal: 10, usdPrice: 9.99 },
+    { kes: 1949, appleProductId: "uplift_usd_15", appleUsdNominal: 15, usdPrice: 14.99 },
+    { kes: 2599, appleProductId: "uplift_usd_20", appleUsdNominal: 20, usdPrice: 19.99 },
+    { kes: 6499, appleProductId: "uplift_usd_50", appleUsdNominal: 50, usdPrice: 49.99 },
+    { kes: 12999, appleProductId: "uplift_usd_100", appleUsdNominal: 100, usdPrice: 99.99 },
 ];
 
 const FALLBACK_USD_TO_KES = 130;
 const FALLBACK_PLATFORM_SHARE = 10;
 
-function displayAmountForTier(kes: number, currency: PreferredCurrency, rate: number): number {
-    return currency === "KES" ? kes : Math.round((kes / rate) * 100) / 100;
+// USD denominations are fixed product prices, not conversions of the KES tier.
+function displayAmountForTier(tier: UpliftTier, currency: PreferredCurrency): number {
+    return currency === "KES" ? tier.kes : tier.usdPrice;
 }
 
 function formatUpliftAmount(amount: number, currency: PreferredCurrency): string {
@@ -187,7 +189,7 @@ export function DonateDialogWeb({
         return () => unsub();
     }, [authUid]);
 
-    // ---------- Derive the same exact KES denominations as Android and iOS ----------
+    // ---------- Keep KES tiers and exact USD prices consistent with Android/iOS ----------
     const {
         displayPresets,
         symbol,
@@ -229,8 +231,8 @@ export function DonateDialogWeb({
     const selectedDisplayAmount = useMemo(
         () => selectedTier == null
             ? null
-            : displayAmountForTier(selectedTier.kes, currency, effectiveRate),
-        [selectedTier, currency, effectiveRate]
+            : displayAmountForTier(selectedTier, currency),
+        [selectedTier, currency]
     );
 
     // ---------- Wallet derived values ----------
@@ -248,9 +250,15 @@ export function DonateDialogWeb({
 
     const canUseWalletForCurrentAmount = useMemo(() => {
         if (!hasWallet || selectedTier == null) return false;
-        const requiredUsdMinor = Math.round((selectedTier.kes / effectiveRate) * 100);
+        const requiredUsdMinor = Math.round(
+            (currency === "USD" ? selectedTier.usdPrice : selectedTier.kes / effectiveRate) * 100
+        );
         return (wallet?.pendingBalance ?? 0) >= requiredUsdMinor;
-    }, [hasWallet, selectedTier, wallet?.pendingBalance, effectiveRate]);
+    }, [hasWallet, selectedTier, wallet?.pendingBalance, effectiveRate, currency]);
+
+    const paystackUsdBelowMinimum =
+        payMethod === "paystack" && currency === "USD" &&
+        selectedDisplayAmount != null && selectedDisplayAmount < 2;
 
     if (!open) return null;
 
@@ -329,6 +337,15 @@ export function DonateDialogWeb({
             }
 
             // 🔹 payMethod === "paystack"
+            if (currency === "USD" && displayAmount < 2) {
+                setFeedbackModal({
+                    title: "Paystack minimum amount",
+                    message: "Paystack requires a minimum of USD 2 per USD payment. Switch your account currency to KES or use your wallet for this uplift.",
+                });
+                setLoading(false);
+                return;
+            }
+
             const createDonationCheckout = httpsCallable<
                 {
                     deedId: string;
@@ -490,11 +507,11 @@ export function DonateDialogWeb({
                             </div>
                         )}
 
-                        {/* Exact KES uplift denominations; USD display uses finance exchange rate */}
+                        {/* Exact KES denominations and explicit USD prices; no USD conversion rounding */}
                         <div className="mb-4 flex flex-wrap gap-2">
                             {displayPresets.map((tier) => {
                                 const active = selectedKesMajor === tier.kes;
-                                const amount = displayAmountForTier(tier.kes, currency, effectiveRate);
+                                const amount = displayAmountForTier(tier, currency);
                                 return (
                                     <button
                                         key={tier.kes}
@@ -513,6 +530,12 @@ export function DonateDialogWeb({
                             })}
                         </div>
 
+                        {paystackUsdBelowMinimum && (
+                            <p className="mb-3 text-xs font-semibold text-amber-800">
+                                Paystack USD payments start at $2. Switch your account currency to KES or use your wallet for this uplift.
+                            </p>
+                        )}
+
                         {/* CTA */}
                         <button
                             type="button"
@@ -520,7 +543,8 @@ export function DonateDialogWeb({
                             disabled={
                                 !selectedDisplayAmount ||
                                 loading ||
-                                (payMethod === "wallet" && !canUseWalletForCurrentAmount)
+                                (payMethod === "wallet" && !canUseWalletForCurrentAmount) ||
+                                paystackUsdBelowMinimum
                             }
                             className={[
                                 "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold text-white shadow-sm transition",
@@ -528,7 +552,8 @@ export function DonateDialogWeb({
                                 (!selectedDisplayAmount ||
                                     loading ||
                                     (payMethod === "wallet" &&
-                                        !canUseWalletForCurrentAmount)) &&
+                                        !canUseWalletForCurrentAmount) ||
+                                    paystackUsdBelowMinimum) &&
                                 "opacity-60 cursor-not-allowed",
                             ].join(" ")}
                         >
@@ -547,7 +572,7 @@ export function DonateDialogWeb({
                                     <span>
                                         {payMethod === "wallet"
                                             ? "Uplift from wallet"
-                                            : `Continue* ${symbol} ${selectedDisplayAmount ?? ""}`}
+                                            : `Continue ${symbol} ${selectedDisplayAmount != null ? formatUpliftAmount(selectedDisplayAmount, currency) : ""}`}
                                     </span>
                                 </>
                             )}
