@@ -61,7 +61,7 @@ export default function LeadershipClientPage() {
                         transition={{ duration: 0.7, delay: 0.05 }}
                         className="relative aspect-[4/4] w-full rounded-3xl overflow-hidden"
                     >
-                        <Image src="/ceo.jpg" alt="ekarihub leadership" fill className="object-cover" priority />
+                        <Image src="/ceo.jpeg" alt="ekarihub leadership" fill className="object-cover" priority />
                     </motion.div>
                 </div>
             </header>

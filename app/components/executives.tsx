@@ -16,7 +16,7 @@ export const EXECUTIVES: Exec[] = [
         name: "Stephen Ndulah Wafullah",
         title: "Founder & Chief Executive Officer, ekarihub",
         passport: "/executives/ceo_passport.jpg",
-        photo: "/executives/ceo.jpg",
+        photo: "/executives/ceo_1.jpeg",
         short:
             "Visionary founder driving ekarihub’s digital agribusiness ecosystem and community.",
         bio: [
