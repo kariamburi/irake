@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/ceo.jpg",
+        url: "/ceo.jpeg",
         width: 1200,
         height: 630,
         alt: "ekarihub leadership",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     title: "Leadership | ekarihub",
     description:
       "Meet the leadership team behind ekarihub and learn how they are shaping the future of agribusiness.",
-    images: ["/ceo.jpg"],
+    images: ["/ceo.jpeg"],
   },
   robots: {
     index: true,
