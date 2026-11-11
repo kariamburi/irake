@@ -16,6 +16,8 @@ import { DeedStageShell } from "./DeedStageShell";
 import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { DonateDialogWeb } from "@/app/components/DonateDialogWeb";
+import { getApp } from "firebase/app";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 type Props = {
     uid?: string | null;
@@ -56,19 +58,12 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 export function FeedShell(props: Props) {
-    const { refreshKey = 0 } = props;
-
     const [persistedTab, setPersistedTab] = useState<FeedTabKey>("forYou");
-    const [instanceKey, setInstanceKey] = useState(0);
 
-    useEffect(() => {
-        if (!refreshKey) return;
-        setInstanceKey((prev) => prev + 1);
-    }, [refreshKey]);
-
+    // Do not remount the video feed on a refresh: that would reset playback
+    // and discard the currently displayed cached deeds.
     return (
         <FeedShellInner
-            key={`feed-${instanceKey}`}
             {...props}
             initialTab={persistedTab}
             onTabChangePersist={setPersistedTab}
@@ -94,6 +89,7 @@ function FeedShellInner({
     onTabChangePersist,
     isSuspended,
     suspendedReason,
+    refreshKey = 0,
 }: FeedShellInnerProps) {
     const router = useRouter();
     const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -112,14 +108,28 @@ function FeedShellInner({
         uid,
         warmAuthor,
         initialTab,
+        refreshKey,
     });
 
     const currentFeed = feed.currentFeed;
 
+    // Reset the scroll position only AFTER a successful direct-server refresh.
+    // Background appends never move the currently playing deed.
+    useEffect(() => {
+        if (!feed.refreshVersion || feed.activeTab !== "forYou") return;
+        scrollerRef.current?.scrollTo({ top: 0, behavior: "auto" });
+        const first = feed.currentFeed.items[0];
+        if (first) {
+            setActiveIndex(0);
+            setActiveDeedId(first.id);
+            setActiveDeed(first);
+        }
+    }, [feed.refreshVersion]);
+
     const pageHeight =
         cardH || (typeof window !== "undefined" ? window.innerHeight : 800);
 
-    const showLoading = loading || (currentFeed.loading && !currentFeed.initialized);
+    const showLoading = !currentFeed.items.length && (loading || (currentFeed.loading && !currentFeed.initialized));
 
     /*
      * A channel switch should feel like an in-place data transition,
@@ -175,6 +185,25 @@ function FeedShellInner({
         setActiveDeed(item);
         setActiveIndex(index);
     };
+    // A qualified impression is recorded only for the active For You deed,
+    // after 1.5 seconds of foreground visibility. Backend deduplicates hourly.
+    useEffect(() => {
+        if (!uid || feed.activeTab !== "forYou" || !activeDeedId) return;
+        const deedId = activeDeedId;
+        let cancelled = false;
+        const timer = window.setTimeout(() => {
+            if (cancelled || document.visibilityState !== "visible") return;
+            const key = `ekari:impression:${uid}:${deedId}`;
+            const last = Number(sessionStorage.getItem(key) || 0);
+            if (Date.now() - last < 60 * 60 * 1000) return;
+            const send = httpsCallable(getFunctions(getApp()), "recordFeedImpression");
+            send({ deedId }).then(() => {
+                if (!cancelled) sessionStorage.setItem(key, String(Date.now()));
+            }).catch((error) => console.warn("WEB_FEED_IMPRESSION_FAILED", error));
+        }, 1500);
+        return () => { cancelled = true; window.clearTimeout(timer); };
+    }, [uid, feed.activeTab, activeDeedId]);
+
     const visibleItems = useMemo(() => {
         return currentFeed.items.filter((item) => !blockedAuthorIds.has(item.authorId));
     }, [currentFeed.items, blockedAuthorIds]);

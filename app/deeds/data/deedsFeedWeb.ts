@@ -14,6 +14,8 @@ import {
     doc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getApp } from "firebase/app";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export type PhotoItem = {
     url: string;
@@ -156,7 +158,8 @@ function mapPhotoItems(media: any[]): PhotoItem[] {
     return media
         .filter((m) => {
             const kind = String(m?.mediaType ?? m?.kind ?? "").toLowerCase();
-            return kind === "photo" || kind === "image";
+            return kind === "photo" || kind === "image" ||
+                (!kind && !!(m?.sources?.full || m?.sources?.small || m?.url));
         })
         .map((m) => ({
             url: m?.sources?.full ?? m?.url ?? "",
@@ -1072,4 +1075,63 @@ export async function fetchAuthorPageExcluding(
         cursor: page.cursor,
         hasMore: page.hasMore,
     };
+}
+
+/**
+ * Authenticated For You session. The deployed callable returns ordered deed IDs.
+ * Fetch documents using the client SDK so Firestore security rules still apply.
+ * Pagination uses this immutable ID order for the duration of the session.
+ */
+export async function fetchRecommendedForYouWeb(
+    uid: string,
+    sessionSeed: string,
+    excludeIds: string[] = [],
+): Promise<string[]> {
+    if (!uid) return [];
+    const callable = httpsCallable<
+        { surface: "forYou"; seed: string; excludeIds?: string[] },
+        { ids?: unknown }
+    >(getFunctions(getApp()), "getFeed");
+    const cleanExcludes = [...new Set(excludeIds.filter((id): id is string =>
+        typeof id === "string" && id.trim().length > 0).map(id => id.trim()))].slice(0, 100);
+    const response = await callable({ surface: "forYou", seed: sessionSeed, excludeIds: cleanExcludes });
+    const raw = response.data?.ids;
+    if (!Array.isArray(raw)) return [];
+    const ids = [...new Set(raw.filter((id): id is string => typeof id === "string" && id.length > 0))];
+    console.info("[ForYouWeb] getFeed results", {
+        total: ids.length,
+        excludedSubmitted: cleanExcludes.length,
+        first10MatchingExcludes: ids.slice(0, 10).filter(id => cleanExcludes.includes(id)).length,
+        first10: ids.slice(0, 10),
+    });
+    return ids;
+}
+
+export async function fetchRecommendedDeedIdsWeb(
+    ids: string[],
+    uid?: string | null,
+): Promise<Deed[]> {
+    const cleaned = [...new Set(ids.filter(Boolean))];
+    if (!cleaned.length) return [];
+    const blocked = await getBlockedUserIds(uid);
+    const chunks: string[][] = [];
+    for (let i = 0; i < cleaned.length; i += 10) chunks.push(cleaned.slice(i, i + 10));
+    const results = await Promise.all(chunks.map(async (chunk) => {
+        // documentId() queries work with the public-read Firestore rules.
+        const snap = await getDocs(query(
+            collection(db, "deeds"), where(documentId(), "in", chunk),
+        ));
+        return snap.docs.map((d) => mapDeedDoc(d)).filter((d): d is Deed => {
+            if (!d || d.visibility !== "public" || d.status !== "ready") return false;
+            if (blocked.has(d.authorId)) return false;
+            return d.type === "video"
+                ? !!(d.muxPlaybackId || d.mediaUrl)
+                : d.photoItems!.length > 0 || !!d.posterUrl;
+        });
+    }));
+    const byId = new Map(results.flat().map((item) => [item.id, item]));
+    return cleaned.flatMap((id) => {
+        const item = byId.get(id);
+        return item ? [item] : [];
+    });
 }
